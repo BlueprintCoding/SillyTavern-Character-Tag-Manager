@@ -1,12 +1,12 @@
 {
-    "display_name": "ST Character Manager",
+    "display_name": "ST Character Tag Manager",
     "loading_order": 100,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
     "author": "BlueprintCoding",
-    "version": "1.0.0",
-    "homePage": "https://github.com/SillyTavern/",
+    "version": "1.0.1",
+    "homePage": "https://github.com/BlueprintCoding/SillyTavern-Character-Tag-Manager",
     "auto_update": true
 }
