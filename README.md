@@ -1,0 +1,2 @@
+# SillyTavern Character Tag Manager
+
