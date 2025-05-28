@@ -1,0 +1,12 @@
+{
+    "display_name": "ST Character Manager",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "BlueprintCoding",
+    "version": "1.0.0",
+    "homePage": "https://github.com/SillyTavern/",
+    "auto_update": true
+}

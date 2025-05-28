@@ -1,0 +1,641 @@
+#characterTagManagerToggle {
+    font-size: var(--topBarIconSize);
+    opacity: 0.3;
+    transition: all 0.275s;
+}
+
+#characterTagManagerToggle:hover {
+    opacity: 1;
+}
+
+.stcm_align-right {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5em;
+}
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, .5);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 1%;
+}
+
+
+.stcm_modal_main {
+    display: flex;
+    flex-direction: column;
+    max-height: 95vh;
+    overflow: hidden;
+    background: var(--SmartThemeBlurTintColor);
+    border-radius: 8px;
+    width: 80vw;
+    box-shadow: 0 0 12px #000;
+    padding: 1em;
+}
+
+.stcm_fullwidth_input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.stcm_fullwidth {
+    width: 100%;
+}
+
+.stcm_assign_bar {
+    display: none;
+    text-align: right;
+}
+
+.stcm_margin_left {
+    margin-left: 10px;
+}
+.stcm_margin_top {
+    margin-top: 15px;
+}
+.stcm_margin_bottom-sm {
+    margin-bottom: 5px;
+}
+
+.stcm_text_left {
+    text-align: left;
+}
+
+.stcm_merge_controls {
+    margin-top: 0.5em;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.stcm_flex_row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stcm_scroll_300 {
+    max-height: 300px;
+    padding-bottom: 1em;
+}
+
+
+#characterTagManagerContent {
+    scrollbar-width: thin;
+}
+
+.modalBody {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5em;
+    border-top: 1px solid var(--neutral-700);
+    border-bottom: 1px solid var(--neutral-700);
+    background: rgba(255, 255, 255, 0.02); /* light band background for contrast */
+}
+
+.stcm_modal_header {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.stcm_modal_header h2 {
+    margin-bottom: 0px;
+    margin-top: 0px;
+}
+
+.stcm_popup_pre {
+    padding: 1em;
+    background: #111;
+    border-radius: 4px;
+    white-space: pre-wrap;
+}
+
+.stcm_accordion_section {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.accordionToggle {
+    background: var(--menuButtonBackground, #222);
+    color: var(--textColor, #fff);
+    border: none;
+    font-weight: bold;
+    padding: 0.5em 1em;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    margin-top: 1em;
+    min-height: 40px;
+}
+
+.accordionContent {
+    background: #1b1b1b;
+    border: 1px solid #333;
+    padding: 0.5em 1em;
+    overflow-y: auto; 
+    flex: 1; 
+    scrollbar-width: thin;
+}
+
+
+/* Character list scroll area */
+.charList {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 5px;
+    max-height: 50vh; /* up to 50% of viewport height */
+    overflow-y: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    scrollbar-width: thin;
+}
+
+.stcm_avatar_thumb {
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+
+/* Alternating row banding */
+.charList li:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.charList li:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Optional padding and spacing */
+.charList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 10px;
+    margin: 0;
+}
+
+.tagNameEditable {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.editTagIcon:hover {
+    color: var(--accent-color, orange);
+}
+
+
+.stcm_menu_button {
+    min-width: 60px;
+    text-align: center;
+    padding: 4px 10px;
+    background-color: var(--neutral-700);
+    color: var(--mainTextColor);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.stcm_menu_button.red {
+    background-color: #d9534f;
+    color: white;
+}
+
+.charNotesToggle, .stcm_save_note_btn {
+    background-color: #3d8b44;
+    color: white;
+}
+
+.charNotesToggle:hover, .stcm_save_note_btn:hover {
+    background-color: #2e7035;
+}
+
+
+.charNotesWrapper {
+    min-width: 100%;
+}
+
+.stcm_unassign {
+    background-color: #e66d48;
+    color: white;
+}
+
+.stcm_view_btn {
+    background-color: #3d798b;
+    color: white;
+}
+
+.stcm_view_btn:hover {
+    background-color: #264f5b;
+}
+    
+
+ #assignTagsButton {
+    background-color: #3d8b44;
+    color: white;
+}
+
+.stcm_view_btn.active {
+    background-color: rgb(169, 122, 50); /* or another highlight color */
+    color: white;
+}
+
+
+/* General hover effect for all .stcm_menu_button buttons */
+.stcm_menu_button:hover {
+    filter: brightness(1.1);
+    opacity: 0.95;
+}
+
+/* Specific hover overrides for defined button classes */
+.stcm_menu_button.red:hover,
+#closeCharacterTagManagerModal:hover {
+    background-color: #c9302c;
+}
+
+.stcm_unassign:hover {
+    background-color: #cf5835;
+}
+
+#assignTagsButton:hover {
+    background-color: #2e7035;
+}
+
+
+.stcm_view_btn.active:hover {
+    background-color: rgb(134, 95, 37); /* or another highlight color */
+}
+
+#startMergeTags:hover {
+    background-color: darkorange;
+}
+
+
+#closeCharacterTagManagerModal {
+background-color: #d9534f;
+color: white;
+}
+
+#tagSearchInput,#charSearchInput, #assignTagSearchInput {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    margin-bottom: -3px;
+}
+
+.smallInstructions {
+    font-size: .7em;
+}
+
+.stcm_sort_row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0.5em;
+}
+
+#stcm_sort_span {
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+
+#tagSortMode {
+    background: var(--SmartThemeBlurTintColor);
+    min-width: 180px;
+}
+
+
+#charSortMode {
+    background: var(--SmartThemeBlurTintColor);
+    min-width: 180px;
+}
+
+
+.menu_input {
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid var(--neutral-500);
+    background-color: var(--neutral-900);
+    color: var(--mainTextColor);
+}
+
+/* Tag group styling with banding */
+.tagGroup {
+    width: 100%;
+    padding: 0.5em 0.75em;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tagGroup:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.tagGroup:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.tagGroupHeader {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.tagGroupHeader strong {
+    font-weight: bold;
+    word-break: break-word;
+    white-space: nowrap;
+}
+
+.tagGroupHeader .tagCharCount {
+    opacity: 0.7;
+    font-size: 0.9em;
+    margin-left: 6px;
+}
+
+.tagGroupHeader label {
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#startMergeTags {
+    min-width: 120px;
+    background-color: orange;
+    color: white;
+    margin-top: -20px;
+}
+
+.mergeOptions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    white-space: nowrap;
+}
+
+#characterListContainer img.stcm_avatar_thumb {
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.charMeta {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+.charMetaRight {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.charNameRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75em;
+    flex-wrap: wrap;
+}
+
+
+.charMeta > .charName {
+    font-weight: bold;
+}
+
+.charExcerpt {
+    font-size: 0.65em;
+    color: var(--neutral-400);
+    margin-top: -2px;
+}
+
+
+.assignedTagsWrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: -2px;
+}
+
+.tagBox {
+    display: inline-flex;
+    align-items: center;
+    background: #333;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.removeTagBtn {
+    margin-left: 6px;
+    cursor: pointer;
+    color: #e57373;
+    font-weight: bold;
+}
+
+#assignTagSelect {
+    scrollbar-width: thin;
+    appearance: none!important;
+    -webkit-appearance: none!important;
+    -moz-appearance: none!important;
+    background: none!important; /* optional: remove default background */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+#assignTagSelect:focus {
+    outline: none !important;
+}
+
+#assignTagSelect option {
+text-shadow: 0px 0px!important;
+}
+
+#assignTagSelect option:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+#assignTagSelect option:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+#assignTagSelect option:checked {
+    background-color: #bca9f5; /* light purple-grey */
+    color: #000; /* optional: make text readable */
+}
+
+.customCheckboxWrapper {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    padding-left: 8px;
+    margin-right: 8px;
+    user-select: none;
+    height: 20px;
+}
+
+.customCheckboxWrapper input[type="checkbox"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+}
+
+.customCheckbox {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 18px;
+    width: 18px;
+    background-color: #e0dff7; /* light purple/grey */
+    border: 1px solid #888;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.customCheckboxWrapper input:checked + .customCheckbox::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    border: solid #333;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+
+.stcm_delete_icon {
+    margin-left: auto;
+    color: #e57373;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 0.9em;
+}
+
+.selected-tags-container {
+    margin-top: 15px;
+    margin-bottom: -25px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.selectedTagBox {
+    background: #444;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
+
+
+
+@media (max-width: 700px) {
+    .tagGroupHeader {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .mergeOptions {
+        justify-content: flex-start;
+    }
+
+    .stcm_menu_button {
+        width: 100%;
+        margin-top: 5px;
+    }
+}
+
+.stcm_flex_row_between {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+.charLeftSide {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    flex: 1;
+    gap: 1em;
+    overflow: hidden;
+}
+
+.charRowRightFixed {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    min-width: 40px;
+    margin-left: auto;
+    padding-left: 8px;
+}
+
+
+
+
+.charControlsRight {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.charNotesWrapper {
+    display: none;
+    flex-direction: column;
+    margin-top: 10px;
+    gap: 6px;
+}
+
+.charNoteTextarea {
+    width: 100%;
+    min-height: 60px;
+    resize: vertical;
+    font-size: 0.9rem;
+    padding: 6px;
+}
+
+.stcm_save_note_btn {
+    align-self: flex-end;
+    padding: 4px 10px;
+}
