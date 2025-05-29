@@ -1,5 +1,5 @@
 // index.js
-import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap, tagMapById  } from './utils.js';
+import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap } from './utils.js';
 
 import {
     tags,
@@ -26,6 +26,7 @@ import {
     renderCharacterList,
     toggleCharacterList,
     selectedCharacterIds,
+    tagMapById
 
 } from "./stcm_characters.js";
 

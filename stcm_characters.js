@@ -435,4 +435,5 @@ export {
     renderCharacterList,
     toggleCharacterList,
     selectedCharacterIds,
+    tagMapById
 };
