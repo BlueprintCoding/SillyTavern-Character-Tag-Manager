@@ -64,6 +64,7 @@
 
 #characterTagManagerContent {
     scrollbar-width: thin;
+    min-height: 350px;
 }
 
 /* === Accordions & Sections === */
