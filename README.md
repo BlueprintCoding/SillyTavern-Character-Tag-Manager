@@ -18,6 +18,9 @@ SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a cen
 - **Backup and restore** tags and tag mappings to/from JSON files
 - **Export and import notes** (character and tag notes) to/from JSON files
 
+![image](https://github.com/user-attachments/assets/c606c561-9dd2-43c5-85bc-37aa7a52f57b)
+
+
 ### Character & Group Management
 - View all characters and groups with avatars, names, tag count, and description/excerpt
 - Filter, search, and sort by name, tag count, tag presence, or notes presence
@@ -27,6 +30,9 @@ SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a cen
 - **Toggle and edit character notes** with auto-persist and save status feedback
 - **Permanently delete characters or groups** (with confirmation and chat data cleanup)
 - **View characters assigned to a tag** by expanding the tag entry
+
+![image](https://github.com/user-attachments/assets/00a5fdf4-0ffa-4bca-8dcc-11fcb19f2faf)
+
 
 ### Data Persistence
 - All notes (character and tag) are automatically saved to a JSON file in `\SillyTavern\data\{user folder}\user\files`
@@ -89,6 +95,8 @@ The Character/Tag Manager extension adds a configurable settings panel to SillyT
   Control whether recent chats are displayed on SillyTavern's welcome screen.
 
 All settings are saved persistently and applied in real-time. You’ll find the settings panel under the "Extensions" section in SillyTavern’s settings menu.
+
+![image](https://github.com/user-attachments/assets/491b26db-82a9-4fe7-a041-88deb365bbea)
 
 ---
 
