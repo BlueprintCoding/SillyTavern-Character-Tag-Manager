@@ -434,6 +434,5 @@ function toggleCharacterList(container, group) {
 export {
     renderCharacterList,
     toggleCharacterList,
-    selectedCharacterIds,
-    tagMapById
+    selectedCharacterIds
 };

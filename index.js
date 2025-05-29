@@ -26,8 +26,6 @@ import {
     renderCharacterList,
     toggleCharacterList,
     selectedCharacterIds,
-    tagMapById
-
 } from "./stcm_characters.js";
 
 import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
