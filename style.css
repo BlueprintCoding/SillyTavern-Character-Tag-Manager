@@ -1,3 +1,4 @@
+/* === Top Bar Toggle Icon === */
 #characterTagManagerToggle {
     font-size: var(--topBarIconSize);
     opacity: 0.3;
@@ -8,19 +9,14 @@
     opacity: 1;
 }
 
-.stcm_align-right {
-    display: flex;
-    justify-content: flex-end;
-    padding: 0.5em;
-}
-
+/* === Modal Overlay & Container === */
 .modalOverlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    /* background: rgba(0, 0, 0, 0); */
+    background: rgba(0, 0, 0, 0);
     z-index: 9999;
     display: flex;
     justify-content: center;
@@ -28,80 +24,21 @@
     padding-top: 1%;
 }
 
-
 .stcm_modal_main {
     display: flex;
     flex-direction: column;
     max-height: 95vh;
-        overflow-y: auto; 
+    overflow-y: auto;
     background: var(--SmartThemeBlurTintColor);
     border-radius: 8px;
     width: 80vw;
     box-shadow: 0 0 12px #000;
     padding: 1em;
     resize: both;
-    overflow: auto;
+    overflow: hidden;
 }
 
-.stcm_fullwidth_input {
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.stcm_fullwidth {
-    width: 100%;
-}
-
-.stcm_assign_bar {
-    display: none;
-    text-align: right;
-}
-
-.stcm_margin_left {
-    margin-left: 10px;
-}
-.stcm_margin_top {
-    margin-top: 15px;
-}
-.stcm_margin_bottom-sm {
-    margin-bottom: 5px;
-}
-
-.stcm_text_left {
-    text-align: left;
-}
-
-.stcm_merge_controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.stcm_flex_row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.stcm_scroll_300 {
-    max-height: 300px;
-    padding-bottom: 1em;
-}
-
-
-#characterTagManagerContent {
-    scrollbar-width: thin;
-}
-
-.modalBody {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0.5em;
-    border-top: 1px solid var(--neutral-700);
-    border-bottom: 1px solid var(--neutral-700);
-    background: rgba(255, 255, 255, 0.02); /* light band background for contrast */
-}
-
+/* === Modal Header & Body === */
 .stcm_modal_header {
     flex-shrink: 0;
     display: flex;
@@ -117,11 +54,22 @@
     margin-top: 0px;
 }
 
-.stcm_popup_pre {
-    padding: 1em;
-    background: #111;
-    border-radius: 4px;
-    white-space: pre-wrap;
+.modalBody {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5em;
+    border-top: 1px solid var(--neutral-700);
+    border-bottom: 1px solid var(--neutral-700);
+}
+
+#characterTagManagerContent {
+    scrollbar-width: thin;
+}
+
+/* === Accordions & Sections === */
+.stcm_accordians {
+    overflow: scroll;
+    scrollbar-width: thin;
 }
 
 .stcm_accordion_section {
@@ -153,8 +101,8 @@
     border: 1px solid #333;
     padding: 0.5em 1em;
     overflow-y: visible;
-    max-height: unset; /* remove any fixed height */
-    flex: unset; /* ensure it doesn’t interfere with layout */
+    max-height: unset;
+    flex: unset;
     scrollbar-width: thin;
 }
 
@@ -162,71 +110,87 @@
     display: block;
 }
 
-
-/* Character list scroll area */
-.charList {
-    list-style: none;
-    padding-left: 0;
-    margin-top: 5px;
-    max-height: 50vh; /* up to 50% of viewport height */
-    overflow-y: auto;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    scrollbar-width: thin;
+/* === Utility & Layout Classes === */
+.stcm_align-right {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5em;
 }
 
-.stcm_avatar_thumb {
-    min-width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
+.stcm_fullwidth_input,
+.stcm_fullwidth {
+    width: 100%;
+    box-sizing: border-box;
 }
 
-
-/* Alternating row banding */
-.charList li:nth-child(odd) {
-    background-color: rgba(255, 255, 255, 0.02);
+.stcm_margin_left {
+    margin-left: 10px;
 }
 
-.charList li:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.04);
+.stcm_margin_top {
+    margin-top: 15px;
 }
 
-/* Optional padding and spacing */
-.charList li {
+.stcm_margin_bottom-sm {
+    margin-bottom: 5px;
+}
+
+.stcm_text_left {
+    text-align: left;
+}
+
+.stcm_assign_bar {
+    display: none;
+    text-align: right;
+}
+
+.stcm_merge_controls,
+.stcm_flex_row,
+.mergeOptions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.stcm_flex_row_between {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 3px 10px;
-    margin: 0;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    position: relative;
 }
 
-.tagNameEditable {
+.stcm_scroll_300 {
+    max-height: 300px;
+    padding-bottom: 1em;
+}
+
+.stcm_sort_row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
+    margin-bottom: 0.5em;
 }
 
-.editTagIcon:hover {
-    color: var(--accent-color, orange);
-}
-
-
+/* === Buttons & Icon Buttons === */
 .stcm_menu_button {
     color: var(--SmartThemeBodyColor);
-  /* filter: grayscale(0.5); */
-  background-color: var(--SmartThemeBlurTintColor);
-  border: 1px solid var(--SmartThemeBorderColor);
-  border-radius: 5px;
-  padding: 3px 5px;
-  cursor: pointer;
-  margin: 0px 0px;
+    background-color: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 5px;
+    padding: 3px 5px;
+    cursor: pointer;
+    margin: 0px 0px;
     margin-right: 4px;
-  transition: 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.stcm_menu_button i {
+    margin-right: 5px;
 }
 
 .stcm_menu_button.red {
@@ -234,23 +198,23 @@
     color: white;
 }
 
-.charNotesToggle, .stcm_save_note_btn {
-    background-color: #3d8b44;
-    color: white;
+.stcm_menu_button:hover {
+    filter: brightness(1.1);
+    opacity: 0.95;
 }
 
-.charNotesToggle:hover, .stcm_save_note_btn:hover {
-    background-color: #2e7035;
-}
-
-
-.charNotesWrapper {
-    min-width: 100%;
+.stcm_menu_button.red:hover,
+#closeCharacterTagManagerModal:hover {
+    background-color: #c9302c;
 }
 
 .stcm_unassign {
     background-color: #e66d48;
     color: white;
+}
+
+.stcm_unassign:hover {
+    background-color: #cf5835;
 }
 
 .stcm_view_btn {
@@ -261,85 +225,51 @@
 .stcm_view_btn:hover {
     background-color: #264f5b;
 }
-    
 
- #assignTagsButton {
+.stcm_view_btn.active {
+    background-color: rgb(169, 122, 50);
+    color: white;
+}
+
+.stcm_view_btn.active:hover {
+    background-color: rgb(134, 95, 37);
+}
+
+.charNotesToggle,
+.stcm_save_note_btn {
     background-color: #3d8b44;
     color: white;
 }
 
-.stcm_view_btn.active {
-    background-color: rgb(169, 122, 50); /* or another highlight color */
-    color: white;
-}
-
-
-/* General hover effect for all .stcm_menu_button buttons */
-.stcm_menu_button:hover {
-    filter: brightness(1.1);
-    opacity: 0.95;
-}
-
-/* Specific hover overrides for defined button classes */
-.stcm_menu_button.red:hover,
-#closeCharacterTagManagerModal:hover {
-    background-color: #c9302c;
-}
-
-.stcm_unassign:hover {
-    background-color: #cf5835;
-}
-
+.charNotesToggle:hover,
+.stcm_save_note_btn:hover,
 #assignTagsButton:hover {
     background-color: #2e7035;
 }
 
-
-.stcm_view_btn.active:hover {
-    background-color: rgb(134, 95, 37); /* or another highlight color */
+#assignTagsButton {
+    background-color: #3d8b44;
+    color: white;
+    min-width: 125px;
 }
-
-
-
 
 #closeCharacterTagManagerModal {
-background-color: #d9534f;
-color: white;
+    background-color: #d9534f;
+    color: white;
 }
 
-#tagSearchInput,#charSearchInput, #assignTagSearchInput {
+.editTagIcon:hover {
+    color: var(--accent-color, orange);
+}
+
+/* === Search Inputs, Selects, & Instructions === */
+#tagSearchInput,
+#charSearchInput,
+#assignTagSearchInput {
     background-color: rgba(255, 255, 255, 0.04);
     color: #fff;
     margin-bottom: -3px;
 }
-
-.smallInstructions {
-    font-size: .7em;
-}
-
-.stcm_sort_row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 0.5em;
-}
-
-#stcm_sort_span {
-    font-weight: bold;
-    white-space: nowrap;
-}
-
-#tagSortMode {
-    background: var(--SmartThemeBlurTintColor);
-    min-width: 180px;
-}
-
-
-#charSortMode {
-    background: var(--SmartThemeBlurTintColor);
-    min-width: 180px;
-}
-
 
 .menu_input {
     padding: 6px;
@@ -349,7 +279,140 @@ color: white;
     color: var(--mainTextColor);
 }
 
-/* Tag group styling with banding */
+.smallInstructions {
+    font-size: .7em;
+}
+
+/* === Scroll Areas & Banding (Lists) === */
+.charList {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 5px;
+    max-height: 50vh;
+    overflow-y: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    scrollbar-width: thin;
+}
+
+.charList li:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.charList li:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.charList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 10px;
+    margin: 0;
+}
+
+/* === Character Row & Meta Info === */
+.stcm_avatar_thumb,
+#characterListContainer img.stcm_avatar_thumb {
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.charMeta {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+.charMetaRight {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.charNameRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75em;
+    flex-wrap: wrap;
+}
+
+.charMeta>.charName {
+    font-weight: bold;
+}
+
+.charExcerpt {
+    font-size: 0.65em;
+    color: var(--neutral-400);
+    margin-top: -2px;
+}
+
+.charLeftSide {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    flex: 1;
+    gap: 1em;
+    overflow: hidden;
+}
+
+.charRowRightFixed {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    min-width: 40px;
+    margin-left: auto;
+    padding-left: 8px;
+}
+
+.charControlsRight {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.charNotesWrapper {
+    display: none;
+    flex-direction: column;
+    margin-top: 10px;
+    gap: 6px;
+    min-width: 100%;
+}
+
+.charNoteTextarea {
+    width: 100%;
+    min-height: 60px;
+    resize: vertical;
+    font-size: 0.9rem;
+    padding: 6px;
+}
+
+.stcm_save_note_btn {
+    align-self: flex-end;
+    padding: 4px 10px;
+}
+
+.stcm_delete_icon {
+    margin-left: auto;
+    color: #e57373;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 0.9em;
+}
+
+/* === Tag List, Tag Groups, Tag Chips === */
+.tagNameEditable {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .tagGroup {
     width: 100%;
     padding: 0.5em 0.75em;
@@ -382,9 +445,9 @@ color: white;
     flex-wrap: wrap;
 }
 
-.tagGroupHeader > .stcm_merge_controls,
-.tagGroupHeader > button,
-.tagGroupHeader > .tagCharCount {
+.tagGroupHeader>.stcm_merge_controls,
+.tagGroupHeader>button,
+.tagGroupHeader>.tagCharCount {
     margin-left: auto;
 }
 
@@ -407,65 +470,6 @@ color: white;
     gap: 4px;
 }
 
-
-.mergeOptions {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    white-space: nowrap;
-}
-
-#cancelMergeTags {
-    background-color: #ca7673;
-  color: white;
-}
-
-.merge-active {
-    background-color: #3d8b44;
-    color: white;
-}
-
-#characterListContainer img.stcm_avatar_thumb {
-    min-width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
-}
-
-.charMeta {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 6px 0;
-}
-
-.charMetaRight {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-}
-
-.charNameRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75em;
-    flex-wrap: wrap;
-}
-
-
-.charMeta > .charName {
-    font-weight: bold;
-}
-
-.charExcerpt {
-    font-size: 0.65em;
-    color: var(--neutral-400);
-    margin-top: -2px;
-}
-
-
 .assignedTagsWrapper {
     display: flex;
     flex-wrap: wrap;
@@ -481,6 +485,7 @@ color: white;
     padding: 2px 6px;
     border-radius: 6px;
     font-size: 12px;
+    text-shadow: none;
 }
 
 .removeTagBtn {
@@ -490,18 +495,29 @@ color: white;
     font-weight: bold;
 }
 
+/* === Assign Tags: Select, Chips, Checkboxes === */
+.selected-tags-container {
+    margin-top: 10px;
+    margin-bottom: -10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.selectedTagBox {
+    background: #444;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
 #assignTagSelect {
     scrollbar-width: thin;
-    appearance: none!important;
-    -webkit-appearance: none!important;
-    -moz-appearance: none!important;
-    background: none!important; /* optional: remove default background */
+    appearance: none !important;
+    background: none !important;
     -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
     user-select: none;
 }
 
@@ -510,7 +526,7 @@ color: white;
 }
 
 #assignTagSelect option {
-text-shadow: 0px 0px!important;
+    text-shadow: 0px 0px !important;
 }
 
 #assignTagSelect option:nth-child(odd) {
@@ -522,8 +538,8 @@ text-shadow: 0px 0px!important;
 }
 
 #assignTagSelect option:checked {
-    background-color: #bca9f5; /* light purple-grey */
-    color: #000; /* optional: make text readable */
+    background-color: #bca9f5;
+    color: #000;
 }
 
 .customCheckboxWrapper {
@@ -553,13 +569,13 @@ text-shadow: 0px 0px!important;
     top: 0;
     height: 18px;
     width: 18px;
-    background-color: #e0dff7; /* light purple/grey */
+    background-color: #e0dff7;
     border: 1px solid #888;
     border-radius: 3px;
     transition: background-color 0.2s;
 }
 
-.customCheckboxWrapper input:checked + .customCheckbox::after {
+.customCheckboxWrapper input:checked+.customCheckbox::after {
     content: "";
     position: absolute;
     left: 5px;
@@ -571,132 +587,49 @@ text-shadow: 0px 0px!important;
     transform: rotate(45deg);
 }
 
-
-.stcm_delete_icon {
-    margin-left: auto;
-    color: #e57373;
-    cursor: pointer;
-    padding: 4px;
-    font-size: 0.9em;
-}
-
-.selected-tags-container {
-    margin-top: 15px;
-    margin-bottom: -25px;
+/* === Tag Chips for Selection === */
+.stcm_tag_chip_list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 7px;
+    margin: 0 0 5px 0;
 }
 
-.selectedTagBox {
-    background: #444;
-    color: #fff;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.9em;
-    white-space: nowrap;
-}
-
-
-
-
-@media (max-width: 700px) {
-    .tagGroupHeader {
-        grid-template-columns: 1fr;
-        gap: 6px;
-    }
-
-    .mergeOptions {
-        justify-content: flex-start;
-    }
-
-    .stcm_menu_button {
-        width: 100%;
-        margin-top: 5px;
-    }
-}
-
-.stcm_flex_row_between {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    position: relative;
-}
-
-.charLeftSide {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    flex: 1;
-    gap: 1em;
-    overflow: hidden;
-}
-
-.charRowRightFixed {
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-end;
-    min-width: 40px;
-    margin-left: auto;
-    padding-left: 8px;
-}
-
-
-
-
-.charControlsRight {
+.stcm_tag_chip {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-left: auto;
-}
-
-.charNotesWrapper {
-    display: none;
-    flex-direction: column;
-    margin-top: 10px;
-    gap: 6px;
-}
-
-.charNoteTextarea {
-    width: 100%;
-    min-height: 60px;
-    resize: vertical;
-    font-size: 0.9rem;
-    padding: 6px;
-}
-
-.stcm_save_note_btn {
-    align-self: flex-end;
-    padding: 4px 10px;
-}
-
-/* Pushes tag management buttons under title to make room for new button */
-#tag_view_list .title_restorable {
-    display: flex;
-    flex-direction: column;
-}
-
-#tag_view_list .title_restorable .flex-container {
-    flex-wrap: wrap; /* allow wrapping to new lines */
-    margin-top: -8px;  /* space between title and buttons */
-    gap: 6px;         /* optional spacing between buttons */
-}
-
-.custom-add-tag-popup {
-    overflow: visible !important;
-}
-
-.custom-add-tag-popup .popup-content {
-    overflow: visible !important;
-}
-
-.custom-add-tag-popup .newTagName {
-    background-color: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    font-size: 0.97em;
+    padding: 4px 13px 4px 10px;
+    border-radius: 16px;
+    background: #333;
     color: #fff;
+    user-select: none;
+    transition: filter 0.1s, background 0.15s, color 0.15s, border 0.18s;
 }
 
+.stcm_tag_chip.selected {
+    background: #3d8b44 !important;
+    color: #fff !important;
+    opacity: 1;
+    filter: none;
+    border: 1px solid #4ccf5d;
+    font-weight: 600;
+    box-shadow: 0 2px 12px 0 #36e55a50, 0 0 0 1px #3d8b44;
+    position: relative;
+    transition: background 0.13s, box-shadow 0.13s, color 0.15s, border 0.13s, transform 0.10s;
+}
+
+.stcm_tag_chip.selected::before {
+    content: '✔';
+    font-size: 1em;
+    color: #fff;
+    margin-right: 8px;
+    font-weight: bold;
+    display: inline-block;
+}
+
+/* === Tag Color & Folder Controls === */
 .stcm_tag_color_controls {
     display: inline-flex;
     gap: 14px;
@@ -727,7 +660,7 @@ text-shadow: 0px 0px!important;
     background: var(--background-color, #222);
     border: 1px solid var(--border-color, #ccc);
     border-radius: 4px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     min-width: 160px;
 }
 
@@ -742,3 +675,100 @@ text-shadow: 0px 0px!important;
     background: var(--hover-color, #333);
 }
 
+.stcm_folder_info_icon {
+    color: var(--SmartThemeBodyColor, #e4e4e4);
+    font-size: .8em;
+    vertical-align: middle;
+    margin-left: -3px;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.stcm_folder_info_icon:hover {
+    color: var(--white30a, #ffffff);
+}
+
+.stcm_folder_info_popup {
+    position: absolute;
+    z-index: 9999;
+    background: var(--ac-style-color-background, #23272e);
+    color: var(--ac-style-color-text, #fff);
+    border: 1px solid var(--ac-style-color-border, #444);
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.20);
+    font-size: 1em;
+    max-width: 330px;
+    min-width: 200px;
+}
+
+/* === Merge Tag Buttons/States === */
+#cancelMergeTags {
+    background-color: #ca7673;
+    color: white;
+}
+
+.merge-active {
+    background-color: #3d8b44;
+    color: white;
+}
+
+/* === Dropdown Menus === */
+.stcm_dropdown_menu button.dropdown {
+    width: 100%;
+    margin: 0.2em 0;
+    text-align: left;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    padding: 0.4em 0.8em;
+    border-radius: 3px;
+    transition: background 0.12s;
+}
+
+.stcm_dropdown_menu button.dropdown:hover {
+    background: var(--ac-style-color-secondary, #333);
+}
+
+.stcm_dropdown_menu hr {
+    border-color: #444;
+}
+
+/* === Add Tag Popup, Misc === */
+.custom-add-tag-popup {
+    overflow: visible !important;
+}
+
+.custom-add-tag-popup .popup-content {
+    overflow: visible !important;
+}
+
+.custom-add-tag-popup .newTagName {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: #fff;
+}
+
+.stcm_popup_pre {
+    padding: 1em;
+    background: #111;
+    border-radius: 4px;
+    white-space: pre-wrap;
+}
+
+/* === Responsive / Media Queries === */
+@media (max-width: 700px) {
+    .tagGroupHeader {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .mergeOptions {
+        justify-content: flex-start;
+    }
+
+    .stcm_menu_button {
+        width: 100%;
+        margin-top: 5px;
+    }
+}

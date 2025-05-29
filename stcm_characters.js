@@ -1,9 +1,15 @@
 //stcm_characters.js
+import { debouncePersist,
+    buildTagMap,
+    getNotes,
+    saveNotes,
+    restoreNotesFromFile
+ } from './utils.js';
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
-import { characters, saveSettingsDebounced } from "../../../../script.js";
+import { characters } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
-import { renderCharacterTagData, resetModalScrollPositions } from "./index.js";
+import { renderCharacterTagData, callSaveandReload } from "./index.js";
 import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
 
 
@@ -12,85 +18,20 @@ import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
     renderCharacterList();         // After loading notes
 })();
 
-let persistDebounceTimer;
-function debouncePersist() {
-    clearTimeout(persistDebounceTimer);
-    persistDebounceTimer = setTimeout(persistNotesToFile, 500);
-}
-
-
-async function persistNotesToFile() {
-    const raw = getNotes();
-    const notes = {
-        charNotes: Object.fromEntries(Object.entries(raw.charNotes || {}).filter(([_, v]) => v.trim() !== '')),
-        tagNotes: Object.fromEntries(Object.entries(raw.tagNotes || {}).filter(([_, v]) => v.trim() !== '')),
-    };
-
-    const json = JSON.stringify(notes, null, 2);
-    const base64 = window.btoa(unescape(encodeURIComponent(json)));
-
-    const fileUrl = await uploadFileAttachment('stcm-notes.json', base64);
-    if (fileUrl) {
-        localStorage.setItem('stcm_notes_url', fileUrl);
-        localStorage.setItem('stcm_notes_cache', JSON.stringify(notes));
-    }
-}
-
-function getNotes() {
-    try {
-        const data = JSON.parse(localStorage.getItem('stcm_notes_cache') || '{}');
-        return {
-            charNotes: data.charNotes || {},
-            tagNotes: data.tagNotes || {},
-        };
-    } catch {
-        return { charNotes: {}, tagNotes: {} };
-    }
-}
-
-
-async function restoreNotesFromFile() {
-    const fileUrl = localStorage.getItem('stcm_notes_url');
-    if (!fileUrl) return;
-
-    try {
-        const content = await getFileAttachment(fileUrl);
-        const parsed = JSON.parse(content);
-        localStorage.setItem('stcm_notes_cache', JSON.stringify(parsed));
-    } catch (e) {
-        console.error('Failed to restore notes from file', e);
-        toastr.error('Could not read ST Character and Tag notes file.');
-    }
-}
-
-
-function saveNotes(notes) {
-    localStorage.setItem('stcm_notes_cache', JSON.stringify(notes));
-}
-
-
 const selectedCharacterIds = new Set();
-
-function buildTagMap() {
-    return new Map(tags.map(tag => [tag.id, tag]));
-}
-
-function buildCharNameMap() {
-    return new Map(characters.map(char => [char.avatar, char.name]));
-}
 
 function renderCharacterList() {
     const container = document.getElementById('characterListContainer');
     if (!container) return;
 
-    const tagMapById = buildTagMap();
+    const tagMapById = buildTagMap(tags);
 
     const selectedTagIds = Array.from(document.getElementById('assignTagSelect')?.selectedOptions || []).map(opt => opt.value);
     const selectedTagsDisplay = document.getElementById('selectedTagsDisplay');
     selectedTagsDisplay.innerHTML = '';
 
     if (selectedTagIds.length > 0) {
-        const tagMapById = buildTagMap();
+        const tagMapById = buildTagMap(tags);
         selectedTagIds.forEach(tagId => {
             const tag = tagMapById.get(tagId);
             if (!tag) return;
@@ -144,9 +85,20 @@ function renderCharacterList() {
         return e.name.toLowerCase().includes(lowerSearch);
     });
 
-    const visible = sortMode === 'only_zero'
-        ? filtered.filter(e => e.tagCount === 0)
-        : filtered;
+    const notes = getNotes();
+    let visible = filtered;
+
+    if (sortMode === 'only_zero') {
+        visible = filtered.filter(e => e.tagCount === 0);
+    } else if (sortMode === 'with_notes') {
+        visible = filtered.filter(e =>
+            (notes.charNotes[e.id] || '').trim().length > 0
+        );
+    } else if (sortMode === 'without_notes') {
+        visible = filtered.filter(e =>
+            !(notes.charNotes[e.id] || '').trim()
+        );
+    }
 
     visible.sort((a, b) => {
         switch (sortMode) {
@@ -170,37 +122,37 @@ function renderCharacterList() {
     visible.forEach(entity => {
         const li = document.createElement('li');
         li.classList.add('charListItemWrapper'); // optional class for spacing
-    
+
         const metaWrapper = document.createElement('div');
         metaWrapper.className = 'charMeta stcm_flex_row_between';
-    
+
         // === Left side ===
         const leftSide = document.createElement('div');
         leftSide.className = 'charLeftSide';
-    
+
         const img = document.createElement('img');
         img.className = 'stcm_avatar_thumb';
         img.alt = entity.name;
         img.src = entity.avatar ? `/characters/${entity.avatar}` : 'img/ai4.png';
         img.onerror = () => img.src = 'img/ai4.png';
         leftSide.appendChild(img);
-    
+
         const rightContent = document.createElement('div');
         rightContent.className = 'charMetaRight';
-    
+
         const nameRow = document.createElement('div');
         nameRow.className = 'charNameRow';
-    
+
         const label = document.createElement('label');
         label.className = 'customCheckboxWrapper';
-    
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'assignCharCheckbox';
         checkbox.value = entity.id;
         checkbox.checked = selectedCharacterIds.has(entity.id);
         checkbox.style.display = showCheckboxes ? 'inline-block' : 'none';
-    
+
         checkbox.addEventListener('change', () => {
             if (checkbox.checked) {
                 selectedCharacterIds.add(entity.id);
@@ -208,46 +160,46 @@ function renderCharacterList() {
                 selectedCharacterIds.delete(entity.id);
             }
         });
-    
+
         const checkmark = document.createElement('span');
         checkmark.className = 'customCheckbox';
-    
+
         label.appendChild(checkbox);
         label.appendChild(checkmark);
         nameRow.appendChild(label);
-    
+
         const nameSpan = document.createElement('span');
         nameSpan.className = 'charName';
         nameSpan.textContent = `${entity.name} (${entity.tagCount} tag${entity.tagCount !== 1 ? 's' : ''})`;
         nameRow.appendChild(nameSpan);
-    
+
         // Notes button
         const notes = getNotes();
         const currentNote = notes.charNotes[entity.id] || '';
-    
+
         const noteBtn = document.createElement('button');
         noteBtn.className = 'stcm_menu_button small charNotesToggle';
         noteBtn.textContent = 'Notes';
         noteBtn.title = 'View or edit notes';
         noteBtn.style.marginLeft = '8px';
-    
+
         nameRow.appendChild(noteBtn);
         rightContent.appendChild(nameRow);
-    
+
         // Note editor wrapper
         const noteWrapper = document.createElement('div');
         noteWrapper.className = 'charNotesWrapper';
         noteWrapper.style.display = 'none';
-    
+
         const textarea = document.createElement('textarea');
         textarea.className = 'charNoteTextarea';
         textarea.placeholder = 'Add character notes...';
         textarea.value = currentNote;
-    
+
         const saveBtn = document.createElement('button');
         saveBtn.className = 'stcm_menu_button stcm_save_note_btn small';
         saveBtn.textContent = 'Save Note';
-    
+
         saveBtn.addEventListener('click', async () => {
             const updated = getNotes();
             updated.charNotes[entity.id] = textarea.value.trim();
@@ -255,66 +207,78 @@ function renderCharacterList() {
             debouncePersist();
             toastr.success(`Saved note for ${entity.name}`);
         });
-    
+
         noteBtn.addEventListener('click', () => {
             const isOpen = noteWrapper.style.display === 'flex';
             noteWrapper.style.display = isOpen ? 'none' : 'flex';
             noteBtn.textContent = isOpen ? 'Notes' : 'Close Notes';
             noteBtn.style.background = isOpen ? '' : 'rgb(169, 122, 50)';
         });
-    
+
         noteWrapper.appendChild(textarea);
         noteWrapper.appendChild(saveBtn);
         rightContent.appendChild(noteWrapper);
-    
+
         const excerpt = (characters.find(c => c.avatar === entity.id)?.description || '')
             .slice(0, 500).trim() + '…';
-    
+
         const excerptSpan = document.createElement('span');
         excerptSpan.className = 'charExcerpt';
         excerptSpan.textContent = excerpt;
-    
+
         rightContent.appendChild(excerptSpan);
-    
+
         const tagListWrapper = document.createElement('div');
         tagListWrapper.className = 'assignedTagsWrapper';
-    
-        const tagMapById = buildTagMap();
+
+        const tagMapById = buildTagMap(tags);
         const assignedTags = tag_map[entity.id] || [];
         assignedTags.forEach(tagId => {
             const tag = tagMapById.get(tagId);
             if (!tag) return;
-    
+
             const tagBox = document.createElement('span');
             tagBox.className = 'tagBox';
             tagBox.textContent = tag.name;
-    
+
+            // PLACE THE COLOR FALLBACK LOGIC **HERE**:
+            const defaultBg = '#333';
+            const defaultFg = '#fff';
+
+            // Use tag color if set, otherwise fallback
+            const bgColor = (typeof tag.color === 'string' && tag.color.trim() && tag.color.trim() !== '#') ? tag.color.trim() : defaultBg;
+            const fgColor = (typeof tag.color2 === 'string' && tag.color2.trim() && tag.color2.trim() !== '#') ? tag.color2.trim() : defaultFg;
+
+            tagBox.style.backgroundColor = bgColor;
+            tagBox.style.color = fgColor;
+
+            // Remove button
             const removeBtn = document.createElement('span');
             removeBtn.className = 'removeTagBtn';
             removeBtn.textContent = ' ✕';
             removeBtn.addEventListener('click', () => {
                 removeTagFromEntity(tag, entity.id);
-                saveSettingsDebounced();
+                callSaveandReload();
                 renderCharacterList();
                 renderCharacterTagData();
             });
-    
+
             tagBox.appendChild(removeBtn);
             tagListWrapper.appendChild(tagBox);
         });
-    
         rightContent.appendChild(tagListWrapper);
+
         leftSide.appendChild(rightContent);
         metaWrapper.appendChild(leftSide);
-    
+
         // === Right Controls ===
         const rightControls = document.createElement('div');
         rightControls.className = 'charRowRightFixed';
-    
+
         const deleteIcon = document.createElement('i');
         deleteIcon.className = 'fa-solid fa-trash interactable stcm_delete_icon';
         deleteIcon.title = 'Delete Character';
-    
+
         deleteIcon.addEventListener('click', async () => {
             const confirmed = await callGenericPopup(
                 `Are you sure you want to permanently delete <strong>${entity.name}</strong>?`,
@@ -322,10 +286,10 @@ function renderCharacterList() {
                 'Delete Character'
             );
             if (confirmed !== POPUP_RESULT.AFFIRMATIVE) return;
-    
+
             const csrf = await fetch('/csrf-token');
             const { token } = await csrf.json();
-    
+
             const result = await fetch('/api/characters/delete', {
                 method: 'POST',
                 headers: {
@@ -337,33 +301,33 @@ function renderCharacterList() {
                     delete_chats: true
                 })
             });
-    
+
             if (!result.ok) {
                 toastr.error(`Failed to delete character "${entity.name}".`, 'Delete Error');
                 return;
             }
-    
+
             const idx = characters.findIndex(c => c.avatar === entity.id);
             if (idx !== -1) {
                 const char = characters.splice(idx, 1)[0];
                 delete tag_map[char.avatar];
                 SillyTavern.getContext().eventSource.emit(SillyTavern.getContext().event_types.CHARACTER_DELETED, char);
             }
-    
+
             toastr.error(`Character "${entity.name}" permanently deleted.`, 'Delete Successful');
-            saveSettingsDebounced();
+            callSaveandReload();
             renderCharacterList();
             renderCharacterTagData();
         });
-    
+
         rightControls.appendChild(deleteIcon);
         metaWrapper.appendChild(rightControls);
         li.appendChild(metaWrapper);
         list.appendChild(li);
     });
-    
-    
-    container.appendChild(list);    
+
+
+    container.appendChild(list);
 }
 
 function toggleCharacterList(container, group) {
@@ -434,25 +398,25 @@ function toggleCharacterList(container, group) {
         unassignBtn.addEventListener('click', () => {
             const tag = tags.find(t => t.id === group.tag.id);
             removeTagFromEntity(tag, charId);
-        
+
             // Update in-memory group state
             group.charIds = group.charIds.filter(id => id !== charId);
-        
+
             // Update DOM
             li.remove();
-        
+
             // Update character count on the tag accordion
             const countSpan = container.querySelector('.tagGroupHeader .tagCharCount');
             if (countSpan) {
                 countSpan.textContent = `(${group.charIds.length})`;
             }
-        
+
             // 🔄 Save and Refresh both sections
-            saveSettingsDebounced();
+            callSaveandReload();
             renderCharacterList();
             renderCharacterTagData(); // imported from index.js
         });
-        
+
 
         li.appendChild(metaWrapper);
         li.appendChild(unassignBtn);
@@ -470,10 +434,5 @@ function toggleCharacterList(container, group) {
 export {
     renderCharacterList,
     toggleCharacterList,
-    buildTagMap,
-    buildCharNameMap,
     selectedCharacterIds,
-    getNotes,
-    saveNotes,
-    debouncePersist
 };

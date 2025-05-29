@@ -1,16 +1,15 @@
 // index.js
+import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap } from './utils.js';
+
 import {
     tags,
     tag_map,
-    removeTagFromEntity,
-    appendTagToList,
-    TAG_FOLDER_TYPES,
-    TAG_FOLDER_DEFAULT_TYPE,
 } from "../../../tags.js";
 
 import {
     characters,
-    saveSettingsDebounced
+    getCharacters,
+    saveSettingsDebounced,
 } from "../../../../script.js";
 
 import { groups, getGroupAvatar } from '../../../../scripts/group-chats.js';
@@ -21,16 +20,16 @@ import {
     callGenericPopup
 } from "../../../popup.js"
 
+import { accountStorage } from '../../../util/AccountStorage.js';
+
 import {
     renderCharacterList,
     toggleCharacterList,
-    buildTagMap,
-    buildCharNameMap,
     selectedCharacterIds,
-    getNotes,
-    saveNotes,
-    debouncePersist
+
 } from "./stcm_characters.js";
+
+import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
 
 
 
@@ -38,11 +37,9 @@ const { eventSource, event_types } = SillyTavern.getContext();
 let isMergeMode = false;
 const selectedMergeTags = new Set();      //  Global merge checkbox selection
 let selectedPrimaryTagId = null;          // Global merge radio selection
+let selectedTagIds = new Set();
 
 
-function getCharacterNameById(id, charNameMap) {
-    return charNameMap.get(id) || null;
-}
 
 function openCharacterTagManagerModal() {
     if (document.getElementById('characterTagManagerModal')) return;
@@ -58,7 +55,7 @@ function openCharacterTagManagerModal() {
                 <i class="fa-solid fa-times"></i>
             </button>
         </div>
-    
+        <div class="stcm_accordians">
         <div class="accordionSection stcm_accordion_section">
             <button class="accordionToggle stcm_text_left" data-target="tagsSection">▶ Tags</button>
             <div id="tagsSection" class="accordionContent">
@@ -71,28 +68,45 @@ function openCharacterTagManagerModal() {
                         <option value="count_asc">Fewest Characters</option>
                         <option value="only_zero">Tags with 0 Characters</option>
                     </select>
+                                        <input type="text" id="tagSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search tags..." />                   
                 </div>
-                <div style="padding: 0.5em 0;">
-                    <input type="text" id="tagSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search tags..." />
-                    <span class="smallInstructions">Search by by tag, or add "C:" before your search to search by character name.</span>
-                    </div>
+                <div style="margin-top: -5px;">
+                                    <span class="smallInstructions">Search by by tag, or add "C:" before your search to search by character name.</span>
+                </div>
                 <div class="stcm_align-right">
-                    <button id="startMergeTags" class="stcm_menu_button stcm_margin_left interactable">
+                <button id="startMergeTags" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
                     <i class="fa-solid fa-object-group"></i>Merge Tags
-                    </button>
-                    <button id="cancelMergeTags" class="stcm_menu_button stcm_margin_left interactable" style="display: none;">Cancel Merge</button>
-                    <button id="createNewTagBtn" class="stcm_menu_button stcm_margin_left interactable">
+                </button>
+                <button id="cancelMergeTags" class="stcm_menu_button stcm_margin_left interactable" style="display: none;" tabindex="0">Cancel Merge</button>
+                <button id="createNewTagBtn" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
                     <i class="fa-solid fa-plus"></i> Create Tag
-                    </button>
-                    <button id="backupTagsBtn" class="stcm_menu_button stcm_margin_left interactable">
-                    <i class="fa-solid fa-file-export"></i> Backup
-                    </button>
-                    <button id="restoreTagsBtn" class="stcm_menu_button stcm_margin_left interactable">
-                    <i class="fa-solid fa-file-import"></i> Restore
-                    </button>
-                    <input id="restoreTagsInput" type="file" accept=".json" hidden>
+                </button>
 
+                <div class="stcm_import_export_dropdown stcm_margin_left" style="display: inline-block; position: relative;">
+                    <button id="toggleImportExport" class="stcm_menu_button interactable" tabindex="0">
+                        <i class="fa-solid fa-arrows-spin"></i> Import/Export
+                        <i class="fa-solid fa-caret-down"></i>
+                    </button>
+                    <div id="importExportMenu" class="stcm_dropdown_menu" style="display:none; position: absolute; right:0; top:110%; background: var(--ac-style-color-background, #222); border: 1px solid #444; border-radius: 6px; z-index: 1001; box-shadow: 0 2px 8px rgba(0,0,0,0.12); min-width: 180px; padding: 0.5em;">
+                        <button id="backupTagsBtn" class="stcm_menu_button dropdown interactable" tabindex="0">
+                            <i class="fa-solid fa-file-export"></i> Backup Tags
+                        </button>
+                        <button id="restoreTagsBtn" class="stcm_menu_button dropdown interactable" tabindex="0">
+                            <i class="fa-solid fa-file-import"></i> Restore Tags
+                        </button>
+                        <input id="restoreTagsInput" type="file" accept=".json" hidden>
+                        <hr style="margin: 0.4em 0; border: none; border-top: 1px solid #444;">
+                        <button id="exportNotesBtn" class="stcm_menu_button dropdown interactable" tabindex="0">
+                            <i class="fa-solid fa-file-arrow-down"></i> Export Notes
+                        </button>
+                        <button id="importNotesBtn" class="stcm_menu_button dropdown interactable" tabindex="0">
+                            <i class="fa-solid fa-file-arrow-up"></i> Import Notes
+                        </button>
+                        <input id="importNotesInput" type="file" accept=".json" hidden>
                     </div>
+                </div>
+            </div>
+
                 <div class="modalBody stcm_scroll_300" id="characterTagManagerContent">
                     <div>Loading tags...</div>
                 </div>
@@ -103,9 +117,8 @@ function openCharacterTagManagerModal() {
             <button class="accordionToggle stcm_text_left" data-target="charactersSection">▶ Characters</button>
             <div id="charactersSection" class="accordionContent">
                 <div style="padding-top: 1em;">
-                                            <label style="text-wrap: nowrap;">Hold Shift to select multiple tags in a row, hold Control to select tags with gaps.</label>
                             <div class="stcm_sort_row">
-                            <select id="assignTagSelect" class="menu_input stcm_fullwidth_input stcm_margin_bottom-sm" multiple ></select>
+                            <div id="assignTagList" class="stcm_tag_chip_list"></div>
                             </div>
                                         <div class="stcm_sort_row">
                         <label style="text-wrap: nowrap;">Select Tag(s) to Assign</label>
@@ -113,8 +126,6 @@ function openCharacterTagManagerModal() {
                          </div>
                     <div id="assignTagsBar" class="stcm_assign_bar">
                    <div id="selectedTagsDisplay" class="selected-tags-container"></div>
-
-                        <button id="assignTagsButton" class="stcm_menu_button interactable green">Assign Tag(s)</button>
                     </div>
   <div class="stcm_sort_row">
                         <span>SORT</span>
@@ -124,12 +135,18 @@ function openCharacterTagManagerModal() {
                             <option value="tag_count_desc">Most Tags</option>
                             <option value="tag_count_asc">Fewest Tags</option>
                             <option value="only_zero">Only 0 Tags</option>
+                            <option value="with_notes">With Notes</option>
+                            <option value="without_notes">Without Notes</option>
                         </select>
                            <div class="stcm_margin_top stcm_fullwidth" >
                             <input type="text" id="charSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search characters/groups..." />
                             <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag.</span>
-                    </div></div>
+                    </div>
+                                            <button id="assignTagsButton" class="stcm_menu_button interactable green">Assign Tag(s)</button>
+
+                    </div>
                     <div id="characterListWrapper"></div>
+                </div>
                 </div>
             </div>
         </div>
@@ -149,7 +166,45 @@ function openCharacterTagManagerModal() {
             button.innerHTML = `${isOpen ? '▼' : '▶'} ${button.textContent.slice(2)}`;
         });
     });
-    
+
+    // Dropdown toggle for Import/Export
+    const toggleIE = document.getElementById('toggleImportExport');
+    const ieMenu = document.getElementById('importExportMenu');
+
+    toggleIE.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ieMenu.style.display = ieMenu.style.display === 'none' ? 'block' : 'none';
+        // Optional: close on outside click
+        if (ieMenu.style.display === 'block') {
+            document.addEventListener('mousedown', closeIeMenu, { once: true });
+        }
+    });
+
+    function closeIeMenu(ev) {
+        if (!ieMenu.contains(ev.target) && ev.target !== toggleIE) {
+            ieMenu.style.display = 'none';
+        }
+    }
+
+
+    document.getElementById('exportNotesBtn').addEventListener('click', exportTagCharacterNotes);
+
+    document.getElementById('importNotesBtn').addEventListener('click', () => {
+        document.getElementById('importNotesInput').click();
+    });
+
+    document.getElementById('importNotesInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const content = await file.text();
+        try {
+            const importData = JSON.parse(content);
+            handleNotesImport(importData);
+        } catch {
+            toastr.error('Invalid notes backup file');
+        }
+        e.target.value = ''; // reset input
+    });
 
 
     document.getElementById('closeCharacterTagManagerModal').addEventListener('click', () => {
@@ -177,8 +232,8 @@ function openCharacterTagManagerModal() {
     document.getElementById('createNewTagBtn').addEventListener('click', () => {
         promptCreateTag();
     });
-    
-    
+
+
     document.getElementById('backupTagsBtn').addEventListener('click', () => {
         const json = JSON.stringify({ tags, tag_map }, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
@@ -189,11 +244,11 @@ function openCharacterTagManagerModal() {
         a.click();
         URL.revokeObjectURL(url);
     });
-    
+
     document.getElementById('restoreTagsBtn').addEventListener('click', () => {
         document.getElementById('restoreTagsInput').click();
     });
-    
+
     document.getElementById('restoreTagsInput').addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -207,13 +262,13 @@ function openCharacterTagManagerModal() {
                 if (isNullColor(tag.color)) tag.color = '';
                 if (isNullColor(tag.color2)) tag.color2 = '';
                 if (typeof tag.folder_type !== 'string') tag.folder_type = 'NONE';
-            
+
                 tags.push(tag);
             });
-            
+
             Object.assign(tag_map, data.tag_map);
             toastr.success('Tags restored from file');
-            saveSettingsDebounced();
+            callSaveandReload();
             renderCharacterList();
             renderCharacterTagData();
         } catch {
@@ -221,7 +276,7 @@ function openCharacterTagManagerModal() {
         }
         e.target.value = ''; // reset input
     });
-    
+
 
 
     document.getElementById('assignTagSearchInput').addEventListener(
@@ -234,17 +289,17 @@ function openCharacterTagManagerModal() {
         isMergeMode = false;
         selectedMergeTags.clear();
         selectedPrimaryTagId = null;
-    
+
         document.getElementById('startMergeTags').textContent = 'Merge Tags';
         document.getElementById('cancelMergeTags').style.display = 'none';
-    
+
         document.querySelectorAll('.mergeCheckbox, input[name="mergePrimary"]').forEach(el => {
             el.checked = false;
         });
-    
+
         renderCharacterTagData();
     });
-    
+
 
     document.getElementById('startMergeTags').addEventListener('click', async () => {
         if (!isMergeMode) {
@@ -314,7 +369,7 @@ function openCharacterTagManagerModal() {
                 const index = tags.findIndex(t => t.id === id);
                 if (index !== -1) tags.splice(index, 1);
             }
-            
+
 
             toastr.success(`Merged ${mergeIds.length} tag(s) into "${primaryTag.name}".`, 'Merge Successful');
 
@@ -331,18 +386,15 @@ function openCharacterTagManagerModal() {
                 el.checked = false;
             });
 
-            saveSettingsDebounced();
+            callSaveandReload();
             renderCharacterList();
             renderCharacterTagData();
         }
     });
 
     document.getElementById('assignTagsButton').addEventListener('click', () => {
-        const selectedTagIds = Array.from(document.getElementById('assignTagSelect').selectedOptions).map(opt => opt.value);
         const selectedCharIds = Array.from(selectedCharacterIds);
-
-
-        if (!selectedTagIds.length || !selectedCharIds.length) {
+        if (!selectedTagIds.size || !selectedCharIds.length) {
             toastr.warning('Please select at least one tag and one character.', 'Assign Tags');
             return;
         }
@@ -355,23 +407,29 @@ function openCharacterTagManagerModal() {
                 }
             });
         });
+        callSaveandReload();
+        toastr.success(`Assigned ${selectedTagIds.size} tag(s) to ${selectedCharIds.length} character(s).`, 'Assign Tags');
 
-        toastr.success(`Assigned ${selectedTagIds.length} tag(s) to ${selectedCharIds.length} character(s).`, 'Assign Tags');
-        saveSettingsDebounced();
+        // Clear all selections/inputs
+        selectedTagIds.clear();
+        selectedCharacterIds.clear();
+        const charSearchInput = document.getElementById('charSearchInput');
+        if (charSearchInput) charSearchInput.value = "";
+        const tagSearchInput = document.getElementById('assignTagSearchInput');
+        if (tagSearchInput) tagSearchInput.value = "";
+
+        populateAssignTagSelect();
         renderCharacterList();
         renderCharacterTagData();
     });
 
+
     renderCharacterTagData();
     populateAssignTagSelect();
-    document.getElementById('assignTagSelect').addEventListener('change', () => {
-        updateCheckboxVisibility();
-        renderCharacterList(); // ← This will re-render selected tags display
-    });
     const wrapper = document.getElementById('characterListWrapper');
     const container = document.createElement('div');
     container.id = 'characterListContainer';
-    container.style.maxHeight = '300px';
+    container.clsss = 'stcm_scroll_300';
     container.style.paddingBottom = '1em';
     wrapper.innerHTML = ''; // Clear any prior content
     wrapper.appendChild(container);
@@ -382,30 +440,6 @@ function openCharacterTagManagerModal() {
 
     makeModalDraggable(document.getElementById('characterTagManagerModal'), document.querySelector('.stcm_modal_header'));
 
-function makeModalDraggable(modal, handle) {
-    let isDragging = false;
-    let offsetX, offsetY;
-
-    handle.style.cursor = 'move';
-    handle.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        offsetX = e.clientX - modal.offsetLeft;
-        offsetY = e.clientY - modal.offsetTop;
-        modal.style.position = 'absolute';
-        modal.style.zIndex = 10000;
-        modal.style.margin = 0; // remove any centering offset
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        modal.style.left = `${e.clientX - offsetX}px`;
-        modal.style.top = `${e.clientY - offsetY}px`;
-    });
-
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-    });
-}
 }
 
 
@@ -413,7 +447,6 @@ function makeModalDraggable(modal, handle) {
 function promptCreateTag() {
     const defaultName = getFreeName('New Tag', tags.map(t => t.name));
 
-    // Get computed theme colors
     const styles = getComputedStyle(document.body);
     const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
     const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#000000';
@@ -425,6 +458,19 @@ function promptCreateTag() {
                 Name:
                 <input type="text" class="menu_input newTagName" value="${defaultName}" style="width: 100%;" />
             </label>
+
+            <div class="tagPreview" style="
+                align-self: start;
+                padding: 4px 8px;
+                border-radius: 4px;
+                background-color: ${defaultBg};
+                color: ${defaultFg};
+                font-weight: bold;
+                max-width: max-content;
+                border: 1px solid #999;
+            ">
+                ${defaultName}
+            </div>
 
             <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 1em;">
                 <label style="flex: 1;">
@@ -444,14 +490,12 @@ function promptCreateTag() {
         const popupBody = document.querySelector('.popup-body');
         const popup = popupBody?.closest('dialog.popup');
         const buttons = popup?.querySelectorAll('.popup-buttons button');
-    
+
         if (popupBody) {
             popupBody.classList.add('custom-add-tag-popup');
         }
-    
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    
 
     callGenericPopup(container, POPUP_TYPE.CONFIRM, 'Create New Tag', {
         okButton: 'Create Tag',
@@ -470,39 +514,55 @@ function promptCreateTag() {
         }
 
         const name = nameInput.value.trim() || defaultName;
-        const color = bgPicker.color || defaultBg;
-        const color2 = fgPicker.color || defaultFg;
 
         const newTag = {
             id: crypto.randomUUID(),
             name,
-            color,
-            color2,
+            color: selectedBg,
+            color2: selectedFg,
             folder_type: 'NONE'
         };
 
         tags.push(newTag);
-        saveSettingsDebounced();
+        callSaveandReload();
         toastr.success(`Created tag "${newTag.name}"`, 'Tag Created');
         renderCharacterTagData();
     });
-}
 
+    // Live preview logic
+    const nameInput = container.querySelector('.newTagName');
+    const bgPicker = container.querySelector('.newTagBgPicker');
+    const fgPicker = container.querySelector('.newTagFgPicker');
+    const preview = container.querySelector('.tagPreview');
 
+    let selectedBg = defaultBg;
+    let selectedFg = defaultFg;
 
+    function updatePreview(name = nameInput.value.trim(), bg = selectedBg, fg = selectedFg) {
+        preview.textContent = name || 'Tag Name';
+        preview.style.backgroundColor = bg;
+        preview.style.color = fg;
+    }
 
-function debounce(fn, delay = 200) {
-    let timer;
-    return (...args) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn.apply(this, args), delay);
-    };
+    nameInput.addEventListener('input', () => {
+        updatePreview(nameInput.value.trim(), selectedBg, selectedFg);
+    });
+
+    bgPicker.addEventListener('change', e => {
+        selectedBg = e.detail?.rgba || defaultBg;
+        updatePreview(nameInput.value.trim(), selectedBg, selectedFg);
+    });
+
+    fgPicker.addEventListener('change', e => {
+        selectedFg = e.detail?.rgba || defaultFg;
+        updatePreview(nameInput.value.trim(), selectedBg, selectedFg);
+    });
+
 }
 
 
 function updateCheckboxVisibility() {
-    const selectedTagIds = Array.from(document.getElementById('assignTagSelect')?.selectedOptions || []).map(opt => opt.value);
-    const showCheckboxes = selectedTagIds.length > 0;
+    const showCheckboxes = selectedTagIds.size > 0;
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
 
     // Show/hide checkboxes in-place without re-rendering
@@ -513,45 +573,48 @@ function updateCheckboxVisibility() {
 
 
 function populateAssignTagSelect() {
-    const select = document.getElementById('assignTagSelect');
+    const tagListDiv = document.getElementById('assignTagList');
     const searchTerm = document.getElementById('assignTagSearchInput')?.value.toLowerCase() || '';
-    if (!select) return;
+    if (!tagListDiv) return;
 
-    // Save currently selected tag IDs
-    const selectedValues = new Set(Array.from(select.selectedOptions).map(opt => opt.value));
+    tagListDiv.innerHTML = '';  // Clear
 
-    select.innerHTML = '';
+    // Show only tags matching filter
+    const matchingTags = tags.filter(tag =>
+        tag.name.toLowerCase().includes(searchTerm)
+    ).sort((a, b) => a.name.localeCompare(b.name));
 
-    // Keep all selected tags in the list, even if they don't match the filter
-    const selectedTags = tags.filter(tag => selectedValues.has(tag.id));
-    const matchingTags = tags
-        .filter(tag => !selectedValues.has(tag.id)) // Exclude already selected
-        .filter(tag => tag.name.toLowerCase().includes(searchTerm));
+    matchingTags.forEach(tag => {
+        const chip = document.createElement('div');
+        chip.className = 'stcm_tag_chip';
+        chip.textContent = tag.name;
+        chip.style.background = (tag.color && tag.color !== '#') ? tag.color : '#333';
+        chip.style.color = (tag.color2 && tag.color2 !== '#') ? tag.color2 : '#fff';
 
-    const sortedTags = [...selectedTags, ...matchingTags].sort((a, b) => a.name.localeCompare(b.name));
+        // Make grayscaled if not selected
+        if (selectedTagIds.has(tag.id)) {
+            chip.classList.add('selected');
+        }
 
-    sortedTags.forEach(tag => {
-        const option = document.createElement('option');
-        option.value = tag.id;
-        option.textContent = tag.name;
-        option.selected = selectedValues.has(tag.id); // Re-select if it was previously selected
-        select.appendChild(option);
+        chip.addEventListener('click', () => {
+            if (selectedTagIds.has(tag.id)) {
+                selectedTagIds.delete(tag.id);
+                chip.classList.remove('selected');
+            } else {
+                selectedTagIds.add(tag.id);
+                chip.classList.add('selected');
+            }
+            // Show/hide assign bar, update character checkboxes, etc
+            updateCheckboxVisibility();
+            renderCharacterList();
+        });
+
+        tagListDiv.appendChild(chip);
     });
+
+    // Show/hide assign bar, update character checkboxes, etc
+    updateCheckboxVisibility();
 }
-
-
-function getFreeName(base, existingNames) {
-    const lowerSet = new Set(existingNames.map(n => n.toLowerCase()));
-    let index = 1;
-    let newName = base;
-    while (lowerSet.has(newName.toLowerCase())) {
-        newName = `${base} ${index++}`;
-    }
-    return newName;
-}
-
-
-
 
 function renderCharacterTagData() {
     const content = document.getElementById('characterTagManagerContent');
@@ -567,15 +630,8 @@ function renderCharacterTagData() {
     const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
     const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#000000';
 
-
-    // Map for fast tag lookup: Map<tagId, tag>
-    const tagMapById = buildTagMap();
-
-
     // Map for fast character name lookup: Map<charId, name>
-    const charNameMap = buildCharNameMap();
-
-
+    const charNameMap = buildCharNameMap(characters);
 
     const tagGroups = tags.map(tag => {
         const charIds = Object.entries(tag_map)
@@ -637,25 +693,18 @@ function renderCharacterTagData() {
         const currentNote = tagNotes[tagId] || '';
 
         const styles = getComputedStyle(document.body);
-        const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
-        const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#000000';
+        const defaultBg = '#333';
+        const defaultFg = '#fff';
 
-        const rawColor = group.tag.color?.trim();
-        const rawColor2 = group.tag.color2?.trim();
-        
+        const rawColor = typeof group.tag.color === 'string' ? group.tag.color.trim() : '';
+        const rawColor2 = typeof group.tag.color2 === 'string' ? group.tag.color2.trim() : '';
+
+
         // Use defaults if color is null, empty, or just "#"
         const bgColor = (rawColor && rawColor !== '#') ? rawColor : defaultBg;
         const fgColor = (rawColor2 && rawColor2 !== '#') ? rawColor2 : defaultFg;
-        
-        // Persist defaults into the tag object so they get saved/exported
-        if (!rawColor || rawColor === '#') {
-            group.tag.color = defaultBg;
-        }
-        if (!rawColor2 || rawColor2 === '#') {
-            group.tag.color2 = defaultFg;
-        }
-        
-                
+
+
         header.innerHTML = `
     <span class="tagNameEditable" data-id="${tagId}">
         <i class="fa-solid fa-pen editTagIcon" title="Edit name" style="cursor: pointer; margin-right: 6px;"></i>
@@ -689,7 +738,7 @@ function renderCharacterTagData() {
             </div>` : ''}
     `;
 
-    // After header.innerHTML =
+        // After header.innerHTML =
         const bgPicker = header.querySelector('.tagColorPickerBg');
         const fgPicker = header.querySelector('.tagColorPickerFg');
 
@@ -702,22 +751,39 @@ function renderCharacterTagData() {
             let newColor = e.detail?.rgba ?? e.target.color;
             newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
             group.tag.color = newColor.trim();
-            saveSettingsDebounced();
+            callSaveandReload();
+
+            // Only update the preview swatch (no full rerender)
+            const tagSwatch = header.querySelector('.tagNameText');
+            if (tagSwatch) tagSwatch.style.backgroundColor = group.tag.color;
         });
-        
+
+
         fgPicker.addEventListener('change', e => {
             if (initializing) return;
             let newColor = e.detail?.rgba ?? e.target.color;
             newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
             group.tag.color2 = newColor.trim();
-            saveSettingsDebounced();
+            callSaveandReload();
+
+            // Only update the preview swatch (no full rerender)
+            const tagSwatch = header.querySelector('.tagNameText');
+            if (tagSwatch) tagSwatch.style.color = group.tag.color2;
         });
-        
+
+        bgPicker.addEventListener('change:end', () => {
+            renderCharacterTagData();
+        });
+        fgPicker.addEventListener('change:end', () => {
+            renderCharacterTagData();
+        });
+
+
         // Wait until next tick to allow any initial value propagations
         setTimeout(() => {
             initializing = false;
         }, 0);
-        
+
         const folderTypes = [
             {
                 value: 'NONE',
@@ -738,19 +804,19 @@ function renderCharacterTagData() {
                 tooltip: 'Closed Folder (Hide all characters unless selected)'
             }
         ];
-        
-        
+
+
         const currentType = group.tag.folder_type || 'NONE';
         const selectedOption = folderTypes.find(ft => ft.value === currentType);
-        
+
         const folderDropdownWrapper = document.createElement('div');
         folderDropdownWrapper.className = 'custom-folder-dropdown';
-        
+
         const folderSelected = document.createElement('div');
         folderSelected.className = 'selected-folder-option';
         folderSelected.innerHTML = `<i class="fa-solid ${selectedOption.icon}"></i> ${selectedOption.label}`;
         folderDropdownWrapper.appendChild(folderSelected);
-        
+
         const folderOptionsList = document.createElement('div');
         folderOptionsList.className = 'folder-options-list';
         folderOptionsList.style.display = 'none';
@@ -767,20 +833,20 @@ function renderCharacterTagData() {
                 folderSelected.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
                 folderSelected.title = ft.tooltip;  // 🔥 Update selected's tooltip
                 folderOptionsList.style.display = 'none';
-                saveSettingsDebounced();
-                toastr.success(`"${group.tag.name}" folder type set to ${ft.label}`);
+                callSaveandReload();
             });
             folderOptionsList.appendChild(opt);
         });
-        
-        
+
+
         folderSelected.addEventListener('click', () => {
             folderOptionsList.style.display = folderOptionsList.style.display === 'none' ? 'block' : 'none';
         });
-        
+
         folderDropdownWrapper.appendChild(folderOptionsList);
 
         header.appendChild(folderDropdownWrapper);
+
 
         const folderWrapper = document.createElement('div');
         folderWrapper.className = 'stcm_folder_type_row';
@@ -799,8 +865,21 @@ function renderCharacterTagData() {
         // Append label and dropdown to wrapper
         folderWrapper.appendChild(folderLabel);
         folderWrapper.appendChild(folderDropdownWrapper);
-        
+
         header.appendChild(folderWrapper);
+
+        const infoIcon = document.createElement('i');
+        infoIcon.className = 'fa-solid fa-circle-info stcm_folder_info_icon';
+        infoIcon.title = 'About folders'; // fallback tooltip
+
+        // Attach click handler (next step)
+        infoIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showFolderInfoPopup(infoIcon);
+        });
+
+        folderWrapper.appendChild(infoIcon);
+
 
 
         const showBtn = document.createElement('button');
@@ -848,7 +927,7 @@ function renderCharacterTagData() {
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete';
         deleteBtn.className = 'stcm_menu_button interactable red';
-        deleteBtn.style.marginLeft = '20px';
+        deleteBtn.style.marginLeft = '2px';
         deleteBtn.addEventListener('click', () => confirmDeleteTag(group.tag));
 
         const actionButtons = document.createElement('div');
@@ -910,7 +989,7 @@ function renderCharacterTagData() {
 
                 if (tag && newName && newName !== oldName) {
                     tag.name = newName;
-                    saveSettingsDebounced();
+                    callSaveandReload();
                     renderCharacterList();
                     renderCharacterTagData(); // ✅ Immediately refresh UI
                 } else {
@@ -948,13 +1027,40 @@ function renderCharacterTagData() {
     });
 
 
-
+    accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
 }
 
-function isNullColor(color) {
-    if (typeof color !== 'string') return true;
-    const c = color.trim().toLowerCase();
-    return !c || c === '#' || c === 'rgba(0, 0, 0, 1)';
+function showFolderInfoPopup(anchorEl) {
+    // Small HTML for the popup
+    const html = document.createElement('div');
+    html.className = 'stcm_folder_info_popup';
+    html.innerHTML = `
+        <strong>Tag Folder Types</strong><br>
+        <ul style="margin: 8px 0 0 0; padding-left: 1.2em;">
+            <li><b>No Folder:</b> Tag behaves as a regular label, no grouping.</li>
+            <li><b>Open Folder:</b> Tag acts as a folder. All characters with this tag are always visible and grouped together.</li>
+            <li><b>Closed Folder:</b> Tag acts as a collapsed folder. Characters with this tag are hidden unless you open this folder.</li>
+        </ul>
+        <div style="margin-top: 8px; font-size: 0.95em;">
+            <em>You can assign multiple folders per character, and folders can be stacked!</em>
+        </div>
+    `;
+
+    // Place popup near the icon
+    const rect = anchorEl.getBoundingClientRect();
+    html.style.left = (rect.left + window.scrollX + 28) + 'px';
+    html.style.top = (rect.top + window.scrollY - 6) + 'px';
+
+    document.body.appendChild(html);
+
+    // Dismiss on click outside
+    function closePopup(e) {
+        if (!html.contains(e.target)) {
+            html.remove();
+            document.removeEventListener('mousedown', closePopup, true);
+        }
+    }
+    setTimeout(() => document.addEventListener('mousedown', closePopup, true), 20);
 }
 
 
@@ -985,10 +1091,15 @@ function confirmDeleteTag(tag) {
         if (index !== -1) tags.splice(index, 1);
 
         toastr.success(`Deleted tag "${tag.name}".`, 'Delete Tag');
-        saveSettingsDebounced();
+        callSaveandReload();
         renderCharacterList();
         renderCharacterTagData();
     });
+}
+
+async function callSaveandReload() {
+    saveSettingsDebounced();
+    await getCharacters();
 }
 
 
@@ -1058,12 +1169,12 @@ function injectTagManagerButtonInTagView(container) {
         if (okBtn) {
             okBtn.click();
         }
-    
+
         requestAnimationFrame(() => {
             openCharacterTagManagerModal();
         });
     });
-    
+
 
     container.insertBefore(tagManagerBtn, backupBtn);
 }
@@ -1081,31 +1192,199 @@ function observeTagViewInjection() {
     observer.observe(document.body, { childList: true, subtree: true });
 }
 
+function exportTagCharacterNotes() {
+    // Collect all notes
+    const notes = getNotes ? getNotes() : {};
+    // Only keep tagNotes and charNotes for the export
+    const exportData = {
+        tagNotes: notes.tagNotes || {},
+        charNotes: notes.charNotes || {}
+    };
+    const json = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tag_character_notes_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function handleNotesImport(importData) {
+    if (!importData || typeof importData !== 'object') {
+        toastr.error('Invalid notes file.');
+        return;
+    }
+    const notes = getNotes ? getNotes() : {};
+    const tagNotes = notes.tagNotes || {};
+    const charNotes = notes.charNotes || {};
+
+    let conflicts = [];
+    let newNotes = { tagNotes: {}, charNotes: {} };
+
+    // Tags
+    for (const [tagId, note] of Object.entries(importData.tagNotes || {})) {
+        if (tags.find(t => t.id === tagId)) {
+            if (tagNotes[tagId] && tagNotes[tagId] !== note) {
+                conflicts.push({ type: 'tag', id: tagId, old: tagNotes[tagId], new: note });
+            } else if (!tagNotes[tagId]) {
+                newNotes.tagNotes[tagId] = note;
+            }
+        }
+    }
+    // Characters (robust match: avatar, avatar basename, and optionally name)
+    for (const [importKey, note] of Object.entries(importData.charNotes || {})) {
+        let match = characters.find(c => c.avatar === importKey);
+        if (!match) {
+            const importBase = importKey.replace(/\.[^/.]+$/, '').toLowerCase();
+            match = characters.find(c =>
+                (c.avatar && c.avatar.replace(/\.[^/.]+$/, '').toLowerCase() === importBase)
+            );
+        }
+        if (!match) {
+            match = characters.find(c => (c.name || '').toLowerCase() === importKey.toLowerCase());
+        }
+        if (match) {
+            const charId = match.avatar;
+            if (charNotes[charId] && charNotes[charId] !== note) {
+                conflicts.push({ type: 'char', id: charId, old: charNotes[charId], new: note, importId: importKey });
+            } else if (!charNotes[charId]) {
+                newNotes.charNotes[charId] = note;
+            }
+        }
+    }
+
+    // If there are conflicts, show conflict dialog and wait for user to resolve, then refresh UI
+    if (conflicts.length) {
+        await showNotesConflictDialog(conflicts, newNotes, importData);
+        await debouncePersist();
+        renderCharacterList();
+        renderCharacterTagData();
+    } else {
+        // Apply new notes
+        Object.assign(tagNotes, newNotes.tagNotes);
+        Object.assign(charNotes, newNotes.charNotes);
+        saveNotes({ ...notes, tagNotes, charNotes });
+        await debouncePersist();
+        renderCharacterList();
+        renderCharacterTagData();
+        toastr.success('Notes imported successfully!');
+    }
+}
+
 
 eventSource.on(event_types.APP_READY, () => {
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
-
+    injectStcmSettingsPanel();
 });
 
-function resetModalScrollPositions() {
-    requestAnimationFrame(() => {
-        const modal = document.getElementById('characterTagManagerModal');
-        if (modal) modal.scrollTo({ top: 0 });
+async function showNotesConflictDialog(conflicts, newNotes, importData) {
+    const container = document.createElement('div');
+    container.style.maxHeight = '420px';
+    container.style.overflowY = 'auto';
 
-        const scrollables = modal?.querySelectorAll('.modalBody, .accordionContent, #characterListContainer');
-        scrollables?.forEach(el => {
-            el.scrollTop = 0;
+    let selects = {};
+    let allChecked = true;
+
+    const makeRow = (conflict, idx) => {
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '8px';
+        label.style.marginBottom = '8px';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.idx = idx;
+        selects[idx] = true;
+
+        checkbox.addEventListener('change', () => {
+            selects[idx] = checkbox.checked;
         });
 
-        //  force 2nd frame in case browser restores it AFTER first frame
-        requestAnimationFrame(() => {
-            scrollables?.forEach(el => {
-                el.scrollTop = 0;
-            });
+        const entityName = conflict.type === 'tag'
+            ? (tags.find(t => t.id === conflict.id)?.name || '(Unknown Tag)')
+            : (
+                (characters.find(c => c.avatar === conflict.id)?.name || conflict.id || '(Unknown Character)') +
+                (conflict.importId && conflict.importId !== conflict.id
+                    ? ` <small>(Imported as: ${escapeHtml(conflict.importId)})</small>`
+                    : '')
+            );
+
+        label.innerHTML = `
+            <b>${conflict.type === 'tag' ? 'Tag' : 'Character'}:</b> ${entityName}
+            <br>
+            <span style="margin-left:2em;"><b>Old:</b> ${escapeHtml(conflict.old)}</span>
+            <br>
+            <span style="margin-left:2em;"><b>New:</b> ${escapeHtml(conflict.new)}</span>
+        `;
+        label.prepend(checkbox);
+        return label;
+    };
+
+    // "Select All" checkbox
+    const selectAllLabel = document.createElement('label');
+    selectAllLabel.style.display = 'flex';
+    selectAllLabel.style.alignItems = 'center';
+    selectAllLabel.style.gap = '8px';
+    selectAllLabel.style.marginBottom = '10px';
+
+    const selectAllCheckbox = document.createElement('input');
+    selectAllCheckbox.type = 'checkbox';
+    selectAllCheckbox.checked = true;
+    selectAllCheckbox.addEventListener('change', () => {
+        const checked = selectAllCheckbox.checked;
+        Object.keys(selects).forEach(idx => {
+            selects[idx] = checked;
+            container.querySelectorAll(`input[type="checkbox"][data-idx="${idx}"]`).forEach(cb => cb.checked = checked);
         });
     });
+    selectAllLabel.append(selectAllCheckbox, document.createTextNode('Select All'));
+
+    container.appendChild(selectAllLabel);
+
+    conflicts.forEach((conflict, idx) => {
+        container.appendChild(makeRow(conflict, idx));
+    });
+
+    const result = await callGenericPopup(container, POPUP_TYPE.CONFIRM, 'Note Conflicts', {
+        okButton: 'Import Selected',
+        cancelButton: 'Cancel'
+    });
+
+    if (result !== POPUP_RESULT.AFFIRMATIVE) {
+        toastr.info('Note import cancelled.');
+        return;
+    }
+
+    // Apply selected conflicts
+    const notes = getNotes ? getNotes() : {};
+    const tagNotes = notes.tagNotes || {};
+    const charNotes = notes.charNotes || {};
+
+    conflicts.forEach((conflict, idx) => {
+        if (!selects[idx]) return;
+        if (conflict.type === 'tag') {
+            tagNotes[conflict.id] = conflict.new;
+        } else {
+            charNotes[conflict.id] = conflict.new;
+        }
+    });
+
+    // Apply new (non-conflicting) notes
+    Object.assign(tagNotes, newNotes.tagNotes);
+    Object.assign(charNotes, newNotes.charNotes);
+
+    saveNotes({ ...notes, tagNotes, charNotes });
+    await debouncePersist();
+    renderCharacterList();
+    renderCharacterTagData();
+    toastr.success('Selected notes imported!');
 }
 
-export { renderCharacterTagData, resetModalScrollPositions };
+
+
+export { renderCharacterTagData, callSaveandReload };
