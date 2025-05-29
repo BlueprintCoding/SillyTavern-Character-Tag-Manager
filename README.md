@@ -53,6 +53,9 @@ Clone or download this extension into your SillyTavern `data/{user folder}/exten
       └── {your user folder}/
           └── extensions/
 ```
+Or use the built in extension installer with the repo url: https://github.com/BlueprintCoding/SillyTavern-Character-Tag-Manager
+![image](https://github.com/user-attachments/assets/d18ca709-b555-4454-9161-3bf62c7b19f0)
+
 
 
 Make sure the extension is loaded by SillyTavern. You should see a tag icon in the top bar when the app is ready.
