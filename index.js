@@ -1,5 +1,5 @@
 // index.js
-import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap } from './utils.js';
+import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap, buildTagMap } from './utils.js';
 
 import {
     tags,
@@ -325,6 +325,7 @@ function openCharacterTagManagerModal() {
             const primaryTag = tags.find(t => t.id === primaryId);
 
             // Build confirmation message with character counts
+            const tagMapById = buildTagMap(tags);
             const mergeDetails = mergeIds.map(tagId => {
                 const tag = tagMapById.get(tagId);
                 const count = Object.values(tag_map).filter(tagList => Array.isArray(tagList) && tagList.includes(tagId)).length;
