@@ -1,3 +1,4 @@
+//stcm_characters.js
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
 import { characters, saveSettingsDebounced } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
