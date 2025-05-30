@@ -1,5 +1,6 @@
 // utils.js
-import { uploadFileAttachment, getFileAttachment, injectTagManagerControlButton } from '../../../chats.js';
+import { uploadFileAttachment, getFileAttachment,  } from '../../../chats.js';
+import { injectTagManagerControlButton } from "./index.js";
 
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
 
