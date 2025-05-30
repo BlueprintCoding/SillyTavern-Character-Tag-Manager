@@ -41,10 +41,10 @@ function escapeHtml(text) {
     if (!text) return '';
     return text.replace(/[&<>"']/g, (m) => (
         m === '&' ? '&amp;' :
-        m === '<' ? '&lt;' :
-        m === '>' ? '&gt;' :
-        m === '"' ? '&quot;' :
-        m === "'" ? '&#39;' : m
+            m === '<' ? '&lt;' :
+                m === '>' ? '&gt;' :
+                    m === '"' ? '&quot;' :
+                        m === "'" ? '&#39;' : m
     ));
 }
 
@@ -212,5 +212,102 @@ function mutateBogusFolderIcons(privateTagIds) {
     observer.observe(container, { childList: true, subtree: true });
 }
 
+function injectPrivateFolderToggle(privateTagIds, onStateChange) {
+    // Only show if any private folders exist
+    if (!privateTagIds.size) return;
 
-export { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, buildTagMap, buildCharNameMap, getNotes, saveNotes, persistNotesToFile, restoreNotesFromFile, getFolderTypeForUI, mutateBogusFolderIcons };
+    const tagRow = document.querySelector('.tags.rm_tag_filter');
+    const mgrBtn = document.querySelector('#characterTagManagerControlButton');
+    if (!tagRow || !mgrBtn) return;
+
+    // Don't add twice
+    if (document.getElementById('privateFolderVisibilityToggle')) return;
+
+    // Three states: 0 = Locked, 1 = Unlocked, 2 = Private only
+    let state = 0;
+
+    // Optionally, persist state in localStorage
+    const stateKey = 'stcm_private_folder_toggle_state';
+    if (localStorage.getItem(stateKey)) {
+        state = Number(localStorage.getItem(stateKey));
+    }
+
+    // Icon map and tooltips
+    const icons = [
+        { icon: 'fa-user-lock', color: '#888', tip: 'Hide private folders' },
+        { icon: 'fa-unlock', color: '#44b77b', tip: 'Show all folders (including private)' },
+        { icon: 'fa-eye', color: '#1976d2', tip: 'Show ONLY private folders' }
+    ];
+
+    const btn = document.createElement('span');
+    btn.id = 'privateFolderVisibilityToggle';
+    btn.className = 'tag actionable clickable-action interactable';
+    btn.style.backgroundColor = 'rgba(100, 140, 200, 0.55)';
+    btn.tabIndex = 0;
+
+    // Render the current icon/state
+    function render() {
+        btn.innerHTML = `
+            <span class="tag_name fa-solid ${icons[state].icon}" style="color: ${icons[state].color};" title="${icons[state].tip}"></span>
+            <i class="fa-solid fa-circle-xmark tag_remove interactable" tabindex="0" style="display: none;"></i>
+        `;
+        btn.setAttribute('data-toggle-state', state);
+    }
+    render();
+
+    btn.addEventListener('click', () => {
+        state = (state + 1) % 3;
+        localStorage.setItem(stateKey, state);
+        render();
+        onStateChange(state); // Callback to perform actual filtering/mutation
+    });
+
+    // Insert after the Character/Tag Manager icon
+    mgrBtn.insertAdjacentElement('afterend', btn);
+}
+
+
+/**
+ * Controls folder/character visibility based on toggle
+ * @param {number} state 0=hide private, 1=show all, 2=only private
+ * @param {Set<string>} privateTagIds
+ */
+function applyPrivateFolderVisibility(state, privateTagIds) {
+    // Folders: .bogus_folder_select with tagid
+    document.querySelectorAll('.bogus_folder_select').forEach(div => {
+        const isPrivate = privateTagIds.has(div.getAttribute('tagid'));
+        if (state === 0) { // Locked
+            div.style.display = isPrivate ? 'none' : '';
+        } else if (state === 1) { // Unlocked (show all)
+            div.style.display = '';
+        } else if (state === 2) { // Private only
+            div.style.display = isPrivate ? '' : 'none';
+        }
+    });
+
+    // Characters not in any folder? You may want to hide those too in private-only mode.
+    // If you want, add logic to hide/show those elements as well.
+}
+
+
+
+export { 
+debounce, 
+debouncePersist, 
+getFreeName, 
+isNullColor, 
+escapeHtml, 
+getCharacterNameById, 
+resetModalScrollPositions, 
+makeModalDraggable, 
+buildTagMap, 
+buildCharNameMap, 
+getNotes, 
+saveNotes, 
+persistNotesToFile, 
+restoreNotesFromFile, 
+getFolderTypeForUI, 
+mutateBogusFolderIcons, 
+applyPrivateFolderVisibility, 
+injectPrivateFolderToggle 
+};

@@ -1,5 +1,22 @@
 // index.js
-import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap, buildTagMap, getFolderTypeForUI, mutateBogusFolderIcons  } from './utils.js';
+import { 
+debounce, 
+debouncePersist, 
+getFreeName, 
+isNullColor, 
+escapeHtml, 
+getCharacterNameById, 
+resetModalScrollPositions, 
+makeModalDraggable, 
+getNotes, 
+saveNotes, 
+buildCharNameMap, 
+buildTagMap, 
+getFolderTypeForUI, 
+mutateBogusFolderIcons, 
+injectPrivateFolderToggle, 
+applyPrivateFolderVisibility  
+} from './utils.js';
 
 import {
     tags,
@@ -1413,9 +1430,22 @@ eventSource.on(event_types.APP_READY, () => {
     observeTagViewInjection();    // Tag view list
     injectStcmSettingsPanel();    
     // private folder observer
-    const notes = getNotes();
-    const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
-    mutateBogusFolderIcons(privateIds);
+    function refreshPrivateFolderToggle() {
+        const notes = getNotes();
+        const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
+        mutateBogusFolderIcons(privateIds);
+
+        // Set up the toggle if there are private folders
+        injectPrivateFolderToggle(privateIds, (state) => {
+            applyPrivateFolderVisibility(state, privateIds);
+        });
+
+        // Optionally, set visibility on load (if persisting state)
+        const savedState = Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
+        applyPrivateFolderVisibility(savedState, privateIds);
+    }
+
+    refreshPrivateFolderToggle();
 });
 
 async function showNotesConflictDialog(conflicts, newNotes, importData) {
