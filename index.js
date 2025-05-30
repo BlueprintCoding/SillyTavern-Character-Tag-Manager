@@ -1,5 +1,5 @@
 // index.js
-import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap, buildTagMap, getFolderTypeForUI } from './utils.js';
+import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap, buildTagMap, getFolderTypeForUI, mutateBogusFolderIcons  } from './utils.js';
 
 import {
     tags,
@@ -1411,7 +1411,11 @@ eventSource.on(event_types.APP_READY, () => {
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
-    injectStcmSettingsPanel();
+    injectStcmSettingsPanel();    
+    // private folder observer
+    const notes = getNotes();
+    const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
+    mutateBogusFolderIcons(privateIds);
 });
 
 async function showNotesConflictDialog(conflicts, newNotes, importData) {

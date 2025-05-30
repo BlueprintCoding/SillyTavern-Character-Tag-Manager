@@ -172,6 +172,45 @@ function getFolderTypeForUI(tag, notes) {
     return tag.folder_type || "NONE";
 }
 
+/**
+ * Mutate bogus folder icons for private folders in #rm_print_characters_block
+ * @param {Set<string>} privateTagIds  // set of tag ids that are private
+ */
+function mutateBogusFolderIcons(privateTagIds) {
+    const container = document.getElementById('rm_print_characters_block');
+    if (!container) return;
+
+    // Helper for icon swap
+    function updateIcon(folderDiv) {
+        const tagId = folderDiv.getAttribute('tagid');
+        if (!privateTagIds.has(tagId)) return;
+        // Find the icon and swap it if needed
+        const icon = folderDiv.querySelector('.bogus_folder_icon');
+        if (icon) {
+            icon.classList.remove('fa-eye-slash', 'fa-eye');
+            icon.classList.add('fa-user-lock'); // lock icon
+        }
+    }
+
+    // Mutate any existing folders immediately
+    container.querySelectorAll('.bogus_folder_select').forEach(updateIcon);
+
+    // Now observe for new folders
+    const observer = new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+            mutation.addedNodes.forEach(node => {
+                if (!(node instanceof HTMLElement)) return;
+                if (node.classList?.contains('bogus_folder_select')) {
+                    updateIcon(node);
+                } else if (node.querySelectorAll) {
+                    node.querySelectorAll('.bogus_folder_select').forEach(updateIcon);
+                }
+            });
+        }
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+}
 
 
-export { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, buildTagMap, buildCharNameMap, getNotes, saveNotes, persistNotesToFile, restoreNotesFromFile, getFolderTypeForUI };
+export { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, buildTagMap, buildCharNameMap, getNotes, saveNotes, persistNotesToFile, restoreNotesFromFile, getFolderTypeForUI, mutateBogusFolderIcons };
