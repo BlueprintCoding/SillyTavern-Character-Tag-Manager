@@ -257,7 +257,7 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     const icons = [
         { icon: 'fa-user-lock', color: '#888', tip: 'Hide private folders' },
         { icon: 'fa-unlock', color: '#44b77b', tip: 'Show all folders (including private)' },
-        { icon: 'fa-eye', color: '#1976d2', tip: 'Show ONLY private folders' }
+        { icon: 'fa-xmarks-lines', color: '#1976d2', tip: 'Show ONLY private folders' }
     ];
 
     const btn = document.createElement('span');
@@ -338,8 +338,6 @@ function showModalPinPrompt(message = "Enter PIN") {
         }, 150);
     });
 }
-
-
 
 /**
  * Controls folder/character visibility based on toggle.
