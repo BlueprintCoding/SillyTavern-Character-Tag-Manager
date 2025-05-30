@@ -263,7 +263,7 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     const btn = document.createElement('span');
     btn.id = 'privateFolderVisibilityToggle';
     btn.className = 'tag actionable clickable-action interactable';
-    btn.style.backgroundColor = 'rgba(100, 140, 200, 0.55)';
+    btn.style.backgroundColor = 'rgb(184, 10, 141, 0.65)';
     btn.tabIndex = 0;
 
     // Render the current icon/state
