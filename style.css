@@ -768,6 +768,67 @@
     white-space: pre-wrap;
 }
 
+/* PIN Management Area */
+#stcm-pin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    background: var(--ac-style-color-module, #23272d);
+    padding: 0.7em 1em 0.9em 1em;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px #0002;
+    margin-bottom: 1.2em;
+  }
+  
+  #stcm-pin-form input[type="password"] {
+    background: var(--ac-style-color-background, #181a1f);
+    color: var(--ac-style-color-text, #f3f3f3);
+    border: 1px solid var(--ac-style-color-border, #444);
+    border-radius: 4px;
+    padding: 0.4em 0.7em;
+    font-size: 1em;
+    margin-right: 0.5em;
+    outline: none;
+    transition: border 0.14s;
+  }
+  
+  #stcm-pin-form input[type="password"]:focus {
+    border: 1.5px solid var(--ac-style-color-accent, #44b77b);
+    background: var(--ac-style-color-input-focus, #23272d);
+  }
+  
+  #stcm-pin-form button.stcm_menu_button {
+    padding: 0.25em 1em;
+    margin-top: 0.3em;
+    font-size: 1em;
+    font-weight: 500;
+    border-radius: 4px;
+    border: none;
+    background: var(--ac-style-color-accent, #44b77b);
+    color: var(--ac-style-color-button-text, #fff);
+    cursor: pointer;
+    margin-right: 0.6em;
+    transition: background 0.14s;
+  }
+  
+  #stcm-pin-form button.stcm_menu_button.red {
+    background: var(--ac-style-color-error, #b94444);
+  }
+  
+  #stcm-pin-form button.stcm_menu_button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  #stcm-pin-form #stcm-pin-msg {
+    font-size: 0.98em;
+    min-height: 1.2em;
+    color: var(--ac-style-color-error, #e57373);
+    margin-top: 4px;
+    margin-bottom: 2px;
+  }
+  
+
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {
     .tagGroupHeader {
