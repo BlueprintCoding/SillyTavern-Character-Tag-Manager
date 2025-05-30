@@ -230,12 +230,11 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     if (!privateTagIds.size) return;
 
     // Three states: 0 = Locked, 1 = Unlocked, 2 = Private only
-    let state = 0;
-
-    // Optionally, persist state in localStorage
     const stateKey = 'stcm_private_folder_toggle_state';
-    if (localStorage.getItem(stateKey)) {
-        state = Number(localStorage.getItem(stateKey));
+    let state = 0; // Default to "private folders hidden"
+    const raw = localStorage.getItem(stateKey);
+    if (raw !== null && !isNaN(Number(raw))) {
+        state = Number(raw);
     }
 
     // Icon map and tooltips
