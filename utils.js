@@ -201,7 +201,6 @@ function mutateBogusFolderIcons(privateTagIds) {
     // Helper for icon swap
     function updateIcon(folderDiv) {
         const tagId = folderDiv.getAttribute('tagid');
-        if (!tagId || tagId === 'back') return;
         if (!privateTagIds.has(tagId)) return;
         // Find the icon and swap it if needed
         const icon = folderDiv.querySelector('.bogus_folder_icon');
@@ -340,73 +339,31 @@ function showModalPinPrompt(message = "Enter PIN") {
     });
 }
 
-function isInHiddenPrivateFolder(element, privateTagIds, state) {
-    // State 1 = unlocked (show all), never hide
-    if (state === 1) return false;
-
-    let parent = element.parentElement;
-    let foundPrivate = false;
-
-    while (parent) {
-        if (parent.classList && parent.classList.contains('bogus_folder_select')) {
-            const tagid = parent.getAttribute('tagid');
-            if (privateTagIds.has(tagid)) {
-                foundPrivate = true;
-                // In Locked state, anything inside any private folder is hidden
-                if (state === 0) return true;
-                // In Private Only state, being inside any private is a good thing!
-            }
-        }
-        parent = parent.parentElement;
-    }
-
-    // At this point, if we're in Private Only mode:
-    // If not inside any private folder, we want to HIDE (return true to hide)
-    if (state === 2) return !foundPrivate;
-
-    // In locked, but not in any private, so not hidden
-    return false;
-}
 
 
+/**
+ * Controls folder/character visibility based on toggle.
+ * @param {number} state 0=hide private, 1=show all, 2=only private
+ * @param {Set<string>} privateTagIds Set of private tag IDs
+ */
 function applyPrivateFolderVisibility(state, privateTagIds) {
-    // Always clear the stcm-hide class first!
-    // FIRST: Remove 'stcm-hide' from all possibly affected elements
-    document.querySelectorAll('.bogus_folder_select, .character_select.entity_block, .group_select.entity_block')
-        .forEach(div => div.classList.remove('stcm-hide'));
-
-    // Drilldown detection: must have a tag, not just exist!
-    const drilldownElem = document.querySelector('.rm_tag_bogus_drilldown');
-    const isDrilldown = drilldownElem && drilldownElem.querySelector('.tag');
-    if (isDrilldown) {
-        document.querySelectorAll('.character_select.entity_block, .group_select.entity_block').forEach(div => {
-            div.classList.remove('stcm-hide');
-        });
-        document.querySelectorAll('.bogus_folder_select').forEach(folderDiv => {
-            folderDiv.classList.remove('stcm-hide');
-        });
-        return;
-    }
-  // Handle folders
+    // Handle bogus folder divs
     document.querySelectorAll('.bogus_folder_select').forEach(div => {
         const isPrivate = privateTagIds.has(div.getAttribute('tagid'));
-        let shouldShow = true;
-        if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
-            shouldShow = false;
-        } else if (state === 0) {
-            shouldShow = !isPrivate;
-        } else if (state === 2) {
-            shouldShow = isPrivate;
+        if (state === 0) { // Locked
+            div.style.display = isPrivate ? 'none' : '';
+        } else if (state === 1) { // Unlocked
+            div.style.display = '';
+        } else if (state === 2) { // Private only
+            div.style.display = isPrivate ? '' : 'none';
         }
-        if (!shouldShow) div.classList.add('stcm-hide');
     });
 
     // Handle main character blocks
     document.querySelectorAll('.character_select.entity_block').forEach(div => {
-        let show = true;
-        if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
-            show = false;
-        } else if (state === 2) {
+        // If in private-only, HIDE any character not in a private folder
+        if (state === 2) {
+            // A character block is considered "in a private folder" if any ancestor .bogus_folder_select with matching privateTagIds exists
             let inPrivateFolder = false;
             let parent = div.parentElement;
             while (parent) {
@@ -419,37 +376,35 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
                 }
                 parent = parent.parentElement;
             }
-            show = inPrivateFolder;
+            div.style.display = inPrivateFolder ? '' : 'none';
+        } else {
+            // Show all character blocks in other states
+            div.style.display = '';
         }
-        if (!show) div.classList.add('stcm-hide');
     });
-
-    // Handle group entity blocks (same as character blocks)
-    document.querySelectorAll('.group_select.entity_block').forEach(div => {
-        let show = true;
-        if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
-            show = false;
-        } else if (state === 2) {
-            let inPrivateFolder = false;
-            let parent = div.parentElement;
-            while (parent) {
-                if (parent.classList && parent.classList.contains('bogus_folder_select')) {
-                    const tagid = parent.getAttribute('tagid');
-                    if (privateTagIds.has(tagid)) {
-                        inPrivateFolder = true;
-                        break;
+        // Handle group entity blocks (hide when private only mode)
+        document.querySelectorAll('.group_select.entity_block').forEach(div => {
+            if (state === 2) {
+                // Same logic: is this group inside a private folder?
+                let inPrivateFolder = false;
+                let parent = div.parentElement;
+                while (parent) {
+                    if (parent.classList && parent.classList.contains('bogus_folder_select')) {
+                        const tagid = parent.getAttribute('tagid');
+                        if (privateTagIds.has(tagid)) {
+                            inPrivateFolder = true;
+                            break;
+                        }
                     }
+                    parent = parent.parentElement;
                 }
-                parent = parent.parentElement;
+                div.style.display = inPrivateFolder ? '' : 'none';
+            } else {
+                div.style.display = '';
             }
-            show = inPrivateFolder;
-        }
-        if (!show) div.classList.add('stcm-hide');
-    });
+        });
+    
 }
-
-
-
 
 /**
  * Watches for changes in #rm_print_characters_block and reapplies icon and visibility mutators.
