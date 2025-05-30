@@ -831,17 +831,8 @@
     margin-bottom: 2px;
 }
 
-.stcm-modal-pin-prompt {
-    z-index: 12000 !important;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px #0002;
-    background: var(--ac-style-color-background, #26292e);
-    color: var(--ac-style-color-text, #fff);
-    border: 1px solid #444;
-    transition: box-shadow 0.15s;
-}
 
-.stcm-modal-pin-prompt input[type="password"] {
+#stcm-modal-pin-prompt input[type="password"] {
     background: var(--ac-style-color-background, #181a1f);
     color: var(--ac-style-color-text, #f3f3f3);
     border: 1px solid var(--ac-style-color-border, #444);
@@ -854,15 +845,11 @@
     width: 100%;
 }
 
-.stcm-modal-pin-prompt input[type="password"]:focus {
+#stcm-modal-pin-prompt input[type="password"]:focus {
     border: 1.5px solid var(--ac-style-color-accent, #44b77b);
     background: var(--ac-style-color-input-focus, #23272d);
 }
 
-.stcm-modal-pin-prompt button.stcm_menu_button {
-    font-size: 1em;
-    margin-left: 4px;
-}
 
 
 /* === Responsive / Media Queries === */
