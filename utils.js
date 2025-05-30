@@ -208,6 +208,8 @@ function mutateBogusFolderIcons(privateTagIds) {
             icon.classList.remove('fa-eye-slash', 'fa-eye');
             icon.classList.add('fa-user-lock'); // lock icon
         }
+            // Add custom CSS class for private folders
+    folderDiv.classList.add('stcm-private-folder');
     }
 
     // Mutate any existing folders immediately

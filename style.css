@@ -768,6 +768,15 @@
     white-space: pre-wrap;
 }
 
+/* Private Folder Styling */
+.stcm-private-folder {
+
+}
+
+.bogus_folder_select.stcm-private-folder .bogus_folder_avatars_block img {
+    filter: blur(7px);
+}
+
 /* PIN Management Area */
 #stcm-pin-form {
     display: flex;
