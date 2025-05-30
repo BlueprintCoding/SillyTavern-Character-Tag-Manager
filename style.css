@@ -265,6 +265,10 @@
     color: white;
 }
 
+#closeCharacterTagManagerModal {
+    margin-right: 0px!important;
+}
+
 .editTagIcon:hover {
     color: var(--accent-color, orange);
 }
