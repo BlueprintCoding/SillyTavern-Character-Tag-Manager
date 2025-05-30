@@ -536,10 +536,11 @@ function openCharacterTagManagerModal() {
 
 
     makeModalDraggable(document.getElementById('characterTagManagerModal'), document.querySelector('.stcm_modal_header'));
-    watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState);
 }
-
 const privateTagIds = new Set(/* array of private tag ids */);
+watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState);
+
+
 
 function getCurrentVisibilityState() {
     // Get current state (0, 1, 2) from localStorage, or from your UI
@@ -1243,7 +1244,7 @@ function confirmDeleteTag(tag) {
 }
 
 async function callSaveandReload() {
-    refreshPrivateFolderToggle();
+    updatePrivateFolderObservers();
     saveSettingsDebounced();
     await printCharactersDebounced();
 }
@@ -1448,12 +1449,24 @@ function refreshPrivateFolderToggle() {
     applyPrivateFolderVisibility(savedState, privateIds);
 }
 
+function updatePrivateFolderObservers() {
+    refreshPrivateFolderToggle();
+    const notes = getNotes();
+    const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
+    watchTagFilterBar(privateTagIds, (state) => {
+        applyPrivateFolderVisibility(state, privateTagIds);
+    });
+    watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState); // If you use this for folder icon/char blocks too
+}
+
+
 eventSource.on(event_types.APP_READY, () => {
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
     injectStcmSettingsPanel();    
-    refreshPrivateFolderToggle();    // private folder observer
+    // private folder observer
+    updatePrivateFolderObservers();
 
 });
 

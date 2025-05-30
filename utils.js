@@ -354,6 +354,24 @@ function watchCharacterBlockMutations(privateTagIds, getVisibilityState) {
     observer.observe(container, { childList: true, subtree: true });
 }
 
+/**
+ * Watches the tag filter bar row for mutations and always reinjects the private folder toggle if needed.
+ * @param {Set<string>} privateTagIds
+ * @param {function} onStateChange
+ */
+function watchTagFilterBar(privateTagIds, onStateChange) {
+    const tagRow = document.querySelector('.tags.rm_tag_filter');
+    if (!tagRow) return;
+
+    // Inject immediately (in case it is missing)
+    injectPrivateFolderToggle(privateTagIds, onStateChange);
+
+    // Observe for changes
+    const observer = new MutationObserver(() => {
+        injectPrivateFolderToggle(privateTagIds, onStateChange);
+    });
+    observer.observe(tagRow, { childList: true, subtree: false }); // just direct children
+}
 
 
 export { 
@@ -375,5 +393,6 @@ getFolderTypeForUI,
 mutateBogusFolderIcons, 
 applyPrivateFolderVisibility, 
 injectPrivateFolderToggle,
-watchCharacterBlockMutations
+watchCharacterBlockMutations,
+watchTagFilterBar
 };
