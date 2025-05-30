@@ -1,5 +1,5 @@
 // index.js
-import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap, buildTagMap } from './utils.js';
+import { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, getNotes, saveNotes, buildCharNameMap, buildTagMap, getFolderTypeForUI } from './utils.js';
 
 import {
     tags,
@@ -896,8 +896,10 @@ function renderCharacterTagData() {
         ];
 
 
-        const currentType = group.tag.folder_type || 'NONE';
-        const selectedOption = folderTypes.find(ft => ft.value === currentType);
+        const notes = getNotes();
+        const displayType = getFolderTypeForUI(group.tag, notes);   // << use this
+        const selectedOption = folderTypes.find(ft => ft.value === displayType);
+                
 
         const folderDropdownWrapper = document.createElement('div');
         folderDropdownWrapper.className = 'custom-folder-dropdown';
@@ -914,24 +916,16 @@ function renderCharacterTagData() {
 
         folderTypes.forEach(ft => {
             const opt = document.createElement('div');
-            opt.className = 'folder-option';
-            opt.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
-            opt.dataset.value = ft.value;
-            opt.title = ft.tooltip;
+            // ...same as before
             opt.addEventListener('click', () => {
-                // Always save as CLOSED for Private
                 if (ft.value === "PRIVATE") {
-                    group.tag.folder_type = "CLOSED";   // Save to real tag as CLOSED
-                    const notes = getNotes();
-                    if (!notes.tagPrivate) notes.tagPrivate = {};
+                    group.tag.folder_type = "CLOSED";
                     notes.tagPrivate[group.tag.id] = true;
                     saveNotes(notes);
                     debouncePersist();
                 } else {
                     group.tag.folder_type = ft.value;
-                    // Remove private flag if not PRIVATE
-                    const notes = getNotes();
-                    if (notes.tagPrivate && notes.tagPrivate[group.tag.id]) {
+                    if (notes.tagPrivate?.[group.tag.id]) {
                         delete notes.tagPrivate[group.tag.id];
                         saveNotes(notes);
                         debouncePersist();
@@ -941,6 +935,7 @@ function renderCharacterTagData() {
                 folderSelected.title = ft.tooltip;
                 folderOptionsList.style.display = 'none';
                 callSaveandReload();
+                renderCharacterTagData(); 
             });
             folderOptionsList.appendChild(opt);
         });
@@ -987,28 +982,6 @@ function renderCharacterTagData() {
         
 
         folderWrapper.appendChild(infoIcon);
-
-        // After creating header, folderWrapper, etc
-        const privateCheckbox = document.createElement('input');
-        privateCheckbox.type = 'checkbox';
-        privateCheckbox.className = 'private-folder-checkbox';
-        privateCheckbox.checked = getNotes().tagPrivate?.[tagId] || false;
-        privateCheckbox.title = "Mark this folder as private (not exported/shared)";
-
-        privateCheckbox.addEventListener('change', () => {
-            // Save to notes
-            const notes = getNotes();
-            if (!notes.tagPrivate) notes.tagPrivate = {};
-            notes.tagPrivate[tagId] = privateCheckbox.checked;
-            saveNotes(notes);
-            debouncePersist();
-        });
-
-        const privateLabel = document.createElement('label');
-        privateLabel.appendChild(privateCheckbox);
-        privateLabel.appendChild(document.createTextNode(' Private Folder'));
-        folderWrapper.appendChild(privateLabel);
-
 
         const showBtn = document.createElement('button');
         showBtn.textContent = 'Characters';
