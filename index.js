@@ -185,6 +185,14 @@ function openCharacterTagManagerModal() {
     document.body.appendChild(overlay);
     resetModalScrollPositions();
 
+    function escToCloseHandler(e) {
+        if (e.key === "Escape") {
+            overlay.remove();
+            document.removeEventListener('keydown', escToCloseHandler);
+        }
+    }
+    document.addEventListener('keydown', escToCloseHandler);
+
     // Accordion toggle behavior
     overlay.querySelectorAll('.accordionToggle').forEach(button => {
         button.addEventListener('click', () => {
@@ -288,6 +296,8 @@ function openCharacterTagManagerModal() {
     document.getElementById('closeCharacterTagManagerModal').addEventListener('click', () => {
         resetModalScrollPositions();
         overlay.remove();
+        document.removeEventListener('keydown', escToCloseHandler);
+
     });
 
     document.getElementById('tagSortMode').addEventListener('change', () => {
