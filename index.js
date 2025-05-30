@@ -23,12 +23,12 @@ watchTagFilterBar
 import {
     tags,
     tag_map,
+    printTagList,
 } from "../../../tags.js";
 
 import {
     characters,
     getCharacters,
-    printTagFilters,
     printCharactersDebounced,
     saveSettingsDebounced,
 } from "../../../../script.js";
@@ -1274,7 +1274,7 @@ function confirmDeleteTag(tag) {
 async function callSaveandReload() {
     updatePrivateFolderObservers();
     saveSettingsDebounced();
-    printTagFilters();
+    printTagList();
     await getCharacters();
     await printCharactersDebounced();
 }
