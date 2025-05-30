@@ -881,24 +881,28 @@ function renderCharacterTagData() {
             // DO NOT call callSaveandReload() or renderCharacterTagData() here!
         });
 
-    // Background color picker (final/persist)
-    bgPicker.addEventListener('change:end', async e => {
-        if (initializing) return;
-        let newColor = e.detail?.rgba ?? e.target.color;
-        newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-        const tag = tags.find(t => t.id === group.tag.id);
-        if (tag) tag.color = newColor.trim();
-
-        await callSaveandReload();
-        renderCharacterList();
-        renderCharacterTagData();
-        // Update native SillyTavern tag filter bar if available
-        if (typeof printTagFilters === 'function') {
-            printTagFilters(0);
-            printTagFilters(1); // group tag bar, if needed
-        }
+        bgPicker.addEventListener('change:end', async e => {
+            if (initializing) return;
+            const tagId = group.tag.id;
+            const tag = tags.find(t => t.id === tagId);
+            let newColor = e.detail?.rgba ?? e.target.color;
+            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
+            if (!tag) return;
         
-    });
+            tag.color = newColor.trim();
+        
+            // Trigger "rename" workflow with the same name
+            const oldName = tag.name;
+            const newName = tag.name;
+        
+            if (newName && newName === oldName) {
+                tag.name = newName;
+                await callSaveandReload();
+                renderCharacterList();
+                renderCharacterTagData();
+            }
+        });
+        
 
     // Foreground color picker (live preview for local swatch)
     fgPicker.addEventListener('change', e => {
@@ -915,25 +919,31 @@ function renderCharacterTagData() {
         if (tagSwatch) tagSwatch.style.color = tag.color2;
     });
 
-    // Foreground color picker (final/persist)
     fgPicker.addEventListener('change:end', async e => {
         if (initializing) return;
+        const tagId = group.tag.id;
+        const tag = tags.find(t => t.id === tagId);
         let newColor = e.detail?.rgba ?? e.target.color;
         newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-        const tag = tags.find(t => t.id === group.tag.id);
-        if (tag) tag.color2 = newColor.trim();
-
-        await callSaveandReload();
-        renderCharacterList();
-        renderCharacterTagData();
-        // Update native SillyTavern tag filter bar if available
-        if (typeof printTagFilters === 'function') {
-            printTagFilters(0);
-            printTagFilters(1); // group tag bar, if needed
+        if (!tag) return;
+    
+        // Set the new color
+        tag.color2 = newColor.trim();
+    
+        // --- Simulate a rename to the *same* name to trigger all the right updates ---
+        // (This matches your existing rename logic for name changes)
+        const oldName = tag.name;
+        const newName = tag.name; // no actual change
+    
+        if (newName && newName === oldName) {
+            // This block forces the "rename" workflow
+            tag.name = newName; // stays the same
+            await callSaveandReload();
+            renderCharacterList();
+            renderCharacterTagData();
         }
-        
     });
-
+    
         // Wait until next tick to allow any initial value propagations
         setTimeout(() => {
             initializing = false;
