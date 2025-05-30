@@ -881,40 +881,46 @@ function renderCharacterTagData() {
             // DO NOT call callSaveandReload() or renderCharacterTagData() here!
         });
 
-        // Do the real update only at the end:
-        bgPicker.addEventListener('change:end', async e => {
-            if (initializing) return;
-            let newColor = e.detail?.rgba ?? e.target.color;
-            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-            group.tag.color = newColor.trim();
-        
-            // (Force) Save and redraw after setting color
-            await callSaveandReload();
-            renderCharacterList();
-            renderCharacterTagData();
-        });
-        
+    // Background color picker (final/persist)
+    bgPicker.addEventListener('change:end', async e => {
+        if (initializing) return;
+        let newColor = e.detail?.rgba ?? e.target.color;
+        newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
+        const tag = tags.find(t => t.id === group.tag.id);
+        if (tag) tag.color = newColor.trim();
 
-        // ---- Foreground/Text Color (fgPicker) ----
-        fgPicker.addEventListener('change', e => {
-            if (initializing) return;
-            let newColor = e.detail?.rgba ?? e.target.color;
-            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-            group.tag.color2 = newColor.trim();
+        await callSaveandReload();
+        renderCharacterList();
+        renderCharacterTagData();
+    });
 
-            // Fast: Just update the visual swatch
-            const tagSwatch = header.querySelector('.tagNameText');
-            if (tagSwatch) tagSwatch.style.color = group.tag.color2;
-            // NO save/re-render here
-        });
+    // Foreground color picker (live preview for local swatch)
+    fgPicker.addEventListener('change', e => {
+        if (initializing) return;
+        let newColor = e.detail?.rgba ?? e.target.color;
+        newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
 
-        fgPicker.addEventListener('change:end', e => {
-            if (initializing) return;
-            callSaveandReload();
-            renderCharacterList();  
-            renderCharacterTagData();
-        });
+        // Update the real tag object for immediate UI feedback in modal
+        const tag = tags.find(t => t.id === group.tag.id);
+        if (tag) tag.color2 = newColor.trim();
 
+        // Only update modal swatch here (no save yet)
+        const tagSwatch = header.querySelector('.tagNameText');
+        if (tagSwatch) tagSwatch.style.color = tag.color2;
+    });
+
+    // Foreground color picker (final/persist)
+    fgPicker.addEventListener('change:end', async e => {
+        if (initializing) return;
+        let newColor = e.detail?.rgba ?? e.target.color;
+        newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
+        const tag = tags.find(t => t.id === group.tag.id);
+        if (tag) tag.color2 = newColor.trim();
+
+        await callSaveandReload();
+        renderCharacterList();
+        renderCharacterTagData();
+    });
 
         // Wait until next tick to allow any initial value propagations
         setTimeout(() => {
@@ -1157,7 +1163,7 @@ function renderCharacterTagData() {
                     tag.name = newName;
                     callSaveandReload();
                     renderCharacterList();
-                    renderCharacterTagData(); // ✅ Immediately refresh UI
+                    renderCharacterTagData(); 
                 } else {
                     // If unchanged or invalid, just restore display
                     container.replaceChild(strong, input);
