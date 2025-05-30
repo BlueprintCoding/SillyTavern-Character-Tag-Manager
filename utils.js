@@ -2,6 +2,7 @@
 import { uploadFileAttachment, getFileAttachment,  } from '../../../chats.js';
 import { injectTagManagerControlButton } from "./index.js";
 
+
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
 
 
@@ -115,22 +116,24 @@ function getNotes() {
         return {
             charNotes: data.charNotes || {},
             tagNotes: data.tagNotes || {},
-            tagPrivate: data.tagPrivate || {},   // <-- add this line!
+            tagPrivate: data.tagPrivate || {},
+            tagPrivatePin: data.tagPrivatePin || ""    // <-- add this!
         };
     } catch {
-        return { charNotes: {}, tagNotes: {}, tagPrivate: {} };
+        return { charNotes: {}, tagNotes: {}, tagPrivate: {}, tagPrivatePin: "" };
     }
 }
 
 
 function saveNotes(notes) {
-    // Always save tagPrivate as part of the notes structure!
     localStorage.setItem('stcm_notes_cache', JSON.stringify({
         charNotes: notes.charNotes || {},
         tagNotes: notes.tagNotes || {},
-        tagPrivate: notes.tagPrivate || {},    // <-- add this line!
+        tagPrivate: notes.tagPrivate || {},
+        tagPrivatePin: notes.tagPrivatePin || ""     // <-- add this!
     }));
 }
+
 
 async function persistNotesToFile() {
     const raw = getNotes();
@@ -261,12 +264,27 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     render();
 
     btn.addEventListener('click', () => {
-        state = (state + 1) % 3;
+        let nextState = (state + 1) % 3;
+        // Only require PIN if unlocking (showing private folders) and PIN is set
+        if (nextState > 0) {
+            const notes = getNotes();
+            const pin = notes.tagPrivatePin;
+            if (pin && sessionStorage.getItem("stcm_pin_okay") !== "1") {
+                // Prompt user for PIN
+                const userPin = prompt("Enter PIN to view private folders:");
+                if (userPin !== pin) {
+                    alert("Incorrect PIN.");
+                    return; // Don't allow
+                }
+                sessionStorage.setItem("stcm_pin_okay", "1"); // Allow for this session
+            }
+        }
+        state = nextState;
         localStorage.setItem(stateKey, state);
         render();
-        onStateChange(state); // Callback to perform actual filtering/mutation
+        onStateChange(state);
     });
-
+    
     // Insert after the Character/Tag Manager icon
     mgrBtn.insertAdjacentElement('afterend', btn);
 }
