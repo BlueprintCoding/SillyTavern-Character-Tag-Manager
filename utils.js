@@ -135,7 +135,7 @@ function saveNotes(notes) {
         charNotes: notes.charNotes || {},
         tagNotes: notes.tagNotes || {},
         tagPrivate: notes.tagPrivate || {},
-        tagPrivatePinHash: data.tagPrivatePinHash || ""    // <-- use this!
+        tagPrivatePinHash: notes.tagPrivatePinHash || ""    // <-- use this!
     }));
 }
 

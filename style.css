@@ -791,7 +791,7 @@
     margin-right: 0.5em;
     outline: none;
     transition: border 0.14s;
-    width: 100%;
+    width: 100%!important;
 }
 
 #stcm-pin-form input[type="password"]:focus {
