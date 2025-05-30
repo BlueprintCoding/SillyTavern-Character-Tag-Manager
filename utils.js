@@ -1,6 +1,9 @@
 // utils.js
 import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
 
+let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
+
+
 function debounce(fn, delay = 200) {
     let timer;
     return (...args) => {
@@ -214,13 +217,16 @@ function mutateBogusFolderIcons(privateTagIds) {
 
 function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     // Only show if any private folders exist
-
     const tagRow = document.querySelector('.tags.rm_tag_filter');
     const mgrBtn = document.querySelector('#characterTagManagerControlButton');
     if (!tagRow || !mgrBtn) return;
 
-    // Don't add twice
-    if (document.getElementById('privateFolderVisibilityToggle')) return;
+    // REMOVE existing toggle if present
+    const oldToggle = document.getElementById('privateFolderVisibilityToggle');
+    if (oldToggle) oldToggle.remove();
+
+    // Don't add if no private folders
+    if (!privateTagIds.size) return;
 
     // Three states: 0 = Locked, 1 = Unlocked, 2 = Private only
     let state = 0;
@@ -363,14 +369,20 @@ function watchTagFilterBar(privateTagIds, onStateChange) {
     const tagRow = document.querySelector('.tags.rm_tag_filter');
     if (!tagRow) return;
 
-    // Inject immediately (in case it is missing)
+    // Disconnect existing observer if it exists
+    if (tagFilterBarObserver) {
+        tagFilterBarObserver.disconnect();
+        tagFilterBarObserver = null;
+    }
+
+    // Inject toggle immediately (in case missing)
     injectPrivateFolderToggle(privateTagIds, onStateChange);
 
-    // Observe for changes
-    const observer = new MutationObserver(() => {
+    // Create new observer and store it
+    tagFilterBarObserver = new MutationObserver(() => {
         injectPrivateFolderToggle(privateTagIds, onStateChange);
     });
-    observer.observe(tagRow, { childList: true, subtree: false }); // just direct children
+    tagFilterBarObserver.observe(tagRow, { childList: true, subtree: false });
 }
 
 
