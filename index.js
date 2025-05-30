@@ -867,51 +867,107 @@ function renderCharacterTagData() {
         // NEW: prevent initial 'change' from clobbering saved colors
         let initializing = true;
 
+        // --- 1. Prepare tracking for pending color ---
+        let pendingBgColor = group.tag.color;  // initial value
+        let pendingFgColor = group.tag.color2;
 
+        // --- 2. Listen for color changes, but DON'T save yet ---
+        bgPicker.addEventListener('change', e => {
+            if (initializing) return;
+            let newColor = e.detail?.rgba ?? e.target.color;
+            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
+            pendingBgColor = newColor.trim();
 
-    // Debounced persist/save handler (shared by bg and fg)
-    const debouncedColorSave = debounce(() => {
-        callSaveandReload();
-        renderCharacterList();
-        renderCharacterTagData();
-    }, 250); // 250ms is a good default
+            // Update preview only
+            const tagSwatch = header.querySelector('.tagNameText');
+            if (tagSwatch) tagSwatch.style.backgroundColor = pendingBgColor;
+        });
 
-    // Background color picker
-    bgPicker.addEventListener('change', e => {
-        if (initializing) return;
-        let newColor = e.detail?.rgba ?? e.target.color;
-        newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
+        // Same for FG
+        fgPicker.addEventListener('change', e => {
+            if (initializing) return;
+            let newColor = e.detail?.rgba ?? e.target.color;
+            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
+            pendingFgColor = newColor.trim();
 
-        // Update tag object
-        group.tag.color = newColor.trim();
+            const tagSwatch = header.querySelector('.tagNameText');
+            if (tagSwatch) tagSwatch.style.color = pendingFgColor;
+        });
 
-        // Update preview
-        const tagSwatch = header.querySelector('.tagNameText');
-        if (tagSwatch) tagSwatch.style.backgroundColor = group.tag.color;
+        // --- 3. Observe popup closing and commit color ---
+        // Utility: Is a node the ToolCool popup?
+        function isToolCoolPopup(node) {
+            return node && node.classList && node.classList.contains('tc-popup');
+        }
 
-        // Debounced save & UI update (does everything the rename workflow does!)
-        debouncedColorSave();
-    });
+        // Attach one observer for both pickers (if desired, you could split)
+        function observePopupClose(picker, commitFn) {
+            let popupParent = document.body;  // ToolCool attaches to body
 
-    // Foreground color picker
-    fgPicker.addEventListener('change', e => {
-        if (initializing) return;
-        let newColor = e.detail?.rgba ?? e.target.color;
-        newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
+            const observer = new MutationObserver((mutations) => {
+                for (const mut of mutations) {
+                    for (const removed of mut.removedNodes) {
+                        if (isToolCoolPopup(removed)) {
+                            commitFn();
+                        }
+                    }
+                }
+            });
 
-        // Update tag object
-        const tag = tags.find(t => t.id === group.tag.id);
-        if (tag) tag.color2 = newColor.trim();
+            observer.observe(popupParent, { childList: true });
 
-        // Update preview
-        const tagSwatch = header.querySelector('.tagNameText');
-        if (tagSwatch) tagSwatch.style.color = tag.color2;
+            // Clean up observer when modal closes (optional/defensive)
+            // Return cleanup for later if you want.
+            return observer;
+        }
 
-        // Debounced save & UI update (does everything the rename workflow does!)
-        debouncedColorSave();
-    });
+        // --- 4. Attach to both pickers ---
+        // Open popup to ensure .tc-popup is created, then attach observer.
+        // (If you want to be *sure* the observer is attached before popup opens, you can do this on click/focus)
+        bgPicker.addEventListener('focus', () => {
+            observePopupClose(bgPicker, async () => {
+                // Only commit if changed
+                if (group.tag.color !== pendingBgColor) {
+                    group.tag.color = pendingBgColor;
+                    await callSaveandReload();
+                    renderCharacterList();
+                    renderCharacterTagData();
+                }
+            });
+        });
+        fgPicker.addEventListener('focus', () => {
+            observePopupClose(fgPicker, async () => {
+                if (group.tag.color2 !== pendingFgColor) {
+                    group.tag.color2 = pendingFgColor;
+                    await callSaveandReload();
+                    renderCharacterList();
+                    renderCharacterTagData();
+                }
+            });
+        });
 
-    
+        // Defensive: also allow click to open (if keyboard not used)
+        bgPicker.addEventListener('click', () => {
+            observePopupClose(bgPicker, async () => {
+                if (group.tag.color !== pendingBgColor) {
+                    group.tag.color = pendingBgColor;
+                    await callSaveandReload();
+                    renderCharacterList();
+                    renderCharacterTagData();
+                }
+            });
+        });
+        fgPicker.addEventListener('click', () => {
+            observePopupClose(fgPicker, async () => {
+                if (group.tag.color2 !== pendingFgColor) {
+                    group.tag.color2 = pendingFgColor;
+                    await callSaveandReload();
+                    renderCharacterList();
+                    renderCharacterTagData();
+                }
+            });
+        });
+
         // Wait until next tick to allow any initial value propagations
         setTimeout(() => {
             initializing = false;
