@@ -214,7 +214,6 @@ function mutateBogusFolderIcons(privateTagIds) {
 
 function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     // Only show if any private folders exist
-    if (!privateTagIds.size) return;
 
     const tagRow = document.querySelector('.tags.rm_tag_filter');
     const mgrBtn = document.querySelector('#characterTagManagerControlButton');
@@ -308,6 +307,28 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
             div.style.display = '';
         }
     });
+        // Handle group entity blocks (hide when private only mode)
+        document.querySelectorAll('.group_select.entity_block').forEach(div => {
+            if (state === 2) {
+                // Same logic: is this group inside a private folder?
+                let inPrivateFolder = false;
+                let parent = div.parentElement;
+                while (parent) {
+                    if (parent.classList && parent.classList.contains('bogus_folder_select')) {
+                        const tagid = parent.getAttribute('tagid');
+                        if (privateTagIds.has(tagid)) {
+                            inPrivateFolder = true;
+                            break;
+                        }
+                    }
+                    parent = parent.parentElement;
+                }
+                div.style.display = inPrivateFolder ? '' : 'none';
+            } else {
+                div.style.display = '';
+            }
+        });
+    
 }
 
 
