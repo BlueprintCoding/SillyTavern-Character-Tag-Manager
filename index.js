@@ -196,12 +196,6 @@ function openCharacterTagManagerModal() {
     }
 
 
-            // When entering bulk delete mode:
-        document.getElementById('confirmBulkDeleteTags').style.display = '';
-
-        // When leaving/canceling bulk delete:
-        document.getElementById('confirmBulkDeleteTags').style.display = 'none';
-
         document.getElementById('confirmBulkDeleteTags').addEventListener('click', async () => {
             if (!selectedBulkDeleteTags.size) {
                 toastr.warning("No tags selected.", "Bulk Delete");
@@ -346,6 +340,7 @@ function openCharacterTagManagerModal() {
         selectedBulkDeleteTags.clear();
         document.getElementById('startBulkDeleteTags').style.display = 'none';
         document.getElementById('cancelBulkDeleteTags').style.display = '';
+        document.getElementById('confirmBulkDeleteTags').style.display = '';
         renderCharacterTagData();
     });
     
@@ -354,6 +349,7 @@ function openCharacterTagManagerModal() {
         selectedBulkDeleteTags.clear();
         document.getElementById('startBulkDeleteTags').style.display = '';
         document.getElementById('cancelBulkDeleteTags').style.display = 'none';
+        document.getElementById('confirmBulkDeleteTags').style.display = 'none';
         renderCharacterTagData();
     });
     
@@ -1027,13 +1023,16 @@ function renderCharacterTagData() {
 
     if (isBulkDeleteMode) {
         header.querySelectorAll('.bulkDeleteTagCheckbox').forEach(cb => {
+            // Use .value because that's the tagId
             cb.addEventListener('change', () => {
                 if (cb.checked) selectedBulkDeleteTags.add(cb.value);
                 else selectedBulkDeleteTags.delete(cb.value);
             });
+            // Restore checked state from the Set (for good measure)
+            cb.checked = selectedBulkDeleteTags.has(cb.value);
         });
     }
-
+    
     
     if (isMergeMode) {
         document.querySelectorAll('input[name="mergePrimary"]').forEach(el => {
