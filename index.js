@@ -892,6 +892,10 @@ function renderCharacterTagData() {
         await callSaveandReload();
         renderCharacterList();
         renderCharacterTagData();
+        // Update native SillyTavern tag filter bar if available
+        if (typeof printTagList === 'function') {
+            printTagList($('.rm_tag_filter'));
+        }
     });
 
     // Foreground color picker (live preview for local swatch)
@@ -920,6 +924,10 @@ function renderCharacterTagData() {
         await callSaveandReload();
         renderCharacterList();
         renderCharacterTagData();
+        // Update native SillyTavern tag filter bar if available
+        if (typeof printTagList === 'function') {
+            printTagList($('.rm_tag_filter'));
+        }
     });
 
         // Wait until next tick to allow any initial value propagations
