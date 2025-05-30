@@ -225,6 +225,14 @@ function openCharacterTagManagerModal() {
                 const index = tags.findIndex(t => t.id === tagId);
                 if (index !== -1) tags.splice(index, 1);
             }
+            for (const tagId of selectedBulkDeleteTags) {
+                // ...your existing logic...
+                if (notes.tagPrivate && notes.tagPrivate[tagId]) {
+                    delete notes.tagPrivate[tagId];
+                }
+            }
+
+            saveNotes(notes);
             toastr.success(`Deleted ${selectedBulkDeleteTags.size} tag(s): ${tagNames.join(', ')}`, 'Bulk Delete');
             isBulkDeleteMode = false;
             selectedBulkDeleteTags.clear();
@@ -878,6 +886,12 @@ function renderCharacterTagData() {
                 label: 'Closed Folder',
                 icon: 'fa-folder-closed',
                 tooltip: 'Closed Folder (Hide all characters unless selected)'
+            },
+            {
+                value: 'PRIVATE',
+                label: 'Private Folder',
+                icon: 'fa-user-lock',
+                tooltip: 'Private Folder (Visible only to you; not shared or exported unless specified)'
             }
         ];
 
@@ -903,17 +917,34 @@ function renderCharacterTagData() {
             opt.className = 'folder-option';
             opt.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
             opt.dataset.value = ft.value;
-            opt.title = ft.tooltip;  // 🔥 Tooltip here
+            opt.title = ft.tooltip;
             opt.addEventListener('click', () => {
-                group.tag.folder_type = ft.value;
+                // Always save as CLOSED for Private
+                if (ft.value === "PRIVATE") {
+                    group.tag.folder_type = "CLOSED";   // Save to real tag as CLOSED
+                    const notes = getNotes();
+                    if (!notes.tagPrivate) notes.tagPrivate = {};
+                    notes.tagPrivate[group.tag.id] = true;
+                    saveNotes(notes);
+                    debouncePersist();
+                } else {
+                    group.tag.folder_type = ft.value;
+                    // Remove private flag if not PRIVATE
+                    const notes = getNotes();
+                    if (notes.tagPrivate && notes.tagPrivate[group.tag.id]) {
+                        delete notes.tagPrivate[group.tag.id];
+                        saveNotes(notes);
+                        debouncePersist();
+                    }
+                }
                 folderSelected.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
-                folderSelected.title = ft.tooltip;  // 🔥 Update selected's tooltip
+                folderSelected.title = ft.tooltip;
                 folderOptionsList.style.display = 'none';
                 callSaveandReload();
             });
             folderOptionsList.appendChild(opt);
         });
-
+        
 
         folderSelected.addEventListener('click', () => {
             folderOptionsList.style.display = folderOptionsList.style.display === 'none' ? 'block' : 'none';
@@ -953,9 +984,30 @@ function renderCharacterTagData() {
             e.stopPropagation();
             showFolderInfoPopup(infoIcon);
         });
+        
 
         folderWrapper.appendChild(infoIcon);
 
+        // After creating header, folderWrapper, etc
+        const privateCheckbox = document.createElement('input');
+        privateCheckbox.type = 'checkbox';
+        privateCheckbox.className = 'private-folder-checkbox';
+        privateCheckbox.checked = getNotes().tagPrivate?.[tagId] || false;
+        privateCheckbox.title = "Mark this folder as private (not exported/shared)";
+
+        privateCheckbox.addEventListener('change', () => {
+            // Save to notes
+            const notes = getNotes();
+            if (!notes.tagPrivate) notes.tagPrivate = {};
+            notes.tagPrivate[tagId] = privateCheckbox.checked;
+            saveNotes(notes);
+            debouncePersist();
+        });
+
+        const privateLabel = document.createElement('label');
+        privateLabel.appendChild(privateCheckbox);
+        privateLabel.appendChild(document.createTextNode(' Private Folder'));
+        folderWrapper.appendChild(privateLabel);
 
 
         const showBtn = document.createElement('button');
@@ -1128,6 +1180,7 @@ function showFolderInfoPopup(anchorEl) {
             <li><b>No Folder:</b> Tag behaves as a regular label, no grouping.</li>
             <li><b>Open Folder:</b> Tag acts as a folder. All characters with this tag are always visible and grouped together.</li>
             <li><b>Closed Folder:</b> Tag acts as a collapsed folder. Characters with this tag are hidden unless you open this folder.</li>
+            <li><b>Private Folder:</b> <span style="color:#c77600;">Visible only to you; not exported/shared unless explicitly selected. (Only works with this extension)</span></li>
         </ul>
         <div style="margin-top: 8px; font-size: 0.95em;">
             <em>You can assign multiple folders per character, and folders can be stacked!</em>
@@ -1173,6 +1226,12 @@ function confirmDeleteTag(tag) {
             if (Array.isArray(tagList)) {
                 tag_map[charId] = tagList.filter(tid => tid !== tag.id);
             }
+        }
+
+        const notes = getNotes();
+        if (notes.tagPrivate && notes.tagPrivate[tag.id]) {
+            delete notes.tagPrivate[tag.id];
+            saveNotes(notes);
         }
 
         const index = tags.findIndex(t => t.id === tag.id);
@@ -1286,6 +1345,7 @@ function exportTagCharacterNotes() {
     // Only keep tagNotes and charNotes for the export
     const exportData = {
         tagNotes: notes.tagNotes || {},
+        tagPrivate: notes.tagPrivate || {},
         charNotes: notes.charNotes || {}
     };
     const json = JSON.stringify(exportData, null, 2);
@@ -1305,12 +1365,13 @@ async function handleNotesImport(importData) {
     }
     const notes = getNotes ? getNotes() : {};
     const tagNotes = notes.tagNotes || {};
+    const tagPrivate = notes.tagPrivate || {};
     const charNotes = notes.charNotes || {};
 
     let conflicts = [];
-    let newNotes = { tagNotes: {}, charNotes: {} };
+    let newNotes = { tagNotes: {}, tagPrivate: {}, charNotes: {} };
 
-    // Tags
+    // Tags notes
     for (const [tagId, note] of Object.entries(importData.tagNotes || {})) {
         if (tags.find(t => t.id === tagId)) {
             if (tagNotes[tagId] && tagNotes[tagId] !== note) {
@@ -1320,6 +1381,18 @@ async function handleNotesImport(importData) {
             }
         }
     }
+
+        // Tags (Private flags)
+        for (const [tagId, isPrivate] of Object.entries(importData.tagPrivate || {})) {
+            if (tags.find(t => t.id === tagId)) {
+                // Only set if not already set, or to preserve a new import as True
+                // You could also show a conflict dialog here if you want
+                if (!tagPrivate[tagId] || isPrivate === true) {
+                    newNotes.tagPrivate[tagId] = isPrivate;
+                }
+            }
+        }
+
     // Characters (robust match: avatar, avatar basename, and optionally name)
     for (const [importKey, note] of Object.entries(importData.charNotes || {})) {
         let match = characters.find(c => c.avatar === importKey);
@@ -1352,7 +1425,8 @@ async function handleNotesImport(importData) {
         // Apply new notes
         Object.assign(tagNotes, newNotes.tagNotes);
         Object.assign(charNotes, newNotes.charNotes);
-        saveNotes({ ...notes, tagNotes, charNotes });
+        Object.assign(tagPrivate, newNotes.tagPrivate);  // <-- Merge private flags
+        saveNotes({ ...notes, tagNotes, charNotes, tagPrivate }); // <-- Save with tagPrivate
         await debouncePersist();
         renderCharacterList();
         renderCharacterTagData();
@@ -1451,6 +1525,7 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     // Apply selected conflicts
     const notes = getNotes ? getNotes() : {};
     const tagNotes = notes.tagNotes || {};
+    const tagPrivate = notes.tagPrivate || {};
     const charNotes = notes.charNotes || {};
 
     conflicts.forEach((conflict, idx) => {
