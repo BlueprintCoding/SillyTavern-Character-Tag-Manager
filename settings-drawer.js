@@ -1,5 +1,5 @@
 //settings-drawer.js
-import { eventSource, event_types, saveSettingsDebounced } from '../../../../script.js';
+import { saveSettingsDebounced } from '../../../../script.js';
 import { extension_settings } from '../../../extensions.js';
 // index.js
 import { 
@@ -14,7 +14,8 @@ const MODULE_NAME = 'characterTagManager';
 const defaultSettings = {
     showDefaultTagManager: true,
     showWelcomeRecentChats: true,
-    showTopBarIcon: true   // NEW: show icon in top bar
+    showTopBarIcon: true,
+    blurPrivatePreviews: false
 };
 
 
@@ -55,6 +56,10 @@ function createStcmSettingsPanel() {
                     <span>Show Welcome Screen Recent Chats</span>
                 </label>
                 <hr style="margin: 1em 0;">
+                <label style="display:flex;align-items:center;gap:8px;margin:8px 0 0 0;">
+                    <input type="checkbox" id="stcm--blurPrivatePreviews"/>
+                    <span>Blur Private Photo Character Previews</span>
+                </label>
                 <div style="margin-bottom: 0.7em;"><b>Private Folder PIN/Password</b></div>
                 <div id="stcm-pin-form">
                     <div id="stcm-pin-current-row">
@@ -75,6 +80,18 @@ function createStcmSettingsPanel() {
     `;
 
     // Checkbox logic
+
+    const checkboxBlur = panel.querySelector('#stcm--blurPrivatePreviews');
+    if (checkboxBlur) {
+        checkboxBlur.checked = getSettings().blurPrivatePreviews;
+        checkboxBlur.addEventListener('change', (e) => {
+            getSettings().blurPrivatePreviews = e.target.checked;
+            saveSettingsDebounced();
+            updateBlurPrivatePreviews(e.target.checked);
+        });
+    }
+
+
     const checkboxTag = panel.querySelector('#stcm--showDefaultTagManager');
     if (checkboxTag) {
         checkboxTag.checked = getSettings().showDefaultTagManager;
@@ -206,7 +223,7 @@ export function injectStcmSettingsPanel() {
     updateDefaultTagManagerVisibility(getSettings().showDefaultTagManager);
     updateRecentChatsVisibility(getSettings().showWelcomeRecentChats);
     updateTopBarIconVisibility(getSettings().showTopBarIcon);
-
+    updateBlurPrivatePreviews(getSettings().blurPrivatePreviews);
 }
 
 export function updateDefaultTagManagerVisibility(isVisible = true) {
@@ -232,4 +249,20 @@ export function updateTopBarIconVisibility(isVisible = true) {
     // Adjust your selector if the ID/class is different in your implementation!
     const icon = document.getElementById('characterTagManagerToggle');
     if (icon) icon.style.display = isVisible ? '' : 'none';
+}
+
+export function updateBlurPrivatePreviews(isBlur = false) {
+    let styleEl = document.getElementById('stcm-blur-private-previews');
+    if (!styleEl && isBlur) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'stcm-blur-private-previews';
+        styleEl.textContent = `
+            .bogus_folder_select.stcm-private-folder .bogus_folder_avatars_block img {
+                filter: blur(2px) !important;
+            }
+        `;
+        document.head.appendChild(styleEl);
+    } else if (styleEl && !isBlur) {
+        styleEl.remove();
+    }
 }
