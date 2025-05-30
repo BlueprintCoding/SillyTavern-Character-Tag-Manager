@@ -1234,6 +1234,7 @@ function confirmDeleteTag(tag) {
 }
 
 async function callSaveandReload() {
+    refreshPrivateFolderToggle();
     saveSettingsDebounced();
     await printCharactersDebounced();
 }
@@ -1423,29 +1424,28 @@ async function handleNotesImport(importData) {
     }
 }
 
+function refreshPrivateFolderToggle() {
+    const notes = getNotes();
+    const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
+    mutateBogusFolderIcons(privateIds);
+
+    // Set up the toggle if there are private folders
+    injectPrivateFolderToggle(privateIds, (state) => {
+        applyPrivateFolderVisibility(state, privateIds);
+    });
+
+    // Optionally, set visibility on load (if persisting state)
+    const savedState = Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
+    applyPrivateFolderVisibility(savedState, privateIds);
+}
 
 eventSource.on(event_types.APP_READY, () => {
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
     injectStcmSettingsPanel();    
-    // private folder observer
-    function refreshPrivateFolderToggle() {
-        const notes = getNotes();
-        const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
-        mutateBogusFolderIcons(privateIds);
+    refreshPrivateFolderToggle();    // private folder observer
 
-        // Set up the toggle if there are private folders
-        injectPrivateFolderToggle(privateIds, (state) => {
-            applyPrivateFolderVisibility(state, privateIds);
-        });
-
-        // Optionally, set visibility on load (if persisting state)
-        const savedState = Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
-        applyPrivateFolderVisibility(savedState, privateIds);
-    }
-
-    refreshPrivateFolderToggle();
 });
 
 async function showNotesConflictDialog(conflicts, newNotes, importData) {

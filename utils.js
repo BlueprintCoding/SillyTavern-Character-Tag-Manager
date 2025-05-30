@@ -268,25 +268,46 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
 
 
 /**
- * Controls folder/character visibility based on toggle
+ * Controls folder/character visibility based on toggle.
  * @param {number} state 0=hide private, 1=show all, 2=only private
- * @param {Set<string>} privateTagIds
+ * @param {Set<string>} privateTagIds Set of private tag IDs
  */
 function applyPrivateFolderVisibility(state, privateTagIds) {
-    // Folders: .bogus_folder_select with tagid
+    // Handle bogus folder divs
     document.querySelectorAll('.bogus_folder_select').forEach(div => {
         const isPrivate = privateTagIds.has(div.getAttribute('tagid'));
         if (state === 0) { // Locked
             div.style.display = isPrivate ? 'none' : '';
-        } else if (state === 1) { // Unlocked (show all)
+        } else if (state === 1) { // Unlocked
             div.style.display = '';
         } else if (state === 2) { // Private only
             div.style.display = isPrivate ? '' : 'none';
         }
     });
 
-    // Characters not in any folder? You may want to hide those too in private-only mode.
-    // If you want, add logic to hide/show those elements as well.
+    // Handle main character blocks
+    document.querySelectorAll('.character_select.entity_block').forEach(div => {
+        // If in private-only, HIDE any character not in a private folder
+        if (state === 2) {
+            // A character block is considered "in a private folder" if any ancestor .bogus_folder_select with matching privateTagIds exists
+            let inPrivateFolder = false;
+            let parent = div.parentElement;
+            while (parent) {
+                if (parent.classList && parent.classList.contains('bogus_folder_select')) {
+                    const tagid = parent.getAttribute('tagid');
+                    if (privateTagIds.has(tagid)) {
+                        inPrivateFolder = true;
+                        break;
+                    }
+                }
+                parent = parent.parentElement;
+            }
+            div.style.display = inPrivateFolder ? '' : 'none';
+        } else {
+            // Show all character blocks in other states
+            div.style.display = '';
+        }
+    });
 }
 
 
