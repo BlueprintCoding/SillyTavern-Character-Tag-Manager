@@ -72,7 +72,7 @@ function openCharacterTagManagerModal() {
                 <div style="margin-top: -5px;">
                                     <span class="smallInstructions">Search by by tag, or add "C:" before your search to search by character name.</span>
                 </div>
-                <div class="stcm_align-right">
+                <div class="stcm_align-right stcm_tag_button_holder">
                 <button id="startMergeTags" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
                     <i class="fa-solid fa-object-group"></i>Merge Tags
                 </button>

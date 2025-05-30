@@ -145,6 +145,10 @@
     text-align: right;
 }
 
+.stcm_tag_button_holder {
+    margin-top: -15px;
+}
+
 .stcm_merge_controls,
 .stcm_flex_row,
 .mergeOptions {
