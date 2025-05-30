@@ -558,15 +558,16 @@ function promptCreateTag() {
 
     // Wait for popup to be added, then apply class and label overrides
     const observer = new MutationObserver(() => {
-        const popupBody = document.querySelector('.popup-body');
-        const popup = popupBody?.closest('dialog.popup');
-        const buttons = popup?.querySelectorAll('.popup-buttons button');
-
-        if (popupBody) {
-            popupBody.classList.add('stcm_custom-add-tag-popup');
-        }
+        // Find all currently open popups
+        document.querySelectorAll('dialog.popup[open] .popup-body').forEach(popupBody => {
+            // Only act if this popup contains your custom content
+            if (popupBody.querySelector('.newTagName')) {
+                popupBody.classList.add('stcm_custom-add-tag-popup');
+            }
+        });
     });
     observer.observe(document.body, { childList: true, subtree: true });
+    
 
     callGenericPopup(container, POPUP_TYPE.CONFIRM, 'Create New Tag', {
         okButton: 'Create Tag',
