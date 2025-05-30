@@ -886,6 +886,7 @@ function renderCharacterTagData() {
             if (initializing) return;
             // Actually persist color to tags, settings, etc
             callSaveandReload();
+            renderCharacterList();  
             renderCharacterTagData();
         });
 
@@ -906,6 +907,7 @@ function renderCharacterTagData() {
         fgPicker.addEventListener('change:end', e => {
             if (initializing) return;
             callSaveandReload();
+            renderCharacterList();  
             renderCharacterTagData();
         });
 
