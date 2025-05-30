@@ -1266,6 +1266,7 @@ function confirmDeleteTag(tag) {
 async function callSaveandReload() {
     updatePrivateFolderObservers();
     saveSettingsDebounced();
+    getCharacters();
     await printCharactersDebounced();
 }
 
