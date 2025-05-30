@@ -56,10 +56,12 @@ function createStcmSettingsPanel() {
                     <span>Show Welcome Screen Recent Chats</span>
                 </label>
                 <hr style="margin: 1em 0;">
-                <label style="display:flex;align-items:center;gap:8px;margin:8px 0 0 0;">
+                <div style="margin-bottom: 0.1em;"><b>Private Folder Preferences</b></div>
+                <label style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" id="stcm--blurPrivatePreviews"/>
-                    <span>Blur Private Photo Character Previews</span>
+                    <span>Blur Character Previews</span>
                 </label>
+                <hr style="margin: 1em 0;">
                 <div style="margin-bottom: 0.7em;"><b>Private Folder PIN/Password</b></div>
                 <div id="stcm-pin-form">
                     <div id="stcm-pin-current-row">
