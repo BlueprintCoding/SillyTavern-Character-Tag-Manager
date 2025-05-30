@@ -778,6 +778,7 @@
     border-radius: 6px;
     box-shadow: 0 1px 4px #0002;
     margin-bottom: 1.2em;
+    max-width: 250px;
   }
   
   #stcm-pin-form input[type="password"] {
@@ -790,6 +791,7 @@
     margin-right: 0.5em;
     outline: none;
     transition: border 0.14s;
+    width:100%;
   }
   
   #stcm-pin-form input[type="password"]:focus {
@@ -809,6 +811,7 @@
     cursor: pointer;
     margin-right: 0.6em;
     transition: background 0.14s;
+    width:100%;
   }
   
   #stcm-pin-form button.stcm_menu_button.red {

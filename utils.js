@@ -140,7 +140,8 @@ async function persistNotesToFile() {
     const notes = {
         charNotes: Object.fromEntries(Object.entries(raw.charNotes || {}).filter(([_, v]) => v.trim() !== '')),
         tagNotes: Object.fromEntries(Object.entries(raw.tagNotes || {}).filter(([_, v]) => v.trim() !== '')),
-        tagPrivate: raw.tagPrivate || {},   // <-- ADD THIS!
+        tagPrivate: raw.tagPrivate || {},
+        tagPrivatePin: raw.tagPrivatePin || ""      // <-- THIS LINE saves the PIN!
     };
 
     const json = JSON.stringify(notes, null, 2);
