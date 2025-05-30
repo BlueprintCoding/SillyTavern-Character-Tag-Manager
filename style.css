@@ -773,9 +773,6 @@
 
 }
 
-.bogus_folder_select.stcm-private-folder .bogus_folder_avatars_block img {
-    filter: blur(2px);
-}
 
 /* PIN Management Area */
 #stcm-pin-form {
