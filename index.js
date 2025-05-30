@@ -563,7 +563,7 @@ function promptCreateTag() {
         const buttons = popup?.querySelectorAll('.popup-buttons button');
 
         if (popupBody) {
-            popupBody.classList.add('custom-add-tag-popup');
+            popupBody.classList.add('stcm_custom-add-tag-popup');
         }
     });
     observer.observe(document.body, { childList: true, subtree: true });

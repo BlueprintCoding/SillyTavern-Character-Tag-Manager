@@ -748,15 +748,15 @@
 }
 
 /* === Add Tag Popup, Misc === */
-.custom-add-tag-popup {
+.stcm_custom-add-tag-popup {
     overflow: visible !important;
 }
 
-.custom-add-tag-popup .popup-content {
+.stcm_custom-add-tag-popup .popup-content {
     overflow: visible !important;
 }
 
-.custom-add-tag-popup .newTagName {
+.stcm_custom-add-tag-popup .newTagName {
     background-color: rgba(255, 255, 255, 0.04);
     color: #fff;
 }
