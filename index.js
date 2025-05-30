@@ -882,6 +882,8 @@ function renderCharacterTagData() {
         });
 
         bgPicker.addEventListener('change:end', async e => {
+            console.log('change:end event fired!', e);
+
             if (initializing) return;
             const tagId = group.tag.id;
             const tag = tags.find(t => t.id === tagId);
@@ -920,6 +922,8 @@ function renderCharacterTagData() {
     });
 
     fgPicker.addEventListener('change:end', async e => {
+        console.log('change:end event fired!', e);
+
         if (initializing) return;
         const tagId = group.tag.id;
         const tag = tags.find(t => t.id === tagId);
