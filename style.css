@@ -832,7 +832,7 @@
 }
 
 
-#stcm-modal-pin-prompt input[type="password"] {
+dialog.popup #stcm-popup-pin-input {
     background: var(--ac-style-color-background, #181a1f);
     color: var(--ac-style-color-text, #f3f3f3);
     border: 1px solid var(--ac-style-color-border, #444);
@@ -845,7 +845,7 @@
     width: 100%;
 }
 
-#stcm-modal-pin-prompt input[type="password"]:focus {
+dialog.popup #stcm-popup-pin-input:focus {
     border: 1.5px solid var(--ac-style-color-accent, #44b77b);
     background: var(--ac-style-color-input-focus, #23272d);
 }
