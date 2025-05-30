@@ -922,6 +922,7 @@ function renderCharacterTagData() {
             opt.addEventListener('click', () => {
                 if (ft.value === "PRIVATE") {
                     group.tag.folder_type = "CLOSED";
+                    if (!notes.tagPrivate) notes.tagPrivate = {};
                     notes.tagPrivate[group.tag.id] = true;
                     saveNotes(notes);
                     debouncePersist();
@@ -939,6 +940,7 @@ function renderCharacterTagData() {
                 callSaveandReload();
                 renderCharacterTagData(); 
             });
+            
             folderOptionsList.appendChild(opt);
         });
         
