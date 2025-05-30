@@ -341,19 +341,33 @@ function showModalPinPrompt(message = "Enter PIN") {
 }
 
 function isInHiddenPrivateFolder(element, privateTagIds, state) {
+    // State 1 = unlocked (show all), never hide
+    if (state === 1) return false;
+
     let parent = element.parentElement;
+    let foundPrivate = false;
+
     while (parent) {
         if (parent.classList && parent.classList.contains('bogus_folder_select')) {
             const tagid = parent.getAttribute('tagid');
             if (privateTagIds.has(tagid)) {
+                foundPrivate = true;
+                // In Locked state, anything inside any private folder is hidden
                 if (state === 0) return true;
-                if (state === 2) return false; // Only allow if in a private ancestor
+                // In Private Only state, being inside any private is a good thing!
             }
         }
         parent = parent.parentElement;
     }
-    return state === 2;
+
+    // At this point, if we're in Private Only mode:
+    // If not inside any private folder, we want to HIDE (return true to hide)
+    if (state === 2) return !foundPrivate;
+
+    // In locked, but not in any private, so not hidden
+    return false;
 }
+
 
 function applyPrivateFolderVisibility(state, privateTagIds) {
     // Always clear the stcm-hide class first!
