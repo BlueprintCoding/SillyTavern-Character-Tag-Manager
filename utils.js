@@ -1,6 +1,11 @@
 // utils.js
 import { uploadFileAttachment, getFileAttachment,  } from '../../../chats.js';
 import { injectTagManagerControlButton } from "./index.js";
+import {
+    POPUP_RESULT,
+    POPUP_TYPE,
+    callGenericPopup
+} from "../../../popup.js";
 
 
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
@@ -276,7 +281,7 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
             const notes = getNotes();
             const pin = notes.tagPrivatePin;
             if (pin && sessionStorage.getItem("stcm_pin_okay") !== "1") {
-                showToastrPinPrompt("Enter PIN to view private folders:").then(userPin => {
+                showModalPinPrompt("Enter PIN to view private folders:").then(userPin => {
                     if (userPin !== pin) {
                         toastr.error("Incorrect PIN.", "Private Folders");
                         return;
@@ -304,54 +309,31 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
 }
 
 /**
- * Shows a non-blocking toastr-style PIN input prompt.
- * Returns a Promise that resolves to the entered PIN string, or null if cancelled.
- * @param {string} message 
- * @returns {Promise<string|null>}
+ * Shows a modal PIN input using your existing popup system.
+ * Returns a Promise that resolves to the entered PIN string (or null if cancelled).
  */
-function showToastrPinPrompt(message = "Enter PIN") {
+function showModalPinPrompt(message = "Enter PIN") {
     return new Promise(resolve => {
-        // Remove existing PIN toastr, if any
-        document.querySelectorAll('.toastr-pin-prompt').forEach(e => e.remove());
-
-        // Create toast container
-        const toast = document.createElement('div');
-        toast.className = 'toastr toastr-pin-prompt toastr-info';
-        toast.style.maxWidth = '320px';
-        toast.style.margin = '12px auto';
-        toast.style.padding = '1em 1em 0.6em 1em';
-        toast.style.textAlign = 'left';
-        toast.style.display = 'flex';
-        toast.style.flexDirection = 'column';
-        toast.style.alignItems = 'stretch';
-        toast.innerHTML = `
+        const html = document.createElement('div');
+        html.innerHTML = `
             <div style="margin-bottom: 10px;"><b>${message}</b></div>
-            <input type="password" id="toastr-pin-input" placeholder="PIN" style="width: 100%; margin-bottom: 10px; font-size: 1.08em; padding: 5px 8px; border-radius: 4px; border: 1px solid #999;">
-            <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                <button class="stcm_menu_button" style="padding: 3px 13px;">OK</button>
-                <button class="stcm_menu_button red" style="padding: 3px 10px;">Cancel</button>
-            </div>
+            <input type="password" id="stcm-popup-pin-input" placeholder="PIN" style="width: 100%; margin-bottom: 10px; font-size: 1.08em; padding: 5px 8px; border-radius: 4px; border: 1px solid #999;">
         `;
-        document.body.appendChild(toast);
-
-        const input = toast.querySelector('#toastr-pin-input');
-        const okBtn = toast.querySelector('.stcm_menu_button:not(.red)');
-        const cancelBtn = toast.querySelector('.stcm_menu_button.red');
-
-        function close(result) {
-            toast.remove();
-            resolve(result);
-        }
-
-        okBtn.onclick = () => close(input.value);
-        cancelBtn.onclick = () => close(null);
-
-        input.onkeydown = e => {
-            if (e.key === "Enter") okBtn.click();
-            if (e.key === "Escape") cancelBtn.click();
-        };
-
-        setTimeout(() => input.focus(), 120);
+        callGenericPopup(html, POPUP_TYPE.CONFIRM, "Private Folders", {
+            okButton: "OK",
+            cancelButton: "Cancel"
+        }).then(result => {
+            if (result === POPUP_RESULT.AFFIRMATIVE) {
+                const pinValue = html.querySelector('#stcm-popup-pin-input').value;
+                resolve(pinValue);
+            } else {
+                resolve(null);
+            }
+        });
+        // Focus input after dialog open
+        setTimeout(() => {
+            html.querySelector('#stcm-popup-pin-input')?.focus();
+        }, 150);
     });
 }
 
