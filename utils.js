@@ -257,13 +257,13 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     const icons = [
         { icon: 'fa-user-lock', color: '#888', tip: 'Hide private folders' },
         { icon: 'fa-unlock', color: '#44b77b', tip: 'Show all folders (including private)' },
-        { icon: 'fa-xmarks-lines', color: '#1976d2', tip: 'Show ONLY private folders' }
+        { icon: 'fa-xmarks-lines', color: '#a54e4e', tip: 'Show ONLY private folders' }
     ];
 
     const btn = document.createElement('span');
     btn.id = 'privateFolderVisibilityToggle';
     btn.className = 'tag actionable clickable-action interactable';
-    btn.style.backgroundColor = 'rgb(184, 10, 141, 0.65)';
+    btn.style.backgroundColor = 'rgba(136, 100, 200, 0.55)';
     btn.tabIndex = 0;
 
     // Render the current icon/state
