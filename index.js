@@ -37,6 +37,8 @@ let isMergeMode = false;
 const selectedMergeTags = new Set();      //  Global merge checkbox selection
 let selectedPrimaryTagId = null;          // Global merge radio selection
 let selectedTagIds = new Set();
+let isBulkDeleteMode = false;
+const selectedBulkDeleteTags = new Set();
 
 
 
@@ -73,13 +75,21 @@ function openCharacterTagManagerModal() {
                                     <span class="smallInstructions">Search by by tag, or add "C:" before your search to search by character name.</span>
                 </div>
                 <div class="stcm_align-right stcm_tag_button_holder">
+                                <button id="createNewTagBtn" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
+                    <i class="fa-solid fa-plus"></i> Create Tag
+                </button>
                 <button id="startMergeTags" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
                     <i class="fa-solid fa-object-group"></i>Merge Tags
                 </button>
                 <button id="cancelMergeTags" class="stcm_menu_button stcm_margin_left interactable" style="display: none;" tabindex="0">Cancel Merge</button>
-                <button id="createNewTagBtn" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
-                    <i class="fa-solid fa-plus"></i> Create Tag
+                <button id="startBulkDeleteTags" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
+                    <i class="fa-solid fa-trash"></i>Bulk Delete
                 </button>
+                <button id="cancelBulkDeleteTags" class="stcm_menu_button stcm_margin_left interactable" style="display: none;" tabindex="0">Cancel Delete</button>
+                <button id="confirmBulkDeleteTags" class="stcm_menu_button stcm_margin_left interactable red" style="display: none;" tabindex="0">
+                    <i class="fa-solid fa-trash"></i>Delete Selected
+                </button>
+
 
                 <div class="stcm_import_export_dropdown stcm_margin_left" style="display: inline-block; position: relative;">
                     <button id="toggleImportExport" class="stcm_menu_button interactable" tabindex="0">
@@ -186,6 +196,54 @@ function openCharacterTagManagerModal() {
     }
 
 
+            // When entering bulk delete mode:
+        document.getElementById('confirmBulkDeleteTags').style.display = '';
+
+        // When leaving/canceling bulk delete:
+        document.getElementById('confirmBulkDeleteTags').style.display = 'none';
+
+        document.getElementById('confirmBulkDeleteTags').addEventListener('click', async () => {
+            if (!selectedBulkDeleteTags.size) {
+                toastr.warning("No tags selected.", "Bulk Delete");
+                return;
+            }
+            // Build a confirm dialog
+            const tagNames = tags.filter(t => selectedBulkDeleteTags.has(t.id)).map(t => t.name);
+            const html = document.createElement('div');
+            html.innerHTML = `
+                <h3>Confirm Bulk Delete</h3>
+                <p>The following tags will be deleted and removed from all characters:</p>
+                <pre class="stcm_popup_pre">${tagNames.map(n => `• ${escapeHtml(n)}`).join('\n')}</pre>
+                <p style="color: #e57373;">This action cannot be undone.</p>
+            `;
+            const proceed = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Bulk Delete Tags');
+            if (proceed !== POPUP_RESULT.AFFIRMATIVE) {
+                toastr.info('Bulk tag delete cancelled.', 'Bulk Delete');
+                return;
+            }
+            // Remove tags from tag_map and tags
+            for (const tagId of selectedBulkDeleteTags) {
+                for (const [charId, tagList] of Object.entries(tag_map)) {
+                    if (Array.isArray(tagList)) {
+                        tag_map[charId] = tagList.filter(tid => tid !== tagId);
+                    }
+                }
+                const index = tags.findIndex(t => t.id === tagId);
+                if (index !== -1) tags.splice(index, 1);
+            }
+            toastr.success(`Deleted ${selectedBulkDeleteTags.size} tag(s): ${tagNames.join(', ')}`, 'Bulk Delete');
+            isBulkDeleteMode = false;
+            selectedBulkDeleteTags.clear();
+            document.getElementById('startBulkDeleteTags').style.display = '';
+            document.getElementById('cancelBulkDeleteTags').style.display = 'none';
+            document.getElementById('confirmBulkDeleteTags').style.display = 'none';
+            callSaveandReload();
+            renderCharacterList();
+            renderCharacterTagData();
+        });
+
+
+
     document.getElementById('exportNotesBtn').addEventListener('click', exportTagCharacterNotes);
 
     document.getElementById('importNotesBtn').addEventListener('click', () => {
@@ -282,6 +340,23 @@ function openCharacterTagManagerModal() {
         'input',
         debounce(() => populateAssignTagSelect())
     );
+
+    document.getElementById('startBulkDeleteTags').addEventListener('click', () => {
+        isBulkDeleteMode = true;
+        selectedBulkDeleteTags.clear();
+        document.getElementById('startBulkDeleteTags').style.display = 'none';
+        document.getElementById('cancelBulkDeleteTags').style.display = '';
+        renderCharacterTagData();
+    });
+    
+    document.getElementById('cancelBulkDeleteTags').addEventListener('click', () => {
+        isBulkDeleteMode = false;
+        selectedBulkDeleteTags.clear();
+        document.getElementById('startBulkDeleteTags').style.display = '';
+        document.getElementById('cancelBulkDeleteTags').style.display = 'none';
+        renderCharacterTagData();
+    });
+    
 
 
     document.getElementById('cancelMergeTags').addEventListener('click', () => {
@@ -706,12 +781,16 @@ function renderCharacterTagData() {
 
 
         header.innerHTML = `
-    <span class="tagNameEditable" data-id="${tagId}">
-        <i class="fa-solid fa-pen editTagIcon" title="Edit name" style="cursor: pointer; margin-right: 6px;"></i>
-        <strong class="tagNameText" style="background-color: ${bgColor}; color: ${fgColor}; padding: 2px 6px; border-radius: 4px;">
-            ${group.tag.name}
-        </strong>
-    </span>
+        <span class="tagNameEditable" data-id="${tagId}">
+            ${
+                isBulkDeleteMode
+                    ? `<input type="checkbox" class="bulkDeleteTagCheckbox" value="${tagId}" ${selectedBulkDeleteTags.has(tagId) ? 'checked' : ''} style="margin-right: 7px;">`
+                    : `<i class="fa-solid fa-pen editTagIcon" title="Edit name" style="cursor: pointer; margin-right: 6px;"></i>`
+            }
+            <strong class="tagNameText" style="background-color: ${bgColor}; color: ${fgColor}; padding: 2px 6px; border-radius: 4px;">
+                ${group.tag.name}
+            </strong>
+        </span>
         <span class="tagCharCount">(${group.charIds.length})</span>
         <div class="stcm_tag_color_controls">
             <toolcool-color-picker
@@ -945,6 +1024,17 @@ function renderCharacterTagData() {
 
     content.innerHTML = '';
     content.appendChild(fragment);
+
+    if (isBulkDeleteMode) {
+        header.querySelectorAll('.bulkDeleteTagCheckbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                if (cb.checked) selectedBulkDeleteTags.add(cb.value);
+                else selectedBulkDeleteTags.delete(cb.value);
+            });
+        });
+    }
+
+    
     if (isMergeMode) {
         document.querySelectorAll('input[name="mergePrimary"]').forEach(el => {
             el.addEventListener('change', () => {

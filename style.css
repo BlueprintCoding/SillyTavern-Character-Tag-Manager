@@ -594,6 +594,11 @@
     transform: rotate(45deg);
 }
 
+.bulkDeleteTagCheckbox {
+    margin-right: 7px;
+    accent-color: #d9534f;
+}
+
 /* === Tag Chips for Selection === */
 .stcm_tag_chip_list {
     display: flex;
