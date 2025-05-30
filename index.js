@@ -803,54 +803,37 @@ function renderCharacterTagData() {
     tagGroups.forEach(group => {
         const wrapper = document.createElement('div');
         wrapper.className = 'tagGroup';
-
+    
         const header = document.createElement('div');
         header.className = 'tagGroupHeader';
-
+    
         const tagId = group.tag.id;
         const tagNotes = getNotes().tagNotes || {};
         const currentNote = tagNotes[tagId] || '';
-
+    
         const styles = getComputedStyle(document.body);
         const defaultBg = '#333';
         const defaultFg = '#fff';
-
+    
         const rawColor = typeof group.tag.color === 'string' ? group.tag.color.trim() : '';
         const rawColor2 = typeof group.tag.color2 === 'string' ? group.tag.color2.trim() : '';
-
-
+    
         // Use defaults if color is null, empty, or just "#"
         const bgColor = (rawColor && rawColor !== '#') ? rawColor : defaultBg;
         const fgColor = (rawColor2 && rawColor2 !== '#') ? rawColor2 : defaultFg;
-
-
+    
         header.innerHTML = `
         <span class="tagNameEditable" data-id="${tagId}">
             ${isBulkDeleteMode
                 ? `<input type="checkbox" class="bulkDeleteTagCheckbox" value="${tagId}" ${selectedBulkDeleteTags.has(tagId) ? 'checked' : ''} style="margin-right: 7px;">`
                 : `<i class="fa-solid fa-pen editTagIcon" title="Edit name" style="cursor: pointer; margin-right: 6px;"></i>`
             }
-            <strong class="tagNameText" style="background-color: ${bgColor}; color: ${fgColor}; padding: 2px 6px; border-radius: 4px;">
+            <strong class="tagNameText stcm-color-swatch" style="background-color: ${bgColor}; color: ${fgColor}; padding: 2px 6px; border-radius: 4px; cursor: pointer;" title="Click to edit tag colors">
                 ${group.tag.name}
+                <i class="fa-solid fa-palette" style="margin-left: 8px;"></i>
             </strong>
         </span>
         <span class="tagCharCount">(${group.charIds.length})</span>
-        <div class="stcm_tag_color_controls">
-            <toolcool-color-picker
-                class="tagColorPickerBg"
-                color="${bgColor}"
-                style="width: 32px; height: 24px;"
-                title="Tag background color"
-            ></toolcool-color-picker>
-
-            <toolcool-color-picker
-                class="tagColorPickerFg"
-                color="${fgColor}"
-                style="width: 32px; height: 24px;"
-                title="Tag font color"
-            ></toolcool-color-picker>
-        </div>
-
         
 
         ${isMergeMode ? `
@@ -860,113 +843,11 @@ function renderCharacterTagData() {
             </div>` : ''}
     `;
 
-        // After header.innerHTML =
-        const bgPicker = header.querySelector('.tagColorPickerBg');
-        const fgPicker = header.querySelector('.tagColorPickerFg');
-
-        // NEW: prevent initial 'change' from clobbering saved colors
-        let initializing = true;
-
-        // --- 1. Prepare tracking for pending color ---
-        let pendingBgColor = group.tag.color;  // initial value
-        let pendingFgColor = group.tag.color2;
-
-        // --- 2. Listen for color changes, but DON'T save yet ---
-        bgPicker.addEventListener('change', e => {
-            if (initializing) return;
-            let newColor = e.detail?.rgba ?? e.target.color;
-            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-            pendingBgColor = newColor.trim();
-
-            // Update preview only
-            const tagSwatch = header.querySelector('.tagNameText');
-            if (tagSwatch) tagSwatch.style.backgroundColor = pendingBgColor;
-        });
-
-        // Same for FG
-        fgPicker.addEventListener('change', e => {
-            if (initializing) return;
-            let newColor = e.detail?.rgba ?? e.target.color;
-            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-            pendingFgColor = newColor.trim();
-
-            const tagSwatch = header.querySelector('.tagNameText');
-            if (tagSwatch) tagSwatch.style.color = pendingFgColor;
-        });
-
-        // --- 3. Observe popup closing and commit color ---
-        // Utility: Is a node the ToolCool popup?
-        function isToolCoolPopup(node) {
-            return node && node.classList && node.classList.contains('tc-popup');
-        }
-
-        // Attach one observer for both pickers (if desired, you could split)
-        function observePopupClose(picker, commitFn) {
-            let popupParent = document.body;  // ToolCool attaches to body
-
-            const observer = new MutationObserver((mutations) => {
-                for (const mut of mutations) {
-                    for (const removed of mut.removedNodes) {
-                        if (isToolCoolPopup(removed)) {
-                            commitFn();
-                        }
-                    }
-                }
-            });
-
-            observer.observe(popupParent, { childList: true });
-
-            // Clean up observer when modal closes (optional/defensive)
-            // Return cleanup for later if you want.
-            return observer;
-        }
-
-        // --- 4. Attach to both pickers ---
-        // Open popup to ensure .tc-popup is created, then attach observer.
-        // (If you want to be *sure* the observer is attached before popup opens, you can do this on click/focus)
-        bgPicker.addEventListener('focus', () => {
-            observePopupClose(bgPicker, async () => {
-                // Only commit if changed
-                if (group.tag.color !== pendingBgColor) {
-                    group.tag.color = pendingBgColor;
-                    await callSaveandReload();
-                    renderCharacterList();
-                    renderCharacterTagData();
-                }
-            });
-        });
-        fgPicker.addEventListener('focus', () => {
-            observePopupClose(fgPicker, async () => {
-                if (group.tag.color2 !== pendingFgColor) {
-                    group.tag.color2 = pendingFgColor;
-                    await callSaveandReload();
-                    renderCharacterList();
-                    renderCharacterTagData();
-                }
-            });
-        });
-
-        // Defensive: also allow click to open (if keyboard not used)
-        bgPicker.addEventListener('click', () => {
-            observePopupClose(bgPicker, async () => {
-                if (group.tag.color !== pendingBgColor) {
-                    group.tag.color = pendingBgColor;
-                    await callSaveandReload();
-                    renderCharacterList();
-                    renderCharacterTagData();
-                }
-            });
-        });
-        fgPicker.addEventListener('click', () => {
-            observePopupClose(fgPicker, async () => {
-                if (group.tag.color2 !== pendingFgColor) {
-                    group.tag.color2 = pendingFgColor;
-                    await callSaveandReload();
-                    renderCharacterList();
-                    renderCharacterTagData();
-                }
-            });
-        });
+          // --- ADD POPUP LOGIC TO THE COLOR SWATCH ---
+    const colorSwatch = header.querySelector('.stcm-color-swatch');
+    colorSwatch.addEventListener('click', () => {
+        openColorEditModal(group.tag);
+    });
 
         // Wait until next tick to allow any initial value propagations
         setTimeout(() => {
