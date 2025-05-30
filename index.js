@@ -916,7 +916,9 @@ function renderCharacterTagData() {
 
         folderTypes.forEach(ft => {
             const opt = document.createElement('div');
-            // ...same as before
+            opt.className = 'folder-option';
+            opt.innerHTML = `<i class="fa-solid ${ft.icon}" style="margin-right: 6px;"></i> ${ft.label}`;
+            opt.title = ft.tooltip;
             opt.addEventListener('click', () => {
                 if (ft.value === "PRIVATE") {
                     group.tag.folder_type = "CLOSED";
@@ -939,6 +941,7 @@ function renderCharacterTagData() {
             });
             folderOptionsList.appendChild(opt);
         });
+        
         
 
         folderSelected.addEventListener('click', () => {
