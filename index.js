@@ -1023,14 +1023,12 @@ function renderCharacterTagData() {
     content.appendChild(fragment);
 
     if (isBulkDeleteMode) {
-        header.querySelectorAll('.bulkDeleteTagCheckbox').forEach(cb => {
-            // Use .value because that's the tagId
+        content.querySelectorAll('.bulkDeleteTagCheckbox').forEach(cb => {
+            cb.checked = selectedBulkDeleteTags.has(cb.value);
             cb.addEventListener('change', () => {
                 if (cb.checked) selectedBulkDeleteTags.add(cb.value);
                 else selectedBulkDeleteTags.delete(cb.value);
             });
-            // Restore checked state from the Set (for good measure)
-            cb.checked = selectedBulkDeleteTags.has(cb.value);
         });
     }
     
