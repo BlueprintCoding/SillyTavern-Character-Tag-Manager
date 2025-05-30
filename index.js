@@ -1163,6 +1163,69 @@ function showFolderInfoPopup(anchorEl) {
     setTimeout(() => document.addEventListener('mousedown', closePopup, true), 20);
 }
 
+function openColorEditModal(tag) {
+    const styles = getComputedStyle(document.body);
+    const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#333';
+    const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#fff';
+
+    let currBg = (tag.color && tag.color !== '#') ? tag.color : defaultBg;
+    let currFg = (tag.color2 && tag.color2 !== '#') ? tag.color2 : defaultFg;
+
+    const container = document.createElement('div');
+    container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1em; width: 100%;">
+            <div class="tagPreview" style="
+                align-self: flex-start;
+                padding: 4px 12px;
+                border-radius: 4px;
+                background-color: ${currBg};
+                color: ${currFg};
+                font-weight: bold;
+                border: 1px solid #999;
+                max-width: max-content;
+                margin-bottom: 1em;
+            ">
+                ${escapeHtml(tag.name)}
+            </div>
+            <div style="display: flex; gap: 1em;">
+                <label style="flex: 1;">
+                    Background Color:<br>
+                    <toolcool-color-picker class="editTagBgPicker" color="${currBg}" style="width: 100%;"></toolcool-color-picker>
+                </label>
+                <label style="flex: 1;">
+                    Text Color:<br>
+                    <toolcool-color-picker class="editTagFgPicker" color="${currFg}" style="width: 100%;"></toolcool-color-picker>
+                </label>
+            </div>
+        </div>
+    `;
+
+    const preview = container.querySelector('.tagPreview');
+    const bgPicker = container.querySelector('.editTagBgPicker');
+    const fgPicker = container.querySelector('.editTagFgPicker');
+
+    bgPicker.addEventListener('change', (e) => {
+        currBg = e.detail?.rgba ?? e.target.color;
+        preview.style.backgroundColor = currBg;
+    });
+    fgPicker.addEventListener('change', (e) => {
+        currFg = e.detail?.rgba ?? e.target.color;
+        preview.style.color = currFg;
+    });
+
+    callGenericPopup(container, POPUP_TYPE.CONFIRM, `Edit Colors: ${escapeHtml(tag.name)}`, {
+        okButton: 'Save Colors',
+        cancelButton: 'Cancel'
+    }).then(async result => {
+        if (result !== POPUP_RESULT.AFFIRMATIVE) return;
+        tag.color = currBg;
+        tag.color2 = currFg;
+        await callSaveandReload();
+        renderCharacterList();
+        renderCharacterTagData();
+    });
+}
+
 
 function confirmDeleteTag(tag) {
     if (!tag) return;
