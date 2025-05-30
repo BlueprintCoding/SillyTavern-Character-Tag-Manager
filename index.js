@@ -867,35 +867,44 @@ function renderCharacterTagData() {
         let initializing = true;
 
 
+        // Track color changes only for local preview during drag:
         bgPicker.addEventListener('change', e => {
             if (initializing) return;
             let newColor = e.detail?.rgba ?? e.target.color;
             newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
             group.tag.color = newColor.trim();
-            callSaveandReload();
 
-            // Only update the preview swatch (no full rerender)
+            // Only update the preview swatch (fast, local DOM only)
             const tagSwatch = header.querySelector('.tagNameText');
             if (tagSwatch) tagSwatch.style.backgroundColor = group.tag.color;
+            // DO NOT call callSaveandReload() or renderCharacterTagData() here!
+        });
+
+        // Do the real update only at the end:
+        bgPicker.addEventListener('change:end', e => {
+            if (initializing) return;
+            // Actually persist color to tags, settings, etc
+            callSaveandReload();
+            renderCharacterTagData();
         });
 
 
+        // ---- Foreground/Text Color (fgPicker) ----
         fgPicker.addEventListener('change', e => {
             if (initializing) return;
             let newColor = e.detail?.rgba ?? e.target.color;
             newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
             group.tag.color2 = newColor.trim();
-            callSaveandReload();
 
-            // Only update the preview swatch (no full rerender)
+            // Fast: Just update the visual swatch
             const tagSwatch = header.querySelector('.tagNameText');
             if (tagSwatch) tagSwatch.style.color = group.tag.color2;
+            // NO save/re-render here
         });
 
-        bgPicker.addEventListener('change:end', () => {
-            renderCharacterTagData();
-        });
-        fgPicker.addEventListener('change:end', () => {
+        fgPicker.addEventListener('change:end', e => {
+            if (initializing) return;
+            callSaveandReload();
             renderCharacterTagData();
         });
 
