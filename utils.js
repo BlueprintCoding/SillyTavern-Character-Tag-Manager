@@ -356,6 +356,10 @@ function isInHiddenPrivateFolder(element, privateTagIds, state) {
 }
 
 function applyPrivateFolderVisibility(state, privateTagIds) {
+    // Always clear the stcm-hide class first!
+    document.querySelectorAll('.stcm-hide').forEach(el => el.classList.remove('stcm-hide'));
+
+    // Drilldown logic as before
     const isDrilldown = document.querySelector('.rm_tag_bogus_drilldown')?.children.length > 0;
     if (isDrilldown) {
         document.querySelectorAll('.character_select.entity_block, .group_select.entity_block').forEach(div => {
@@ -367,6 +371,7 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
         return;
     }
 
+    // Handle folders
     document.querySelectorAll('.bogus_folder_select').forEach(div => {
         const isPrivate = privateTagIds.has(div.getAttribute('tagid'));
         let shouldShow = true;
@@ -377,13 +382,10 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
         } else if (state === 2) {
             shouldShow = isPrivate;
         }
-        if (shouldShow) {
-            div.classList.remove('stcm-hide');
-        } else {
-            div.classList.add('stcm-hide');
-        }
+        if (!shouldShow) div.classList.add('stcm-hide');
     });
 
+    // Characters
     document.querySelectorAll('.character_select.entity_block').forEach(div => {
         let show = true;
         if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
@@ -403,13 +405,10 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
             }
             show = inPrivateFolder;
         }
-        if (show) {
-            div.classList.remove('stcm-hide');
-        } else {
-            div.classList.add('stcm-hide');
-        }
+        if (!show) div.classList.add('stcm-hide');
     });
 
+    // Groups
     document.querySelectorAll('.group_select.entity_block').forEach(div => {
         let show = true;
         if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
@@ -429,13 +428,10 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
             }
             show = inPrivateFolder;
         }
-        if (show) {
-            div.classList.remove('stcm-hide');
-        } else {
-            div.classList.add('stcm-hide');
-        }
+        if (!show) div.classList.add('stcm-hide');
     });
 }
+
 
 
 
