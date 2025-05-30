@@ -16,7 +16,8 @@ getFolderTypeForUI,
 mutateBogusFolderIcons, 
 injectPrivateFolderToggle, 
 applyPrivateFolderVisibility,
-watchCharacterBlockMutations
+watchCharacterBlockMutations,
+watchTagFilterBar 
 } from './utils.js';
 
 import {
