@@ -160,9 +160,10 @@ async function restoreNotesFromFile() {
 }
 
 function getFolderTypeForUI(tag, notes) {
-    if (tag.folder_type === "CLOSED" && notes.tagPrivate?.[tag.id]) return "PRIVATE";
+    if (tag.folder_type === "CLOSED" && notes?.tagPrivate?.[tag.id]) return "PRIVATE";
     return tag.folder_type || "NONE";
 }
+
 
 
 export { debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById, resetModalScrollPositions, makeModalDraggable, buildTagMap, buildCharNameMap, getNotes, saveNotes, persistNotesToFile, restoreNotesFromFile, getFolderTypeForUI };

@@ -196,53 +196,53 @@ function openCharacterTagManagerModal() {
     }
 
 
-        document.getElementById('confirmBulkDeleteTags').addEventListener('click', async () => {
-            if (!selectedBulkDeleteTags.size) {
-                toastr.warning("No tags selected.", "Bulk Delete");
-                return;
-            }
-            // Build a confirm dialog
-            const tagNames = tags.filter(t => selectedBulkDeleteTags.has(t.id)).map(t => t.name);
-            const html = document.createElement('div');
-            html.innerHTML = `
+    document.getElementById('confirmBulkDeleteTags').addEventListener('click', async () => {
+        if (!selectedBulkDeleteTags.size) {
+            toastr.warning("No tags selected.", "Bulk Delete");
+            return;
+        }
+        // Build a confirm dialog
+        const tagNames = tags.filter(t => selectedBulkDeleteTags.has(t.id)).map(t => t.name);
+        const html = document.createElement('div');
+        html.innerHTML = `
                 <h3>Confirm Bulk Delete</h3>
                 <p>The following tags will be deleted and removed from all characters:</p>
                 <pre class="stcm_popup_pre">${tagNames.map(n => `• ${escapeHtml(n)}`).join('\n')}</pre>
                 <p style="color: #e57373;">This action cannot be undone.</p>
             `;
-            const proceed = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Bulk Delete Tags');
-            if (proceed !== POPUP_RESULT.AFFIRMATIVE) {
-                toastr.info('Bulk tag delete cancelled.', 'Bulk Delete');
-                return;
-            }
-            // Remove tags from tag_map and tags
-            for (const tagId of selectedBulkDeleteTags) {
-                for (const [charId, tagList] of Object.entries(tag_map)) {
-                    if (Array.isArray(tagList)) {
-                        tag_map[charId] = tagList.filter(tid => tid !== tagId);
-                    }
-                }
-                const index = tags.findIndex(t => t.id === tagId);
-                if (index !== -1) tags.splice(index, 1);
-            }
-            for (const tagId of selectedBulkDeleteTags) {
-                // ...your existing logic...
-                if (notes.tagPrivate && notes.tagPrivate[tagId]) {
-                    delete notes.tagPrivate[tagId];
+        const proceed = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Bulk Delete Tags');
+        if (proceed !== POPUP_RESULT.AFFIRMATIVE) {
+            toastr.info('Bulk tag delete cancelled.', 'Bulk Delete');
+            return;
+        }
+        // Remove tags from tag_map and tags
+        for (const tagId of selectedBulkDeleteTags) {
+            for (const [charId, tagList] of Object.entries(tag_map)) {
+                if (Array.isArray(tagList)) {
+                    tag_map[charId] = tagList.filter(tid => tid !== tagId);
                 }
             }
+            const index = tags.findIndex(t => t.id === tagId);
+            if (index !== -1) tags.splice(index, 1);
+        }
+        for (const tagId of selectedBulkDeleteTags) {
+            // ...your existing logic...
+            if (notes.tagPrivate && notes.tagPrivate[tagId]) {
+                delete notes.tagPrivate[tagId];
+            }
+        }
 
-            saveNotes(notes);
-            toastr.success(`Deleted ${selectedBulkDeleteTags.size} tag(s): ${tagNames.join(', ')}`, 'Bulk Delete');
-            isBulkDeleteMode = false;
-            selectedBulkDeleteTags.clear();
-            document.getElementById('startBulkDeleteTags').style.display = '';
-            document.getElementById('cancelBulkDeleteTags').style.display = 'none';
-            document.getElementById('confirmBulkDeleteTags').style.display = 'none';
-            callSaveandReload();
-            renderCharacterList();
-            renderCharacterTagData();
-        });
+        saveNotes(notes);
+        toastr.success(`Deleted ${selectedBulkDeleteTags.size} tag(s): ${tagNames.join(', ')}`, 'Bulk Delete');
+        isBulkDeleteMode = false;
+        selectedBulkDeleteTags.clear();
+        document.getElementById('startBulkDeleteTags').style.display = '';
+        document.getElementById('cancelBulkDeleteTags').style.display = 'none';
+        document.getElementById('confirmBulkDeleteTags').style.display = 'none';
+        callSaveandReload();
+        renderCharacterList();
+        renderCharacterTagData();
+    });
 
 
 
@@ -351,7 +351,7 @@ function openCharacterTagManagerModal() {
         document.getElementById('confirmBulkDeleteTags').style.display = '';
         renderCharacterTagData();
     });
-    
+
     document.getElementById('cancelBulkDeleteTags').addEventListener('click', () => {
         isBulkDeleteMode = false;
         selectedBulkDeleteTags.clear();
@@ -360,7 +360,7 @@ function openCharacterTagManagerModal() {
         document.getElementById('confirmBulkDeleteTags').style.display = 'none';
         renderCharacterTagData();
     });
-    
+
 
 
     document.getElementById('cancelMergeTags').addEventListener('click', () => {
@@ -575,7 +575,7 @@ function promptCreateTag() {
         });
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    
+
 
     callGenericPopup(container, POPUP_TYPE.CONFIRM, 'Create New Tag', {
         okButton: 'Create Tag',
@@ -787,10 +787,9 @@ function renderCharacterTagData() {
 
         header.innerHTML = `
         <span class="tagNameEditable" data-id="${tagId}">
-            ${
-                isBulkDeleteMode
-                    ? `<input type="checkbox" class="bulkDeleteTagCheckbox" value="${tagId}" ${selectedBulkDeleteTags.has(tagId) ? 'checked' : ''} style="margin-right: 7px;">`
-                    : `<i class="fa-solid fa-pen editTagIcon" title="Edit name" style="cursor: pointer; margin-right: 6px;"></i>`
+            ${isBulkDeleteMode
+                ? `<input type="checkbox" class="bulkDeleteTagCheckbox" value="${tagId}" ${selectedBulkDeleteTags.has(tagId) ? 'checked' : ''} style="margin-right: 7px;">`
+                : `<i class="fa-solid fa-pen editTagIcon" title="Edit name" style="cursor: pointer; margin-right: 6px;"></i>`
             }
             <strong class="tagNameText" style="background-color: ${bgColor}; color: ${fgColor}; padding: 2px 6px; border-radius: 4px;">
                 ${group.tag.name}
@@ -899,7 +898,7 @@ function renderCharacterTagData() {
         const notes = getNotes();
         const displayType = getFolderTypeForUI(group.tag, notes);   // << use this
         const selectedOption = folderTypes.find(ft => ft.value === displayType);
-                
+
 
         const folderDropdownWrapper = document.createElement('div');
         folderDropdownWrapper.className = 'custom-folder-dropdown';
@@ -924,27 +923,22 @@ function renderCharacterTagData() {
                     group.tag.folder_type = "CLOSED";
                     if (!notes.tagPrivate) notes.tagPrivate = {};
                     notes.tagPrivate[group.tag.id] = true;
-                    saveNotes(notes);
-                    debouncePersist();
                 } else {
                     group.tag.folder_type = ft.value;
-                    if (notes.tagPrivate?.[group.tag.id]) {
+                    if (notes.tagPrivate && notes.tagPrivate[group.tag.id]) {
                         delete notes.tagPrivate[group.tag.id];
-                        saveNotes(notes);
-                        debouncePersist();
                     }
                 }
+                saveNotes(notes);
+                debouncePersist();
                 folderSelected.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
                 folderSelected.title = ft.tooltip;
                 folderOptionsList.style.display = 'none';
                 callSaveandReload();
                 renderCharacterTagData(); 
-            });
-            
+            });            
             folderOptionsList.appendChild(opt);
         });
-        
-        
 
         folderSelected.addEventListener('click', () => {
             folderOptionsList.style.display = folderOptionsList.style.display === 'none' ? 'block' : 'none';
@@ -984,7 +978,7 @@ function renderCharacterTagData() {
             e.stopPropagation();
             showFolderInfoPopup(infoIcon);
         });
-        
+
 
         folderWrapper.appendChild(infoIcon);
 
@@ -1061,8 +1055,8 @@ function renderCharacterTagData() {
             });
         });
     }
-    
-    
+
+
     if (isMergeMode) {
         document.querySelectorAll('input[name="mergePrimary"]').forEach(el => {
             el.addEventListener('change', () => {
@@ -1360,16 +1354,16 @@ async function handleNotesImport(importData) {
         }
     }
 
-        // Tags (Private flags)
-        for (const [tagId, isPrivate] of Object.entries(importData.tagPrivate || {})) {
-            if (tags.find(t => t.id === tagId)) {
-                // Only set if not already set, or to preserve a new import as True
-                // You could also show a conflict dialog here if you want
-                if (!tagPrivate[tagId] || isPrivate === true) {
-                    newNotes.tagPrivate[tagId] = isPrivate;
-                }
+    // Tags (Private flags)
+    for (const [tagId, isPrivate] of Object.entries(importData.tagPrivate || {})) {
+        if (tags.find(t => t.id === tagId)) {
+            // Only set if not already set, or to preserve a new import as True
+            // You could also show a conflict dialog here if you want
+            if (!tagPrivate[tagId] || isPrivate === true) {
+                newNotes.tagPrivate[tagId] = isPrivate;
             }
         }
+    }
 
     // Characters (robust match: avatar, avatar basename, and optionally name)
     for (const [importKey, note] of Object.entries(importData.charNotes || {})) {
@@ -1525,7 +1519,5 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     renderCharacterTagData();
     toastr.success('Selected notes imported!');
 }
-
-
 
 export { renderCharacterTagData, callSaveandReload };
