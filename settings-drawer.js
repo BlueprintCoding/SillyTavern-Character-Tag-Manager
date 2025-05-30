@@ -41,32 +41,38 @@ function createStcmSettingsPanel() {
                 <div class="inline-drawer-icon fa-solid interactable down fa-circle-chevron-down" tabindex="0"></div>
             </div>
             <div class="inline-drawer-content" style="display: none;">
-             <label style="display:flex;align-items:center;gap:8px;margin-top:5px;">
-                <input type="checkbox" id="stcm--showTopBarIcon"/>
-                <span>Show Character / Tag Manager Icon in Top Bar</span>
-            </label>
+                <label style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+                    <input type="checkbox" id="stcm--showTopBarIcon"/>
+                    <span>Show Character / Tag Manager Icon in Top Bar</span>
+                </label>
                 <label style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" id="stcm--showDefaultTagManager"/>
                     <span>Show ST Default Tag Manager</span>
                 </label>
-                                <label style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+                <label style="display:flex;align-items:center;gap:8px;margin-top:5px;">
                     <input type="checkbox" id="stcm--showWelcomeRecentChats"/>
                     <span>Show Welcome Screen Recent Chats</span>
-                </label><hr style="margin: 1em 0;">
-    <div style="margin-bottom: 0.7em;"><b>Private Folder PIN/Password</b></div>
-    <div id="stcm-pin-form">
-      <input type="password" id="stcm-pin-current" placeholder="Current PIN" style="width: 120px;">
-      <input type="password" id="stcm-pin-new" placeholder="New PIN" style="width: 120px;">
-      <input type="password" id="stcm-pin-confirm" placeholder="Confirm New PIN" style="width: 120px;">
-      <button id="stcm-set-pin-btn" class="stcm_menu_button small">Set/Change PIN</button>
-      <button id="stcm-remove-pin-btn" class="stcm_menu_button small red">Remove PIN</button>
-      <div id="stcm-pin-msg" style="color:#e57373; margin-top:5px; font-size:0.97em;"></div>
-    </div>
-                
-                
+                </label>
+                <hr style="margin: 1em 0;">
+                <div style="margin-bottom: 0.7em;"><b>Private Folder PIN/Password</b></div>
+                <div id="stcm-pin-form">
+                    <div id="stcm-pin-current-row">
+                        <input type="password" id="stcm-pin-current" placeholder="Current PIN" style="width: 120px;">
+                    </div>
+                    <div id="stcm-pin-new-row">
+                        <input type="password" id="stcm-pin-new" placeholder="New PIN" style="width: 120px;">
+                    </div>
+                    <div id="stcm-pin-confirm-row">
+                        <input type="password" id="stcm-pin-confirm" placeholder="Confirm New PIN" style="width: 120px;">
+                    </div>
+                    <button id="stcm-set-pin-btn" class="stcm_menu_button small">Set PIN</button>
+                    <button id="stcm-remove-pin-btn" class="stcm_menu_button small red">Remove PIN</button>
+                    <div id="stcm-pin-msg" style="color:#e57373; margin-top:5px; font-size:0.97em;"></div>
+                </div>
             </div>
         </div>
     `;
+
     // Checkbox logic
     const checkboxTag = panel.querySelector('#stcm--showDefaultTagManager');
     if (checkboxTag) {
@@ -98,17 +104,43 @@ function createStcmSettingsPanel() {
         });
     }
 
+    // --- PIN/PASSWORD MANAGEMENT ---
     const pinForm = panel.querySelector("#stcm-pin-form");
-    const pinCurrent = pinForm.querySelector("#stcm-pin-current");
+    const pinCurrentRow = pinForm.querySelector("#stcm-pin-current-row");
     const pinNew = pinForm.querySelector("#stcm-pin-new");
+    const pinNewRow = pinForm.querySelector("#stcm-pin-new-row");
     const pinConfirm = pinForm.querySelector("#stcm-pin-confirm");
+    const pinConfirmRow = pinForm.querySelector("#stcm-pin-confirm-row");
+    const setBtn = pinForm.querySelector("#stcm-set-pin-btn");
+    const removeBtn = pinForm.querySelector("#stcm-remove-pin-btn");
     const msg = pinForm.querySelector("#stcm-pin-msg");
-    
-    pinForm.querySelector("#stcm-set-pin-btn").onclick = function() {
+
+    function updatePinFormUi() {
+        const notes = getNotes();
+        const hasPin = !!notes.tagPrivatePin;
+
+        // Only show current PIN and remove if a PIN is set
+        pinCurrentRow.style.display = hasPin ? "" : "none";
+        removeBtn.style.display = hasPin ? "" : "none";
+
+        // Label should be "Set PIN" or "Change PIN"
+        setBtn.textContent = hasPin ? "Change PIN" : "Set PIN";
+
+        // Always show new/confirm fields (makes sense for both setting and changing PIN)
+        pinNewRow.style.display = "";
+        pinConfirmRow.style.display = "";
+        // Clear any prior messages
+        msg.textContent = "";
+    }
+
+    // Initial UI update
+    updatePinFormUi();
+
+    setBtn.onclick = function() {
         const notes = getNotes();
         const currentPin = notes.tagPrivatePin || "";
-        // Validate current PIN
-        if (currentPin && pinCurrent.value !== currentPin) {
+        // Validate current PIN if set
+        if (currentPin && pinForm.querySelector("#stcm-pin-current").value !== currentPin) {
             msg.textContent = "Current PIN is incorrect.";
             return;
         }
@@ -121,18 +153,21 @@ function createStcmSettingsPanel() {
         saveNotes(notes);
         debouncePersist();
         sessionStorage.removeItem("stcm_pin_okay");
-        msg.textContent = "PIN updated!";
-        pinCurrent.value = pinNew.value = pinConfirm.value = "";
+        msg.textContent = currentPin ? "PIN updated!" : "PIN set!";
+        // Clear inputs
+        pinForm.querySelector("#stcm-pin-current").value = "";
+        pinNew.value = pinConfirm.value = "";
+        updatePinFormUi();
     };
-    
-    pinForm.querySelector("#stcm-remove-pin-btn").onclick = function() {
+
+    removeBtn.onclick = function() {
         const notes = getNotes();
         const currentPin = notes.tagPrivatePin || "";
         if (!currentPin) {
             msg.textContent = "No PIN is set.";
             return;
         }
-        if (pinCurrent.value !== currentPin) {
+        if (pinForm.querySelector("#stcm-pin-current").value !== currentPin) {
             msg.textContent = "Current PIN is incorrect.";
             return;
         }
@@ -141,12 +176,15 @@ function createStcmSettingsPanel() {
         debouncePersist();
         sessionStorage.removeItem("stcm_pin_okay");
         msg.textContent = "PIN removed!";
-        pinCurrent.value = pinNew.value = pinConfirm.value = "";
+        // Clear inputs
+        pinForm.querySelector("#stcm-pin-current").value = "";
+        pinNew.value = pinConfirm.value = "";
+        updatePinFormUi();
     };
-    
 
     return panel;
 }
+
 
 export function injectStcmSettingsPanel() {
     const container = document.getElementById('extensions_settings');
