@@ -122,10 +122,10 @@ function getNotes() {
             charNotes: data.charNotes || {},
             tagNotes: data.tagNotes || {},
             tagPrivate: data.tagPrivate || {},
-            tagPrivatePin: data.tagPrivatePin || ""    // <-- add this!
+            tagPrivatePinHash: data.tagPrivatePinHash || ""    // <-- use this!
         };
     } catch {
-        return { charNotes: {}, tagNotes: {}, tagPrivate: {}, tagPrivatePin: "" };
+        return { charNotes: {}, tagNotes: {}, tagPrivate: {}, tagPrivatePinHash: "" };
     }
 }
 
@@ -135,7 +135,7 @@ function saveNotes(notes) {
         charNotes: notes.charNotes || {},
         tagNotes: notes.tagNotes || {},
         tagPrivate: notes.tagPrivate || {},
-        tagPrivatePin: notes.tagPrivatePin || ""     // <-- add this!
+        tagPrivatePinHash: data.tagPrivatePinHash || ""    // <-- use this!
     }));
 }
 
@@ -146,7 +146,7 @@ async function persistNotesToFile() {
         charNotes: Object.fromEntries(Object.entries(raw.charNotes || {}).filter(([_, v]) => v.trim() !== '')),
         tagNotes: Object.fromEntries(Object.entries(raw.tagNotes || {}).filter(([_, v]) => v.trim() !== '')),
         tagPrivate: raw.tagPrivate || {},
-        tagPrivatePin: raw.tagPrivatePin || ""      // <-- THIS LINE saves the PIN!
+        tagPrivatePinHash: raw.tagPrivatePinHash || ""
     };
 
     const json = JSON.stringify(notes, null, 2);
@@ -173,14 +173,14 @@ async function restoreNotesFromFile() {
         const content = await getFileAttachment(fileUrl);
         const parsed = JSON.parse(content);
 
-        // Ensure tagPrivatePin exists if imported
+        // Ensure tagPrivatePinHash exists if imported
         if (parsed && typeof parsed === "object") {
-            if (!parsed.tagPrivatePin) parsed.tagPrivatePin = "";
+            if (!parsed.tagPrivatePinHash) parsed.tagPrivatePinHash = "";
         }
         localStorage.setItem('stcm_notes_cache', JSON.stringify(parsed));
     } catch (e) {
         console.log('[STCM] Notes file missing or corrupted. Reinitializing blank notes.', e);
-        saveNotes({ charNotes: {}, tagNotes: {}, tagPrivate: {}, tagPrivatePin: "" });
+        saveNotes({ charNotes: {}, tagNotes: {}, tagPrivate: {}, tagPrivatePinHash: "" });
         await persistNotesToFile(); // Overwrite with fresh blank file
     }
 }
@@ -274,27 +274,19 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     }
     render();
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
         let nextState = (state + 1) % 3;
         // Only require PIN if unlocking (showing private folders) and PIN is set
-        if (nextState > 0) {
-            const notes = getNotes();
-            const pin = notes.tagPrivatePin;
-            if (pin && sessionStorage.getItem("stcm_pin_okay") !== "1") {
-                showModalPinPrompt("Enter PIN to view private folders:").then(userPin => {
-                    if (userPin !== pin) {
-                        toastr.error("Incorrect PIN.", "Private Folders");
-                        return;
-                    }
-                    sessionStorage.setItem("stcm_pin_okay", "1");
-                    // Now perform the toggle
-                    state = nextState;
-                    localStorage.setItem(stateKey, state);
-                    render();
-                    onStateChange(state);
-                });
-                return; // Stop here, wait for PIN input
+        const notes = getNotes();
+        const hasPin = !!notes.tagPrivatePinHash;
+    
+        if (nextState > 0 && hasPin && sessionStorage.getItem("stcm_pin_okay") !== "1") {
+            const userPin = await showModalPinPrompt("Enter PIN to view private folders:");
+            if ((await hashPin(userPin)) !== notes.tagPrivatePinHash) { 
+                toastr.error("Incorrect PIN.", "Private Folders");
+                return;
             }
+            sessionStorage.setItem("stcm_pin_okay", "1");
         }
         state = nextState;
         localStorage.setItem(stateKey, state);
@@ -303,10 +295,18 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     });
     
     
-    
     // Insert after the Character/Tag Manager icon
     mgrBtn.insertAdjacentElement('afterend', btn);
 }
+
+async function hashPin(pin) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+    // Convert buffer to hex string
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 
 /**
  * Shows a modal PIN input using your existing popup system.
@@ -336,6 +336,7 @@ function showModalPinPrompt(message = "Enter PIN") {
         }, 150);
     });
 }
+
 
 
 /**
@@ -474,5 +475,6 @@ mutateBogusFolderIcons,
 applyPrivateFolderVisibility, 
 injectPrivateFolderToggle,
 watchCharacterBlockMutations,
-watchTagFilterBar
+watchTagFilterBar,
+hashPin
 };

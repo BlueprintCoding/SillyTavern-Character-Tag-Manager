@@ -6,6 +6,7 @@ import {
     debouncePersist, 
     getNotes, 
     saveNotes, 
+    hashPin
     } from './utils.js';
 
 
@@ -117,7 +118,7 @@ function createStcmSettingsPanel() {
 
     function updatePinFormUi() {
         const notes = getNotes();
-        const hasPin = !!notes.tagPrivatePin;
+        const hasPin = !!notes.tagPrivatePinHash;
 
         // Only show current PIN and remove if a PIN is set
         pinCurrentRow.style.display = hasPin ? "" : "none";
@@ -136,42 +137,46 @@ function createStcmSettingsPanel() {
     // Initial UI update
     updatePinFormUi();
 
-    setBtn.onclick = function() {
+    setBtn.onclick = async function() {
         const notes = getNotes();
-        const currentPin = notes.tagPrivatePin || "";
+        const currentPinHash = notes.tagPrivatePinHash || "";
         // Validate current PIN if set
-        if (currentPin && pinForm.querySelector("#stcm-pin-current").value !== currentPin) {
-            msg.textContent = "Current PIN is incorrect.";
-            return;
+        if (currentPinHash) {
+            const enteredCurrentHash = await hashPin(pinForm.querySelector("#stcm-pin-current").value);
+            if (enteredCurrentHash !== currentPinHash) {
+                msg.textContent = "Current PIN is incorrect.";
+                return;
+            }
         }
         // New PIN must not be empty and must match confirmation
         if (!pinNew.value || pinNew.value !== pinConfirm.value) {
             msg.textContent = "New PINs must match and not be empty.";
             return;
         }
-        notes.tagPrivatePin = pinNew.value;
+        notes.tagPrivatePinHash = await hashPin(pinNew.value);
         saveNotes(notes);
         debouncePersist();
         sessionStorage.removeItem("stcm_pin_okay");
-        msg.textContent = currentPin ? "PIN updated!" : "PIN set!";
+        msg.textContent = currentPinHash ? "PIN updated!" : "PIN set!";
         // Clear inputs
         pinForm.querySelector("#stcm-pin-current").value = "";
         pinNew.value = pinConfirm.value = "";
         updatePinFormUi();
     };
-
-    removeBtn.onclick = function() {
+    
+    removeBtn.onclick = async function() {
         const notes = getNotes();
-        const currentPin = notes.tagPrivatePin || "";
-        if (!currentPin) {
+        const currentPinHash = notes.tagPrivatePinHash || "";
+        if (!currentPinHash) {
             msg.textContent = "No PIN is set.";
             return;
         }
-        if (pinForm.querySelector("#stcm-pin-current").value !== currentPin) {
+        const enteredCurrentHash = await hashPin(pinForm.querySelector("#stcm-pin-current").value);
+        if (enteredCurrentHash !== currentPinHash) {
             msg.textContent = "Current PIN is incorrect.";
             return;
         }
-        notes.tagPrivatePin = "";
+        notes.tagPrivatePinHash = "";
         saveNotes(notes);
         debouncePersist();
         sessionStorage.removeItem("stcm_pin_okay");
@@ -181,9 +186,11 @@ function createStcmSettingsPanel() {
         pinNew.value = pinConfirm.value = "";
         updatePinFormUi();
     };
+    
 
     return panel;
 }
+
 
 
 export function injectStcmSettingsPanel() {
