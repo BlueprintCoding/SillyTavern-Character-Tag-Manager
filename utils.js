@@ -341,68 +341,72 @@ function showModalPinPrompt(message = "Enter PIN") {
 }
 
 function isInHiddenPrivateFolder(element, privateTagIds, state) {
-    // Returns true if any ancestor .bogus_folder_select is a private folder and should be hidden in this state
+    // State 1 = unlocked (show all), never hide
+    if (state === 1) return false;
+
     let parent = element.parentElement;
+    let foundPrivate = false;
+
     while (parent) {
         if (parent.classList && parent.classList.contains('bogus_folder_select')) {
             const tagid = parent.getAttribute('tagid');
             if (privateTagIds.has(tagid)) {
-                // In locked mode (state 0), all nested inside a private folder are hidden
-                // In private-only mode (state 2), only show if *all* ancestors are private
+                foundPrivate = true;
+                // In Locked state, anything inside any private folder is hidden
                 if (state === 0) return true;
-                if (state === 2) return false; // Only allow if in a private ancestor
+                // In Private Only state, being inside any private is a good thing!
             }
         }
         parent = parent.parentElement;
     }
-    // In locked mode, not inside any private, so show
-    // In private-only mode, not inside any private, so hide
-    return state === 2; // true to hide if private-only and no private ancestor
+
+    // At this point, if we're in Private Only mode:
+    // If not inside any private folder, we want to HIDE (return true to hide)
+    if (state === 2) return !foundPrivate;
+
+    // In locked, but not in any private, so not hidden
+    return false;
 }
 
-/**
- * Controls folder/character visibility based on toggle.
- * @param {number} state 0=hide private, 1=show all, 2=only private
- * @param {Set<string>} privateTagIds Set of private tag IDs
- */
+
 function applyPrivateFolderVisibility(state, privateTagIds) {
-    // Detect if we are in a "folder drilldown" (i.e., tag/folder is opened)
-    const isDrilldown = document.querySelector('.rm_tag_bogus_drilldown')?.children.length > 0;
+    // Always clear the stcm-hide class first!
+    // FIRST: Remove 'stcm-hide' from all possibly affected elements
+    document.querySelectorAll('.bogus_folder_select, .character_select.entity_block, .group_select.entity_block')
+        .forEach(div => div.classList.remove('stcm-hide'));
+
+    // Drilldown detection: must have a tag, not just exist!
+    const drilldownElem = document.querySelector('.rm_tag_bogus_drilldown');
+    const isDrilldown = drilldownElem && drilldownElem.querySelector('.tag');
     if (isDrilldown) {
-        // Show all character/group blocks in drilldown view
         document.querySelectorAll('.character_select.entity_block, .group_select.entity_block').forEach(div => {
-            div.style.display = '';
+            div.classList.remove('stcm-hide');
         });
-        // Still apply folder visibility for bogus_folder_select containers
         document.querySelectorAll('.bogus_folder_select').forEach(folderDiv => {
-            folderDiv.style.display = '';
+            folderDiv.classList.remove('stcm-hide');
         });
         return;
     }
-
-    // Handle bogus folder divs (folders)
+  // Handle folders
     document.querySelectorAll('.bogus_folder_select').forEach(div => {
         const isPrivate = privateTagIds.has(div.getAttribute('tagid'));
         let shouldShow = true;
-        // Hide if in hidden private folder (by ancestor)
         if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
             shouldShow = false;
-        } else if (state === 0) { // Locked
+        } else if (state === 0) {
             shouldShow = !isPrivate;
-        } else if (state === 2) { // Private only
+        } else if (state === 2) {
             shouldShow = isPrivate;
         }
-        div.style.display = shouldShow ? '' : 'none';
+        if (!shouldShow) div.classList.add('stcm-hide');
     });
 
     // Handle main character blocks
     document.querySelectorAll('.character_select.entity_block').forEach(div => {
         let show = true;
-        // Hide if in a hidden private folder
         if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
             show = false;
         } else if (state === 2) {
-            // Only show if inside any private folder
             let inPrivateFolder = false;
             let parent = div.parentElement;
             while (parent) {
@@ -417,16 +421,15 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
             }
             show = inPrivateFolder;
         }
-        div.style.display = show ? '' : 'none';
+        if (!show) div.classList.add('stcm-hide');
     });
 
-    // Handle group entity blocks (same logic as character blocks)
+    // Handle group entity blocks (same as character blocks)
     document.querySelectorAll('.group_select.entity_block').forEach(div => {
         let show = true;
         if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
             show = false;
         } else if (state === 2) {
-            // Only show if inside any private folder
             let inPrivateFolder = false;
             let parent = div.parentElement;
             while (parent) {
@@ -441,9 +444,11 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
             }
             show = inPrivateFolder;
         }
-        div.style.display = show ? '' : 'none';
+        if (!show) div.classList.add('stcm-hide');
     });
 }
+
+
 
 
 /**
