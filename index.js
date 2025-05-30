@@ -8,7 +8,7 @@ import {
 
 import {
     characters,
-    getCharacters,
+    printCharactersDebounced,
     saveSettingsDebounced,
 } from "../../../../script.js";
 
@@ -1099,7 +1099,7 @@ function confirmDeleteTag(tag) {
 
 async function callSaveandReload() {
     saveSettingsDebounced();
-    await getCharacters();
+    await printCharactersDebounced();
 }
 
 
