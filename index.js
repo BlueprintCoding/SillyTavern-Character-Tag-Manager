@@ -849,10 +849,6 @@ function renderCharacterTagData() {
         openColorEditModal(group.tag);
     });
 
-        // Wait until next tick to allow any initial value propagations
-        setTimeout(() => {
-            initializing = false;
-        }, 0);
 
         const folderTypes = [
             {
@@ -1183,7 +1179,8 @@ function openColorEditModal(tag) {
                 font-weight: bold;
                 border: 1px solid #999;
                 max-width: max-content;
-                margin-bottom: 1em;
+                margin-bottom: .3em;
+                margin: 0 auto;
             ">
                 ${escapeHtml(tag.name)}
             </div>
@@ -1211,12 +1208,25 @@ function openColorEditModal(tag) {
     fgPicker.addEventListener('change', (e) => {
         currFg = e.detail?.rgba ?? e.target.color;
         preview.style.color = currFg;
+    }); 
+    
+    // --- Add observer to ensure class is applied to the correct popup ---
+    const observer = new MutationObserver(() => {
+        // Find the open popup with .popup-body
+        document.querySelectorAll('dialog.popup[open] .popup-body').forEach(popupBody => {
+            // Only add if it contains our editTagBgPicker
+            if (popupBody.querySelector('.editTagBgPicker')) {
+                popupBody.classList.add('stcm_custom-color-edit-popup');
+            }
+        });
     });
+    observer.observe(document.body, { childList: true, subtree: true });
 
     callGenericPopup(container, POPUP_TYPE.CONFIRM, `Edit Colors: ${escapeHtml(tag.name)}`, {
         okButton: 'Save Colors',
         cancelButton: 'Cancel'
     }).then(async result => {
+        observer.disconnect(); // cleanup
         if (result !== POPUP_RESULT.AFFIRMATIVE) return;
         tag.color = currBg;
         tag.color2 = currFg;

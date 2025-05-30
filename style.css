@@ -768,6 +768,17 @@
     overflow: visible !important;
 }
 
+.stcm_custom-color-edit-popup {
+    overflow: visible !important;
+}
+.stcm_custom-color-edit-popup .popup-content {
+    overflow: visible !important;
+}
+.tc-popup {
+    z-index: 9999 !important;
+}
+
+
 .stcm_custom-add-tag-popup .newTagName {
     background-color: rgba(255, 255, 255, 0.04);
     color: #fff;
