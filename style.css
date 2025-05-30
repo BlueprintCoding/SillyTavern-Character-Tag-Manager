@@ -831,6 +831,29 @@
     margin-bottom: 2px;
   }
   
+  .toastr-pin-prompt {
+    z-index: 12000 !important;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px #0002;
+    background: var(--ac-style-color-background, #26292e);
+    color: var(--ac-style-color-text, #fff);
+    border: 1px solid #444;
+    transition: box-shadow 0.15s;
+}
+.toastr-pin-prompt input[type="password"] {
+    background: var(--ac-style-color-input, #292c32);
+    color: var(--ac-style-color-text, #fff);
+    border: 1px solid #666;
+    font-size: 1em;
+    padding: 7px 10px;
+    border-radius: 4px;
+}
+
+.toastr-pin-prompt button.stcm_menu_button {
+    font-size: 1em;
+    margin-left: 4px;
+}
+
 
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {

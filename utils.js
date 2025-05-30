@@ -167,10 +167,15 @@ async function restoreNotesFromFile() {
     try {
         const content = await getFileAttachment(fileUrl);
         const parsed = JSON.parse(content);
+
+        // Ensure tagPrivatePin exists if imported
+        if (parsed && typeof parsed === "object") {
+            if (!parsed.tagPrivatePin) parsed.tagPrivatePin = "";
+        }
         localStorage.setItem('stcm_notes_cache', JSON.stringify(parsed));
     } catch (e) {
         console.log('[STCM] Notes file missing or corrupted. Reinitializing blank notes.', e);
-        saveNotes({ charNotes: {}, tagNotes: {} });
+        saveNotes({ charNotes: {}, tagNotes: {}, tagPrivate: {}, tagPrivatePin: "" });
         await persistNotesToFile(); // Overwrite with fresh blank file
     }
 }
@@ -271,13 +276,19 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
             const notes = getNotes();
             const pin = notes.tagPrivatePin;
             if (pin && sessionStorage.getItem("stcm_pin_okay") !== "1") {
-                // Prompt user for PIN
-                const userPin = prompt("Enter PIN to view private folders:");
-                if (userPin !== pin) {
-                    alert("Incorrect PIN.");
-                    return; // Don't allow
-                }
-                sessionStorage.setItem("stcm_pin_okay", "1"); // Allow for this session
+                showToastrPinPrompt("Enter PIN to view private folders:").then(userPin => {
+                    if (userPin !== pin) {
+                        toastr.error("Incorrect PIN.", "Private Folders");
+                        return;
+                    }
+                    sessionStorage.setItem("stcm_pin_okay", "1");
+                    // Now perform the toggle
+                    state = nextState;
+                    localStorage.setItem(stateKey, state);
+                    render();
+                    onStateChange(state);
+                });
+                return; // Stop here, wait for PIN input
             }
         }
         state = nextState;
@@ -286,8 +297,62 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
         onStateChange(state);
     });
     
+    
+    
     // Insert after the Character/Tag Manager icon
     mgrBtn.insertAdjacentElement('afterend', btn);
+}
+
+/**
+ * Shows a non-blocking toastr-style PIN input prompt.
+ * Returns a Promise that resolves to the entered PIN string, or null if cancelled.
+ * @param {string} message 
+ * @returns {Promise<string|null>}
+ */
+function showToastrPinPrompt(message = "Enter PIN") {
+    return new Promise(resolve => {
+        // Remove existing PIN toastr, if any
+        document.querySelectorAll('.toastr-pin-prompt').forEach(e => e.remove());
+
+        // Create toast container
+        const toast = document.createElement('div');
+        toast.className = 'toastr toastr-pin-prompt toastr-info';
+        toast.style.maxWidth = '320px';
+        toast.style.margin = '12px auto';
+        toast.style.padding = '1em 1em 0.6em 1em';
+        toast.style.textAlign = 'left';
+        toast.style.display = 'flex';
+        toast.style.flexDirection = 'column';
+        toast.style.alignItems = 'stretch';
+        toast.innerHTML = `
+            <div style="margin-bottom: 10px;"><b>${message}</b></div>
+            <input type="password" id="toastr-pin-input" placeholder="PIN" style="width: 100%; margin-bottom: 10px; font-size: 1.08em; padding: 5px 8px; border-radius: 4px; border: 1px solid #999;">
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button class="stcm_menu_button" style="padding: 3px 13px;">OK</button>
+                <button class="stcm_menu_button red" style="padding: 3px 10px;">Cancel</button>
+            </div>
+        `;
+        document.body.appendChild(toast);
+
+        const input = toast.querySelector('#toastr-pin-input');
+        const okBtn = toast.querySelector('.stcm_menu_button:not(.red)');
+        const cancelBtn = toast.querySelector('.stcm_menu_button.red');
+
+        function close(result) {
+            toast.remove();
+            resolve(result);
+        }
+
+        okBtn.onclick = () => close(input.value);
+        cancelBtn.onclick = () => close(null);
+
+        input.onkeydown = e => {
+            if (e.key === "Enter") okBtn.click();
+            if (e.key === "Escape") cancelBtn.click();
+        };
+
+        setTimeout(() => input.focus(), 120);
+    });
 }
 
 
