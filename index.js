@@ -1577,4 +1577,4 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     toastr.success('Selected notes imported!');
 }
 
-export { renderCharacterTagData, callSaveandReload };
+export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton };

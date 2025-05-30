@@ -1,5 +1,5 @@
 // utils.js
-import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
+import { uploadFileAttachment, getFileAttachment, injectTagManagerControlButton } from '../../../chats.js';
 
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
 
@@ -369,17 +369,19 @@ function watchTagFilterBar(privateTagIds, onStateChange) {
     const tagRow = document.querySelector('.tags.rm_tag_filter');
     if (!tagRow) return;
 
-    // Disconnect existing observer if it exists
+    // Disconnect previous observer
     if (tagFilterBarObserver) {
         tagFilterBarObserver.disconnect();
         tagFilterBarObserver = null;
     }
 
-    // Inject toggle immediately (in case missing)
+    // Always inject both icons (if missing)
+    injectTagManagerControlButton(); // injects Character/Tag Manager button
     injectPrivateFolderToggle(privateTagIds, onStateChange);
 
-    // Create new observer and store it
+    // Observe for changes and re-inject
     tagFilterBarObserver = new MutationObserver(() => {
+        injectTagManagerControlButton();
         injectPrivateFolderToggle(privateTagIds, onStateChange);
     });
     tagFilterBarObserver.observe(tagRow, { childList: true, subtree: false });
