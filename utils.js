@@ -347,6 +347,19 @@ function showModalPinPrompt(message = "Enter PIN") {
  * @param {Set<string>} privateTagIds Set of private tag IDs
  */
 function applyPrivateFolderVisibility(state, privateTagIds) {
+        // Detect if we are in a "folder drilldown" (i.e., tag/folder is opened)
+        const isDrilldown = document.querySelector('.rm_tag_bogus_drilldown')?.children.length > 0;
+        if (isDrilldown) {
+            // Show all character/group blocks in drilldown view
+            document.querySelectorAll('.character_select.entity_block, .group_select.entity_block').forEach(div => {
+                div.style.display = '';
+            });
+            // Still apply folder visibility for bogus_folder_select containers
+            document.querySelectorAll('.bogus_folder_select').forEach(folderDiv => {
+                folderDiv.style.display = '';
+            });
+            return;
+        }
     // Handle bogus folder divs
     document.querySelectorAll('.bogus_folder_select').forEach(div => {
         const isPrivate = privateTagIds.has(div.getAttribute('tagid'));
