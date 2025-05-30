@@ -357,7 +357,10 @@ function isInHiddenPrivateFolder(element, privateTagIds, state) {
 
 function applyPrivateFolderVisibility(state, privateTagIds) {
     // Always clear the stcm-hide class first!
-    document.querySelectorAll('.stcm-hide').forEach(el => el.classList.remove('stcm-hide'));
+    // FIRST: Remove 'stcm-hide' from all possibly affected elements
+    document.querySelectorAll('.bogus_folder_select, .character_select.entity_block, .group_select.entity_block')
+        .forEach(div => div.classList.remove('stcm-hide'));
+
 
     // Drilldown logic as before
     const isDrilldown = document.querySelector('.rm_tag_bogus_drilldown')?.children.length > 0;
@@ -370,8 +373,7 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
         });
         return;
     }
-
-    // Handle folders
+  // Handle folders
     document.querySelectorAll('.bogus_folder_select').forEach(div => {
         const isPrivate = privateTagIds.has(div.getAttribute('tagid'));
         let shouldShow = true;
@@ -385,7 +387,7 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
         if (!shouldShow) div.classList.add('stcm-hide');
     });
 
-    // Characters
+    // Handle main character blocks
     document.querySelectorAll('.character_select.entity_block').forEach(div => {
         let show = true;
         if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
@@ -408,7 +410,7 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
         if (!show) div.classList.add('stcm-hide');
     });
 
-    // Groups
+    // Handle group entity blocks (same as character blocks)
     document.querySelectorAll('.group_select.entity_block').forEach(div => {
         let show = true;
         if (isInHiddenPrivateFolder(div, privateTagIds, state)) {
