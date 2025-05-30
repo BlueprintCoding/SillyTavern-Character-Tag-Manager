@@ -779,9 +779,9 @@
     box-shadow: 0 1px 4px #0002;
     margin-bottom: 1.2em;
     max-width: 250px;
-  }
-  
-  #stcm-pin-form input[type="password"] {
+}
+
+#stcm-pin-form input[type="password"] {
     background: var(--ac-style-color-background, #181a1f);
     color: var(--ac-style-color-text, #f3f3f3);
     border: 1px solid var(--ac-style-color-border, #444);
@@ -791,15 +791,15 @@
     margin-right: 0.5em;
     outline: none;
     transition: border 0.14s;
-    width:100%;
-  }
-  
-  #stcm-pin-form input[type="password"]:focus {
+    width: 100%;
+}
+
+#stcm-pin-form input[type="password"]:focus {
     border: 1.5px solid var(--ac-style-color-accent, #44b77b);
     background: var(--ac-style-color-input-focus, #23272d);
-  }
-  
-  #stcm-pin-form button.stcm_menu_button {
+}
+
+#stcm-pin-form button.stcm_menu_button {
     padding: 0.25em 1em;
     margin-top: 0.3em;
     font-size: 1em;
@@ -811,27 +811,27 @@
     cursor: pointer;
     margin-right: 0.6em;
     transition: background 0.14s;
-    width:100%;
-  }
-  
-  #stcm-pin-form button.stcm_menu_button.red {
+    width: 100%;
+}
+
+#stcm-pin-form button.stcm_menu_button.red {
     background: var(--ac-style-color-error, #b94444);
-  }
-  
-  #stcm-pin-form button.stcm_menu_button:disabled {
+}
+
+#stcm-pin-form button.stcm_menu_button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-  
-  #stcm-pin-form #stcm-pin-msg {
+}
+
+#stcm-pin-form #stcm-pin-msg {
     font-size: 0.98em;
     min-height: 1.2em;
     color: var(--ac-style-color-error, #e57373);
     margin-top: 4px;
     margin-bottom: 2px;
-  }
-  
-  .toastr-pin-prompt {
+}
+
+.stcm-modal-pin-prompt {
     z-index: 12000 !important;
     border-radius: 8px;
     box-shadow: 0 8px 24px #0002;
@@ -840,16 +840,26 @@
     border: 1px solid #444;
     transition: box-shadow 0.15s;
 }
-.toastr-pin-prompt input[type="password"] {
-    background: var(--ac-style-color-input, #292c32);
-    color: var(--ac-style-color-text, #fff);
-    border: 1px solid #666;
-    font-size: 1em;
-    padding: 7px 10px;
+
+.stcm-modal-pin-prompt input[type="password"] {
+    background: var(--ac-style-color-background, #181a1f);
+    color: var(--ac-style-color-text, #f3f3f3);
+    border: 1px solid var(--ac-style-color-border, #444);
     border-radius: 4px;
+    padding: 0.4em 0.7em;
+    font-size: 1em;
+    margin-right: 0.5em;
+    outline: none;
+    transition: border 0.14s;
+    width: 100%;
 }
 
-.toastr-pin-prompt button.stcm_menu_button {
+.stcm-modal-pin-prompt input[type="password"]:focus {
+    border: 1.5px solid var(--ac-style-color-accent, #44b77b);
+    background: var(--ac-style-color-input-focus, #23272d);
+}
+
+.stcm-modal-pin-prompt button.stcm_menu_button {
     font-size: 1em;
     margin-left: 4px;
 }
