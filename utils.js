@@ -111,22 +111,29 @@ function getNotes() {
         return {
             charNotes: data.charNotes || {},
             tagNotes: data.tagNotes || {},
+            tagPrivate: data.tagPrivate || {},   // <-- add this line!
         };
     } catch {
-        return { charNotes: {}, tagNotes: {} };
+        return { charNotes: {}, tagNotes: {}, tagPrivate: {} };
     }
 }
 
-function saveNotes(notes) {
-    localStorage.setItem('stcm_notes_cache', JSON.stringify(notes));
-}
 
+function saveNotes(notes) {
+    // Always save tagPrivate as part of the notes structure!
+    localStorage.setItem('stcm_notes_cache', JSON.stringify({
+        charNotes: notes.charNotes || {},
+        tagNotes: notes.tagNotes || {},
+        tagPrivate: notes.tagPrivate || {},    // <-- add this line!
+    }));
+}
 
 async function persistNotesToFile() {
     const raw = getNotes();
     const notes = {
         charNotes: Object.fromEntries(Object.entries(raw.charNotes || {}).filter(([_, v]) => v.trim() !== '')),
         tagNotes: Object.fromEntries(Object.entries(raw.tagNotes || {}).filter(([_, v]) => v.trim() !== '')),
+        tagPrivate: raw.tagPrivate || {},   // <-- ADD THIS!
     };
 
     const json = JSON.stringify(notes, null, 2);
@@ -138,6 +145,7 @@ async function persistNotesToFile() {
         localStorage.setItem('stcm_notes_cache', JSON.stringify(notes));
     }
 }
+
 
 async function restoreNotesFromFile() {
     const fileUrl = localStorage.getItem('stcm_notes_url');
