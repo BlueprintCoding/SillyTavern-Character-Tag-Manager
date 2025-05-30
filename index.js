@@ -28,6 +28,7 @@ import {
 import {
     characters,
     getCharacters,
+    printTagFilters,
     printCharactersDebounced,
     saveSettingsDebounced,
 } from "../../../../script.js";
@@ -882,14 +883,18 @@ function renderCharacterTagData() {
         });
 
         // Do the real update only at the end:
-        bgPicker.addEventListener('change:end', e => {
+        bgPicker.addEventListener('change:end', async e => {
             if (initializing) return;
-            // Actually persist color to tags, settings, etc
-            callSaveandReload();
-            renderCharacterList();  
+            let newColor = e.detail?.rgba ?? e.target.color;
+            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
+            group.tag.color = newColor.trim();
+        
+            // (Force) Save and redraw after setting color
+            await callSaveandReload();
+            renderCharacterList();
             renderCharacterTagData();
         });
-
+        
 
         // ---- Foreground/Text Color (fgPicker) ----
         fgPicker.addEventListener('change', e => {
@@ -1269,6 +1274,7 @@ function confirmDeleteTag(tag) {
 async function callSaveandReload() {
     updatePrivateFolderObservers();
     saveSettingsDebounced();
+    printTagFilters();
     await getCharacters();
     await printCharactersDebounced();
 }
