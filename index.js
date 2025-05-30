@@ -535,8 +535,16 @@ function openCharacterTagManagerModal() {
 
 
     makeModalDraggable(document.getElementById('characterTagManagerModal'), document.querySelector('.stcm_modal_header'));
-
+    watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState);
 }
+
+const privateTagIds = new Set(/* array of private tag ids */);
+
+function getCurrentVisibilityState() {
+    // Get current state (0, 1, 2) from localStorage, or from your UI
+    return Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
+}
+
 
 
 

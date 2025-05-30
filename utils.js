@@ -331,6 +331,29 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
     
 }
 
+/**
+ * Watches for changes in #rm_print_characters_block and reapplies icon and visibility mutators.
+ * @param {Set<string>} privateTagIds
+ * @param {Function} getVisibilityState - function returning the current visibility state (0, 1, 2)
+ */
+function watchCharacterBlockMutations(privateTagIds, getVisibilityState) {
+    const container = document.getElementById('rm_print_characters_block');
+    if (!container) return;
+
+    // Initial apply on page load
+    mutateBogusFolderIcons(privateTagIds);
+    applyPrivateFolderVisibility(getVisibilityState(), privateTagIds);
+
+    // Set up the observer
+    const observer = new MutationObserver(() => {
+        // Re-apply both every mutation (should be fast)
+        mutateBogusFolderIcons(privateTagIds);
+        applyPrivateFolderVisibility(getVisibilityState(), privateTagIds);
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+}
+
 
 
 export { 
@@ -351,5 +374,6 @@ restoreNotesFromFile,
 getFolderTypeForUI, 
 mutateBogusFolderIcons, 
 applyPrivateFolderVisibility, 
-injectPrivateFolderToggle 
+injectPrivateFolderToggle,
+watchCharacterBlockMutations
 };
