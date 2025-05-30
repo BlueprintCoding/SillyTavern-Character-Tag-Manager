@@ -22,6 +22,7 @@
     justify-content: center;
     align-items: flex-start;
     padding-top: 1%;
+    pointer-events: none;
 }
 
 .stcm_modal_main {
@@ -36,6 +37,7 @@
     padding: 1em;
     resize: both;
     overflow: hidden;
+    pointer-events: auto;
 }
 
 /* === Modal Header & Body === */
