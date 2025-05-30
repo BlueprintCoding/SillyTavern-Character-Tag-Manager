@@ -239,13 +239,26 @@ export function updateDefaultTagManagerVisibility(isVisible = true) {
 }
 
 export function updateRecentChatsVisibility(isVisible = true) {
-    // For each selector, set display
-    ['.welcomeRecent', '.recentChatsTitle', '.showRecentChats', '.hideRecentChats'].forEach(sel => {
-        document.querySelectorAll(sel).forEach(el => {
-            el.style.display = isVisible ? '' : 'none';
-        });
-    });
+    injectHideRecentChatsCSS(); // Ensure CSS is injected only once
+    document.body.classList.toggle('stcm-hide-recent-chats', !isVisible);
 }
+
+function injectHideRecentChatsCSS() {
+    if (document.getElementById('stcm-hide-recent-chats-style')) return;
+    const style = document.createElement('style');
+    style.id = 'stcm-hide-recent-chats-style';
+    style.textContent = `
+        body.stcm-hide-recent-chats .welcomeRecent,
+        body.stcm-hide-recent-chats .welcomeRecent *,
+        body.stcm-hide-recent-chats .recentChatsTitle,
+        body.stcm-hide-recent-chats .showRecentChats,
+        body.stcm-hide-recent-chats .hideRecentChats {
+            display: none !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 
 export function updateTopBarIconVisibility(isVisible = true) {
     // Adjust your selector if the ID/class is different in your implementation!
