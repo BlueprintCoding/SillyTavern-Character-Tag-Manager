@@ -868,85 +868,49 @@ function renderCharacterTagData() {
         let initializing = true;
 
 
-        // Track color changes only for local preview during drag:
-        bgPicker.addEventListener('change', e => {
-            if (initializing) return;
-            let newColor = e.detail?.rgba ?? e.target.color;
-            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-            group.tag.color = newColor.trim();
 
-            // Only update the preview swatch (fast, local DOM only)
-            const tagSwatch = header.querySelector('.tagNameText');
-            if (tagSwatch) tagSwatch.style.backgroundColor = group.tag.color;
-            // DO NOT call callSaveandReload() or renderCharacterTagData() here!
-        });
+    // Debounced persist/save handler (shared by bg and fg)
+    const debouncedColorSave = debounce(() => {
+        callSaveandReload();
+        renderCharacterList();
+        renderCharacterTagData();
+    }, 250); // 250ms is a good default
 
-        bgPicker.addEventListener('change:end', async e => {
-            console.log('change:end event fired!', e);
+    // Background color picker
+    bgPicker.addEventListener('change', e => {
+        if (initializing) return;
+        let newColor = e.detail?.rgba ?? e.target.color;
+        newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
 
-            if (initializing) return;
-            const tagId = group.tag.id;
-            const tag = tags.find(t => t.id === tagId);
-            let newColor = e.detail?.rgba ?? e.target.color;
-            newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-            if (!tag) return;
-        
-            tag.color = newColor.trim();
-        
-            // Trigger "rename" workflow with the same name
-            const oldName = tag.name;
-            const newName = tag.name;
-        
-            if (newName && newName === oldName) {
-                tag.name = newName;
-                await callSaveandReload();
-                renderCharacterList();
-                renderCharacterTagData();
-            }
-        });
-        
+        // Update tag object
+        group.tag.color = newColor.trim();
 
-    // Foreground color picker (live preview for local swatch)
+        // Update preview
+        const tagSwatch = header.querySelector('.tagNameText');
+        if (tagSwatch) tagSwatch.style.backgroundColor = group.tag.color;
+
+        // Debounced save & UI update (does everything the rename workflow does!)
+        debouncedColorSave();
+    });
+
+    // Foreground color picker
     fgPicker.addEventListener('change', e => {
         if (initializing) return;
         let newColor = e.detail?.rgba ?? e.target.color;
         newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
 
-        // Update the real tag object for immediate UI feedback in modal
+        // Update tag object
         const tag = tags.find(t => t.id === group.tag.id);
         if (tag) tag.color2 = newColor.trim();
 
-        // Only update modal swatch here (no save yet)
+        // Update preview
         const tagSwatch = header.querySelector('.tagNameText');
         if (tagSwatch) tagSwatch.style.color = tag.color2;
+
+        // Debounced save & UI update (does everything the rename workflow does!)
+        debouncedColorSave();
     });
 
-    fgPicker.addEventListener('change:end', async e => {
-        console.log('change:end event fired!', e);
-
-        if (initializing) return;
-        const tagId = group.tag.id;
-        const tag = tags.find(t => t.id === tagId);
-        let newColor = e.detail?.rgba ?? e.target.color;
-        newColor = (typeof newColor === 'string' && newColor.trim() === '#') ? '' : newColor;
-        if (!tag) return;
-    
-        // Set the new color
-        tag.color2 = newColor.trim();
-    
-        // --- Simulate a rename to the *same* name to trigger all the right updates ---
-        // (This matches your existing rename logic for name changes)
-        const oldName = tag.name;
-        const newName = tag.name; // no actual change
-    
-        if (newName && newName === oldName) {
-            // This block forces the "rename" workflow
-            tag.name = newName; // stays the same
-            await callSaveandReload();
-            renderCharacterList();
-            renderCharacterTagData();
-        }
-    });
     
         // Wait until next tick to allow any initial value propagations
         setTimeout(() => {
