@@ -455,13 +455,6 @@ function watchTagFilterBar(privateTagIds, onStateChange) {
     });
     tagFilterBarObserver.observe(tagRow, { childList: true, subtree: false });
 
-    document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
-        const attrObserver = new MutationObserver(() => {
-            hidePrivateTagsInFilterBar();
-        });
-        attrObserver.observe(tagEl, { attributes: true, attributeFilter: ['style', 'class'] });
-    });
-
 }
 
 function getCurrentVisibilityState() {
