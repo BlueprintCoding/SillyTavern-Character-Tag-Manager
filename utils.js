@@ -294,6 +294,7 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
         localStorage.setItem(stateKey, state);
         render();
         onStateChange(state);
+        hidePrivateTagsInFilterBar(); 
     });
     
     
