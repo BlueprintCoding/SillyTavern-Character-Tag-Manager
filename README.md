@@ -1,6 +1,6 @@
 # SillyTavern Character Tag Manager
 
-SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a centralized interface for managing tags, folders, and metadata for characters and groups. It offers advanced tools to organize, search, assign, and persist notes and tag mappings, all through an integrated and theme-adaptive modal interface.
+SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a centralized interface for managing tags, folders, and metadata for characters and groups. It offers advanced tools to organize, search, assign, and persist notes and tag mappings, all through an integrated modal interface.
 
 ---
 
@@ -32,6 +32,36 @@ SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a cen
 - **View characters assigned to a tag** by expanding the tag entry
 
 ![image](https://github.com/user-attachments/assets/00a5fdf4-0ffa-4bca-8dcc-11fcb19f2faf)
+
+### Bulk Delete for Tags and Characters/Groups
+
+* **Bulk Delete Mode:** Enter bulk delete mode in either the tag or character/group section, select as many tags or characters/groups as you want, and delete them in two clicks—confirmation dialogs ensure safety.
+* **Automatic Cleanup:** When deleting tags, all associations with characters and groups are automatically removed.
+
+### Private Folders
+
+* **Private Folder Tag Type:** Tags can be set as “Private Folders.” These folders, and their assigned characters, are only visible to you. Private folders can be PIN-protected and are omitted from exports or sharing unless you explicitly include them.
+* **PIN Protection:** The PIN (if set) is hashed and saved in your extension notes file. If you forget your PIN, you can remove it by editing the notes JSON file. (PIN protection is meant for basic privacy, not high security.)
+* **Visibility Toggle:** Quickly switch between hiding, showing all, or showing only private folders using the new icon in the tag bar.
+* **Use Cases:** Split out NSFW characters, archive less-used cards, or create a private workspace.
+
+### Folder Filtering & Tag Folder Types
+
+* **Folder Type Filter:** Instantly filter tags by folder type (No Folder, Open, Closed, Private) using the dropdown in the modal—no more scrolling through unsorted lists.
+* **Set Folder Type:** Edit any tag’s folder type directly from the tag manager for better organization and grouping in other tag views.
+
+### Advanced Character Searching
+
+* **Flexible Search Syntax:**
+  * Use `A:` to search all character fields
+  * Use `T:` to search tags
+  * Use no prefix to search character/group names
+* **Negative Search:** Prefix any term with `-` to exclude it (e.g., `-T:orc` excludes characters with the tag "orc").
+* **Multi-term Matching:** Combine terms:
+  `A:elf T:good -T:evil` finds characters whose fields include "elf", have the tag "good", and do **not** have the tag "evil".
+* **Exact Match:** Wrap phrases in quotes for exact matches, e.g., `A:"dark elf" -T:"high elf"`
+* **Mixed Fields:** You can mix positive and negative, field-specific or general terms in any order.
+  For example: `A:home -T:building` finds characters whose fields mention "home" but do **not** have the "building" tag.
 
 
 ### Data Persistence
