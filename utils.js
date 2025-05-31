@@ -346,42 +346,40 @@ function showModalPinPrompt(message = "Enter PIN") {
  * @param {Set<string>} privateTagIds Set of private tag IDs
  */
 function applyPrivateFolderVisibility(state, privateTagIds) {
-    const goBackBlock = document.getElementById('BogusFolderBack');
-    // Use computed style to check if it's visible
-    const isDrilledIn = goBackBlock && window.getComputedStyle(goBackBlock).display !== 'none';
+    const allFolders = document.querySelectorAll('.bogus_folder_select');
+    const allChars = document.querySelectorAll('.character_select.entity_block');
+    const allGroups = document.querySelectorAll('.group_select.entity_block');
+    // Find the *active* Go back element (not the template)
+    const goBackBlock = Array.from(document.querySelectorAll('.bogus_folder_select_back'))
+        .find(el => !el.closest('.template_element') && el.style.display !== 'none');
+    const inDrilldown = !!goBackBlock;
 
-    if (isDrilledIn) {
-        // We're inside a folder: show everything, don't filter
-        document.querySelectorAll('.bogus_folder_select').forEach(div => {
-            div.style.display = '';
-        });
-        document.querySelectorAll('.character_select.entity_block, .group_select.entity_block').forEach(div => {
-            div.style.display = '';
-        });
-        return;
-    }
-
-    // ... rest of your normal (non-drilled-in) logic below ...
-    document.querySelectorAll('.bogus_folder_select').forEach(div => {
+    // Folders
+    allFolders.forEach(div => {
         const tagid = div.getAttribute('tagid');
-        if (div.id === 'BogusFolderBack' || div.classList.contains('bogus_folder_select_back') || tagid === 'back') {
+        // Always show "Go back"
+        if (div.classList.contains('bogus_folder_select_back') || tagid === 'back') {
             div.style.display = '';
             return;
         }
         const isPrivate = privateTagIds.has(tagid);
-        if (state === 0) { // Locked
+        if (state === 0) {
             div.style.display = isPrivate ? 'none' : '';
-        } else if (state === 1) { // Unlocked
+        } else if (state === 1) {
             div.style.display = '';
-        } else if (state === 2) { // Private only
+        } else if (state === 2) {
             div.style.display = isPrivate ? '' : 'none';
         }
     });
 
-    [document.querySelectorAll('.character_select.entity_block'), document.querySelectorAll('.group_select.entity_block')].forEach(list => {
-        list.forEach(div => {
-            if (state === 2) {
-                // Only show if in a private folder
+    // Characters and groups
+    [allChars, allGroups].forEach(collection => {
+        collection.forEach(div => {
+            if (inDrilldown) {
+                // When inside a folder, always show all characters/groups
+                div.style.display = '';
+            } else if (state === 2) {
+                // Only show if in any private folder ancestry (normal top-level)
                 let inPrivateFolder = false;
                 let parent = div.parentElement;
                 while (parent) {
