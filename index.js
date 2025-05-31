@@ -899,62 +899,76 @@ function renderCharacterTagData() {
     const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
     const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#000000';
 
-    // Map for fast character name lookup: Map<charId, name>
+    const notes = getNotes();
     const charNameMap = buildCharNameMap(characters);
 
-    const tagGroups = tags.map(tag => {
-        const charIds = Object.entries(tag_map)
-            .filter(([_, tagIds]) => Array.isArray(tagIds) && tagIds.includes(tag.id))
-            .map(([charId]) => charId);
-
-        return {
-            tag,
-            charIds
-        };
-    }).filter(group => {
-        const tagName = group.tag.name.toLowerCase();
-
-        if (sortMode === 'only_zero' && group.charIds.length > 0) return false;
-
-        // Private Folder Tags (filter step)
-        if (sortMode === 'private_folder') {
-        // Consider "private" if it's folder_type="CLOSED" AND notes.tagPrivate[tag.id] is true
-        const notes = getNotes();
-        const isPrivate = group.tag.folder_type === "CLOSED" && notes.tagPrivate && notes.tagPrivate[group.tag.id];
-        if (!isPrivate) return false;
+        // Helper to determine the folder type for filtering
+        function getFolderType(tag) {
+            if (!tag || typeof tag.folder_type !== 'string') return 'NONE';
+            const ft = tag.folder_type.toUpperCase();
+            if (ft === 'CLOSED' && notes.tagPrivate && notes.tagPrivate[tag.id]) return 'PRIVATE';
+            if (['NONE','OPEN','CLOSED'].includes(ft)) return ft;
+            return 'NONE';
         }
+        
+        let tagGroups = tags.map(tag => {
+            const charIds = Object.entries(tag_map)
+                .filter(([_, tagIds]) => Array.isArray(tagIds) && tagIds.includes(tag.id))
+                .map(([charId]) => charId);
+            return { tag, charIds };
+        }).filter(group => {
+            const tagName = group.tag.name.toLowerCase();
     
-
-        if (searchTerm.startsWith('c:')) {
-            const charSearch = searchTerm.slice(2).trim().toLowerCase();
-            const matchedChars = group.charIds
-                .map(id => getCharacterNameById(id, charNameMap)?.toLowerCase() || '')
-                .filter(name => name.includes(charSearch));
-            return matchedChars.length > 0;
-        }
-
-        return tagName.includes(searchTerm);
-    });
-
-
-
-    tagGroups.sort((a, b) => {
-        if (sortMode === 'alpha_asc' || sortMode === 'only_zero' || sortMode === 'private_folder') {
-            return a.tag.name.localeCompare(b.tag.name);
-        }
-
-        switch (sortMode) {
-            case 'alpha_desc':
-                return b.tag.name.localeCompare(a.tag.name);
-            case 'count_asc':
-                return a.charIds.length - b.charIds.length;
-            case 'count_desc':
-                return b.charIds.length - a.charIds.length;
-            default:
-                return 0;
-        }
-    });
-
+            // Filtering logic for all folder types
+            if (sortMode === 'no_folder') {
+                if (getFolderType(group.tag) !== 'NONE') return false;
+            }
+            if (sortMode === 'open_folder') {
+                if (getFolderType(group.tag) !== 'OPEN') return false;
+            }
+            if (sortMode === 'closed_folder') {
+                if (getFolderType(group.tag) !== 'CLOSED') return false;
+            }
+            if (sortMode === 'private_folder') {
+                if (getFolderType(group.tag) !== 'PRIVATE') return false;
+            }
+            if (sortMode === 'only_zero' && group.charIds.length > 0) return false;
+    
+            // Support search by character name (c:)
+            if (searchTerm.startsWith('c:')) {
+                const charSearch = searchTerm.slice(2).trim().toLowerCase();
+                const matchedChars = group.charIds
+                    .map(id => getCharacterNameById(id, charNameMap)?.toLowerCase() || '')
+                    .filter(name => name.includes(charSearch));
+                return matchedChars.length > 0;
+            }
+            return tagName.includes(searchTerm);
+        });
+    
+        // Sorting logic (alpha_asc, alpha_desc, etc)
+        tagGroups.sort((a, b) => {
+            if (
+                sortMode === 'alpha_asc' ||
+                sortMode === 'no_folder' ||
+                sortMode === 'open_folder' ||
+                sortMode === 'closed_folder' ||
+                sortMode === 'private_folder' ||
+                sortMode === 'only_zero'
+            ) {
+                return a.tag.name.localeCompare(b.tag.name);
+            }
+            switch (sortMode) {
+                case 'alpha_desc':
+                    return b.tag.name.localeCompare(a.tag.name);
+                case 'count_asc':
+                    return a.charIds.length - b.charIds.length;
+                case 'count_desc':
+                    return b.charIds.length - a.charIds.length;
+                default:
+                    return 0;
+            }
+        });
+    
 
     const fragment = document.createDocumentFragment();
 
