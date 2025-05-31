@@ -531,5 +531,6 @@ applyPrivateFolderVisibility,
 injectPrivateFolderToggle,
 watchCharacterBlockMutations,
 watchTagFilterBar,
-hashPin
+hashPin,
+hidePrivateTagsInFilterBar
 };

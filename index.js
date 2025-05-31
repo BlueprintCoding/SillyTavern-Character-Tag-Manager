@@ -18,6 +18,7 @@ injectPrivateFolderToggle,
 applyPrivateFolderVisibility,
 watchCharacterBlockMutations,
 watchTagFilterBar,
+hidePrivateTagsInFilterBar,
 } from './utils.js';
 
 import {
@@ -1620,11 +1621,13 @@ function refreshPrivateFolderToggle() {
     // Set up the toggle if there are private folders
     injectPrivateFolderToggle(privateIds, (state) => {
         applyPrivateFolderVisibility(state, privateIds);
+        hidePrivateTagsInFilterBar();
     });
 
     // Optionally, set visibility on load (if persisting state)
     const savedState = Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
     applyPrivateFolderVisibility(savedState, privateIds);
+    hidePrivateTagsInFilterBar();
 }
 
 function updatePrivateFolderObservers() {
@@ -1633,6 +1636,7 @@ function updatePrivateFolderObservers() {
     const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
     watchTagFilterBar(privateTagIds, (state) => {
         applyPrivateFolderVisibility(state, privateTagIds);
+        hidePrivateTagsInFilterBar();
     });
     watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState); // If you use this for folder icon/char blocks too
 }
