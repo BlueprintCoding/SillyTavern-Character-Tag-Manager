@@ -798,6 +798,9 @@
 
 .stcm-hide { display: none !important; }
 
+.stcm-force-hide-private { 
+    display: none !important; 
+}
 
 
 /* PIN Management Area */

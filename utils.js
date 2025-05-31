@@ -494,7 +494,7 @@ function hidePrivateTagsInFilterBar() {
         const isPrivate = privateTagIds.has(tagId);
 
             if (isPrivate) {
-                tagEl.style.display = 'none';
+                tagEl.classList.add('stcm-force-hide-private');
                 tagEl.setAttribute('data-stcm-debug', 'private-hidden');
             }
     });
