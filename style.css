@@ -126,6 +126,10 @@
     box-sizing: border-box;
 }
 
+.stcm_flex {
+    display: flex;
+}
+
 .stcm_margin_left {
     margin-left: 10px;
 }
@@ -145,6 +149,10 @@
 .stcm_assign_bar {
     display: none;
     text-align: right;
+}
+
+.stcm_tag_button_holder {
+    margin-top: -5px;
 }
 
 .stcm_merge_controls,
@@ -206,6 +214,11 @@
     opacity: 0.95;
 }
 
+.bulkDelChar {
+    min-width: 150px;
+    margin-left: 5px;
+}
+
 .stcm_menu_button.red:hover,
 #closeCharacterTagManagerModal:hover {
     background-color: #c9302c;
@@ -261,6 +274,10 @@
     color: white;
 }
 
+#closeCharacterTagManagerModal i {
+    margin-right: 0px!important;
+}
+
 .editTagIcon:hover {
     color: var(--accent-color, orange);
 }
@@ -284,6 +301,10 @@
 
 .smallInstructions {
     font-size: .7em;
+}
+
+#charSortMode {
+    margin-left:4px;
 }
 
 /* === Scroll Areas & Banding (Lists) === */
@@ -328,6 +349,9 @@
     align-items: flex-start;
     gap: 10px;
     padding: 6px 0;
+    padding-right: 10px;
+    position: relative;
+    width: 100%
 }
 
 .charMetaRight {
@@ -335,6 +359,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+    width:100%;
 }
 
 .charNameRow {
@@ -365,12 +390,17 @@
 }
 
 .charRowRightFixed {
+    position: absolute;         
+    top: 0;                    
+    right: 0;                   
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
     min-width: 40px;
     margin-left: auto;
     padding-left: 8px;
+    z-index: 1;                 
+    height: auto;              
 }
 
 .charControlsRight {
@@ -590,6 +620,11 @@
     transform: rotate(45deg);
 }
 
+.bulkDeleteTagCheckbox {
+    margin-right: 7px;
+    accent-color: #d9534f;
+}
+
 /* === Tag Chips for Selection === */
 .stcm_tag_chip_list {
     display: flex;
@@ -739,15 +774,26 @@
 }
 
 /* === Add Tag Popup, Misc === */
-.custom-add-tag-popup {
+.stcm_custom-add-tag-popup {
     overflow: visible !important;
 }
 
-.custom-add-tag-popup .popup-content {
+.stcm_custom-add-tag-popup .popup-content {
     overflow: visible !important;
 }
 
-.custom-add-tag-popup .newTagName {
+.stcm_custom-color-edit-popup {
+    overflow: visible !important;
+}
+.stcm_custom-color-edit-popup .popup-content {
+    overflow: visible !important;
+}
+.tc-popup {
+    z-index: 9999 !important;
+}
+
+
+.stcm_custom-add-tag-popup .newTagName {
     background-color: rgba(255, 255, 255, 0.04);
     color: #fff;
 }
@@ -758,6 +804,102 @@
     border-radius: 4px;
     white-space: pre-wrap;
 }
+
+/* Private Folder Styling */
+.stcm-private-folder {
+
+}
+
+.stcm-hide { display: none !important; }
+
+.stcm-force-hide-private { 
+    display: none !important; 
+}
+
+
+/* PIN Management Area */
+#stcm-pin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    background: var(--ac-style-color-module, #23272d);
+    padding: 0.7em 1em 0.9em 1em;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px #0002;
+    margin-bottom: 1.2em;
+    max-width: 250px;
+}
+
+#stcm-pin-form input[type="password"] {
+    background: var(--ac-style-color-background, #181a1f);
+    color: var(--ac-style-color-text, #f3f3f3);
+    border: 1px solid var(--ac-style-color-border, #444);
+    border-radius: 4px;
+    padding: 0.4em 0.7em;
+    font-size: 1em;
+    margin-right: 0.5em;
+    outline: none;
+    transition: border 0.14s;
+    width: 100%!important;
+}
+
+#stcm-pin-form input[type="password"]:focus {
+    border: 1.5px solid var(--ac-style-color-accent, #44b77b);
+    background: var(--ac-style-color-input-focus, #23272d);
+}
+
+#stcm-pin-form button.stcm_menu_button {
+    padding: 0.25em 1em;
+    margin-top: 0.3em;
+    font-size: 1em;
+    font-weight: 500;
+    border-radius: 4px;
+    border: none;
+    background: var(--ac-style-color-accent, #44b77b);
+    color: var(--ac-style-color-button-text, #fff);
+    cursor: pointer;
+    margin-right: 0.6em;
+    transition: background 0.14s;
+    width: 100%;
+}
+
+#stcm-pin-form button.stcm_menu_button.red {
+    background: var(--ac-style-color-error, #b94444);
+}
+
+#stcm-pin-form button.stcm_menu_button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#stcm-pin-form #stcm-pin-msg {
+    font-size: 0.98em;
+    min-height: 1.2em;
+    color: var(--ac-style-color-error, #e57373);
+    margin-top: 4px;
+    margin-bottom: 2px;
+}
+
+
+dialog.popup #stcm-popup-pin-input {
+    background: var(--ac-style-color-background, #181a1f);
+    color: var(--ac-style-color-text, #f3f3f3);
+    border: 1px solid var(--ac-style-color-border, #444);
+    border-radius: 4px;
+    padding: 0.4em 0.7em;
+    font-size: 1em;
+    margin-right: 0.5em;
+    outline: none;
+    transition: border 0.14s;
+    width: 100%;
+}
+
+dialog.popup #stcm-popup-pin-input:focus {
+    border: 1.5px solid var(--ac-style-color-accent, #44b77b);
+    background: var(--ac-style-color-input-focus, #23272d);
+}
+
+
 
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {

@@ -6,7 +6,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "BlueprintCoding",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "homePage": "https://github.com/BlueprintCoding/SillyTavern-Character-Tag-Manager",
     "auto_update": true
 }
