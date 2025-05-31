@@ -88,6 +88,7 @@ function openCharacterTagManagerModal() {
                         <option value="count_desc">Most Characters</option>
                         <option value="count_asc">Fewest Characters</option>
                         <option value="only_zero">Tags with 0 Characters</option>
+                        <option value="private_folder">Private Folder Tags</option>
                     </select>
                                         <input type="text" id="tagSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search tags..." />                   
                 </div>
@@ -158,7 +159,7 @@ function openCharacterTagManagerModal() {
                     <div id="assignTagsBar" class="stcm_assign_bar">
                    <div id="selectedTagsDisplay" class="selected-tags-container"></div>
                     </div>
-  <div class="stcm_sort_row">
+  <div class="stcm_sort_row stcm_margin_top">
                         <span>SORT</span>
                         <select id="charSortMode" class="stcm_menu_button interactable">
                             <option value="alpha_asc">A → Z</option>
@@ -169,18 +170,18 @@ function openCharacterTagManagerModal() {
                             <option value="with_notes">With Notes</option>
                             <option value="without_notes">Without Notes</option>
                         </select>
-                           <div class="stcm_margin_top stcm_fullwidth" >
+                           <div class=" stcm_fullwidth" >
                             <input type="text" id="charSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search characters/groups..." />
-                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag.</span>
-                            <button id="startBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
+                            <button id="startBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable bulkDelChar" tabindex="0">
                                 <i class="fa-solid fa-trash"></i> Bulk Delete
                             </button>
-                            <button id="cancelBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable" style="display: none;" tabindex="0">
+                            <button id="cancelBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable bulkDelChar" style="display: none;" tabindex="0">
                                 Cancel Delete
                             </button>
-                            <button id="confirmBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable red" style="display: none;" tabindex="0">
+                            <button id="confirmBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable bulkDelChar red" style="display: none;" tabindex="0">
                                 <i class="fa-solid fa-trash"></i> Delete Selected
                             </button>
+                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag.</span>
                                 </div>
 
                     </div>
@@ -910,6 +911,14 @@ function renderCharacterTagData() {
 
         if (sortMode === 'only_zero' && group.charIds.length > 0) return false;
 
+        // Private Folder Tags (filter step)
+        if (sortMode === 'private_folder') {
+        // Consider "private" if it's folder_type="CLOSED" AND notes.tagPrivate[tag.id] is true
+        const isPrivate = group.tag.folder_type === "CLOSED" && notes.tagPrivate && notes.tagPrivate[group.tag.id];
+        if (!isPrivate) return false;
+        }
+    
+
         if (searchTerm.startsWith('c:')) {
             const charSearch = searchTerm.slice(2).trim().toLowerCase();
             const matchedChars = group.charIds
@@ -924,7 +933,7 @@ function renderCharacterTagData() {
 
 
     tagGroups.sort((a, b) => {
-        if (sortMode === 'alpha_asc' || sortMode === 'only_zero') {
+        if (sortMode === 'alpha_asc' || sortMode === 'only_zero' || sortMode === 'private_folder') {
             return a.tag.name.localeCompare(b.tag.name);
         }
 
