@@ -60,31 +60,60 @@ function renderCharacterList() {
         entity.tagCount = Array.isArray(tag_map[entity.id]) ? tag_map[entity.id].length : 0;
     });
 
-    const filtered = allEntities.filter(e => {
-        const lowerSearch = searchTerm.toLowerCase();
-
-        if (lowerSearch.startsWith('a:')) {
-            const rawQuery = lowerSearch.slice(2).trim();
-            const charObj = characters.find(c => c.avatar === e.id);
-            if (charObj) {
-                return Object.values(charObj).some(val =>
-                    typeof val === 'string' && val.toLowerCase().includes(rawQuery)
-                );
+    const filterEntities = (entities, searchTerm, mode = 'name') => {
+        // Parse out negative and positive terms
+        // Split on spaces, support quoted phrases (optional)
+        const terms = searchTerm.match(/(".*?"|[^"\s]+)+(?=\s*|\s*$)/g) || [];
+        const positiveTerms = [];
+        const negativeTerms = [];
+    
+        for (let t of terms) {
+            t = t.trim();
+            if (!t) continue;
+            if (t.startsWith('-')) negativeTerms.push(t.slice(1).replace(/(^"|"$)/g, ''));
+            else positiveTerms.push(t.replace(/(^"|"$)/g, ''));
+        }
+    
+        return entities.filter(entity => {
+            const charObj = characters.find(c => c.avatar === entity.id);
+            const tagIds = tag_map[entity.id] || [];
+            const tagNames = tagIds.map(tagId => (buildTagMap(tags).get(tagId)?.name.toLowerCase() || ""));
+    
+            let haystack = '';
+            if (mode === 'a') {
+                haystack = charObj
+                    ? Object.values(charObj).filter(v => typeof v === 'string').join(' ').toLowerCase()
+                    : '';
+            } else if (mode === 't') {
+                haystack = tagNames.join(' ');
+            } else {
+                haystack = entity.name.toLowerCase();
             }
-            return false;
-        }
-
-        if (lowerSearch.startsWith('t:')) {
-            const rawQuery = lowerSearch.slice(2).trim();
-            const tagIds = tag_map[e.id] || [];
-            return tagIds.some(tagId => {
-                const tag = tagMapById.get(tagId);
-                return tag?.name.toLowerCase().includes(rawQuery);
-            });
-        }
-
-        return e.name.toLowerCase().includes(lowerSearch);
-    });
+    
+            // Must match ALL positive terms
+            if (positiveTerms.length && !positiveTerms.every(term => haystack.includes(term.toLowerCase()))) {
+                return false;
+            }
+            // Must match NONE of the negative terms
+            if (negativeTerms.length && negativeTerms.some(term => haystack.includes(term.toLowerCase()))) {
+                return false;
+            }
+            return true;
+        });
+    };
+    
+    const lowerSearch = searchTerm.toLowerCase();
+    let filtered;
+    if (lowerSearch.startsWith('a:')) {
+        const rawQuery = lowerSearch.slice(2).trim();
+        filtered = filterEntities(allEntities, rawQuery, 'a');
+    } else if (lowerSearch.startsWith('t:')) {
+        const rawQuery = lowerSearch.slice(2).trim();
+        filtered = filterEntities(allEntities, rawQuery, 't');
+    } else {
+        filtered = filterEntities(allEntities, lowerSearch, 'name');
+    }
+    
 
     const notes = getNotes();
     let visible = filtered;
