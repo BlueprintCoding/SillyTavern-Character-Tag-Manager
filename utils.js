@@ -481,24 +481,27 @@ function isSystemTagId(id) {
     );
 }
 
+
 /**
  * Controls tag bar visibility for private tags based on toggle.
  * @param {number} state 0=hide private, 1=show all, 2=only private
  * @param {Set<string>} privateTagIds Set of private tag IDs
  */
 function hidePrivateTagsInFilterBar(state, privateTagIds) {
-    // Handle tag bar tags
+    // Handle each tag in the bar (".tags.rm_tag_filter > .tag")
     document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
-        // Use 'id' attribute for the tag ID
-        const tagId = tagEl.id;
+        // Use 'id' attribute for tag ID in the bar
+        const tagId = tagEl.getAttribute('id');
 
-        // Always show system/control tags
+        // System tags must ALWAYS be visible
         if (isSystemTagId(tagId)) {
             tagEl.style.display = '';
             return;
         }
 
+        // For all user tags:
         const isPrivate = privateTagIds.has(tagId);
+
         if (state === 0) { // Locked: hide private tags
             tagEl.style.display = isPrivate ? 'none' : '';
         } else if (state === 1) { // Unlocked: show all tags
@@ -508,6 +511,7 @@ function hidePrivateTagsInFilterBar(state, privateTagIds) {
         }
     });
 }
+
 
 
 export { 
