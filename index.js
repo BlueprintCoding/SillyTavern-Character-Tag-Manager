@@ -88,6 +88,9 @@ function openCharacterTagManagerModal() {
                         <option value="count_desc">Most Characters</option>
                         <option value="count_asc">Fewest Characters</option>
                         <option value="only_zero">Tags with 0 Characters</option>
+                        <option value="no_folder">No Folder Tags</option>
+                        <option value="open_folder">Open Folder Tags</option>
+                        <option value="closed_folder">Closed Folder Tags</option>
                         <option value="private_folder">Private Folder Tags</option>
                     </select>
                                         <input type="text" id="tagSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search tags..." />                   
