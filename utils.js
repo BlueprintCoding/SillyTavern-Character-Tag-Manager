@@ -501,7 +501,7 @@ function hidePrivateTagsInFilterBar() {
         }
 
         // If tag list is NOT active, hide all tags except system
-        if (!tagListIsActive) {
+        if (tagListIsActive) {
             console.log('TAGS SHOULD NOT BE SHOWN');
             tagEl.style.display = 'none';
             tagEl.setAttribute('data-stcm-debug', 'taglist-inactive-hidden');
