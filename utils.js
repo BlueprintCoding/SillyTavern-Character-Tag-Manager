@@ -346,67 +346,58 @@ function showModalPinPrompt(message = "Enter PIN") {
  * @param {Set<string>} privateTagIds Set of private tag IDs
  */
 function applyPrivateFolderVisibility(state, privateTagIds) {
-    // Folders (bogus_folder_select)
-    document.querySelectorAll('.bogus_folder_select').forEach(div => {
+    const allFolders = document.querySelectorAll('.bogus_folder_select');
+    const allChars = document.querySelectorAll('.character_select.entity_block');
+    const allGroups = document.querySelectorAll('.group_select.entity_block');
+    const goBackBlock = document.querySelector('.bogus_folder_select_back');
+    const inDrilldown = goBackBlock && goBackBlock.style.display !== 'none';
+
+    // Folders
+    allFolders.forEach(div => {
         const tagid = div.getAttribute('tagid');
-        // Always show the "Go back" folder
-        if (div.id === 'BogusFolderBack' || tagid === 'back') {
+        // Always show "Go back"
+        if (div.classList.contains('bogus_folder_select_back') || tagid === 'back') {
             div.style.display = '';
             return;
         }
         const isPrivate = privateTagIds.has(tagid);
-        if (state === 0) { // Locked: hide private folders
+        if (state === 0) {
             div.style.display = isPrivate ? 'none' : '';
-        } else if (state === 1) { // Unlocked: show all
+        } else if (state === 1) {
             div.style.display = '';
-        } else if (state === 2) { // Private only
+        } else if (state === 2) {
             div.style.display = isPrivate ? '' : 'none';
         }
     });
 
-    // Characters
-    document.querySelectorAll('.character_select.entity_block').forEach(div => {
-        // In "private only", only show if inside a private folder
-        if (state === 2) {
-            let inPrivateFolder = false;
-            let parent = div.parentElement;
-            while (parent) {
-                if (parent.classList && parent.classList.contains('bogus_folder_select')) {
-                    const tagid = parent.getAttribute('tagid');
-                    if (privateTagIds.has(tagid)) {
-                        inPrivateFolder = true;
-                        break;
+    // Characters (and groups)
+    [allChars, allGroups].forEach(collection => {
+        collection.forEach(div => {
+            if (inDrilldown) {
+                // When inside a folder, always show all characters/groups
+                div.style.display = '';
+            } else if (state === 2) {
+                // Only show if in any private folder ancestry (normal top-level)
+                let inPrivateFolder = false;
+                let parent = div.parentElement;
+                while (parent) {
+                    if (parent.classList && parent.classList.contains('bogus_folder_select')) {
+                        const tagid = parent.getAttribute('tagid');
+                        if (privateTagIds.has(tagid)) {
+                            inPrivateFolder = true;
+                            break;
+                        }
                     }
+                    parent = parent.parentElement;
                 }
-                parent = parent.parentElement;
+                div.style.display = inPrivateFolder ? '' : 'none';
+            } else {
+                div.style.display = '';
             }
-            div.style.display = inPrivateFolder ? '' : 'none';
-        } else {
-            div.style.display = '';
-        }
-    });
-
-    // Groups
-    document.querySelectorAll('.group_select.entity_block').forEach(div => {
-        if (state === 2) {
-            let inPrivateFolder = false;
-            let parent = div.parentElement;
-            while (parent) {
-                if (parent.classList && parent.classList.contains('bogus_folder_select')) {
-                    const tagid = parent.getAttribute('tagid');
-                    if (privateTagIds.has(tagid)) {
-                        inPrivateFolder = true;
-                        break;
-                    }
-                }
-                parent = parent.parentElement;
-            }
-            div.style.display = inPrivateFolder ? '' : 'none';
-        } else {
-            div.style.display = '';
-        }
+        });
     });
 }
+
 
 
 /**
