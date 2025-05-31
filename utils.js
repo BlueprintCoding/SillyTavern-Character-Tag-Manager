@@ -349,35 +349,35 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
     const allFolders = document.querySelectorAll('.bogus_folder_select');
     const allChars = document.querySelectorAll('.character_select.entity_block');
     const allGroups = document.querySelectorAll('.group_select.entity_block');
-    const goBackBlock = document.querySelector('.bogus_folder_select_back');
+    const goBackBlock = document.getElementById('BogusFolderBack');
     const inDrilldown = goBackBlock && goBackBlock.style.display !== 'none';
 
-    // Folders
+    // Folder visibility
     allFolders.forEach(div => {
         const tagid = div.getAttribute('tagid');
-        // Always show "Go back"
-        if (div.classList.contains('bogus_folder_select_back') || tagid === 'back') {
+        // Always show "Go back" button
+        if (div.id === 'BogusFolderBack' || div.classList.contains('bogus_folder_select_back') || tagid === 'back') {
             div.style.display = '';
             return;
         }
         const isPrivate = privateTagIds.has(tagid);
-        if (state === 0) {
+        if (state === 0) { // Hide private
             div.style.display = isPrivate ? 'none' : '';
-        } else if (state === 1) {
+        } else if (state === 1) { // Show all
             div.style.display = '';
-        } else if (state === 2) {
+        } else if (state === 2) { // Show only private
             div.style.display = isPrivate ? '' : 'none';
         }
     });
 
-    // Characters (and groups)
-    [allChars, allGroups].forEach(collection => {
-        collection.forEach(div => {
+    // Characters and groups
+    [allChars, allGroups].forEach(list => {
+        list.forEach(div => {
             if (inDrilldown) {
-                // When inside a folder, always show all characters/groups
+                // If we're inside a folder (Go Back present), show all characters/groups
                 div.style.display = '';
             } else if (state === 2) {
-                // Only show if in any private folder ancestry (normal top-level)
+                // Only show if in a private folder (in top-level view)
                 let inPrivateFolder = false;
                 let parent = div.parentElement;
                 while (parent) {
@@ -392,6 +392,7 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
                 }
                 div.style.display = inPrivateFolder ? '' : 'none';
             } else {
+                // Show all in other states
                 div.style.display = '';
             }
         });
