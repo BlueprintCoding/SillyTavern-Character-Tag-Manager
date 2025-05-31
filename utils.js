@@ -492,35 +492,30 @@ function hidePrivateTagsInFilterBar() {
     const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
     const state = getCurrentVisibilityState();
 
-    console.log("PRIVATE TAG IDS:", [...privateTagIds]);
-    console.log("STATE:", state);
-
     document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
         const tagId = tagEl.getAttribute('id');
         const isSystem = isSystemTagId(tagId);
         const isPrivate = privateTagIds.has(tagId);
 
-        // Show what we're doing for each tag
-        console.log(`[${tagId}] SYSTEM=${isSystem}, PRIVATE=${isPrivate}, STATE=${state}`);
-
         if (isSystem) {
             tagEl.style.display = '';
-            console.log(` -> SYSTEM TAG: SHOWN`);
+            tagEl.setAttribute('data-stcm-debug', 'system');
             return;
         }
 
         if (state === 0) {
             tagEl.style.display = isPrivate ? 'none' : '';
-            console.log(` -> ${isPrivate ? 'PRIVATE, HIDING' : 'PUBLIC, SHOWING'}`);
+            tagEl.setAttribute('data-stcm-debug', isPrivate ? 'private-hidden' : 'public-shown');
         } else if (state === 1) {
             tagEl.style.display = '';
-            console.log(` -> SHOWING ALL`);
+            tagEl.setAttribute('data-stcm-debug', 'all-shown');
         } else if (state === 2) {
             tagEl.style.display = isPrivate ? '' : 'none';
-            console.log(` -> ${isPrivate ? 'PRIVATE, SHOWING' : 'PUBLIC, HIDING'}`);
+            tagEl.setAttribute('data-stcm-debug', isPrivate ? 'private-shown' : 'public-hidden');
         }
     });
 }
+
 
 
 
