@@ -346,23 +346,28 @@ function showModalPinPrompt(message = "Enter PIN") {
  * @param {Set<string>} privateTagIds Set of private tag IDs
  */
 function applyPrivateFolderVisibility(state, privateTagIds) {
-    // Handle bogus folder divs
+    // Folders (bogus_folder_select)
     document.querySelectorAll('.bogus_folder_select').forEach(div => {
-        const isPrivate = privateTagIds.has(div.getAttribute('tagid'));
-        if (state === 0) { // Locked
+        const tagid = div.getAttribute('tagid');
+        // Always show the "Go back" folder
+        if (div.id === 'BogusFolderBack' || tagid === 'back') {
+            div.style.display = '';
+            return;
+        }
+        const isPrivate = privateTagIds.has(tagid);
+        if (state === 0) { // Locked: hide private folders
             div.style.display = isPrivate ? 'none' : '';
-        } else if (state === 1) { // Unlocked
+        } else if (state === 1) { // Unlocked: show all
             div.style.display = '';
         } else if (state === 2) { // Private only
             div.style.display = isPrivate ? '' : 'none';
         }
     });
 
-    // Handle main character blocks
+    // Characters
     document.querySelectorAll('.character_select.entity_block').forEach(div => {
-        // If in private-only, HIDE any character not in a private folder
+        // In "private only", only show if inside a private folder
         if (state === 2) {
-            // A character block is considered "in a private folder" if any ancestor .bogus_folder_select with matching privateTagIds exists
             let inPrivateFolder = false;
             let parent = div.parentElement;
             while (parent) {
@@ -377,33 +382,32 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
             }
             div.style.display = inPrivateFolder ? '' : 'none';
         } else {
-            // Show all character blocks in other states
             div.style.display = '';
         }
     });
-        // Handle group entity blocks (hide when private only mode)
-        document.querySelectorAll('.group_select.entity_block').forEach(div => {
-            if (state === 2) {
-                // Same logic: is this group inside a private folder?
-                let inPrivateFolder = false;
-                let parent = div.parentElement;
-                while (parent) {
-                    if (parent.classList && parent.classList.contains('bogus_folder_select')) {
-                        const tagid = parent.getAttribute('tagid');
-                        if (privateTagIds.has(tagid)) {
-                            inPrivateFolder = true;
-                            break;
-                        }
+
+    // Groups
+    document.querySelectorAll('.group_select.entity_block').forEach(div => {
+        if (state === 2) {
+            let inPrivateFolder = false;
+            let parent = div.parentElement;
+            while (parent) {
+                if (parent.classList && parent.classList.contains('bogus_folder_select')) {
+                    const tagid = parent.getAttribute('tagid');
+                    if (privateTagIds.has(tagid)) {
+                        inPrivateFolder = true;
+                        break;
                     }
-                    parent = parent.parentElement;
                 }
-                div.style.display = inPrivateFolder ? '' : 'none';
-            } else {
-                div.style.display = '';
+                parent = parent.parentElement;
             }
-        });
-    
+            div.style.display = inPrivateFolder ? '' : 'none';
+        } else {
+            div.style.display = '';
+        }
+    });
 }
+
 
 /**
  * Watches for changes in #rm_print_characters_block and reapplies icon and visibility mutators.
