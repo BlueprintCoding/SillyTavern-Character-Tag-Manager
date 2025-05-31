@@ -450,9 +450,55 @@ function watchTagFilterBar(privateTagIds, onStateChange) {
     tagFilterBarObserver = new MutationObserver(() => {
         injectTagManagerControlButton();
         injectPrivateFolderToggle(privateTagIds, onStateChange);
+        hidePrivateTagsInFilterBar(); 
     });
     tagFilterBarObserver.observe(tagRow, { childList: true, subtree: false });
 }
+
+function getCurrentVisibilityState() {
+    return Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
+}
+
+
+/**
+ * Hides all private tags in the main tag filter bar (.tags.rm_tag_filter).
+ * Should be called after tags are rendered.
+ */
+function hidePrivateTagsInFilterBar() {
+    const notes = getNotes();
+    const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
+    const visibilityState = getCurrentVisibilityState(); // 0=hide private, 1=show all, 2=only private
+
+    document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
+        const id = tagEl.id;
+
+        // Don't touch system tags
+        if (!id || !privateTagIds.has(id)) {
+            tagEl.style.display = '';
+            return;
+        }
+
+        // Linked logic:
+        if (visibilityState === 0) {
+            tagEl.style.display = 'none'; // Hide private tags
+        } else if (visibilityState === 1) {
+            tagEl.style.display = ''; // Show all, including private
+        } else if (visibilityState === 2) {
+            tagEl.style.display = ''; // Show only private tags
+        }
+    });
+
+    // If in "only private" mode, you might want to *hide* all non-private tags:
+    if (visibilityState === 2) {
+        document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
+            const id = tagEl.id;
+            if (!id || privateTagIds.has(id)) return; // Leave private tags alone
+            // Hide non-private tags
+            tagEl.style.display = 'none';
+        });
+    }
+}
+
 
 
 export { 

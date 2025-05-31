@@ -1611,6 +1611,7 @@ async function handleNotesImport(importData) {
     }
 }
 
+
 function refreshPrivateFolderToggle() {
     const notes = getNotes();
     const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
