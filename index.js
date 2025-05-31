@@ -245,6 +245,9 @@ function openCharacterTagManagerModal() {
             toastr.warning("No tags selected.", "Bulk Delete");
             return;
         }
+
+        const notes = getNotes();
+
         // Build a confirm dialog
         const tagNames = tags.filter(t => selectedBulkDeleteTags.has(t.id)).map(t => t.name);
         const html = document.createElement('div');
@@ -257,7 +260,6 @@ function openCharacterTagManagerModal() {
         const proceed = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Bulk Delete Tags');
         if (proceed !== POPUP_RESULT.AFFIRMATIVE) {
             toastr.info('Bulk tag delete cancelled.', 'Bulk Delete');
-            return;
         }
         // Remove tags from tag_map and tags
         for (const tagId of selectedBulkDeleteTags) {
@@ -270,7 +272,6 @@ function openCharacterTagManagerModal() {
             if (index !== -1) tags.splice(index, 1);
         }
         for (const tagId of selectedBulkDeleteTags) {
-            // ...your existing logic...
             if (notes.tagPrivate && notes.tagPrivate[tagId]) {
                 delete notes.tagPrivate[tagId];
             }
