@@ -303,6 +303,10 @@
     font-size: .7em;
 }
 
+#charSortMode {
+    margin-left:4px;
+}
+
 /* === Scroll Areas & Banding (Lists) === */
 .charList {
     list-style: none;

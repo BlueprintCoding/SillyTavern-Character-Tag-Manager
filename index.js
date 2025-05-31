@@ -160,6 +160,8 @@ function openCharacterTagManagerModal() {
                    <div id="selectedTagsDisplay" class="selected-tags-container"></div>
                     </div>
   <div class="stcm_sort_row stcm_margin_top">
+                             <div class="stcm_fullwidth">
+                           <div class="stcm_flex">
                         <span>SORT</span>
                         <select id="charSortMode" class="stcm_menu_button interactable">
                             <option value="alpha_asc">A → Z</option>
@@ -170,8 +172,6 @@ function openCharacterTagManagerModal() {
                             <option value="with_notes">With Notes</option>
                             <option value="without_notes">Without Notes</option>
                         </select>
-                           <div class="stcm_fullwidth">
-                           <div class="stcm_flex">
                             <input type="text" id="charSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search characters/groups..." />
                             <button id="startBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable bulkDelChar" tabindex="0">
                                 <i class="fa-solid fa-trash"></i> Bulk Delete
