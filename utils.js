@@ -489,51 +489,16 @@ function hidePrivateTagsInFilterBar() {
     const showTagListBtn = document.querySelector('.tag.showTagList');
     const tagListIsActive = showTagListBtn && showTagListBtn.classList.contains('selected');
 
-    // Make an array so removing elements doesn't affect iteration
-    const tagElements = Array.from(document.querySelectorAll('.tags.rm_tag_filter > .tag'));
-
-    tagElements.forEach(tagEl => {
+    document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
         const tagId = tagEl.getAttribute('id');
-        const isSystem = isSystemTagId(tagId);
         const isPrivate = privateTagIds.has(tagId);
 
-        // System tags are always retained
-        if (isSystem) {
-            tagEl.setAttribute('data-stcm-debug', 'system');
-            return;
-        }
-
-        // If tag list is NOT active, remove all non-system tags
-        if (!tagListIsActive) {
-            tagEl.parentNode && tagEl.parentNode.removeChild(tagEl);
-            // Optionally: set debug info before removal (for dev, comment out in prod)
-            // tagEl.setAttribute('data-stcm-debug', 'taglist-inactive-removed');
-            return;
-        }
-
-        // --- Privacy filtering ---
-        // state: 0 = hide private, 1 = show all, 2 = only private
-
-        if (state === 0) { // Remove private tags only
             if (isPrivate) {
-                tagEl.parentNode && tagEl.parentNode.removeChild(tagEl);
-                // tagEl.setAttribute('data-stcm-debug', 'private-removed');
-            } else {
-                tagEl.setAttribute('data-stcm-debug', 'public-shown');
+                tagEl.style.display = 'none';
+                tagEl.setAttribute('data-stcm-debug', 'private-hidden');
             }
-        } else if (state === 1) { // Show all tags
-            tagEl.setAttribute('data-stcm-debug', 'all-shown');
-        } else if (state === 2) { // Only private tags
-            if (!isPrivate) {
-                tagEl.parentNode && tagEl.parentNode.removeChild(tagEl);
-                // tagEl.setAttribute('data-stcm-debug', 'public-removed');
-            } else {
-                tagEl.setAttribute('data-stcm-debug', 'private-shown');
-            }
-        }
     });
 }
-
 
 
 export { 
