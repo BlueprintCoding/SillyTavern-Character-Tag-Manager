@@ -346,44 +346,42 @@ function showModalPinPrompt(message = "Enter PIN") {
  * @param {Set<string>} privateTagIds Set of private tag IDs
  */
 function applyPrivateFolderVisibility(state, privateTagIds) {
-    // Detect if we're drilled into a folder (i.e., "Go Back" button is visible)
     const goBackBlock = document.getElementById('BogusFolderBack');
-    const inDrilldown = goBackBlock && goBackBlock.style.display !== 'none';
+    // Use computed style to check if it's visible
+    const isDrilledIn = goBackBlock && window.getComputedStyle(goBackBlock).display !== 'none';
 
-    if (inDrilldown) {
-        // If in folder view, ALWAYS show all characters/groups/folders, and return immediately
+    if (isDrilledIn) {
+        // We're inside a folder: show everything, don't filter
         document.querySelectorAll('.bogus_folder_select').forEach(div => {
             div.style.display = '';
         });
         document.querySelectorAll('.character_select.entity_block, .group_select.entity_block').forEach(div => {
             div.style.display = '';
         });
-        return; // Do not process the rest!
+        return;
     }
 
-    // ...your original logic below for non-drilldown (top-level) view...
+    // ... rest of your normal (non-drilled-in) logic below ...
     document.querySelectorAll('.bogus_folder_select').forEach(div => {
         const tagid = div.getAttribute('tagid');
-        // Always show Go Back
         if (div.id === 'BogusFolderBack' || div.classList.contains('bogus_folder_select_back') || tagid === 'back') {
             div.style.display = '';
             return;
         }
         const isPrivate = privateTagIds.has(tagid);
-        if (state === 0) { // Hide private
+        if (state === 0) { // Locked
             div.style.display = isPrivate ? 'none' : '';
-        } else if (state === 1) { // Show all
+        } else if (state === 1) { // Unlocked
             div.style.display = '';
-        } else if (state === 2) { // Show only private
+        } else if (state === 2) { // Private only
             div.style.display = isPrivate ? '' : 'none';
         }
     });
 
-    // Characters and groups: only filter in top-level
     [document.querySelectorAll('.character_select.entity_block'), document.querySelectorAll('.group_select.entity_block')].forEach(list => {
         list.forEach(div => {
             if (state === 2) {
-                // Only show if in a private folder (in top-level view)
+                // Only show if in a private folder
                 let inPrivateFolder = false;
                 let parent = div.parentElement;
                 while (parent) {
@@ -398,7 +396,6 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
                 }
                 div.style.display = inPrivateFolder ? '' : 'none';
             } else {
-                // Show all in other states
                 div.style.display = '';
             }
         });
