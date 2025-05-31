@@ -18,8 +18,6 @@ import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
     renderCharacterList();         // After loading notes
 })();
 
-const selectedCharacterIds = new Set();
-let isBulkDeleteCharMode = false;
 
 
 function renderCharacterList() {
@@ -46,7 +44,8 @@ function renderCharacterList() {
         });
     }
 
-    const showCheckboxes = isBulkDeleteCharMode || selectedTagIds.length > 0;
+    const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIds.length > 0;
+
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
 
     const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
@@ -152,14 +151,14 @@ function renderCharacterList() {
         checkbox.type = 'checkbox';
         checkbox.className = 'assignCharCheckbox';
         checkbox.value = entity.id;
-        checkbox.checked = selectedCharacterIds.has(entity.id);
+        checkbox.checked = stcmCharState.selectedCharacterIds.has(entity.id);
         checkbox.style.display = showCheckboxes ? 'inline-block' : 'none';
 
         checkbox.addEventListener('change', () => {
             if (checkbox.checked) {
-                selectedCharacterIds.add(entity.id);
+                stcmCharState.selectedCharacterIds.add(entity.id);
             } else {
-                selectedCharacterIds.delete(entity.id);
+                stcmCharState. selectedCharacterIds.delete(entity.id);
             }
         });
 
@@ -435,7 +434,10 @@ function toggleCharacterList(container, group) {
 
 export {
     renderCharacterList,
-    toggleCharacterList,
-    selectedCharacterIds,
-    isBulkDeleteCharMode
+    toggleCharacterList
+};
+
+export const stcmCharState = {
+    isBulkDeleteCharMode: false,
+    selectedCharacterIds: new Set(),
 };

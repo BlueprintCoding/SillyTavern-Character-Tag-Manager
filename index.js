@@ -45,12 +45,10 @@ import { accountStorage } from '../../../util/AccountStorage.js';
 import {
     renderCharacterList,
     toggleCharacterList,
-    selectedCharacterIds,
-    isBulkDeleteCharMode
+    stcmCharState 
 } from "./stcm_characters.js";
 
 import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
-
 
 
 const { eventSource, event_types } = SillyTavern.getContext();
@@ -513,7 +511,7 @@ function openCharacterTagManagerModal() {
     });
 
     document.getElementById('assignTagsButton').addEventListener('click', () => {
-        const selectedCharIds = Array.from(selectedCharacterIds);
+        const selectedCharIds = Array.from(stcmCharState.selectedCharacterIds);
         if (!selectedTagIds.size || !selectedCharIds.length) {
             toastr.warning('Please select at least one tag and one character.', 'Assign Tags');
             return;
@@ -532,7 +530,7 @@ function openCharacterTagManagerModal() {
 
         // Clear all selections/inputs
         selectedTagIds.clear();
-        selectedCharacterIds.clear();
+        stcmCharState.selectedCharacterIds.clear();
         const charSearchInput = document.getElementById('charSearchInput');
         if (charSearchInput) charSearchInput.value = "";
         const tagSearchInput = document.getElementById('assignTagSearchInput');
@@ -544,8 +542,8 @@ function openCharacterTagManagerModal() {
     });
 
     document.getElementById('startBulkDeleteChars').addEventListener('click', () => {
-        isBulkDeleteCharMode = true;
-        selectedCharacterIds.clear();
+        stcmCharState.isBulkDeleteCharMode = true;
+        stcmCharState.selectedCharacterIds.clear();
         document.getElementById('startBulkDeleteChars').style.display = 'none';
         document.getElementById('cancelBulkDeleteChars').style.display = '';
         document.getElementById('confirmBulkDeleteChars').style.display = '';
@@ -553,8 +551,8 @@ function openCharacterTagManagerModal() {
     });
     
     document.getElementById('cancelBulkDeleteChars').addEventListener('click', () => {
-        isBulkDeleteCharMode = false;
-        selectedCharacterIds.clear();
+        stcmCharState.isBulkDeleteCharMode = true;
+        stcmCharState.selectedCharacterIds.clear();
         document.getElementById('startBulkDeleteChars').style.display = '';
         document.getElementById('cancelBulkDeleteChars').style.display = 'none';
         document.getElementById('confirmBulkDeleteChars').style.display = 'none';
@@ -562,7 +560,7 @@ function openCharacterTagManagerModal() {
     });
     
     document.getElementById('confirmBulkDeleteChars').addEventListener('click', async () => {
-        if (!selectedCharacterIds.size) {
+        if (!stcmCharState.selectedCharacterIds.size) {
             toastr.warning("No characters/groups selected.", "Bulk Delete");
             return;
         }
@@ -571,7 +569,7 @@ function openCharacterTagManagerModal() {
             ...characters.map(c => ({ id: c.avatar, name: c.name })),
             ...groups.map(g => ({ id: g.id, name: g.name }))
         ];
-        const names = allEntities.filter(e => selectedCharacterIds.has(e.id)).map(e => e.name);
+        const names = allEntities.filter(e => stcmCharState.selectedCharacterIds.has(e.id)).map(e => e.name);
     
         const html = document.createElement('div');
         html.innerHTML = `
@@ -587,7 +585,7 @@ function openCharacterTagManagerModal() {
         }
     
         // Perform deletion
-        for (const id of selectedCharacterIds) {
+        for (const id of stcmCharState.selectedCharacterIds) {
             // Remove from characters array
             const cIdx = characters.findIndex(c => c.avatar === id);
             if (cIdx !== -1) {
@@ -605,9 +603,9 @@ function openCharacterTagManagerModal() {
             if (notes.charNotes && notes.charNotes[id]) delete notes.charNotes[id];
             saveNotes(notes);
         }
-        toastr.success(`Deleted ${selectedCharacterIds.size} character(s)/group(s).`);
-        isBulkDeleteCharMode = false;
-        selectedCharacterIds.clear();
+        toastr.success(`Deleted ${stcmCharState.selectedCharacterIds.size} character(s)/group(s).`);
+        stcmCharState.isBulkDeleteCharMode = false;
+        stcmCharState.selectedCharacterIds.clear();
         document.getElementById('startBulkDeleteChars').style.display = '';
         document.getElementById('cancelBulkDeleteChars').style.display = 'none';
         document.getElementById('confirmBulkDeleteChars').style.display = 'none';
@@ -765,7 +763,8 @@ function promptCreateTag() {
 
 
 function updateCheckboxVisibility() {
-    const showCheckboxes = selectedTagIds.size > 0;
+    const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIds.length > 0;
+
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
 
     // Show/hide checkboxes in-place without re-rendering
