@@ -798,10 +798,7 @@
 
 .stcm-hide { display: none !important; }
 
-.rm_tag_filter .tag.stcm-force-visible {
-    display: flex !important;  /* or whatever the default display is for tags in the bar */
-  }
-  
+
 
 /* PIN Management Area */
 #stcm-pin-form {

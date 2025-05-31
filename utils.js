@@ -490,13 +490,9 @@ function hidePrivateTagsInFilterBar() {
         const isSystem = isSystemTagId(tagId);
         const isPrivate = privateTagIds.has(tagId);
 
-        // Always clear the override before logic
-        tagEl.classList.remove('stcm-force-visible');
-
         if (isSystem) {
-            tagEl.style.display = '';
+            tagEl.style.display = ''; // let system tags use their natural display (usually flex)
             tagEl.setAttribute('data-stcm-debug', 'system');
-            // system tags always have .actionable, so will be visible
             return;
         }
 
@@ -505,18 +501,15 @@ function hidePrivateTagsInFilterBar() {
                 tagEl.style.display = 'none';
                 tagEl.setAttribute('data-stcm-debug', 'private-hidden');
             } else {
-                tagEl.style.display = '';
-                tagEl.classList.add('stcm-force-visible');
+                tagEl.style.display = 'inline';
                 tagEl.setAttribute('data-stcm-debug', 'public-shown');
             }
         } else if (state === 1) { // Show all
-            tagEl.style.display = '';
-            tagEl.classList.add('stcm-force-visible');
+            tagEl.style.display = 'inline';
             tagEl.setAttribute('data-stcm-debug', 'all-shown');
         } else if (state === 2) { // Only private
             if (isPrivate) {
-                tagEl.style.display = '';
-                tagEl.classList.add('stcm-force-visible');
+                tagEl.style.display = 'inline';
                 tagEl.setAttribute('data-stcm-debug', 'private-shown');
             } else {
                 tagEl.style.display = 'none';
