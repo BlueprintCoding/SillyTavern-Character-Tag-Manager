@@ -355,6 +355,7 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
     const inDrilldown = !!goBackBlock;
 
     // Folders
+    // Folders
     allFolders.forEach(div => {
         const tagid = div.getAttribute('tagid');
         // Always show "Go back"
@@ -363,7 +364,9 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
             return;
         }
         const isPrivate = privateTagIds.has(tagid);
-        if (state === 0) {
+        if (inDrilldown) {
+            div.style.display = '';
+        } else if (state === 0) {
             div.style.display = isPrivate ? 'none' : '';
         } else if (state === 1) {
             div.style.display = '';
@@ -371,6 +374,7 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
             div.style.display = isPrivate ? '' : 'none';
         }
     });
+
 
     // Characters and groups
     [allChars, allGroups].forEach(collection => {
