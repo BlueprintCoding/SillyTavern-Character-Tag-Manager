@@ -170,7 +170,8 @@ function openCharacterTagManagerModal() {
                             <option value="with_notes">With Notes</option>
                             <option value="without_notes">Without Notes</option>
                         </select>
-                           <div class=" stcm_fullwidth" >
+                           <div class="stcm_fullwidth">
+                           <div class="stcm_flex">
                             <input type="text" id="charSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search characters/groups..." />
                             <button id="startBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable bulkDelChar" tabindex="0">
                                 <i class="fa-solid fa-trash"></i> Bulk Delete
@@ -181,6 +182,7 @@ function openCharacterTagManagerModal() {
                             <button id="confirmBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable bulkDelChar red" style="display: none;" tabindex="0">
                                 <i class="fa-solid fa-trash"></i> Delete Selected
                             </button>
+                            </div>
                             <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag.</span>
                                 </div>
 

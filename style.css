@@ -126,6 +126,10 @@
     box-sizing: border-box;
 }
 
+.stcm_flex {
+    display: flex;
+}
+
 .stcm_margin_left {
     margin-left: 10px;
 }
