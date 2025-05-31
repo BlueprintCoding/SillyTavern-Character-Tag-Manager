@@ -302,6 +302,7 @@ function injectPrivateFolderToggle(privateTagIds, onStateChange) {
     mgrBtn.insertAdjacentElement('afterend', btn);
 }
 
+
 async function hashPin(pin) {
     const encoder = new TextEncoder();
     const data = encoder.encode(pin);
@@ -309,7 +310,6 @@ async function hashPin(pin) {
     // Convert buffer to hex string
     return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
-
 
 /**
  * Shows a modal PIN input using your existing popup system.
@@ -461,6 +461,18 @@ function getCurrentVisibilityState() {
 }
 
 
+function isSystemTagId(id) {
+    // covers numbers, control buttons, visibility toggles, etc.
+    return (
+        !id ||
+        /^[0-9]+$/.test(id) ||
+        [
+            "characterTagManagerControlButton",
+            "privateFolderVisibilityToggle"
+        ].includes(id)
+    );
+}
+
 /**
  * Hides all private tags in the main tag filter bar (.tags.rm_tag_filter).
  * Should be called after tags are rendered.
@@ -473,32 +485,28 @@ function hidePrivateTagsInFilterBar() {
     document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
         const id = tagEl.id;
 
-        // Don't touch system tags
-        if (!id || !privateTagIds.has(id)) {
+        // Always show system/control tags
+        if (isSystemTagId(id)) {
             tagEl.style.display = '';
             return;
         }
 
-        // Linked logic:
+        const isPrivate = privateTagIds.has(id);
+
+        // Visibility logic:
         if (visibilityState === 0) {
-            tagEl.style.display = 'none'; // Hide private tags
+            // Hide private, show others
+            tagEl.style.display = isPrivate ? 'none' : '';
         } else if (visibilityState === 1) {
-            tagEl.style.display = ''; // Show all, including private
+            // Show all
+            tagEl.style.display = '';
         } else if (visibilityState === 2) {
-            tagEl.style.display = ''; // Show only private tags
+            // Only private (but still show system/control tags above)
+            tagEl.style.display = isPrivate ? '' : 'none';
         }
     });
-
-    // If in "only private" mode, you might want to *hide* all non-private tags:
-    if (visibilityState === 2) {
-        document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
-            const id = tagEl.id;
-            if (!id || privateTagIds.has(id)) return; // Leave private tags alone
-            // Hide non-private tags
-            tagEl.style.display = 'none';
-        });
-    }
 }
+
 
 
 
