@@ -916,6 +916,7 @@ function renderCharacterTagData() {
         // Private Folder Tags (filter step)
         if (sortMode === 'private_folder') {
         // Consider "private" if it's folder_type="CLOSED" AND notes.tagPrivate[tag.id] is true
+        const notes = getNotes();
         const isPrivate = group.tag.folder_type === "CLOSED" && notes.tagPrivate && notes.tagPrivate[group.tag.id];
         if (!isPrivate) return false;
         }
