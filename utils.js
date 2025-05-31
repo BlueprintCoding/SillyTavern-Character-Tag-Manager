@@ -482,41 +482,32 @@ function isSystemTagId(id) {
 }
 
 /**
- * Hides all private tags in the main tag filter bar (.tags.rm_tag_filter).
- * Should be called after tags are rendered.
+ * Controls tag bar visibility for private tags based on toggle.
+ * @param {number} state 0=hide private, 1=show all, 2=only private
+ * @param {Set<string>} privateTagIds Set of private tag IDs
  */
-function hidePrivateTagsInFilterBar() {
-    console.log('Hiding private tags...'); // <--- TEMP for debugging
-    const notes = getNotes();
-    const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
-    const visibilityState = getCurrentVisibilityState(); // 0=hide private, 1=show all, 2=only private
-
+function hidePrivateTagsInFilterBar(state, privateTagIds) {
+    // Handle tag bar tags
     document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
-        const id = tagEl.id;
+        // Use 'id' attribute for the tag ID
+        const tagId = tagEl.id;
 
         // Always show system/control tags
-        if (isSystemTagId(id)) {
+        if (isSystemTagId(tagId)) {
             tagEl.style.display = '';
             return;
         }
 
-        const isPrivate = privateTagIds.has(id);
-
-        // Visibility logic:
-        if (visibilityState === 0) {
-            // Hide private, show others
+        const isPrivate = privateTagIds.has(tagId);
+        if (state === 0) { // Locked: hide private tags
             tagEl.style.display = isPrivate ? 'none' : '';
-        } else if (visibilityState === 1) {
-            // Show all
+        } else if (state === 1) { // Unlocked: show all tags
             tagEl.style.display = '';
-        } else if (visibilityState === 2) {
-            // Only private (but still show system/control tags above)
+        } else if (state === 2) { // Private only: show only private tags
             tagEl.style.display = isPrivate ? '' : 'none';
         }
     });
 }
-
-
 
 
 export { 
