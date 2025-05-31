@@ -454,6 +454,14 @@ function watchTagFilterBar(privateTagIds, onStateChange) {
         hidePrivateTagsInFilterBar(); 
     });
     tagFilterBarObserver.observe(tagRow, { childList: true, subtree: false });
+
+    document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
+        const attrObserver = new MutationObserver(() => {
+            hidePrivateTagsInFilterBar();
+        });
+        attrObserver.observe(tagEl, { attributes: true, attributeFilter: ['style', 'class'] });
+    });
+
 }
 
 function getCurrentVisibilityState() {
@@ -478,6 +486,7 @@ function isSystemTagId(id) {
  * Should be called after tags are rendered.
  */
 function hidePrivateTagsInFilterBar() {
+    console.log('Hiding private tags...'); // <--- TEMP for debugging
     const notes = getNotes();
     const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
     const visibilityState = getCurrentVisibilityState(); // 0=hide private, 1=show all, 2=only private
