@@ -152,7 +152,9 @@ function openCharacterTagManagerModal() {
                                         <div class="stcm_sort_row">
                         <label style="text-wrap: nowrap;">Select Tag(s) to Assign</label>
                             <input type="text" id="assignTagSearchInput" class="menu_input stcm_fullwidth_input stcm_margin_bottom-sm" placeholder="Filter tags..." />
-                         </div>
+                                                                     <button id="assignTagsButton" class="stcm_menu_button interactable green">Assign Tag(s)</button>
+
+                            </div>
                     <div id="assignTagsBar" class="stcm_assign_bar">
                    <div id="selectedTagsDisplay" class="selected-tags-container"></div>
                     </div>
@@ -171,7 +173,6 @@ function openCharacterTagManagerModal() {
                             <input type="text" id="charSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search characters/groups..." />
                             <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag.</span>
                     </div>
-                                            <button id="assignTagsButton" class="stcm_menu_button interactable green">Assign Tag(s)</button>
 
                     </div>
                     <div id="characterListWrapper"></div>
