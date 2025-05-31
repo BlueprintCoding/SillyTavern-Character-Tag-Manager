@@ -501,15 +501,15 @@ function hidePrivateTagsInFilterBar() {
                 tagEl.style.display = 'none';
                 tagEl.setAttribute('data-stcm-debug', 'private-hidden');
             } else {
-                tagEl.style.display = 'inline';
+                // tagEl.style.display = 'inline';
                 tagEl.setAttribute('data-stcm-debug', 'public-shown');
             }
         } else if (state === 1) { // Show all
-            tagEl.style.display = 'inline';
+            // tagEl.style.display = 'inline';
             tagEl.setAttribute('data-stcm-debug', 'all-shown');
         } else if (state === 2) { // Only private
             if (isPrivate) {
-                tagEl.style.display = 'inline';
+                // tagEl.style.display = 'inline';
                 tagEl.setAttribute('data-stcm-debug', 'private-shown');
             } else {
                 tagEl.style.display = 'none';
