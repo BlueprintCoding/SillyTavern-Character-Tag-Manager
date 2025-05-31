@@ -172,7 +172,16 @@ function openCharacterTagManagerModal() {
                            <div class="stcm_margin_top stcm_fullwidth" >
                             <input type="text" id="charSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search characters/groups..." />
                             <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag.</span>
-                    </div>
+                            <button id="startBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
+                                <i class="fa-solid fa-trash"></i> Bulk Delete
+                            </button>
+                            <button id="cancelBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable" style="display: none;" tabindex="0">
+                                Cancel Delete
+                            </button>
+                            <button id="confirmBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable red" style="display: none;" tabindex="0">
+                                <i class="fa-solid fa-trash"></i> Delete Selected
+                            </button>
+                                </div>
 
                     </div>
                     <div id="characterListWrapper"></div>
@@ -533,7 +542,80 @@ function openCharacterTagManagerModal() {
         renderCharacterTagData();
     });
 
-
+    document.getElementById('startBulkDeleteChars').addEventListener('click', () => {
+        isBulkDeleteCharMode = true;
+        selectedCharacterIds.clear();
+        document.getElementById('startBulkDeleteChars').style.display = 'none';
+        document.getElementById('cancelBulkDeleteChars').style.display = '';
+        document.getElementById('confirmBulkDeleteChars').style.display = '';
+        renderCharacterList();
+    });
+    
+    document.getElementById('cancelBulkDeleteChars').addEventListener('click', () => {
+        isBulkDeleteCharMode = false;
+        selectedCharacterIds.clear();
+        document.getElementById('startBulkDeleteChars').style.display = '';
+        document.getElementById('cancelBulkDeleteChars').style.display = 'none';
+        document.getElementById('confirmBulkDeleteChars').style.display = 'none';
+        renderCharacterList();
+    });
+    
+    document.getElementById('confirmBulkDeleteChars').addEventListener('click', async () => {
+        if (!selectedCharacterIds.size) {
+            toastr.warning("No characters/groups selected.", "Bulk Delete");
+            return;
+        }
+        // List names for confirmation
+        const allEntities = [
+            ...characters.map(c => ({ id: c.avatar, name: c.name })),
+            ...groups.map(g => ({ id: g.id, name: g.name }))
+        ];
+        const names = allEntities.filter(e => selectedCharacterIds.has(e.id)).map(e => e.name);
+    
+        const html = document.createElement('div');
+        html.innerHTML = `
+            <h3>Confirm Bulk Delete</h3>
+            <p>The following will be permanently deleted:</p>
+            <pre class="stcm_popup_pre">${names.map(n => `• ${n}`).join('\n')}</pre>
+            <p style="color: #e57373;">This cannot be undone.</p>
+        `;
+        const proceed = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Bulk Delete Characters');
+        if (proceed !== POPUP_RESULT.AFFIRMATIVE) {
+            toastr.info('Bulk character delete cancelled.');
+            return;
+        }
+    
+        // Perform deletion
+        for (const id of selectedCharacterIds) {
+            // Remove from characters array
+            const cIdx = characters.findIndex(c => c.avatar === id);
+            if (cIdx !== -1) {
+                characters.splice(cIdx, 1);
+            }
+            // Remove from groups array (if you want group delete)
+            const gIdx = typeof groups !== "undefined" ? groups.findIndex(g => g.id === id) : -1;
+            if (gIdx !== -1) {
+                groups.splice(gIdx, 1);
+            }
+            // Remove from tag_map
+            if (tag_map[id]) delete tag_map[id];
+            // Remove notes
+            const notes = getNotes();
+            if (notes.charNotes && notes.charNotes[id]) delete notes.charNotes[id];
+            saveNotes(notes);
+        }
+        toastr.success(`Deleted ${selectedCharacterIds.size} character(s)/group(s).`);
+        isBulkDeleteCharMode = false;
+        selectedCharacterIds.clear();
+        document.getElementById('startBulkDeleteChars').style.display = '';
+        document.getElementById('cancelBulkDeleteChars').style.display = 'none';
+        document.getElementById('confirmBulkDeleteChars').style.display = 'none';
+        await callSaveandReload();
+        renderCharacterList();
+        renderCharacterTagData();
+    });
+    
+    
     renderCharacterTagData();
     populateAssignTagSelect();
     const wrapper = document.getElementById('characterListWrapper');

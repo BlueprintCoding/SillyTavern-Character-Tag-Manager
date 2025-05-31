@@ -19,6 +19,8 @@ import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
 })();
 
 const selectedCharacterIds = new Set();
+let isBulkDeleteCharMode = false;
+
 
 function renderCharacterList() {
     const container = document.getElementById('characterListContainer');
@@ -44,7 +46,7 @@ function renderCharacterList() {
         });
     }
 
-    const showCheckboxes = selectedTagIds.length > 0;
+    const showCheckboxes = isBulkDeleteCharMode || selectedTagIds.length > 0;
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
 
     const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
