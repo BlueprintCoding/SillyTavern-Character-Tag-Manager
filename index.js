@@ -18,7 +18,6 @@ injectPrivateFolderToggle,
 applyPrivateFolderVisibility,
 watchCharacterBlockMutations,
 watchTagFilterBar,
-isBulkDeleteCharMode
 } from './utils.js';
 
 import {
@@ -47,6 +46,7 @@ import {
     renderCharacterList,
     toggleCharacterList,
     selectedCharacterIds,
+    isBulkDeleteCharMode
 } from "./stcm_characters.js";
 
 import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
