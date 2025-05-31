@@ -487,26 +487,26 @@ function isSystemTagId(id) {
  * @param {number} state 0=hide private, 1=show all, 2=only private
  * @param {Set<string>} privateTagIds Set of private tag IDs
  */
-function hidePrivateTagsInFilterBar(state, privateTagIds) {
-    // Handle each tag in the bar (".tags.rm_tag_filter > .tag")
+function hidePrivateTagsInFilterBar() {
+    const notes = getNotes();
+    const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
+    const state = getCurrentVisibilityState();
+
     document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
-        // Use 'id' attribute for tag ID in the bar
         const tagId = tagEl.getAttribute('id');
 
-        // System tags must ALWAYS be visible
         if (isSystemTagId(tagId)) {
             tagEl.style.display = '';
             return;
         }
 
-        // For all user tags:
         const isPrivate = privateTagIds.has(tagId);
 
-        if (state === 0) { // Locked: hide private tags
+        if (state === 0) {
             tagEl.style.display = isPrivate ? 'none' : '';
-        } else if (state === 1) { // Unlocked: show all tags
+        } else if (state === 1) {
             tagEl.style.display = '';
-        } else if (state === 2) { // Private only: show only private tags
+        } else if (state === 2) {
             tagEl.style.display = isPrivate ? '' : 'none';
         }
     });
