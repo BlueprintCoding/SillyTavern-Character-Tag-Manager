@@ -485,31 +485,43 @@ function hidePrivateTagsInFilterBar() {
     const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
     const state = getCurrentVisibilityState();
 
+    // Get the "Show Tag List" button
+    const showTagListBtn = document.querySelector('.tag.showTagList');
+    const tagListIsActive = showTagListBtn && showTagListBtn.classList.contains('selected');
+
     document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
         const tagId = tagEl.getAttribute('id');
         const isSystem = isSystemTagId(tagId);
         const isPrivate = privateTagIds.has(tagId);
 
         if (isSystem) {
-            tagEl.style.display = ''; // let system tags use their natural display (usually flex)
+            tagEl.style.display = ''; // system/action tags always shown
             tagEl.setAttribute('data-stcm-debug', 'system');
             return;
         }
 
+        // If tag list is NOT active, hide all tags except system
+        if (!tagListIsActive) {
+            tagEl.style.display = 'none';
+            tagEl.setAttribute('data-stcm-debug', 'taglist-inactive-hidden');
+            return;
+        }
+
+        // Standard privacy logic if tag list is active
         if (state === 0) { // Hide private
             if (isPrivate) {
                 tagEl.style.display = 'none';
                 tagEl.setAttribute('data-stcm-debug', 'private-hidden');
             } else {
-                // tagEl.style.display = 'inline';
+                tagEl.style.display = 'inline';
                 tagEl.setAttribute('data-stcm-debug', 'public-shown');
             }
         } else if (state === 1) { // Show all
-            // tagEl.style.display = 'inline';
+            tagEl.style.display = 'inline';
             tagEl.setAttribute('data-stcm-debug', 'all-shown');
         } else if (state === 2) { // Only private
             if (isPrivate) {
-                // tagEl.style.display = 'inline';
+                tagEl.style.display = 'inline';
                 tagEl.setAttribute('data-stcm-debug', 'private-shown');
             } else {
                 tagEl.style.display = 'none';
@@ -518,9 +530,6 @@ function hidePrivateTagsInFilterBar() {
         }
     });
 }
-
-
-
 
 
 export { 
