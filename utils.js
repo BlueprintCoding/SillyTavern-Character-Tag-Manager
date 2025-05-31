@@ -346,16 +346,25 @@ function showModalPinPrompt(message = "Enter PIN") {
  * @param {Set<string>} privateTagIds Set of private tag IDs
  */
 function applyPrivateFolderVisibility(state, privateTagIds) {
-    const allFolders = document.querySelectorAll('.bogus_folder_select');
-    const allChars = document.querySelectorAll('.character_select.entity_block');
-    const allGroups = document.querySelectorAll('.group_select.entity_block');
+    // Detect if we're drilled into a folder (i.e., "Go Back" button is visible)
     const goBackBlock = document.getElementById('BogusFolderBack');
     const inDrilldown = goBackBlock && goBackBlock.style.display !== 'none';
 
-    // Folder visibility
-    allFolders.forEach(div => {
+    if (inDrilldown) {
+        // If in folder view, ALWAYS show all characters/groups/folders, and return immediately
+        document.querySelectorAll('.bogus_folder_select').forEach(div => {
+            div.style.display = '';
+        });
+        document.querySelectorAll('.character_select.entity_block, .group_select.entity_block').forEach(div => {
+            div.style.display = '';
+        });
+        return; // Do not process the rest!
+    }
+
+    // ...your original logic below for non-drilldown (top-level) view...
+    document.querySelectorAll('.bogus_folder_select').forEach(div => {
         const tagid = div.getAttribute('tagid');
-        // Always show "Go back" button
+        // Always show Go Back
         if (div.id === 'BogusFolderBack' || div.classList.contains('bogus_folder_select_back') || tagid === 'back') {
             div.style.display = '';
             return;
@@ -370,13 +379,10 @@ function applyPrivateFolderVisibility(state, privateTagIds) {
         }
     });
 
-    // Characters and groups
-    [allChars, allGroups].forEach(list => {
+    // Characters and groups: only filter in top-level
+    [document.querySelectorAll('.character_select.entity_block'), document.querySelectorAll('.group_select.entity_block')].forEach(list => {
         list.forEach(div => {
-            if (inDrilldown) {
-                // If we're inside a folder (Go Back present), show all characters/groups
-                div.style.display = '';
-            } else if (state === 2) {
+            if (state === 2) {
                 // Only show if in a private folder (in top-level view)
                 let inPrivateFolder = false;
                 let parent = div.parentElement;
