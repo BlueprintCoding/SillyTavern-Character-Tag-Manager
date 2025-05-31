@@ -18,6 +18,30 @@ import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
     renderCharacterList();         // After loading notes
 })();
 
+function parseSearchTerms(raw) {
+    // Split on spaces, except within quotes
+    const matches = raw.match(/(-?[AT]?:?"[^"]+"|-?[AT]?:?\S+)/g) || [];
+    return matches.map(term => {
+        let positive = true, field = 'name', value = term;
+        if (value.startsWith('-')) {
+            positive = false;
+            value = value.slice(1);
+        }
+        if (value.toUpperCase().startsWith('A:')) {
+            field = 'a';
+            value = value.slice(2);
+        } else if (value.toUpperCase().startsWith('T:')) {
+            field = 't';
+            value = value.slice(2);
+        } else if (value.startsWith(':')) {
+            // Edge: :foo is invalid, just treat as name
+            value = value.slice(1);
+        }
+        // Remove quotes
+        value = value.replace(/^"|"$/g, '').trim();
+        return { positive, field, value: value.toLowerCase() };
+    }).filter(t => t.value);
+}
 
 
 function renderCharacterList() {
@@ -60,31 +84,32 @@ function renderCharacterList() {
         entity.tagCount = Array.isArray(tag_map[entity.id]) ? tag_map[entity.id].length : 0;
     });
 
-    const filtered = allEntities.filter(e => {
-        const lowerSearch = searchTerm.toLowerCase();
-
-        if (lowerSearch.startsWith('a:')) {
-            const rawQuery = lowerSearch.slice(2).trim();
-            const charObj = characters.find(c => c.avatar === e.id);
-            if (charObj) {
-                return Object.values(charObj).some(val =>
-                    typeof val === 'string' && val.toLowerCase().includes(rawQuery)
-                );
+    const rawInput = document.getElementById('charSearchInput')?.value || '';
+    const searchTerms = parseSearchTerms(rawInput);
+    
+    const filterEntity = (entity) => {
+        const charObj = characters.find(c => c.avatar === entity.id);
+        const tagIds = tag_map[entity.id] || [];
+        const tagNames = tagIds.map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
+        const allFields = charObj ? Object.values(charObj).filter(v => typeof v === 'string').join(' ').toLowerCase() : '';
+        const name = entity.name.toLowerCase();
+    
+        for (const term of searchTerms) {
+            let match = false;
+            if (term.field === 'a') {
+                match = allFields.includes(term.value);
+            } else if (term.field === 't') {
+                match = tagNames.some(tagName => tagName.includes(term.value));
+            } else { // default: name
+                match = name.includes(term.value);
             }
-            return false;
+            if (term.positive && !match) return false;
+            if (!term.positive && match) return false;
         }
-
-        if (lowerSearch.startsWith('t:')) {
-            const rawQuery = lowerSearch.slice(2).trim();
-            const tagIds = tag_map[e.id] || [];
-            return tagIds.some(tagId => {
-                const tag = tagMapById.get(tagId);
-                return tag?.name.toLowerCase().includes(rawQuery);
-            });
-        }
-
-        return e.name.toLowerCase().includes(lowerSearch);
-    });
+        return true;
+    };
+    
+    const filtered = allEntities.filter(filterEntity);    
 
     const notes = getNotes();
     let visible = filtered;
