@@ -566,8 +566,8 @@ function openCharacterTagManagerModal() {
         }
         // List names for confirmation
         const allEntities = [
-            ...characters.map(c => ({ id: c.avatar, name: c.name })),
-            ...groups.map(g => ({ id: g.id, name: g.name }))
+            ...characters.map(c => ({ id: c.avatar, name: c.name, type: "character", avatar: c.avatar })),
+            ...groups.map(g => ({ id: g.id, name: g.name, type: "group", avatar: g.avatar }))
         ];
         const names = allEntities.filter(e => stcmCharState.selectedCharacterIds.has(e.id)).map(e => e.name);
     
@@ -584,25 +584,84 @@ function openCharacterTagManagerModal() {
             return;
         }
     
-        // Perform deletion
+        // Actually delete (asynchronously) via API
         for (const id of stcmCharState.selectedCharacterIds) {
-            // Remove from characters array
-            const cIdx = characters.findIndex(c => c.avatar === id);
-            if (cIdx !== -1) {
-                characters.splice(cIdx, 1);
+            // Find out if this is a character or a group
+            const entity = characters.find(c => c.avatar === id) 
+                || groups.find(g => g.id === id);
+        
+            if (!entity) continue;
+        
+            if (entity.avatar) {
+                // Character: delete via API
+                try {
+                    const csrf = await fetch('/csrf-token');
+                    const { token } = await csrf.json();
+                    const result = await fetch('/api/characters/delete', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': token
+                        },
+                        body: JSON.stringify({
+                            avatar_url: entity.avatar,
+                            delete_chats: true
+                        })
+                    });
+        
+                    if (!result.ok) {
+                        toastr.error(`Failed to delete character "${entity.name}".`, 'Delete Error');
+                        continue;
+                    }
+                } catch (err) {
+                    toastr.error(`Failed to delete character "${entity.name}".`, 'Delete Error');
+                    continue;
+                }
+                // Remove from arrays
+                const idx = characters.findIndex(c => c.avatar === id);
+                if (idx !== -1) {
+                    const char = characters.splice(idx, 1)[0];
+                    delete tag_map[char.avatar];
+                    SillyTavern.getContext().eventSource.emit(SillyTavern.getContext().event_types.CHARACTER_DELETED, char);
+                }
+            } else if (entity.id) {
+                // Group: delete via API
+                try {
+                    const csrf = await fetch('/csrf-token');
+                    const { token } = await csrf.json();
+                    const result = await fetch('/api/groups/delete', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': token
+                        },
+                        body: JSON.stringify({
+                            id: entity.id
+                        })
+                    });
+        
+                    if (!result.ok) {
+                        toastr.error(`Failed to delete group "${entity.name}".`, 'Delete Error');
+                        continue;
+                    }
+                } catch (err) {
+                    toastr.error(`Failed to delete group "${entity.name}".`, 'Delete Error');
+                    continue;
+                }
+                // Remove from arrays
+                const gIdx = groups.findIndex(g => g.id === id);
+                if (gIdx !== -1) {
+                    groups.splice(gIdx, 1);
+                }
+                if (tag_map[id]) delete tag_map[id];
+                const notes = getNotes();
+                if (notes.charNotes && notes.charNotes[id]) delete notes.charNotes[id];
+                saveNotes(notes);
+                // Fire SillyTavern event for group deletion if needed
+                SillyTavern.getContext().eventSource.emit(SillyTavern.getContext().event_types.GROUP_CHAT_DELETED, id);
             }
-            // Remove from groups array (if you want group delete)
-            const gIdx = typeof groups !== "undefined" ? groups.findIndex(g => g.id === id) : -1;
-            if (gIdx !== -1) {
-                groups.splice(gIdx, 1);
-            }
-            // Remove from tag_map
-            if (tag_map[id]) delete tag_map[id];
-            // Remove notes
-            const notes = getNotes();
-            if (notes.charNotes && notes.charNotes[id]) delete notes.charNotes[id];
-            saveNotes(notes);
         }
+        
         toastr.success(`Deleted ${stcmCharState.selectedCharacterIds.size} character(s)/group(s).`);
         stcmCharState.isBulkDeleteCharMode = false;
         stcmCharState.selectedCharacterIds.clear();
@@ -613,6 +672,7 @@ function openCharacterTagManagerModal() {
         renderCharacterList();
         renderCharacterTagData();
     });
+    
     
     
     renderCharacterTagData();
