@@ -436,5 +436,6 @@ function toggleCharacterList(container, group) {
 export {
     renderCharacterList,
     toggleCharacterList,
-    selectedCharacterIds
+    selectedCharacterIds,
+    isBulkDeleteCharMode
 };

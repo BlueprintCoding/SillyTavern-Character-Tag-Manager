@@ -17,7 +17,8 @@ mutateBogusFolderIcons,
 injectPrivateFolderToggle, 
 applyPrivateFolderVisibility,
 watchCharacterBlockMutations,
-watchTagFilterBar 
+watchTagFilterBar,
+isBulkDeleteCharMode
 } from './utils.js';
 
 import {
