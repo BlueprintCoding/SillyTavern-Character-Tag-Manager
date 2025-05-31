@@ -497,21 +497,38 @@ function hidePrivateTagsInFilterBar() {
         const isSystem = isSystemTagId(tagId);
         const isPrivate = privateTagIds.has(tagId);
 
+        // Always clear the override before logic
+        tagEl.classList.remove('stcm-force-visible');
+
         if (isSystem) {
             tagEl.style.display = '';
             tagEl.setAttribute('data-stcm-debug', 'system');
+            // system tags always have .actionable, so will be visible
             return;
         }
 
-        if (state === 0) {
-            tagEl.style.display = isPrivate ? 'none' : '';
-            tagEl.setAttribute('data-stcm-debug', isPrivate ? 'private-hidden' : 'public-shown');
-        } else if (state === 1) {
+        if (state === 0) { // Hide private
+            if (isPrivate) {
+                tagEl.style.display = 'none';
+                tagEl.setAttribute('data-stcm-debug', 'private-hidden');
+            } else {
+                tagEl.style.display = '';
+                tagEl.classList.add('stcm-force-visible');
+                tagEl.setAttribute('data-stcm-debug', 'public-shown');
+            }
+        } else if (state === 1) { // Show all
             tagEl.style.display = '';
+            tagEl.classList.add('stcm-force-visible');
             tagEl.setAttribute('data-stcm-debug', 'all-shown');
-        } else if (state === 2) {
-            tagEl.style.display = isPrivate ? '' : 'none';
-            tagEl.setAttribute('data-stcm-debug', isPrivate ? 'private-shown' : 'public-hidden');
+        } else if (state === 2) { // Only private
+            if (isPrivate) {
+                tagEl.style.display = '';
+                tagEl.classList.add('stcm-force-visible');
+                tagEl.setAttribute('data-stcm-debug', 'private-shown');
+            } else {
+                tagEl.style.display = 'none';
+                tagEl.setAttribute('data-stcm-debug', 'public-hidden');
+            }
         }
     });
 }
