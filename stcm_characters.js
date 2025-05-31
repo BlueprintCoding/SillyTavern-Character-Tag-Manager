@@ -18,6 +18,30 @@ import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
     renderCharacterList();         // After loading notes
 })();
 
+function parseSearchTerms(raw) {
+    // Split on spaces, except within quotes
+    const matches = raw.match(/(-?[AT]?:?"[^"]+"|-?[AT]?:?\S+)/g) || [];
+    return matches.map(term => {
+        let positive = true, field = 'name', value = term;
+        if (value.startsWith('-')) {
+            positive = false;
+            value = value.slice(1);
+        }
+        if (value.toUpperCase().startsWith('A:')) {
+            field = 'a';
+            value = value.slice(2);
+        } else if (value.toUpperCase().startsWith('T:')) {
+            field = 't';
+            value = value.slice(2);
+        } else if (value.startsWith(':')) {
+            // Edge: :foo is invalid, just treat as name
+            value = value.slice(1);
+        }
+        // Remove quotes
+        value = value.replace(/^"|"$/g, '').trim();
+        return { positive, field, value: value.toLowerCase() };
+    }).filter(t => t.value);
+}
 
 
 function renderCharacterList() {
@@ -60,60 +84,32 @@ function renderCharacterList() {
         entity.tagCount = Array.isArray(tag_map[entity.id]) ? tag_map[entity.id].length : 0;
     });
 
-    const filterEntities = (entities, searchTerm, mode = 'name') => {
-        // Parse out negative and positive terms
-        // Split on spaces, support quoted phrases (optional)
-        const terms = searchTerm.match(/(".*?"|[^"\s]+)+(?=\s*|\s*$)/g) || [];
-        const positiveTerms = [];
-        const negativeTerms = [];
+    const rawInput = document.getElementById('charSearchInput')?.value || '';
+    const searchTerms = parseSearchTerms(rawInput);
     
-        for (let t of terms) {
-            t = t.trim();
-            if (!t) continue;
-            if (t.startsWith('-')) negativeTerms.push(t.slice(1).replace(/(^"|"$)/g, ''));
-            else positiveTerms.push(t.replace(/(^"|"$)/g, ''));
+    const filterEntity = (entity) => {
+        const charObj = characters.find(c => c.avatar === entity.id);
+        const tagIds = tag_map[entity.id] || [];
+        const tagNames = tagIds.map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
+        const allFields = charObj ? Object.values(charObj).filter(v => typeof v === 'string').join(' ').toLowerCase() : '';
+        const name = entity.name.toLowerCase();
+    
+        for (const term of searchTerms) {
+            let match = false;
+            if (term.field === 'a') {
+                match = allFields.includes(term.value);
+            } else if (term.field === 't') {
+                match = tagNames.some(tagName => tagName.includes(term.value));
+            } else { // default: name
+                match = name.includes(term.value);
+            }
+            if (term.positive && !match) return false;
+            if (!term.positive && match) return false;
         }
-    
-        return entities.filter(entity => {
-            const charObj = characters.find(c => c.avatar === entity.id);
-            const tagIds = tag_map[entity.id] || [];
-            const tagNames = tagIds.map(tagId => (buildTagMap(tags).get(tagId)?.name.toLowerCase() || ""));
-    
-            let haystack = '';
-            if (mode === 'a') {
-                haystack = charObj
-                    ? Object.values(charObj).filter(v => typeof v === 'string').join(' ').toLowerCase()
-                    : '';
-            } else if (mode === 't') {
-                haystack = tagNames.join(' ');
-            } else {
-                haystack = entity.name.toLowerCase();
-            }
-    
-            // Must match ALL positive terms
-            if (positiveTerms.length && !positiveTerms.every(term => haystack.includes(term.toLowerCase()))) {
-                return false;
-            }
-            // Must match NONE of the negative terms
-            if (negativeTerms.length && negativeTerms.some(term => haystack.includes(term.toLowerCase()))) {
-                return false;
-            }
-            return true;
-        });
+        return true;
     };
     
-    const lowerSearch = searchTerm.toLowerCase();
-    let filtered;
-    if (lowerSearch.startsWith('a:')) {
-        const rawQuery = lowerSearch.slice(2).trim();
-        filtered = filterEntities(allEntities, rawQuery, 'a');
-    } else if (lowerSearch.startsWith('t:')) {
-        const rawQuery = lowerSearch.slice(2).trim();
-        filtered = filterEntities(allEntities, rawQuery, 't');
-    } else {
-        filtered = filterEntities(allEntities, lowerSearch, 'name');
-    }
-    
+    const filtered = allEntities.filter(filterEntity);    
 
     const notes = getNotes();
     let visible = filtered;
