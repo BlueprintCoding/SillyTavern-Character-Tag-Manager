@@ -735,9 +735,15 @@ function openCharacterTagManagerModal() {
         const observer = new ResizeObserver(savePosDebounced);
         observer.observe(modalContent);
     }
+
+    const modal = overlay;
+    const handle = overlay.querySelector('.stcm_modal_header');
+    if (modal && handle) {
+        makeModalDraggable(modal, handle);
+    }
+    // END MODAL Sizing, positioning, scroll, draggable
+
 }
-makeModalDraggable(document.getElementById('characterTagManagerModal'), document.querySelector('.stcm_modal_header'));
-// END MODAL Sizing, positioning, scroll, draggable
 
 const privateTagIds = new Set(/* array of private tag ids */);
 watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState);
