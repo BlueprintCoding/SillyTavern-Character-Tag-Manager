@@ -5,7 +5,7 @@ import { debouncePersist,
     saveNotes,
     restoreNotesFromFile
  } from './utils.js';
-import { tags, tag_map, removeTagFromEntity, searchCharByName } from "../../../tags.js";
+import { tags, tag_map, removeTagFromEntity, searchCharByName, getTagKeyForEntity } from "../../../tags.js";
 import { characters, setActiveCharacter } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
@@ -42,11 +42,9 @@ function parseSearchTerms(raw) {
         return { positive, field, value: value.toLowerCase() };
     }).filter(t => t.value);
 }
-
 function searchCharByAvatar(avatarFilename, { suppressLogging = false } = {}) {
-    // Find the character with the given avatar filename
     const entity = characters.find(c => c.avatar === avatarFilename);
-    const key = entity && (entity.key || entity.id || entity.avatar); // adjust as needed for your getTagKeyForEntity
+    const key = entity && getTagKeyForEntity(entity);  // This will be the real key
     if (!key && !suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} not found.`);
     return key;
 }
