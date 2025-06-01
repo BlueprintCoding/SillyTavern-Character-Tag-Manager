@@ -52,6 +52,7 @@ function buildAvatarToChidMap() {
             // Extract filename (decode in case of URL encoding)
             const avatar = decodeURIComponent(img.src.split('/').pop());
             const chid = el.getAttribute('data-chid');
+            console.log("chid: "+ chid);
             if (avatar && chid) map[avatar] = chid;
         }
     });
@@ -319,19 +320,6 @@ function renderCharacterList() {
         leftSide.appendChild(rightContent);
         metaWrapper.appendChild(leftSide);
 
-        document.addEventListener('click', function(e) {
-            const li = e.target.closest('.charListItemWrapper[data-chid]');
-            if (li) {
-                const chid = li.getAttribute('data-chid');
-                if (chid) {
-                    setActiveCharacter(chid);
-                    // If you have groups too, handle them as needed
-                    setActiveGroup && setActiveGroup(null); // if function exists
-                    saveSettingsDebounced && saveSettingsDebounced();
-                }
-            }
-        });
-        
 
         // === Right Controls ===
         const rightControls = document.createElement('div');
@@ -492,6 +480,20 @@ function toggleCharacterList(container, group) {
         toggleBtn.classList.add('active');
     }
 }
+
+// name click listener
+document.addEventListener('click', function(e) {
+    const li = e.target.closest('.charListItemWrapper[data-chid]');
+    if (li && li.closest('#characterListContainer')) { // limit to modal
+        const chid = li.getAttribute('data-chid');
+        if (chid) {
+            setActiveCharacter(chid);
+            if (typeof setActiveGroup === 'function') setActiveGroup(null); // safely check
+            if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+        }
+    }
+});
+
 
 export {
     renderCharacterList,
