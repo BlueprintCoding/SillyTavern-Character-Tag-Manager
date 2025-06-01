@@ -45,13 +45,18 @@ function parseSearchTerms(raw) {
 
 function searchCharByAvatar(avatarFilename, { suppressLogging = false } = {}) {
     const entity = characters.find(c => c.avatar === avatarFilename);
-    // console.log("DEBUG SEARCHCHAR:", searchCharByName(entity)); // <-- Add this!
-    console.log("DEBUG ENTITY:", getTagKeyForEntity(entity)); // <-- Add this!
-    const key = entity && getTagKeyForEntity(entity);
-    if (!key && !suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} not found.`);
-    return key;
+    // Safety check: If entity found, get its name and look up the correct key by name
+    if (entity && entity.name) {
+        const key = searchCharByName(entity.name, { suppressLogging });
+        console.log("DEBUG entity:", entity);
+console.log("DEBUG key from name lookup:", key);
+        if (!key && !suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} (name: ${entity.name}) not found via name lookup.`);
+        return key;
+    } else {
+        if (!suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} not found in characters.`);
+        return null;
+    }
 }
-
 
 
 function renderCharacterList() {
