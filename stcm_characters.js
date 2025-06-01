@@ -473,6 +473,8 @@ function toggleCharacterList(container, group) {
 
 // name click listener
 document.addEventListener('click', function(e) {
+    console.log('document click', e.target, e.target.className);
+
     const target = e.target;
     if (target.classList.contains('charActivate')) {
         const li = target.closest('.charListItemWrapper');
