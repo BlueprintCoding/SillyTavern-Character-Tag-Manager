@@ -151,6 +151,12 @@ function renderCharacterList() {
         if (entity.type === 'character') {
             li.setAttribute('data-avatar', entity.avatar); // for avatar-based lookup
             li.setAttribute('data-name', entity.name);     // optionally store name
+        } else if (entity.type === 'group') {
+            li.setAttribute('data-entity-type', 'group');
+            li.setAttribute('data-group-id', entity.id);
+            li.setAttribute('data-name', entity.name);
+            // Optionally: set group avatar if you use avatars for groups
+            if (entity.avatar) li.setAttribute('data-avatar', entity.avatar);
         }
         
 
@@ -471,29 +477,26 @@ document.addEventListener('click', function(e) {
     if (target.classList.contains('charActivate')) {
         const li = target.closest('.charListItemWrapper');
         if (li && li.closest('#characterListContainer')) {
-            const avatar = li.getAttribute('data-avatar');
-            const name = li.getAttribute('data-name');
-            // Try character first
-            const id = avatar ? characters.findIndex(c => c.avatar === avatar) : -1;
-            if (id !== -1 && typeof selectCharacterById === 'function') {
-                // Character found
-                console.log('Switching character by index:', id, 'avatar:', avatar);
-                selectCharacterById(id);
-                if (typeof setActiveGroup === 'function') setActiveGroup(null);
-                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-            } else if (avatar && groups.some(g => g.avatar === avatar)) {
-                // It's a group
+            const entityType = li.getAttribute('data-entity-type');
+            if (entityType === 'character') {
+                const avatar = li.getAttribute('data-avatar');
+                const id = avatar ? characters.findIndex(c => c.avatar === avatar) : -1;
+                if (id !== -1 && typeof selectCharacterById === 'function') {
+                    console.log('Switching character by index:', id, 'avatar:', avatar);
+                    selectCharacterById(id);
+                    if (typeof setActiveGroup === 'function') setActiveGroup(null);
+                    if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+                } else {
+                    toastr.warning('Unable to activate character: not found.');
+                }
+            } else if (entityType === 'group') {
                 toastr.info('Selecting groups not possible from Tag Manager yet.');
             } else {
-                // Not found
-                console.log('No character or group found for avatar', avatar, '; fallback: name search for', name);
-                toastr.warning('Unable to activate character: not found.');
+                toastr.warning('Unknown entity type.');
             }
         }
     }
 });
-
-
 
 export {
     renderCharacterList,
