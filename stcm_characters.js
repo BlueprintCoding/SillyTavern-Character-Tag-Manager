@@ -494,6 +494,7 @@ document.addEventListener('click', function(e) {
 });
 
 
+
 export {
     renderCharacterList,
     toggleCharacterList
