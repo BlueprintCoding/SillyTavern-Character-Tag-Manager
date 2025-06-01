@@ -45,7 +45,7 @@ function parseSearchTerms(raw) {
 
 function searchCharByAvatar(avatarFilename, { suppressLogging = false } = {}) {
     const entity = characters.find(c => c.avatar === avatarFilename);
-    console.log("DEBUG SEARCHCHAR:", searchCharByName(entity)); // <-- Add this!
+    // console.log("DEBUG SEARCHCHAR:", searchCharByName(entity)); // <-- Add this!
     console.log("DEBUG ENTITY:", getTagKeyForEntity(entity)); // <-- Add this!
     const key = entity && getTagKeyForEntity(entity);
     if (!key && !suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} not found.`);
