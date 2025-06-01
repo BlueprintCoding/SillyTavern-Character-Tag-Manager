@@ -43,21 +43,27 @@ function parseSearchTerms(raw) {
     }).filter(t => t.value);
 }
 
+// Helper to build a mapping from avatar filename to chid in the main character panel
+function buildAvatarToChidMap() {
+    const map = {};
+    document.querySelectorAll('.character_select[data-chid]').forEach(el => {
+        const img = el.querySelector('img[alt]');
+        if (img) {
+            // Extract filename (decode in case of URL encoding)
+            const avatar = decodeURIComponent(img.src.split('/').pop());
+            const chid = el.getAttribute('data-chid');
+            if (avatar && chid) map[avatar] = chid;
+        }
+    });
+    return map;
+}
+
 
 function renderCharacterList() {
     const container = document.getElementById('characterListContainer');
     if (!container) return;
 
-        // Check the character IDs on load
-        if (Array.isArray(characters) && characters.length > 0) {
-            console.log("First character object:", characters[0]);
-            characters.forEach((c, i) => {
-                console.log(`Character #${i} name: "${c.name}" | chid:`, c.chid, "| id:", c.id, "| avatar:", c.avatar);
-            });
-        } else {
-            console.log("No characters array or characters array is empty");
-        }
-
+    const avatarToChidMap = buildAvatarToChidMap();
     const tagMapById = buildTagMap(tags);
 
     const selectedTagIds = Array.from(document.getElementById('assignTagSelect')?.selectedOptions || []).map(opt => opt.value);
@@ -157,7 +163,13 @@ function renderCharacterList() {
 
     visible.forEach(entity => {
         const li = document.createElement('li');
-        li.classList.add('charListItemWrapper'); // optional class for spacing
+        li.classList.add('charListItemWrapper');
+        if (entity.type === 'character') {
+            // Use the avatar filename to lookup chid
+            const chid = avatarToChidMap[entity.avatar];
+            if (chid) li.setAttribute('data-chid', chid);
+        }
+        
 
         const metaWrapper = document.createElement('div');
         metaWrapper.className = 'charMeta stcm_flex_row_between';
@@ -306,6 +318,20 @@ function renderCharacterList() {
 
         leftSide.appendChild(rightContent);
         metaWrapper.appendChild(leftSide);
+
+        document.addEventListener('click', function(e) {
+            const li = e.target.closest('.charListItemWrapper[data-chid]');
+            if (li) {
+                const chid = li.getAttribute('data-chid');
+                if (chid) {
+                    setActiveCharacter(chid);
+                    // If you have groups too, handle them as needed
+                    setActiveGroup && setActiveGroup(null); // if function exists
+                    saveSettingsDebounced && saveSettingsDebounced();
+                }
+            }
+        });
+        
 
         // === Right Controls ===
         const rightControls = document.createElement('div');
