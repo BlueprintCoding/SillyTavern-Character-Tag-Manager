@@ -170,7 +170,7 @@ function renderCharacterList() {
         leftSide.className = 'charLeftSide';
 
         const img = document.createElement('img');
-        img.className = 'stcm_avatar_thumb';
+        img.className = 'stcm_avatar_thumb charActivate'; 
         img.alt = entity.name;
         img.src = entity.avatar ? `/characters/${entity.avatar}` : 'img/ai4.png';
         img.onerror = () => img.src = 'img/ai4.png';
@@ -208,7 +208,7 @@ function renderCharacterList() {
         nameRow.appendChild(label);
 
         const nameSpan = document.createElement('span');
-        nameSpan.className = 'charName';
+        nameSpan.className = 'charName charActivate'; // <-- add charActivate
         nameSpan.textContent = `${entity.name} (${entity.tagCount} tag${entity.tagCount !== 1 ? 's' : ''})`;
         nameRow.appendChild(nameSpan);
 
@@ -402,7 +402,7 @@ function toggleCharacterList(container, group) {
         metaWrapper.className = 'charMeta stcm_flex_row';
 
         const img = document.createElement('img');
-        img.className = 'stcm_avatar_thumb';
+        img.className = 'stcm_avatar_thumb charActivate';
         img.alt = name;
 
         if (isGroup && entity) {
@@ -426,7 +426,7 @@ function toggleCharacterList(container, group) {
         };
 
         const nameSpan = document.createElement('span');
-        nameSpan.className = 'charName';
+        nameSpan.className = 'charName charActivate';
         nameSpan.textContent = name;
 
         metaWrapper.appendChild(img);
@@ -473,25 +473,23 @@ function toggleCharacterList(container, group) {
 
 // name click listener
 document.addEventListener('click', function(e) {
-    const li = e.target.closest('.charListItemWrapper');
-    if (li && li.closest('#characterListContainer')) {
-        // You can store the avatar filename as a data attribute on the li for easy lookup:
-        // (Set this when building each <li>)
-        const avatar = li.getAttribute('data-avatar');
-        const name = li.getAttribute('data-name'); // if you want to support by name
-        let charKey = null;
-
-        // Prefer searching by avatar for uniqueness
-        if (avatar) {
-            charKey = searchCharByAvatar(avatar);
-        } else if (name) {
-            charKey = searchCharByName(name);
-        }
-
-        if (charKey) {
-            setActiveCharacter(charKey);
-            if (typeof setActiveGroup === 'function') setActiveGroup(null);
-            if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+    const target = e.target;
+    if (target.classList.contains('charActivate')) {
+        const li = target.closest('.charListItemWrapper');
+        if (li && li.closest('#characterListContainer')) {
+            const avatar = li.getAttribute('data-avatar');
+            const name = li.getAttribute('data-name');
+            let charKey = null;
+            if (avatar) {
+                charKey = searchCharByAvatar(avatar);
+            } else if (name) {
+                charKey = searchCharByName(name);
+            }
+            if (charKey) {
+                setActiveCharacter(charKey);
+                if (typeof setActiveGroup === 'function') setActiveGroup(null);
+                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+            }
         }
     }
 });
