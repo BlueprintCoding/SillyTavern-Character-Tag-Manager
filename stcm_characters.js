@@ -473,8 +473,6 @@ function toggleCharacterList(container, group) {
 
 // name click listener
 document.addEventListener('click', function(e) {
-    console.log('document click', e.target, e.target.className);
-
     const target = e.target;
     if (target.classList.contains('charActivate')) {
         const li = target.closest('.charListItemWrapper');
@@ -484,17 +482,23 @@ document.addEventListener('click', function(e) {
             let charKey = null;
             if (avatar) {
                 charKey = searchCharByAvatar(avatar);
+                console.log('Avatar:', avatar, 'charKey from avatar:', charKey);
             } else if (name) {
                 charKey = searchCharByName(name);
+                console.log('Name:', name, 'charKey from name:', charKey);
             }
             if (charKey) {
+                console.log('Activating character with key:', charKey);
                 setActiveCharacter(charKey);
                 if (typeof setActiveGroup === 'function') setActiveGroup(null);
                 if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+            } else {
+                console.warn('No charKey found!');
             }
         }
     }
 });
+
 
 
 export {
