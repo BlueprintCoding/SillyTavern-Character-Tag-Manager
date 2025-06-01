@@ -102,9 +102,29 @@ function makeModalDraggable(modal, handle) {
     });
 
     document.addEventListener('mouseup', () => {
-        isDragging = false;
+        if (isDragging) {
+            isDragging = false;
+            saveModalPosSize(); // <-- Save after drag stops!
+        }
     });
 }
+
+
+// After making modal draggable, also track size and position for saving
+const modalContent = overlay.querySelector('.modalContent');
+const STORAGE_KEY = 'stcm_modal_pos_size';
+
+function saveModalPosSize() {
+    const rect = modalContent.getBoundingClientRect();
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+    }));
+}
+
+
 
 function buildTagMap(tags) {
     return new Map(tags.map(tag => [tag.id, tag]));
@@ -511,6 +531,7 @@ escapeHtml,
 getCharacterNameById, 
 resetModalScrollPositions, 
 makeModalDraggable, 
+saveModalPosSize,
 buildTagMap, 
 buildCharNameMap, 
 getNotes, 

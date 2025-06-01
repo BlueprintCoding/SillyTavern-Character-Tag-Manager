@@ -8,6 +8,7 @@ escapeHtml,
 getCharacterNameById, 
 resetModalScrollPositions, 
 makeModalDraggable, 
+saveModalPosSize,
 getNotes, 
 saveNotes, 
 buildCharNameMap, 
@@ -201,6 +202,7 @@ function openCharacterTagManagerModal() {
 
     document.body.appendChild(overlay);
     resetModalScrollPositions();
+
 
     function escToCloseHandler(e) {
         if (e.key === "Escape") {
@@ -694,11 +696,49 @@ function openCharacterTagManagerModal() {
     wrapper.appendChild(container);
 
     renderCharacterList();
+// MODAL Sizing, positioning, scroll, draggable  
     resetModalScrollPositions();
 
+    const modalContent = overlay.querySelector('.modalContent');
+    // ---- Restore size/position
+    const STORAGE_KEY = 'stcm_modal_pos_size';
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            const { left, top, width, height } = JSON.parse(saved);
+            Object.assign(modalContent.style, {
+                position: 'fixed',
+                left: `${left}px`,
+                top: `${top}px`,
+                width: `${width}px`,
+                height: `${height}px`,
+                minWidth: '350px'
+            });
+        } catch {}
+    } else {
+        Object.assign(modalContent.style, {
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)'
+        });
+    }
 
-    makeModalDraggable(document.getElementById('characterTagManagerModal'), document.querySelector('.stcm_modal_header'));
+    // ---- Save size/position after user resizes/drags
+    let resizeObserverTimeout;
+    const savePosDebounced = () => {
+        clearTimeout(resizeObserverTimeout);
+        resizeObserverTimeout = setTimeout(() => saveModalPosSize(modalContent), 150);
+    };
+    modalContent.addEventListener('mouseup', savePosDebounced);
+    modalContent.addEventListener('mouseleave', savePosDebounced);
+    if ('ResizeObserver' in window) {
+        const observer = new ResizeObserver(savePosDebounced);
+        observer.observe(modalContent);
+    }
 }
+makeModalDraggable(document.getElementById('characterTagManagerModal'), document.querySelector('.stcm_modal_header'));
+// END MODAL Sizing, positioning, scroll, draggable
+
 const privateTagIds = new Set(/* array of private tag ids */);
 watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState);
 
