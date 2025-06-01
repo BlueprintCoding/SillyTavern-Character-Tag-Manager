@@ -5,7 +5,7 @@ import { debouncePersist,
     saveNotes,
     restoreNotesFromFile
  } from './utils.js';
-import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
+import { tags, tag_map, removeTagFromEntity, searchCharByName } from "../../../tags.js";
 import { characters, setActiveCharacter } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
@@ -43,20 +43,12 @@ function parseSearchTerms(raw) {
     }).filter(t => t.value);
 }
 
-// Helper to build a mapping from avatar filename to chid in the main character panel
-function buildAvatarToChidMap() {
-    const map = {};
-    document.querySelectorAll('.character_select[data-chid]').forEach(el => {
-        const img = el.querySelector('img[alt]');
-        if (img) {
-            // Extract filename (decode in case of URL encoding)
-            const avatar = decodeURIComponent(img.src.split('/').pop());
-            const chid = el.getAttribute('data-chid');
-            console.log("chid: "+ chid);
-            if (avatar && chid) map[avatar] = chid;
-        }
-    });
-    return map;
+function searchCharByAvatar(avatarFilename, { suppressLogging = false } = {}) {
+    // Find the character with the given avatar filename
+    const entity = characters.find(c => c.avatar === avatarFilename);
+    const key = entity && (entity.key || entity.id || entity.avatar); // adjust as needed for your getTagKeyForEntity
+    if (!key && !suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} not found.`);
+    return key;
 }
 
 
@@ -64,7 +56,6 @@ function renderCharacterList() {
     const container = document.getElementById('characterListContainer');
     if (!container) return;
 
-    const avatarToChidMap = buildAvatarToChidMap();
     const tagMapById = buildTagMap(tags);
 
     const selectedTagIds = Array.from(document.getElementById('assignTagSelect')?.selectedOptions || []).map(opt => opt.value);
@@ -166,9 +157,8 @@ function renderCharacterList() {
         const li = document.createElement('li');
         li.classList.add('charListItemWrapper');
         if (entity.type === 'character') {
-            // Use the avatar filename to lookup chid
-            const chid = avatarToChidMap[entity.avatar];
-            if (chid) li.setAttribute('data-chid', chid);
+            li.setAttribute('data-avatar', entity.avatar); // for avatar-based lookup
+            li.setAttribute('data-name', entity.name);     // optionally store name
         }
         
 
@@ -483,12 +473,24 @@ function toggleCharacterList(container, group) {
 
 // name click listener
 document.addEventListener('click', function(e) {
-    const li = e.target.closest('.charListItemWrapper[data-chid]');
-    if (li && li.closest('#characterListContainer')) { // limit to modal
-        const chid = li.getAttribute('data-chid');
-        if (chid) {
-            setActiveCharacter(chid);
-            if (typeof setActiveGroup === 'function') setActiveGroup(null); // safely check
+    const li = e.target.closest('.charListItemWrapper');
+    if (li && li.closest('#characterListContainer')) {
+        // You can store the avatar filename as a data attribute on the li for easy lookup:
+        // (Set this when building each <li>)
+        const avatar = li.getAttribute('data-avatar');
+        const name = li.getAttribute('data-name'); // if you want to support by name
+        let charKey = null;
+
+        // Prefer searching by avatar for uniqueness
+        if (avatar) {
+            charKey = searchCharByAvatar(avatar);
+        } else if (name) {
+            charKey = searchCharByName(name);
+        }
+
+        if (charKey) {
+            setActiveCharacter(charKey);
+            if (typeof setActiveGroup === 'function') setActiveGroup(null);
             if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
         }
     }
