@@ -5,8 +5,8 @@ import { debouncePersist,
     saveNotes,
     restoreNotesFromFile
  } from './utils.js';
-import { tags, tag_map, removeTagFromEntity, searchCharByName } from "../../../tags.js";
-import { characters, setActiveCharacter } from "../../../../script.js";
+import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
+import { characters, selectCharacterById } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { renderCharacterTagData, callSaveandReload } from "./index.js";
@@ -43,54 +43,6 @@ function parseSearchTerms(raw) {
     }).filter(t => t.value);
 }
 
-
-
-function extractAvatarFilenameFromImg(img) {
-    try {
-        // Try query param first
-        const url = new URL(img.src, window.location.origin);
-        if (url.pathname.endsWith('/thumbnail')) {
-            const file = url.searchParams.get('file');
-            if (file) return decodeURIComponent(file);
-        }
-        // fallback: direct filename
-        return decodeURIComponent(img.src.split('/').pop());
-    } catch {
-        return decodeURIComponent(img.src.split('/').pop());
-    }
-}
-
-function buildEntityKeyMap() {
-    const charMap = {};
-    // data-type character panel
-    document.querySelectorAll('[data-type="character"][data-chid]').forEach(el => {
-        const img = el.querySelector('img[alt]');
-        if (img) {
-            const avatar = extractAvatarFilenameFromImg(img);
-            const chid = el.getAttribute('data-chid');
-            if (avatar && chid) charMap[avatar] = chid;
-        }
-    });
-    // character_select panel
-    document.querySelectorAll('.character_select[data-chid]').forEach(el => {
-        const img = el.querySelector('img[alt]');
-        if (img) {
-            const avatar = extractAvatarFilenameFromImg(img);
-            const chid = el.getAttribute('data-chid');
-            if (avatar && chid) charMap[avatar] = chid;
-        }
-    });
-    // group_select panel
-    const groupMap = {};
-    document.querySelectorAll('.group_select[data-grid]').forEach(el => {
-        const groupId = el.getAttribute('data-grid');
-        el.querySelectorAll('img').forEach(img => {
-            const avatar = extractAvatarFilenameFromImg(img);
-            if (avatar && groupId) groupMap[avatar] = groupId;
-        });
-    });
-    return { charMap, groupMap };
-}
 
 function renderCharacterList() {
     const container = document.getElementById('characterListContainer');
@@ -512,6 +464,7 @@ function toggleCharacterList(container, group) {
 }
 
 // name click listener
+// name click listener
 document.addEventListener('click', function(e) {
     const target = e.target;
     if (target.classList.contains('charActivate')) {
@@ -519,40 +472,20 @@ document.addEventListener('click', function(e) {
         if (li && li.closest('#characterListContainer')) {
             const avatar = li.getAttribute('data-avatar');
             const name = li.getAttribute('data-name');
-            // Build the mapping every time (fast, DOM-based); or cache it globally for performance
-            const { charMap, groupMap } = buildEntityKeyMap();
-            let charKey = avatar && charMap[avatar];
-            let groupKey = avatar && groupMap[avatar];
-            if (charKey) {
-                // Character found
-                console.log('Activating character by SillyTavern key:', charKey);
-                setActiveCharacter(charKey);
+            const id = avatar ? characters.findIndex(c => c.avatar === avatar) : -1;
+            if (id !== -1 && typeof selectCharacterById === 'function') {
+                console.log('Switching character by index:', id, 'avatar:', avatar);
+                selectCharacterById(id);
                 if (typeof setActiveGroup === 'function') setActiveGroup(null);
                 if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-            } else if (groupKey && typeof setActiveGroup === 'function') {
-                // Group found
-                console.log('Activating group by SillyTavern key:', groupKey);
-                setActiveCharacter(null);
-                setActiveGroup(groupKey);
-                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
             } else {
-                // fallback: try name-based search
-                if (name) {
-                    console.log('No key found by avatar. Fallback: name search for', name);
-                    let fallbackKey = null;
-                    // fallbackKey = searchCharByName(name); // only if you want to try this fallback
-                    if (fallbackKey) {
-                        setActiveCharacter(fallbackKey);
-                        if (typeof setActiveGroup === 'function') setActiveGroup(null);
-                        if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-                    } else {
-                        toastr.warning('Unable to activate character/group: no key found.');
-                    }
-                }
+                console.log('No character index found for avatar', avatar, '; fallback: name search for', name);
+                toastr.warning('Unable to activate character: not found.');
             }
         }
     }
 });
+
 
 export {
     renderCharacterList,
