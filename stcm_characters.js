@@ -192,7 +192,7 @@ function renderCharacterList() {
 
         label.appendChild(checkbox);
         label.appendChild(checkmark);
-        nameRow.appendChild(label);
+        leftSide.appendChild(label);
 
         const img = document.createElement('img');
         img.className = 'stcm_avatar_thumb charActivate'; 
