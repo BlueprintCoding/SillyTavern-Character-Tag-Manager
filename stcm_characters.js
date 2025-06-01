@@ -149,8 +149,9 @@ function renderCharacterList() {
         const li = document.createElement('li');
         li.classList.add('charListItemWrapper');
         if (entity.type === 'character') {
-            li.setAttribute('data-avatar', entity.avatar); // for avatar-based lookup
-            li.setAttribute('data-name', entity.name);     // optionally store name
+            li.setAttribute('data-entity-type', 'character');
+            li.setAttribute('data-avatar', entity.avatar);
+            li.setAttribute('data-name', entity.name);
         } else if (entity.type === 'group') {
             li.setAttribute('data-entity-type', 'group');
             li.setAttribute('data-group-id', entity.id);
