@@ -111,7 +111,6 @@ function makeModalDraggable(modal, handle) {
 
 
 // After making modal draggable, also track size and position for saving
-const modalContent = overlay.querySelector('.modalContent');
 const STORAGE_KEY = 'stcm_modal_pos_size';
 
 function saveModalPosSize() {
