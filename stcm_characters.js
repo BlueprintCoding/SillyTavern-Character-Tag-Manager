@@ -5,7 +5,7 @@ import { debouncePersist,
     saveNotes,
     restoreNotesFromFile
  } from './utils.js';
-import { tags, tag_map, removeTagFromEntity, searchCharByName, getTagKeyForEntity } from "../../../tags.js";
+import { tags, tag_map, removeTagFromEntity, searchCharByName } from "../../../tags.js";
 import { characters, setActiveCharacter } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
@@ -43,20 +43,103 @@ function parseSearchTerms(raw) {
     }).filter(t => t.value);
 }
 
-function searchCharByAvatar(avatarFilename, { suppressLogging = false } = {}) {
-    const entity = characters.find(c => c.avatar === avatarFilename);
-    // Safety check: If entity found, get its name and look up the correct key by name
-    if (entity && entity.name) {
-        const key = searchCharByName(entity.name, { suppressLogging });
-        console.log("DEBUG entity:", entity);
-console.log("DEBUG key from name lookup:", key);
-        if (!key && !suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} (name: ${entity.name}) not found via name lookup.`);
-        return key;
-    } else {
-        if (!suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} not found in characters.`);
-        return null;
-    }
+import { debouncePersist,
+    buildTagMap,
+    getNotes,
+    saveNotes,
+    restoreNotesFromFile
+} from './utils.js';
+import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
+import { characters, setActiveCharacter } from "../../../../script.js";
+import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
+import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
+import { renderCharacterTagData, callSaveandReload } from "./index.js";
+import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
+
+// --- KEY: Build a global mapping for avatar filenames and group avatars to SillyTavern keys
+
+function buildEntityKeyMap() {
+    const charMap = {};
+    // data-type character panel
+    document.querySelectorAll('[data-type="character"][data-chid]').forEach(el => {
+        const img = el.querySelector('img[alt]');
+        if (img) {
+            const avatar = decodeURIComponent(img.src.split('/').pop());
+            const chid = el.getAttribute('data-chid');
+            if (avatar && chid) charMap[avatar] = chid;
+        }
+    });
+    // character_select panel
+    document.querySelectorAll('.character_select[data-chid]').forEach(el => {
+        const img = el.querySelector('img[alt]');
+        if (img) {
+            const avatar = decodeURIComponent(img.src.split('/').pop());
+            const chid = el.getAttribute('data-chid');
+            if (avatar && chid) charMap[avatar] = chid;
+        }
+    });
+    // group_select panel
+    const groupMap = {};
+    document.querySelectorAll('.group_select[data-grid]').forEach(el => {
+        // Use group name as key, or collect all avatars for the group and map each
+        const groupId = el.getAttribute('data-grid');
+        // Try to build avatar-based mapping if possible
+        el.querySelectorAll('img').forEach(img => {
+            const avatar = decodeURIComponent(img.src.split('/').pop());
+            if (avatar && groupId) groupMap[avatar] = groupId;
+        });
+        // (Optionally) also use group name/title if needed
+    });
+    return { charMap, groupMap };
 }
+
+// --- Main list render function unchanged except for setting data-avatar
+
+// ... (rest of your renderCharacterList and toggleCharacterList code, unchanged) ...
+
+// --- Click handler for activation, now using the entity key map for true SillyTavern keys
+
+document.addEventListener('click', function(e) {
+    const target = e.target;
+    if (target.classList.contains('charActivate')) {
+        const li = target.closest('.charListItemWrapper');
+        if (li && li.closest('#characterListContainer')) {
+            const avatar = li.getAttribute('data-avatar');
+            const name = li.getAttribute('data-name');
+            // Build the mapping every time (fast, DOM-based); or cache it globally for performance
+            const { charMap, groupMap } = buildEntityKeyMap();
+            let charKey = avatar && charMap[avatar];
+            let groupKey = avatar && groupMap[avatar];
+            if (charKey) {
+                // Character found
+                console.log('Activating character by SillyTavern key:', charKey);
+                setActiveCharacter(charKey);
+                if (typeof setActiveGroup === 'function') setActiveGroup(null);
+                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+            } else if (groupKey && typeof setActiveGroup === 'function') {
+                // Group found
+                console.log('Activating group by SillyTavern key:', groupKey);
+                setActiveCharacter(null);
+                setActiveGroup(groupKey);
+                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+            } else {
+                // fallback: try name-based search
+                if (name) {
+                    console.log('No key found by avatar. Fallback: name search for', name);
+                    let fallbackKey = null;
+                    // fallbackKey = searchCharByName(name); // only if you want to try this fallback
+                    if (fallbackKey) {
+                        setActiveCharacter(fallbackKey);
+                        if (typeof setActiveGroup === 'function') setActiveGroup(null);
+                        if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+                    } else {
+                        toastr.warning('Unable to activate character/group: no key found.');
+                    }
+                }
+            }
+        }
+    }
+});
 
 
 function renderCharacterList() {
@@ -486,27 +569,40 @@ document.addEventListener('click', function(e) {
         if (li && li.closest('#characterListContainer')) {
             const avatar = li.getAttribute('data-avatar');
             const name = li.getAttribute('data-name');
-            let charKey = null;
-            if (avatar) {
-                charKey = searchCharByAvatar(avatar);
-                console.log('Avatar:', avatar, 'charKey from avatar:', charKey);
-            } else if (name) {
-                charKey = searchCharByName(name);
-                console.log('Name:', name, 'charKey from name:', charKey);
-            }
+            // Build the mapping every time (fast, DOM-based); or cache it globally for performance
+            const { charMap, groupMap } = buildEntityKeyMap();
+            let charKey = avatar && charMap[avatar];
+            let groupKey = avatar && groupMap[avatar];
             if (charKey) {
-                console.log('Activating character with key:', charKey);
+                // Character found
+                console.log('Activating character by SillyTavern key:', charKey);
                 setActiveCharacter(charKey);
                 if (typeof setActiveGroup === 'function') setActiveGroup(null);
                 if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+            } else if (groupKey && typeof setActiveGroup === 'function') {
+                // Group found
+                console.log('Activating group by SillyTavern key:', groupKey);
+                setActiveCharacter(null);
+                setActiveGroup(groupKey);
+                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
             } else {
-                console.warn('No charKey found!');
+                // fallback: try name-based search
+                if (name) {
+                    console.log('No key found by avatar. Fallback: name search for', name);
+                    let fallbackKey = null;
+                    // fallbackKey = searchCharByName(name); // only if you want to try this fallback
+                    if (fallbackKey) {
+                        setActiveCharacter(fallbackKey);
+                        if (typeof setActiveGroup === 'function') setActiveGroup(null);
+                        if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+                    } else {
+                        toastr.warning('Unable to activate character/group: no key found.');
+                    }
+                }
             }
         }
     }
 });
-
-
 
 export {
     renderCharacterList,
