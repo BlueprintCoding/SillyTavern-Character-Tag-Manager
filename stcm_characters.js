@@ -6,7 +6,7 @@ import { debouncePersist,
     restoreNotesFromFile
  } from './utils.js';
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
-import { characters } from "../../../../script.js";
+import { characters, setActiveCharacter } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { renderCharacterTagData, callSaveandReload } from "./index.js";
@@ -47,6 +47,16 @@ function parseSearchTerms(raw) {
 function renderCharacterList() {
     const container = document.getElementById('characterListContainer');
     if (!container) return;
+
+        // Check the character IDs on load
+        if (Array.isArray(characters) && characters.length > 0) {
+            console.log("First character object:", characters[0]);
+            characters.forEach((c, i) => {
+                console.log(`Character #${i} name: "${c.name}" | chid:`, c.chid, "| id:", c.id, "| avatar:", c.avatar);
+            });
+        } else {
+            console.log("No characters array or characters array is empty");
+        }
 
     const tagMapById = buildTagMap(tags);
 

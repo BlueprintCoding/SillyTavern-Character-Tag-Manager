@@ -30,7 +30,7 @@ import {
     characters,
     getCharacters,
     printCharactersDebounced,
-    saveSettingsDebounced,
+    saveSettingsDebounced
 } from "../../../../script.js";
 
 import { groups, getGroupAvatar } from '../../../../scripts/group-chats.js';
