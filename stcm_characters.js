@@ -161,12 +161,7 @@ function renderCharacterList() {
         const leftSide = document.createElement('div');
         leftSide.className = 'charLeftSide';
 
-        const img = document.createElement('img');
-        img.className = 'stcm_avatar_thumb charActivate'; 
-        img.alt = entity.name;
-        img.src = entity.avatar ? `/characters/${entity.avatar}` : 'img/ai4.png';
-        img.onerror = () => img.src = 'img/ai4.png';
-        leftSide.appendChild(img);
+
 
         const rightContent = document.createElement('div');
         rightContent.className = 'charMetaRight';
@@ -198,6 +193,13 @@ function renderCharacterList() {
         label.appendChild(checkbox);
         label.appendChild(checkmark);
         nameRow.appendChild(label);
+
+        const img = document.createElement('img');
+        img.className = 'stcm_avatar_thumb charActivate'; 
+        img.alt = entity.name;
+        img.src = entity.avatar ? `/characters/${entity.avatar}` : 'img/ai4.png';
+        img.onerror = () => img.src = 'img/ai4.png';
+        leftSide.appendChild(img);
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'charName charActivate'; // <-- add charActivate
