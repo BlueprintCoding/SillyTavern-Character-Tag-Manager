@@ -466,7 +466,6 @@ function toggleCharacterList(container, group) {
 }
 
 // name click listener
-// name click listener
 document.addEventListener('click', function(e) {
     const target = e.target;
     if (target.classList.contains('charActivate')) {
@@ -474,15 +473,26 @@ document.addEventListener('click', function(e) {
         if (li && li.closest('#characterListContainer')) {
             const avatar = li.getAttribute('data-avatar');
             const name = li.getAttribute('data-name');
-            const id = avatar ? characters.findIndex(c => c.avatar === avatar) : -1;
-            if (id !== -1 && typeof selectCharacterById === 'function') {
-                console.log('Switching character by index:', id, 'avatar:', avatar);
-                selectCharacterById(id);
-                if (typeof setActiveGroup === 'function') setActiveGroup(null);
-                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+            // Build mapping on each click
+            const { charMap, groupMap } = buildEntityKeyMap();
+            const charKey = avatar && charMap[avatar];
+            const groupKey = avatar && groupMap[avatar];
+            if (charKey) {
+                // Character: find index and select
+                const id = characters.findIndex(c => c.avatar === avatar);
+                if (id !== -1 && typeof selectCharacterById === 'function') {
+                    console.log('Switching character by index:', id, 'avatar:', avatar);
+                    selectCharacterById(id);
+                    if (typeof setActiveGroup === 'function') setActiveGroup(null);
+                    if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+                } else {
+                    toastr.warning('Unable to activate character: not found.');
+                }
+            } else if (groupKey) {
+                // Group: just show toast
+                toastr.info('Selecting groups not possible from Tag Manager yet.');
             } else {
-                console.log('No character index found for avatar', avatar, '; fallback: name search for', name);
-                toastr.warning('Unable to activate character: not found.');
+                toastr.warning('Unable to activate character/group: no key found.');
             }
         }
     }
