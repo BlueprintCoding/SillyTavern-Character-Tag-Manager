@@ -45,13 +45,28 @@ function parseSearchTerms(raw) {
 
 
 
+function extractAvatarFilenameFromImg(img) {
+    try {
+        // Try query param first
+        const url = new URL(img.src, window.location.origin);
+        if (url.pathname.endsWith('/thumbnail')) {
+            const file = url.searchParams.get('file');
+            if (file) return decodeURIComponent(file);
+        }
+        // fallback: direct filename
+        return decodeURIComponent(img.src.split('/').pop());
+    } catch {
+        return decodeURIComponent(img.src.split('/').pop());
+    }
+}
+
 function buildEntityKeyMap() {
     const charMap = {};
     // data-type character panel
     document.querySelectorAll('[data-type="character"][data-chid]').forEach(el => {
         const img = el.querySelector('img[alt]');
         if (img) {
-            const avatar = decodeURIComponent(img.src.split('/').pop());
+            const avatar = extractAvatarFilenameFromImg(img);
             const chid = el.getAttribute('data-chid');
             if (avatar && chid) charMap[avatar] = chid;
         }
@@ -60,7 +75,7 @@ function buildEntityKeyMap() {
     document.querySelectorAll('.character_select[data-chid]').forEach(el => {
         const img = el.querySelector('img[alt]');
         if (img) {
-            const avatar = decodeURIComponent(img.src.split('/').pop());
+            const avatar = extractAvatarFilenameFromImg(img);
             const chid = el.getAttribute('data-chid');
             if (avatar && chid) charMap[avatar] = chid;
         }
@@ -68,14 +83,11 @@ function buildEntityKeyMap() {
     // group_select panel
     const groupMap = {};
     document.querySelectorAll('.group_select[data-grid]').forEach(el => {
-        // Use group name as key, or collect all avatars for the group and map each
         const groupId = el.getAttribute('data-grid');
-        // Try to build avatar-based mapping if possible
         el.querySelectorAll('img').forEach(img => {
-            const avatar = decodeURIComponent(img.src.split('/').pop());
+            const avatar = extractAvatarFilenameFromImg(img);
             if (avatar && groupId) groupMap[avatar] = groupId;
         });
-        // (Optionally) also use group name/title if needed
     });
     return { charMap, groupMap };
 }
