@@ -42,12 +42,15 @@ function parseSearchTerms(raw) {
         return { positive, field, value: value.toLowerCase() };
     }).filter(t => t.value);
 }
+
 function searchCharByAvatar(avatarFilename, { suppressLogging = false } = {}) {
     const entity = characters.find(c => c.avatar === avatarFilename);
-    const key = entity && getTagKeyForEntity(entity);  // This will be the real key
+    console.log("DEBUG ENTITY:", entity); // <-- Add this!
+    const key = entity && getTagKeyForEntity(entity);
     if (!key && !suppressLogging) toastr.warning(`Character with avatar ${avatarFilename} not found.`);
     return key;
 }
+
 
 
 function renderCharacterList() {
