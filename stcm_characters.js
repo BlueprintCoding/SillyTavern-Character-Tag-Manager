@@ -43,20 +43,7 @@ function parseSearchTerms(raw) {
     }).filter(t => t.value);
 }
 
-import { debouncePersist,
-    buildTagMap,
-    getNotes,
-    saveNotes,
-    restoreNotesFromFile
-} from './utils.js';
-import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
-import { characters, setActiveCharacter } from "../../../../script.js";
-import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
-import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
-import { renderCharacterTagData, callSaveandReload } from "./index.js";
-import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
 
-// --- KEY: Build a global mapping for avatar filenames and group avatars to SillyTavern keys
 
 function buildEntityKeyMap() {
     const charMap = {};
@@ -92,55 +79,6 @@ function buildEntityKeyMap() {
     });
     return { charMap, groupMap };
 }
-
-// --- Main list render function unchanged except for setting data-avatar
-
-// ... (rest of your renderCharacterList and toggleCharacterList code, unchanged) ...
-
-// --- Click handler for activation, now using the entity key map for true SillyTavern keys
-
-document.addEventListener('click', function(e) {
-    const target = e.target;
-    if (target.classList.contains('charActivate')) {
-        const li = target.closest('.charListItemWrapper');
-        if (li && li.closest('#characterListContainer')) {
-            const avatar = li.getAttribute('data-avatar');
-            const name = li.getAttribute('data-name');
-            // Build the mapping every time (fast, DOM-based); or cache it globally for performance
-            const { charMap, groupMap } = buildEntityKeyMap();
-            let charKey = avatar && charMap[avatar];
-            let groupKey = avatar && groupMap[avatar];
-            if (charKey) {
-                // Character found
-                console.log('Activating character by SillyTavern key:', charKey);
-                setActiveCharacter(charKey);
-                if (typeof setActiveGroup === 'function') setActiveGroup(null);
-                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-            } else if (groupKey && typeof setActiveGroup === 'function') {
-                // Group found
-                console.log('Activating group by SillyTavern key:', groupKey);
-                setActiveCharacter(null);
-                setActiveGroup(groupKey);
-                if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-            } else {
-                // fallback: try name-based search
-                if (name) {
-                    console.log('No key found by avatar. Fallback: name search for', name);
-                    let fallbackKey = null;
-                    // fallbackKey = searchCharByName(name); // only if you want to try this fallback
-                    if (fallbackKey) {
-                        setActiveCharacter(fallbackKey);
-                        if (typeof setActiveGroup === 'function') setActiveGroup(null);
-                        if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-                    } else {
-                        toastr.warning('Unable to activate character/group: no key found.');
-                    }
-                }
-            }
-        }
-    }
-});
-
 
 function renderCharacterList() {
     const container = document.getElementById('characterListContainer');
