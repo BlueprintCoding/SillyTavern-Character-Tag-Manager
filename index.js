@@ -710,45 +710,34 @@ function openCharacterTagManagerModal() {
     // Reasonable defaults
     const DEFAULT_WIDTH = 80;  // 80vw
     const DEFAULT_HEIGHT = 95; // 95vh
-    modalContent.style.width = DEFAULT_WIDTH + 'vw';
-    modalContent.style.height = DEFAULT_HEIGHT + 'vh';
-    const MIN_WIDTH = 300; //px
-
-
-
-    
+    const MIN_WIDTH = 200; //px
 
     if (saved) {
         try {
             let { left, top, width, height } = JSON.parse(saved);
-
-            // Clamp values and provide fallback if values are NaN or zero
-            width = Number(width) || DEFAULT_WIDTH;
-            height = Number(height) || DEFAULT_HEIGHT;
-
-            left = Math.max(0, Math.min(Number(left) || 0, window.innerWidth - width));
-            // Header must remain visible
-            const headerHeight = modalContent.querySelector('.stcm_modal_header')?.offsetHeight || 50;
-            top = Math.max(0, Math.min(Number(top) || 0, window.innerHeight - headerHeight));
-
+    
+            width = Number(width);
+            height = Number(height);
+    
+            // If the saved width/height is a pixel value (as before), use px.
+            // Fallback to vw/vh if not available
             Object.assign(modalContent.style, {
                 position: 'fixed',
-                left: `${left}px`,
-                top: `${top}px`,
-                width: `${width}px`,
-                height: `${height}px`,
+                left: `${Math.max(0, Math.min(Number(left) || 0, window.innerWidth - width))}px`,
+                top: `${Math.max(0, Math.min(Number(top) || 0, window.innerHeight - 50))}px`,
+                width: width ? `${width}px` : `${DEFAULT_WIDTH}vw`,
+                height: height ? `${height}px` : `${DEFAULT_HEIGHT}vh`,
                 minWidth: `${MIN_WIDTH}px`,
                 transform: '', // Remove centering transform
             });
         } catch {
-            // Fallback to centered default if JSON fails
             Object.assign(modalContent.style, {
                 position: 'fixed',
                 left: '50%',
                 top: '50%',
                 minWidth: `${MIN_WIDTH}px`,
-                width: `${DEFAULT_WIDTH}px`,
-                height: `${DEFAULT_HEIGHT}px`,
+                width: `${DEFAULT_WIDTH}vw`,
+                height: `${DEFAULT_HEIGHT}vh`,
                 transform: 'translate(-50%, -50%)',
             });
         }
@@ -758,13 +747,11 @@ function openCharacterTagManagerModal() {
             left: '50%',
             top: '50%',
             minWidth: `${MIN_WIDTH}px`,
-            width: `${DEFAULT_WIDTH}px`,
-            height: `${DEFAULT_HEIGHT}px`,
+            width: `${DEFAULT_WIDTH}vw`,
+            height: `${DEFAULT_HEIGHT}vh`,
             transform: 'translate(-50%, -50%)',
         });
     }
-
-    
 
     // ---- Save size/position after user resizes/drags
 
