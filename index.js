@@ -187,7 +187,7 @@ function openCharacterTagManagerModal() {
                                 <i class="fa-solid fa-trash"></i> Delete Selected
                             </button>
                             </div>
-                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag.</span>
+                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms</span>
                                 </div>
 
                     </div>
@@ -729,10 +729,8 @@ function openCharacterTagManagerModal() {
                 height: height ? `${height}px` : `${DEFAULT_HEIGHT}vh`,
                 minWidth: `${MIN_WIDTH}px`,
                 transform: '', // Remove centering transform
-                maxWidth: (window.innerWidth - 20) + "px",
-                maxHeight: (window.innerHeight - 20) + "px",
-
-
+                maxWidth: "95vw",
+                maxHeight: "95vh",
             });
         } catch {
             Object.assign(modalContent.style, {
@@ -743,8 +741,8 @@ function openCharacterTagManagerModal() {
                 width: `${DEFAULT_WIDTH}vw`,
                 height: `${DEFAULT_HEIGHT}vh`,
                 transform: 'translate(-50%, -50%)',
-                maxWidth: (window.innerWidth - 20) + "px",
-                maxHeight: (window.innerHeight - 20) + "px",
+                maxWidth: "95vw",
+                maxHeight: "95vh",
             });
         }
     } else {
@@ -756,8 +754,8 @@ function openCharacterTagManagerModal() {
             width: `${DEFAULT_WIDTH}vw`,
             height: `${DEFAULT_HEIGHT}vh`,
             transform: 'translate(-50%, -50%)',
-            maxWidth: (window.innerWidth - 20) + "px",
-            maxHeight: (window.innerHeight - 20) + "px",
+            maxWidth: "95vw",
+            maxHeight: "95vh"
         });
     }
 
@@ -1012,10 +1010,14 @@ function populateAssignTagSelect() {
 
     tagListDiv.innerHTML = '';  // Clear
 
-    // Show only tags matching filter
-    const matchingTags = tags.filter(tag =>
-        tag.name.toLowerCase().includes(searchTerm)
-    ).sort((a, b) => a.name.localeCompare(b.name));
+    // Multi-search: comma-separated, trims and ignores empty terms
+    const searchTerms = searchTerm.split(',').map(t => t.trim()).filter(Boolean);
+
+    const matchingTags = tags.filter(tag => {
+        if (searchTerms.length === 0) return true;
+        // Tag matches if any search term matches part of the tag name
+        return searchTerms.some(term => tag.name.toLowerCase().includes(term));
+    }).sort((a, b) => a.name.localeCompare(b.name));
 
     matchingTags.forEach(tag => {
         const chip = document.createElement('div');
