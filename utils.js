@@ -148,7 +148,8 @@ const STORAGE_KEY = 'stcm_modal_pos_size';
 
 function saveModalPosSize(modalContent) {
     const rect = modalContent.getBoundingClientRect();
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+    console.log('[STCM] Saving modal position/size:', rect); // debug log
+    sessionStorage.setItem('stcm_modal_pos_size', JSON.stringify({
         left: rect.left,
         top: rect.top,
         width: rect.width,

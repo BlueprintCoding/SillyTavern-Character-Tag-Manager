@@ -763,17 +763,30 @@ function openCharacterTagManagerModal() {
         resizeObserverTimeout = setTimeout(() => saveModalPosSize(modalContent), 150);
     };
 
-    if ('ResizeObserver' in window) {
-        const observer = new ResizeObserver(() => saveModalPosSize(modalContent));
-        observer.observe(modalContent);
-    }
+    let hasInteracted = false;
 
     const handle = modalContent.querySelector('.stcm_modal_header');
     if (handle) {
         // Pass a callback for drag end
-        makeModalDraggable(modalContent, handle, () => saveModalPosSize(modalContent));
+        // Only save after real drag
+        makeModalDraggable(modalContent, handle, () => {
+            hasInteracted = true;
+            saveModalPosSize(modalContent);
+        });
 
+    }
 
+    if ('ResizeObserver' in window) {
+        let initialized = false;
+        const observer = new ResizeObserver(() => {
+            if (!initialized) {
+                initialized = true; // Skip first fire (initial paint)
+                return;
+            }
+            // Only save if user has interacted or the modal was already positioned
+            if (hasInteracted) saveModalPosSize(modalContent);
+        });
+        observer.observe(modalContent);
     }
     // END MODAL Sizing, positioning, scroll, draggable
 
