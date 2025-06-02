@@ -761,11 +761,6 @@ function openCharacterTagManagerModal() {
     
 
     // ---- Save size/position after user resizes/drags
-    let resizeObserverTimeout;
-    const savePosDebounced = () => {
-        clearTimeout(resizeObserverTimeout);
-        resizeObserverTimeout = setTimeout(() => saveModalPosSize(modalContent), 150);
-    };
 
     let hasInteracted = false;
 
