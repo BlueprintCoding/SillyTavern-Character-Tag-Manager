@@ -702,36 +702,44 @@ function openCharacterTagManagerModal() {
     const modalContent = overlay.querySelector('.modalContent');
     const STORAGE_KEY = 'stcm_modal_pos_size';
     const saved = sessionStorage.getItem(STORAGE_KEY);
-    
+
+    // Reasonable defaults
+    const DEFAULT_WIDTH = 500;
+    const DEFAULT_HEIGHT = 700;
+    const MIN_WIDTH = 350;
+
     if (saved) {
         try {
             let { left, top, width, height } = JSON.parse(saved);
-    
-            // Clamp so header is always visible
-            left = Math.max(0, Math.min(left, window.innerWidth - width));
-            // Clamp top so at least the header remains in view
+
+            // Clamp values and provide fallback if values are NaN or zero
+            width = Number(width) || DEFAULT_WIDTH;
+            height = Number(height) || DEFAULT_HEIGHT;
+
+            left = Math.max(0, Math.min(Number(left) || 0, window.innerWidth - width));
+            // Header must remain visible
             const headerHeight = modalContent.querySelector('.stcm_modal_header')?.offsetHeight || 50;
-            top = Math.max(0, Math.min(top, window.innerHeight - headerHeight));
-    
+            top = Math.max(0, Math.min(Number(top) || 0, window.innerHeight - headerHeight));
+
             Object.assign(modalContent.style, {
                 position: 'fixed',
                 left: `${left}px`,
                 top: `${top}px`,
                 width: `${width}px`,
                 height: `${height}px`,
-                minWidth: '350px',
-                transform: '' // clear transform when restoring position
+                minWidth: `${MIN_WIDTH}px`,
+                transform: '', // Remove centering transform
             });
         } catch {
-            // fallback to centered default if JSON fails
+            // Fallback to centered default if JSON fails
             Object.assign(modalContent.style, {
                 position: 'fixed',
                 left: '50%',
                 top: '50%',
-                minWidth: '350px',
-                width: '500px', // your standard size
-                height: '700px', // your standard size
-                transform: 'translate(-50%, -50%)'
+                minWidth: `${MIN_WIDTH}px`,
+                width: `${DEFAULT_WIDTH}px`,
+                height: `${DEFAULT_HEIGHT}px`,
+                transform: 'translate(-50%, -50%)',
             });
         }
     } else {
@@ -739,12 +747,13 @@ function openCharacterTagManagerModal() {
             position: 'fixed',
             left: '50%',
             top: '50%',
-            minWidth: '350px',
-            width: '500px',  // your standard size
-            height: '700px', // your standard size
-            transform: 'translate(-50%, -50%)'
+            minWidth: `${MIN_WIDTH}px`,
+            width: `${DEFAULT_WIDTH}px`,
+            height: `${DEFAULT_HEIGHT}px`,
+            transform: 'translate(-50%, -50%)',
         });
     }
+
     
 
     // ---- Save size/position after user resizes/drags
@@ -764,7 +773,8 @@ function openCharacterTagManagerModal() {
     const handle = overlay.querySelector('.stcm_modal_header');
     if (modal && handle) {
         // Pass a callback for drag end
-        makeModalDraggable(modal, handle, () => saveModalPosSize(modalContent));
+        makeModalDraggable(modalContent, handle, () => saveModalPosSize(modalContent));
+
 
     }
     // END MODAL Sizing, positioning, scroll, draggable

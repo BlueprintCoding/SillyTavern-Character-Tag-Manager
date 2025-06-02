@@ -87,51 +87,56 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
 
     handle.style.cursor = 'move';
 
-    // Compute the height of the header for clamping bottom of header
     const getHeaderHeight = () => handle.offsetHeight || 50;
 
     handle.addEventListener('mousedown', (e) => {
         isDragging = true;
-        offsetX = e.clientX - modal.offsetLeft;
-        offsetY = e.clientY - modal.offsetTop;
-        modal.style.position = 'fixed'; // important: use fixed for clamping to viewport
+        // modal.getBoundingClientRect() is more reliable than offsetLeft on fixed
+        const rect = modal.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        modal.style.position = 'fixed';
         modal.style.zIndex = 10000;
         modal.style.margin = 0;
-        document.body.style.userSelect = 'none'; // prevent text selection while dragging
+        document.body.style.userSelect = 'none';
     });
 
-    document.addEventListener('mousemove', (e) => {
+    function onMove(e) {
         if (!isDragging) return;
         let newLeft = e.clientX - offsetX;
         let newTop = e.clientY - offsetY;
 
-        // Clamp to prevent header from leaving the viewport
-        // Header is always visible, so clamp left/top to >= 0
-        newLeft = Math.max(0, newLeft);
-        newTop = Math.max(0, newTop);
-
-        // Prevent header from being dragged off right/bottom too (optional)
+        // Clamp left/top to 0, right, and keep header visible at bottom
         const headerHeight = getHeaderHeight();
-        const modalRect = modal.getBoundingClientRect();
-        const minWidth = Math.min(modalRect.width, window.innerWidth);
-        const maxLeft = window.innerWidth - minWidth;
-        const maxTop = window.innerHeight - headerHeight; // header should never leave at bottom
+        const width = modal.offsetWidth;
+        const height = modal.offsetHeight;
 
-        newLeft = Math.min(newLeft, maxLeft);
-        newTop = Math.min(newTop, maxTop);
+        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - width));
+        newTop = Math.max(0, Math.min(newTop, window.innerHeight - headerHeight));
 
         modal.style.left = `${newLeft}px`;
         modal.style.top = `${newTop}px`;
-        modal.style.right = ''; // clear in case set by other CSS
+        modal.style.right = '';
         modal.style.bottom = '';
-        modal.style.transform = ''; // remove centering transform
-    });
+        modal.style.transform = ''; // Remove any center transform
+    }
 
-    document.addEventListener('mouseup', () => {
+    function onUp() {
         if (isDragging) {
             isDragging = false;
             document.body.style.userSelect = '';
             if (onDragEnd) onDragEnd();
+        }
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+
+    // CLEANUP: remove event listeners when modal closes
+    modal.addEventListener('DOMNodeRemoved', (ev) => {
+        if (ev.target === modal) {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
         }
     });
 }
