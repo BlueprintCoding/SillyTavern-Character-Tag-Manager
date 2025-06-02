@@ -771,7 +771,6 @@ function openCharacterTagManagerModal() {
 
     const handle = modalContent.querySelector('.stcm_modal_header');
     if (handle) {
-        // Pass a callback for drag end
         // Only save after real drag
         makeModalDraggable(modalContent, handle, () => {
             hasInteracted = true;
@@ -782,19 +781,28 @@ function openCharacterTagManagerModal() {
 
     if ('ResizeObserver' in window) {
         let initialized = false;
-        const observer = new ResizeObserver(() => {
-            if (!initialized) {
-                initialized = true; // Skip first fire (initial paint)
-                return;
-            }
+        let resizeEndTimer = null;
+    
+        const onResizeEnd = () => {
             // Only save if size is meaningful (avoid 0x0)
             const rect = modalContent.getBoundingClientRect();
             if (rect.width > 100 && rect.height > 100) {
                 saveModalPosSize(modalContent);
             }
+        };
+    
+        const observer = new ResizeObserver(() => {
+            if (!initialized) {
+                initialized = true; // Skip first fire (initial paint)
+                return;
+            }
+            // Debounce: wait for user to finish resizing
+            clearTimeout(resizeEndTimer);
+            resizeEndTimer = setTimeout(onResizeEnd, 350); // 350ms after last event
         });
         observer.observe(modalContent);
     }
+    
     
     // END MODAL Sizing, positioning, scroll, draggable
 
