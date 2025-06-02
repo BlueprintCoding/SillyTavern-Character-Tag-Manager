@@ -6,7 +6,7 @@ import { debouncePersist,
     restoreNotesFromFile
  } from './utils.js';
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
-import { characters } from "../../../../script.js";
+import { characters, selectCharacterById } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { renderCharacterTagData, callSaveandReload } from "./index.js";
@@ -147,7 +147,19 @@ function renderCharacterList() {
 
     visible.forEach(entity => {
         const li = document.createElement('li');
-        li.classList.add('charListItemWrapper'); // optional class for spacing
+        li.classList.add('charListItemWrapper');
+        if (entity.type === 'character') {
+            li.setAttribute('data-entity-type', 'character');
+            li.setAttribute('data-avatar', entity.avatar);
+            li.setAttribute('data-name', entity.name);
+        } else if (entity.type === 'group') {
+            li.setAttribute('data-entity-type', 'group');
+            li.setAttribute('data-group-id', entity.id);
+            li.setAttribute('data-name', entity.name);
+            // Optionally: set group avatar if you use avatars for groups
+            if (entity.avatar) li.setAttribute('data-avatar', entity.avatar);
+        }
+        
 
         const metaWrapper = document.createElement('div');
         metaWrapper.className = 'charMeta stcm_flex_row_between';
@@ -156,12 +168,7 @@ function renderCharacterList() {
         const leftSide = document.createElement('div');
         leftSide.className = 'charLeftSide';
 
-        const img = document.createElement('img');
-        img.className = 'stcm_avatar_thumb';
-        img.alt = entity.name;
-        img.src = entity.avatar ? `/characters/${entity.avatar}` : 'img/ai4.png';
-        img.onerror = () => img.src = 'img/ai4.png';
-        leftSide.appendChild(img);
+
 
         const rightContent = document.createElement('div');
         rightContent.className = 'charMetaRight';
@@ -192,10 +199,17 @@ function renderCharacterList() {
 
         label.appendChild(checkbox);
         label.appendChild(checkmark);
-        nameRow.appendChild(label);
+        leftSide.appendChild(label);
+
+        const img = document.createElement('img');
+        img.className = 'stcm_avatar_thumb charActivate'; 
+        img.alt = entity.name;
+        img.src = entity.avatar ? `/characters/${entity.avatar}` : 'img/ai4.png';
+        img.onerror = () => img.src = 'img/ai4.png';
+        leftSide.appendChild(img);
 
         const nameSpan = document.createElement('span');
-        nameSpan.className = 'charName';
+        nameSpan.className = 'charName charActivate'; // <-- add charActivate
         nameSpan.textContent = `${entity.name} (${entity.tagCount} tag${entity.tagCount !== 1 ? 's' : ''})`;
         nameRow.appendChild(nameSpan);
 
@@ -297,6 +311,7 @@ function renderCharacterList() {
         leftSide.appendChild(rightContent);
         metaWrapper.appendChild(leftSide);
 
+
         // === Right Controls ===
         const rightControls = document.createElement('div');
         rightControls.className = 'charRowRightFixed';
@@ -388,7 +403,7 @@ function toggleCharacterList(container, group) {
         metaWrapper.className = 'charMeta stcm_flex_row';
 
         const img = document.createElement('img');
-        img.className = 'stcm_avatar_thumb';
+        img.className = 'stcm_avatar_thumb charActivate';
         img.alt = name;
 
         if (isGroup && entity) {
@@ -412,7 +427,7 @@ function toggleCharacterList(container, group) {
         };
 
         const nameSpan = document.createElement('span');
-        nameSpan.className = 'charName';
+        nameSpan.className = 'charName charActivate';
         nameSpan.textContent = name;
 
         metaWrapper.appendChild(img);
@@ -456,6 +471,33 @@ function toggleCharacterList(container, group) {
         toggleBtn.classList.add('active');
     }
 }
+
+// name click listener
+document.addEventListener('click', function(e) {
+    const target = e.target;
+    if (target.classList.contains('charActivate')) {
+        const li = target.closest('.charListItemWrapper');
+        if (li && li.closest('#characterListContainer')) {
+            const entityType = li.getAttribute('data-entity-type');
+            if (entityType === 'character') {
+                const avatar = li.getAttribute('data-avatar');
+                const id = avatar ? characters.findIndex(c => c.avatar === avatar) : -1;
+                if (id !== -1 && typeof selectCharacterById === 'function') {
+                    console.log('Switching character by index:', id, 'avatar:', avatar);
+                    selectCharacterById(id);
+                    if (typeof setActiveGroup === 'function') setActiveGroup(null);
+                    if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+                } else {
+                    toastr.warning('Unable to activate character: not found.');
+                }
+            } else if (entityType === 'group') {
+                toastr.info('Selecting groups not possible from Tag Manager yet.');
+            } else {
+                toastr.warning('Unknown entity type.');
+            }
+        }
+    }
+});
 
 export {
     renderCharacterList,

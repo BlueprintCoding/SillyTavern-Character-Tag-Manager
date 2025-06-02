@@ -8,6 +8,7 @@ escapeHtml,
 getCharacterNameById, 
 resetModalScrollPositions, 
 makeModalDraggable, 
+saveModalPosSize,
 getNotes, 
 saveNotes, 
 buildCharNameMap, 
@@ -30,7 +31,7 @@ import {
     characters,
     getCharacters,
     printCharactersDebounced,
-    saveSettingsDebounced,
+    saveSettingsDebounced
 } from "../../../../script.js";
 
 import { groups, getGroupAvatar } from '../../../../scripts/group-chats.js';
@@ -202,8 +203,11 @@ function openCharacterTagManagerModal() {
     document.body.appendChild(overlay);
     resetModalScrollPositions();
 
+
     function escToCloseHandler(e) {
         if (e.key === "Escape") {
+            const modalContentEsc = overlay.querySelector('.modalContent');
+            saveModalPosSize(modalContentEsc);
             overlay.remove();
             document.removeEventListener('keydown', escToCloseHandler);
         }
@@ -312,6 +316,8 @@ function openCharacterTagManagerModal() {
 
 
     document.getElementById('closeCharacterTagManagerModal').addEventListener('click', () => {
+        const modalContentEsc = overlay.querySelector('.modalContent');
+        saveModalPosSize(modalContentEsc);
         resetModalScrollPositions();
         overlay.remove();
         document.removeEventListener('keydown', escToCloseHandler);
@@ -694,11 +700,168 @@ function openCharacterTagManagerModal() {
     wrapper.appendChild(container);
 
     renderCharacterList();
+// MODAL Sizing, positioning, scroll, draggable  
     resetModalScrollPositions();
 
+    const modalContent = overlay.querySelector('.modalContent');
+    const STORAGE_KEY = 'stcm_modal_pos_size';
+    const saved = sessionStorage.getItem(STORAGE_KEY);
 
-    makeModalDraggable(document.getElementById('characterTagManagerModal'), document.querySelector('.stcm_modal_header'));
+    // Reasonable defaults
+    const DEFAULT_WIDTH = 80;  // 80vw
+    const DEFAULT_HEIGHT = 95; // 95vh
+    const MIN_WIDTH = 350; //px
+
+    if (saved) {
+        try {
+            let { left, top, width, height } = JSON.parse(saved);
+    
+            width = Number(width);
+            height = Number(height);
+    
+            // If the saved width/height is a pixel value (as before), use px.
+            // Fallback to vw/vh if not available
+            Object.assign(modalContent.style, {
+                position: 'fixed',
+                left: `${Math.max(0, Math.min(Number(left) || 0, window.innerWidth - width))}px`,
+                top: `${Math.max(0, Math.min(Number(top) || 0, window.innerHeight - 50))}px`,
+                width: width ? `${width}px` : `${DEFAULT_WIDTH}vw`,
+                height: height ? `${height}px` : `${DEFAULT_HEIGHT}vh`,
+                minWidth: `${MIN_WIDTH}px`,
+                transform: '', // Remove centering transform
+                maxWidth: (window.innerWidth - 20) + "px",
+                maxHeight: (window.innerHeight - 20) + "px",
+
+
+            });
+        } catch {
+            Object.assign(modalContent.style, {
+                position: 'fixed',
+                left: '50%',
+                top: '50%',
+                minWidth: `${MIN_WIDTH}px`,
+                width: `${DEFAULT_WIDTH}vw`,
+                height: `${DEFAULT_HEIGHT}vh`,
+                transform: 'translate(-50%, -50%)',
+                maxWidth: (window.innerWidth - 20) + "px",
+                maxHeight: (window.innerHeight - 20) + "px",
+            });
+        }
+    } else {
+        Object.assign(modalContent.style, {
+            position: 'fixed',
+            left: '50%',
+            top: '50%',
+            minWidth: `${MIN_WIDTH}px`,
+            width: `${DEFAULT_WIDTH}vw`,
+            height: `${DEFAULT_HEIGHT}vh`,
+            transform: 'translate(-50%, -50%)',
+            maxWidth: (window.innerWidth - 20) + "px",
+            maxHeight: (window.innerHeight - 20) + "px",
+        });
+    }
+
+    // ---- Save size/position after user resizes/drags
+
+    let hasInteracted = false;
+
+    const handle = modalContent.querySelector('.stcm_modal_header');
+    if (handle) {
+        // Only save after real drag
+        makeModalDraggable(modalContent, handle, () => {
+            hasInteracted = true;
+            saveModalPosSize(modalContent);
+        });
+
+    }
+
+    if ('ResizeObserver' in window) {
+        let initialized = false;
+        let resizeEndTimer = null;
+    
+        const clampModalSize = () => {
+            // Enforce modal max size based on viewport, with a margin
+            const margin = 20;
+            const maxWidth = window.innerWidth - margin;
+            const maxHeight = window.innerHeight - margin;
+            let changed = false;
+    
+            // Clamp width/height
+            if (modalContent.offsetWidth > maxWidth) {
+                modalContent.style.width = maxWidth + "px";
+                changed = true;
+            }
+            if (modalContent.offsetHeight > maxHeight) {
+                modalContent.style.height = maxHeight + "px";
+                changed = true;
+            }
+    
+            // Clamp left/top so modal cannot move off the right/bottom edges
+            const rect = modalContent.getBoundingClientRect();
+            let newLeft = rect.left, newTop = rect.top;
+    
+            if (rect.right > window.innerWidth) {
+                newLeft = Math.max(0, window.innerWidth - rect.width);
+                modalContent.style.left = newLeft + "px";
+                changed = true;
+            }
+            if (rect.bottom > window.innerHeight) {
+                newTop = Math.max(0, window.innerHeight - rect.height);
+                modalContent.style.top = newTop + "px";
+                changed = true;
+            }
+    
+            // Optionally clamp left/top so the header can't go fully offscreen
+            if (rect.left < 0) {
+                modalContent.style.left = "0px";
+                changed = true;
+            }
+            if (rect.top < 0) {
+                modalContent.style.top = "0px";
+                changed = true;
+            }
+    
+            return changed;
+        };
+    
+        const onResizeEnd = () => {
+            // Clamp to safe size and position
+            clampModalSize();
+            // Only save if size is meaningful (avoid 0x0)
+            const rect = modalContent.getBoundingClientRect();
+            if (rect.width > 100 && rect.height > 100) {
+                saveModalPosSize(modalContent);
+            }
+        };
+    
+        // Also update maxWidth/maxHeight on window resize
+        window.addEventListener("resize", () => {
+            modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
+            modalContent.style.maxHeight = (window.innerHeight - 40) + "px";
+            clampModalSize();
+        });
+    
+        // Set these at open, too!
+        modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
+        modalContent.style.maxHeight = (window.innerHeight - 40) + "px";
+    
+        const observer = new ResizeObserver(() => {
+            if (!initialized) {
+                initialized = true; // Skip first fire (initial paint)
+                return;
+            }
+            // Debounce: wait for user to finish resizing
+            clearTimeout(resizeEndTimer);
+            resizeEndTimer = setTimeout(onResizeEnd, 350); // 350ms after last event
+        });
+        observer.observe(modalContent);
+    }
+    
+    
+    // END MODAL Sizing, positioning, scroll, draggable
+
 }
+
 const privateTagIds = new Set(/* array of private tag ids */);
 watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState);
 
