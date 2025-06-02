@@ -710,7 +710,7 @@ function openCharacterTagManagerModal() {
     // Reasonable defaults
     const DEFAULT_WIDTH = 80;  // 80vw
     const DEFAULT_HEIGHT = 95; // 95vh
-    const MIN_WIDTH = 200; //px
+    const MIN_WIDTH = 350; //px
 
     if (saved) {
         try {
