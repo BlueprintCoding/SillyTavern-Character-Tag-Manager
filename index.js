@@ -97,7 +97,7 @@ function openCharacterTagManagerModal() {
                                         <input type="text" id="tagSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search tags..." />                   
                 </div>
                 <div style="margin-top: -5px;">
-                                    <span class="smallInstructions">Search by by tag, or add "C:" before your search to search by character name.</span>
+                                    <span class="smallInstructions">Search by tag, or add "C:" before your search to search by character name. Use , (comma) to seperate OR lists.</span>
                 </div>
                 <div class="stcm_align-right stcm_tag_button_holder">
                                 <button id="createNewTagBtn" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
@@ -1059,7 +1059,10 @@ function renderCharacterTagData() {
     }
 
     const sortMode = document.getElementById('tagSortMode')?.value || 'alpha_asc';
-    const searchTerm = document.getElementById('tagSearchInput')?.value.toLowerCase() || '';
+    const rawInput = document.getElementById('tagSearchInput')?.value.toLowerCase() || '';
+
+    // OR: split by comma
+    const orGroups = rawInput.split(',').map(g => g.trim()).filter(Boolean);
 
     const styles = getComputedStyle(document.body);
     const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
@@ -1068,73 +1071,77 @@ function renderCharacterTagData() {
     const notes = getNotes();
     const charNameMap = buildCharNameMap(characters);
 
-        // Helper to determine the folder type for filtering
-        function getFolderType(tag) {
-            if (!tag || typeof tag.folder_type !== 'string') return 'NONE';
-            const ft = tag.folder_type.toUpperCase();
-            if (ft === 'CLOSED' && notes.tagPrivate && notes.tagPrivate[tag.id]) return 'PRIVATE';
-            if (['NONE','OPEN','CLOSED'].includes(ft)) return ft;
-            return 'NONE';
+    function getFolderType(tag) {
+        if (!tag || typeof tag.folder_type !== 'string') return 'NONE';
+        const ft = tag.folder_type.toUpperCase();
+        if (ft === 'CLOSED' && notes.tagPrivate && notes.tagPrivate[tag.id]) return 'PRIVATE';
+        if (['NONE','OPEN','CLOSED'].includes(ft)) return ft;
+        return 'NONE';
+    }
+
+    let tagGroups = tags.map(tag => {
+        const charIds = Object.entries(tag_map)
+            .filter(([_, tagIds]) => Array.isArray(tagIds) && tagIds.includes(tag.id))
+            .map(([charId]) => charId);
+        return { tag, charIds };
+    }).filter(group => {
+        const tagName = group.tag.name.toLowerCase();
+
+        // Filtering logic for all folder types
+        if (sortMode === 'no_folder' && getFolderType(group.tag) !== 'NONE') return false;
+        if (sortMode === 'open_folder' && getFolderType(group.tag) !== 'OPEN') return false;
+        if (sortMode === 'closed_folder' && getFolderType(group.tag) !== 'CLOSED') return false;
+        if (sortMode === 'private_folder' && getFolderType(group.tag) !== 'PRIVATE') return false;
+        if (sortMode === 'only_zero' && group.charIds.length > 0) return false;
+
+        // --- Comma search: OR logic ---
+        if (!orGroups.length) return true; // Empty = show all
+
+        for (const orGroup of orGroups) {
+            // AND logic within each group
+            const andTerms = orGroup.split(' ').map(s => s.trim()).filter(Boolean);
+
+            const matches = andTerms.every(term => {
+                if (term.startsWith('c:')) {
+                    const charSearch = term.slice(2).trim();
+                    return group.charIds
+                        .map(id => getCharacterNameById(id, charNameMap)?.toLowerCase() || '')
+                        .some(name => name.includes(charSearch));
+                } else {
+                    return tagName.includes(term);
+                }
+            });
+
+            if (matches) return true; // Match this OR group
         }
-        
-        let tagGroups = tags.map(tag => {
-            const charIds = Object.entries(tag_map)
-                .filter(([_, tagIds]) => Array.isArray(tagIds) && tagIds.includes(tag.id))
-                .map(([charId]) => charId);
-            return { tag, charIds };
-        }).filter(group => {
-            const tagName = group.tag.name.toLowerCase();
-    
-            // Filtering logic for all folder types
-            if (sortMode === 'no_folder') {
-                if (getFolderType(group.tag) !== 'NONE') return false;
-            }
-            if (sortMode === 'open_folder') {
-                if (getFolderType(group.tag) !== 'OPEN') return false;
-            }
-            if (sortMode === 'closed_folder') {
-                if (getFolderType(group.tag) !== 'CLOSED') return false;
-            }
-            if (sortMode === 'private_folder') {
-                if (getFolderType(group.tag) !== 'PRIVATE') return false;
-            }
-            if (sortMode === 'only_zero' && group.charIds.length > 0) return false;
-    
-            // Support search by character name (c:)
-            if (searchTerm.startsWith('c:')) {
-                const charSearch = searchTerm.slice(2).trim().toLowerCase();
-                const matchedChars = group.charIds
-                    .map(id => getCharacterNameById(id, charNameMap)?.toLowerCase() || '')
-                    .filter(name => name.includes(charSearch));
-                return matchedChars.length > 0;
-            }
-            return tagName.includes(searchTerm);
-        });
-    
-        // Sorting logic (alpha_asc, alpha_desc, etc)
-        tagGroups.sort((a, b) => {
-            if (
-                sortMode === 'alpha_asc' ||
-                sortMode === 'no_folder' ||
-                sortMode === 'open_folder' ||
-                sortMode === 'closed_folder' ||
-                sortMode === 'private_folder' ||
-                sortMode === 'only_zero'
-            ) {
-                return a.tag.name.localeCompare(b.tag.name);
-            }
-            switch (sortMode) {
-                case 'alpha_desc':
-                    return b.tag.name.localeCompare(a.tag.name);
-                case 'count_asc':
-                    return a.charIds.length - b.charIds.length;
-                case 'count_desc':
-                    return b.charIds.length - a.charIds.length;
-                default:
-                    return 0;
-            }
-        });
-    
+
+        // No OR group matched
+        return false;
+    });
+
+    // ...sorting and rendering as before
+    tagGroups.sort((a, b) => {
+        if (
+            sortMode === 'alpha_asc' ||
+            sortMode === 'no_folder' ||
+            sortMode === 'open_folder' ||
+            sortMode === 'closed_folder' ||
+            sortMode === 'private_folder' ||
+            sortMode === 'only_zero'
+        ) {
+            return a.tag.name.localeCompare(b.tag.name);
+        }
+        switch (sortMode) {
+            case 'alpha_desc':
+                return b.tag.name.localeCompare(a.tag.name);
+            case 'count_asc':
+                return a.charIds.length - b.charIds.length;
+            case 'count_desc':
+                return b.charIds.length - a.charIds.length;
+            default:
+                return 0;
+        }
+    });
 
     const fragment = document.createDocumentFragment();
 
