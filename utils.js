@@ -81,7 +81,8 @@ function resetModalScrollPositions() {
     });
 }
 
-function makeModalDraggable(modal, handle) {
+function makeModalDraggable(modal, handle, onDragEnd = null) {
+
     let isDragging = false;
     let offsetX, offsetY;
 
@@ -104,7 +105,7 @@ function makeModalDraggable(modal, handle) {
     document.addEventListener('mouseup', () => {
         if (isDragging) {
             isDragging = false;
-            saveModalPosSize(); // <-- Save after drag stops!
+            if (onDragEnd) onDragEnd();
         }
     });
 }
@@ -113,7 +114,7 @@ function makeModalDraggable(modal, handle) {
 // After making modal draggable, also track size and position for saving
 const STORAGE_KEY = 'stcm_modal_pos_size';
 
-function saveModalPosSize() {
+function saveModalPosSize(modalContent) {
     const rect = modalContent.getBoundingClientRect();
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
         left: rect.left,

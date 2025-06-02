@@ -739,7 +739,9 @@ function openCharacterTagManagerModal() {
     const modal = overlay;
     const handle = overlay.querySelector('.stcm_modal_header');
     if (modal && handle) {
-        makeModalDraggable(modal, handle);
+        // Pass a callback for drag end
+        makeModalDraggable(modal, handle, () => saveModalPosSize(modalContent));
+
     }
     // END MODAL Sizing, positioning, scroll, draggable
 
