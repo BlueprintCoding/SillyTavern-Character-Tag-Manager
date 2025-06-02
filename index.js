@@ -708,10 +708,10 @@ function openCharacterTagManagerModal() {
     const saved = sessionStorage.getItem(STORAGE_KEY);
 
     // Reasonable defaults
-    const DEFAULT_WIDTH = window.innerWidth * 0.80;  // 80vw
-    const DEFAULT_HEIGHT = window.innerHeight * 0.95; // 95vh
-    modalContent.style.width = DEFAULT_WIDTH + 'px';
-    modalContent.style.height = DEFAULT_HEIGHT + 'px';
+    const DEFAULT_WIDTH = 80;  // 80vw
+    const DEFAULT_HEIGHT = 95; // 95vh
+    modalContent.style.width = DEFAULT_WIDTH + 'vw';
+    modalContent.style.height = DEFAULT_HEIGHT + 'vh';
     modalContent.style.minWidth = '300px';
     
 
