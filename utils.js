@@ -148,6 +148,16 @@ const STORAGE_KEY = 'stcm_modal_pos_size';
 
 function saveModalPosSize(modalContent) {
     const rect = modalContent.getBoundingClientRect();
+
+    // Only save if width/height and position are meaningful
+    if (
+        rect.width < 100 || rect.height < 100 || // too small, not user-sized yet
+        (rect.left === 0 && rect.top === 0)     // opened at corner, likely initial
+    ) {
+        // Don't save the initial "reset" or "default" position/size!
+        return;
+    }
+
     console.log('[STCM] Saving modal position/size:', rect); // debug log
     sessionStorage.setItem('stcm_modal_pos_size', JSON.stringify({
         left: rect.left,
@@ -156,8 +166,6 @@ function saveModalPosSize(modalContent) {
         height: rect.height,
     }));
 }
-
-
 
 function buildTagMap(tags) {
     return new Map(tags.map(tag => [tag.id, tag]));

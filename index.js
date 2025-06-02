@@ -783,11 +783,15 @@ function openCharacterTagManagerModal() {
                 initialized = true; // Skip first fire (initial paint)
                 return;
             }
-            // Only save if user has interacted or the modal was already positioned
-            if (hasInteracted) saveModalPosSize(modalContent);
+            // Only save if size is meaningful (avoid 0x0)
+            const rect = modalContent.getBoundingClientRect();
+            if (rect.width > 100 && rect.height > 100) {
+                saveModalPosSize(modalContent);
+            }
         });
         observer.observe(modalContent);
     }
+    
     // END MODAL Sizing, positioning, scroll, draggable
 
 }
