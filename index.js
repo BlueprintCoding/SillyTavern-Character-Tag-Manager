@@ -729,6 +729,10 @@ function openCharacterTagManagerModal() {
                 height: height ? `${height}px` : `${DEFAULT_HEIGHT}vh`,
                 minWidth: `${MIN_WIDTH}px`,
                 transform: '', // Remove centering transform
+                maxWidth: (window.innerWidth - 20) + "px",
+                maxHeight: (window.innerHeight - 20) + "px",
+
+
             });
         } catch {
             Object.assign(modalContent.style, {
@@ -739,6 +743,8 @@ function openCharacterTagManagerModal() {
                 width: `${DEFAULT_WIDTH}vw`,
                 height: `${DEFAULT_HEIGHT}vh`,
                 transform: 'translate(-50%, -50%)',
+                maxWidth: (window.innerWidth - 20) + "px",
+                maxHeight: (window.innerHeight - 20) + "px",
             });
         }
     } else {
@@ -750,6 +756,8 @@ function openCharacterTagManagerModal() {
             width: `${DEFAULT_WIDTH}vw`,
             height: `${DEFAULT_HEIGHT}vh`,
             transform: 'translate(-50%, -50%)',
+            maxWidth: (window.innerWidth - 20) + "px",
+            maxHeight: (window.innerHeight - 20) + "px",
         });
     }
 
@@ -771,13 +779,71 @@ function openCharacterTagManagerModal() {
         let initialized = false;
         let resizeEndTimer = null;
     
+        const clampModalSize = () => {
+            // Enforce modal max size based on viewport, with a margin
+            const margin = 20;
+            const maxWidth = window.innerWidth - margin;
+            const maxHeight = window.innerHeight - margin;
+            let changed = false;
+    
+            // Clamp width/height
+            if (modalContent.offsetWidth > maxWidth) {
+                modalContent.style.width = maxWidth + "px";
+                changed = true;
+            }
+            if (modalContent.offsetHeight > maxHeight) {
+                modalContent.style.height = maxHeight + "px";
+                changed = true;
+            }
+    
+            // Clamp left/top so modal cannot move off the right/bottom edges
+            const rect = modalContent.getBoundingClientRect();
+            let newLeft = rect.left, newTop = rect.top;
+    
+            if (rect.right > window.innerWidth) {
+                newLeft = Math.max(0, window.innerWidth - rect.width);
+                modalContent.style.left = newLeft + "px";
+                changed = true;
+            }
+            if (rect.bottom > window.innerHeight) {
+                newTop = Math.max(0, window.innerHeight - rect.height);
+                modalContent.style.top = newTop + "px";
+                changed = true;
+            }
+    
+            // Optionally clamp left/top so the header can't go fully offscreen
+            if (rect.left < 0) {
+                modalContent.style.left = "0px";
+                changed = true;
+            }
+            if (rect.top < 0) {
+                modalContent.style.top = "0px";
+                changed = true;
+            }
+    
+            return changed;
+        };
+    
         const onResizeEnd = () => {
+            // Clamp to safe size and position
+            clampModalSize();
             // Only save if size is meaningful (avoid 0x0)
             const rect = modalContent.getBoundingClientRect();
             if (rect.width > 100 && rect.height > 100) {
                 saveModalPosSize(modalContent);
             }
         };
+    
+        // Also update maxWidth/maxHeight on window resize
+        window.addEventListener("resize", () => {
+            modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
+            modalContent.style.maxHeight = (window.innerHeight - 40) + "px";
+            clampModalSize();
+        });
+    
+        // Set these at open, too!
+        modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
+        modalContent.style.maxHeight = (window.innerHeight - 40) + "px";
     
         const observer = new ResizeObserver(() => {
             if (!initialized) {
