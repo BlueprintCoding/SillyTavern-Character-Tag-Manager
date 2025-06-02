@@ -50,18 +50,38 @@ SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a cen
 * **Folder Type Filter:** Instantly filter tags by folder type (No Folder, Open, Closed, Private) using the dropdown in the modal—no more scrolling through unsorted lists.
 * **Set Folder Type:** Edit any tag’s folder type directly from the tag manager for better organization and grouping in other tag views.
 
-### Advanced Character Searching
+### Advanced Searching in Character Section of Extension
 
-* **Flexible Search Syntax:**
-  * Use `A:` to search all character fields
-  * Use `T:` to search tags
-  * Use no prefix to search character/group names
-* **Negative Search:** Prefix any term with `-` to exclude it (e.g., `-T:orc` excludes characters with the tag "orc").
-* **Multi-term Matching:** Combine terms:
-  `A:elf T:good -T:evil` finds characters whose fields include "elf", have the tag "good", and do **not** have the tag "evil".
-* **Exact Match:** Wrap phrases in quotes for exact matches, e.g., `A:"dark elf" -T:"high elf"`
-* **Mixed Fields:** You can mix positive and negative, field-specific or general terms in any order.
-  For example: `A:home -T:building` finds characters whose fields mention "home" but do **not** have the "building" tag.
+**Tag Advanced Search Features**
+
+* **OR Search:** Use commas to separate search groups. Results match **any** group (OR logic).
+  *Example:* `Elf, Magic` shows the "Elf" tag or the "Magic" tag. (Where before `Elf Magic` or `Elf, Magic` would show nothing.
+
+-----
+
+**Character Advanced Search Features**
+
+* **AND Search:** Type multiple terms separated by spaces to find characters/groups matching **all** criteria.
+  *Example:* `T:Elf T:Magic` shows only those with **both** the "Elf" and "Magic" tags.
+
+* **OR Search:** Use commas to separate search groups. Results match **any** group (OR logic).
+  *Example:* `T:Elf, T:Magic` shows characters/groups with **either** the "Elf" tag or the "Magic" tag.
+
+* **Field Prefixes:**
+
+  * `T:` to search by tag name (e.g. `T:Elf`)
+  * `A:` to search all character fields
+  * No prefix searches by character name only
+
+* **Negation:** Add `-` before a term to exclude it.
+  *Example:* `T:Elf -T:Dark` finds entries with "Elf" but **not** "Dark".
+
+---
+
+**Tip:** Combine AND/OR:
+`A:John, T:Elf T:Magic` finds entries with "John" in any field, **or** both "Elf" and "Magic" tags together.
+
+---
 
 
 ### Data Persistence
