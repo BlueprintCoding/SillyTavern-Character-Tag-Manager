@@ -206,6 +206,8 @@ function openCharacterTagManagerModal() {
 
     function escToCloseHandler(e) {
         if (e.key === "Escape") {
+            const modalContentEsc = overlay.querySelector('.modalContent');
+            saveModalPosSize(modalContentEsc);
             overlay.remove();
             document.removeEventListener('keydown', escToCloseHandler);
         }
@@ -314,6 +316,8 @@ function openCharacterTagManagerModal() {
 
 
     document.getElementById('closeCharacterTagManagerModal').addEventListener('click', () => {
+        const modalContentEsc = overlay.querySelector('.modalContent');
+        saveModalPosSize(modalContentEsc);
         resetModalScrollPositions();
         overlay.remove();
         document.removeEventListener('keydown', escToCloseHandler);

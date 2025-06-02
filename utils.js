@@ -158,7 +158,7 @@ function saveModalPosSize(modalContent) {
         return;
     }
 
-    console.log('[STCM] Saving modal position/size:', rect); // debug log
+    // console.log('[STCM] Saving modal position/size:', rect); // debug log
     sessionStorage.setItem('stcm_modal_pos_size', JSON.stringify({
         left: rect.left,
         top: rect.top,
