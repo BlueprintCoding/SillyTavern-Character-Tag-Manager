@@ -700,28 +700,52 @@ function openCharacterTagManagerModal() {
     resetModalScrollPositions();
 
     const modalContent = overlay.querySelector('.modalContent');
-    // ---- Restore size/position
     const STORAGE_KEY = 'stcm_modal_pos_size';
     const saved = sessionStorage.getItem(STORAGE_KEY);
+    
     if (saved) {
         try {
-            const { left, top, width, height } = JSON.parse(saved);
+            let { left, top, width, height } = JSON.parse(saved);
+    
+            // Clamp so header is always visible
+            left = Math.max(0, Math.min(left, window.innerWidth - width));
+            // Clamp top so at least the header remains in view
+            const headerHeight = modalContent.querySelector('.stcm_modal_header')?.offsetHeight || 50;
+            top = Math.max(0, Math.min(top, window.innerHeight - headerHeight));
+    
             Object.assign(modalContent.style, {
                 position: 'fixed',
                 left: `${left}px`,
                 top: `${top}px`,
                 width: `${width}px`,
                 height: `${height}px`,
-                minWidth: '350px'
+                minWidth: '350px',
+                transform: '' // clear transform when restoring position
             });
-        } catch {}
+        } catch {
+            // fallback to centered default if JSON fails
+            Object.assign(modalContent.style, {
+                position: 'fixed',
+                left: '50%',
+                top: '50%',
+                minWidth: '350px',
+                width: '500px', // your standard size
+                height: '700px', // your standard size
+                transform: 'translate(-50%, -50%)'
+            });
+        }
     } else {
         Object.assign(modalContent.style, {
+            position: 'fixed',
             left: '50%',
             top: '50%',
+            minWidth: '350px',
+            width: '500px',  // your standard size
+            height: '700px', // your standard size
             transform: 'translate(-50%, -50%)'
         });
     }
+    
 
     // ---- Save size/position after user resizes/drags
     let resizeObserverTimeout;

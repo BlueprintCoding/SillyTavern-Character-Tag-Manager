@@ -82,33 +82,60 @@ function resetModalScrollPositions() {
 }
 
 function makeModalDraggable(modal, handle, onDragEnd = null) {
-
     let isDragging = false;
     let offsetX, offsetY;
 
     handle.style.cursor = 'move';
+
+    // Compute the height of the header for clamping bottom of header
+    const getHeaderHeight = () => handle.offsetHeight || 50;
+
     handle.addEventListener('mousedown', (e) => {
         isDragging = true;
         offsetX = e.clientX - modal.offsetLeft;
         offsetY = e.clientY - modal.offsetTop;
-        modal.style.position = 'absolute';
+        modal.style.position = 'fixed'; // important: use fixed for clamping to viewport
         modal.style.zIndex = 10000;
-        modal.style.margin = 0; // remove any centering offset
+        modal.style.margin = 0;
+        document.body.style.userSelect = 'none'; // prevent text selection while dragging
     });
 
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        modal.style.left = `${e.clientX - offsetX}px`;
-        modal.style.top = `${e.clientY - offsetY}px`;
+        let newLeft = e.clientX - offsetX;
+        let newTop = e.clientY - offsetY;
+
+        // Clamp to prevent header from leaving the viewport
+        // Header is always visible, so clamp left/top to >= 0
+        newLeft = Math.max(0, newLeft);
+        newTop = Math.max(0, newTop);
+
+        // Prevent header from being dragged off right/bottom too (optional)
+        const headerHeight = getHeaderHeight();
+        const modalRect = modal.getBoundingClientRect();
+        const minWidth = Math.min(modalRect.width, window.innerWidth);
+        const maxLeft = window.innerWidth - minWidth;
+        const maxTop = window.innerHeight - headerHeight; // header should never leave at bottom
+
+        newLeft = Math.min(newLeft, maxLeft);
+        newTop = Math.min(newTop, maxTop);
+
+        modal.style.left = `${newLeft}px`;
+        modal.style.top = `${newTop}px`;
+        modal.style.right = ''; // clear in case set by other CSS
+        modal.style.bottom = '';
+        modal.style.transform = ''; // remove centering transform
     });
 
     document.addEventListener('mouseup', () => {
         if (isDragging) {
             isDragging = false;
+            document.body.style.userSelect = '';
             if (onDragEnd) onDragEnd();
         }
     });
 }
+
 
 
 // After making modal draggable, also track size and position for saving
