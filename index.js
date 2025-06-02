@@ -769,7 +769,7 @@ function openCharacterTagManagerModal() {
     }
 
     const handle = modalContent.querySelector('.stcm_modal_header');
-    if (modal && handle) {
+    if (handle) {
         // Pass a callback for drag end
         makeModalDraggable(modalContent, handle, () => saveModalPosSize(modalContent));
 
