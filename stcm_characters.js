@@ -72,44 +72,85 @@ function renderCharacterList() {
 
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
 
-    const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
-    const sortMode = document.getElementById('charSortMode')?.value || 'alpha_asc';
-
-    const allEntities = [
-        ...characters.map(c => ({ type: 'character', id: c.avatar, name: c.name, avatar: c.avatar })),
-        ...groups.map(g => ({ type: 'group', id: g.id, name: g.name, avatar: g.avatar }))
-    ];
-
-    allEntities.forEach(entity => {
-        entity.tagCount = Array.isArray(tag_map[entity.id]) ? tag_map[entity.id].length : 0;
-    });
-
-    const rawInput = document.getElementById('charSearchInput')?.value || '';
-    const searchTerms = parseSearchTerms(rawInput);
-    
-    const filterEntity = (entity) => {
-        const charObj = characters.find(c => c.avatar === entity.id);
-        const tagIds = tag_map[entity.id] || [];
-        const tagNames = tagIds.map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
-        const allFields = charObj ? Object.values(charObj).filter(v => typeof v === 'string').join(' ').toLowerCase() : '';
-        const name = entity.name.toLowerCase();
-    
-        for (const term of searchTerms) {
-            let match = false;
-            if (term.field === 'a') {
-                match = allFields.includes(term.value);
-            } else if (term.field === 't') {
-                match = tagNames.some(tagName => tagName.includes(term.value));
-            } else { // default: name
-                match = name.includes(term.value);
-            }
-            if (term.positive && !match) return false;
-            if (!term.positive && match) return false;
+        // --- New Parsing Functions ---
+        function parseSearchGroups(input) {
+            return input
+                .split(',')
+                .map(group => group.trim())
+                .filter(Boolean)
+                .map(group => group.match(/(?:[^\s"]+|"[^"]*")+/g) || []);
         }
-        return true;
-    };
-    
-    const filtered = allEntities.filter(filterEntity);    
+
+        function parseSearchTerm(term) {
+            let positive = true;
+            term = term.trim();
+            if (!term) return null;
+            if (term.startsWith('-')) {
+                positive = false;
+                term = term.slice(1).trim();
+            }
+            const m = term.match(/^([ta]):(.+)$/i);
+            if (m) {
+                return { field: m[1].toLowerCase(), value: m[2].toLowerCase(), positive };
+            }
+            return { field: '', value: term.toLowerCase(), positive };
+        }
+
+        const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
+        const sortMode = document.getElementById('charSortMode')?.value || 'alpha_asc';
+
+        const allEntities = [
+            ...characters.map(c => ({ type: 'character', id: c.avatar, name: c.name, avatar: c.avatar })),
+            ...groups.map(g => ({ type: 'group', id: g.id, name: g.name, avatar: g.avatar }))
+        ];
+
+        allEntities.forEach(entity => {
+            entity.tagCount = Array.isArray(tag_map[entity.id]) ? tag_map[entity.id].length : 0;
+        });
+
+        const rawInput = document.getElementById('charSearchInput')?.value || '';
+        const searchGroups = parseSearchGroups(rawInput);
+
+        const filterEntity = (entity) => {
+            const charObj = characters.find(c => c.avatar === entity.id);
+            const tagIds = tag_map[entity.id] || [];
+            const tagNames = tagIds.map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
+            const allFields = charObj ? Object.values(charObj).filter(v => typeof v === 'string').join(' ').toLowerCase() : '';
+            const name = entity.name.toLowerCase();
+
+            // If no search (empty), show all
+            if (searchGroups.length === 0) return true;
+
+            // OR logic: If any group matches, show this entity
+            for (const group of searchGroups) {
+                let groupMatches = true;
+                for (const termStr of group) {
+                    const term = parseSearchTerm(termStr);
+                    if (!term) continue;
+                    let match = false;
+                    if (term.field === 'a') {
+                        match = allFields.includes(term.value);
+                    } else if (term.field === 't') {
+                        match = tagNames.some(tagName => tagName.includes(term.value));
+                    } else {
+                        match = name.includes(term.value);
+                    }
+                    if (term.positive && !match) {
+                        groupMatches = false;
+                        break;
+                    }
+                    if (!term.positive && match) {
+                        groupMatches = false;
+                        break;
+                    }
+                }
+                if (groupMatches) return true;
+            }
+            return false;
+        };
+
+        const filtered = allEntities.filter(filterEntity);
+
 
     const notes = getNotes();
     let visible = filtered;
