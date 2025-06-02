@@ -764,7 +764,7 @@ function openCharacterTagManagerModal() {
     };
 
     if ('ResizeObserver' in window) {
-        const observer = new ResizeObserver(savePosDebounced);
+        const observer = new ResizeObserver(() => saveModalPosSize(modalContent));
         observer.observe(modalContent);
     }
 
