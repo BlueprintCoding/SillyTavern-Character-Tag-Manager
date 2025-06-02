@@ -762,15 +762,13 @@ function openCharacterTagManagerModal() {
         clearTimeout(resizeObserverTimeout);
         resizeObserverTimeout = setTimeout(() => saveModalPosSize(modalContent), 150);
     };
-    modalContent.addEventListener('mouseup', savePosDebounced);
-    modalContent.addEventListener('mouseleave', savePosDebounced);
+
     if ('ResizeObserver' in window) {
         const observer = new ResizeObserver(savePosDebounced);
         observer.observe(modalContent);
     }
 
-    const modal = overlay;
-    const handle = overlay.querySelector('.stcm_modal_header');
+    const handle = modalContent.querySelector('.stcm_modal_header');
     if (modal && handle) {
         // Pass a callback for drag end
         makeModalDraggable(modalContent, handle, () => saveModalPosSize(modalContent));
