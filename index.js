@@ -712,7 +712,10 @@ function openCharacterTagManagerModal() {
     const DEFAULT_HEIGHT = 95; // 95vh
     modalContent.style.width = DEFAULT_WIDTH + 'vw';
     modalContent.style.height = DEFAULT_HEIGHT + 'vh';
-    modalContent.style.minWidth = '300px';
+    const MIN_WIDTH = 300; //px
+
+
+
     
 
     if (saved) {
