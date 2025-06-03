@@ -740,6 +740,23 @@
     min-width: 200px;
 }
 
+/* === STCM Custom Folders === */
+.stcm_folder_node {
+    margin: 2px 0;
+    padding: 2px 0;
+    user-select: none;
+}
+.stcm_folder_label {
+    cursor: pointer;
+    margin-right: 6px;
+}
+.stcm_menu_button.tiny {
+    font-size: 0.85em;
+    padding: 2px 5px;
+    margin-left: 6px;
+}
+
+
 /* === Merge Tag Buttons/States === */
 #cancelMergeTags {
     background-color: #ca7673;

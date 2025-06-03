@@ -1,4 +1,4 @@
-// index.js - Pre Folder rework
+// index.js - Folder rework
 import { 
 debounce, 
 debouncePersist, 
@@ -21,6 +21,8 @@ watchCharacterBlockMutations,
 watchTagFilterBar,
 hidePrivateTagsInFilterBar,
 } from './utils.js';
+
+import * as stcmFolders from './stcm_folders.js';
 
 import {
     tags,
@@ -146,6 +148,19 @@ function openCharacterTagManagerModal() {
                 </div>
             </div>
         </div>
+
+        <div class="accordionSection stcm_accordion_section stcm_folders_section">
+            <button class="accordionToggle stcm_text_left" data-target="foldersSection">▶ Folders</button>
+            <div id="foldersSection" class="accordionContent">
+                <div style="padding: 1em 0;">
+                    <button id="createNewFolderBtn" class="stcm_menu_button interactable" tabindex="0">
+                        <i class="fa-solid fa-folder-plus"></i> New Folder
+                    </button>
+                </div>
+                <div id="foldersTreeContainer"></div>
+            </div>
+        </div>
+
     
         <div class="accordionSection stcm_accordion_section stcm_tags_section">
             <button class="accordionToggle stcm_text_left" data-target="charactersSection">▶ Characters</button>
@@ -202,6 +217,86 @@ function openCharacterTagManagerModal() {
 
     document.body.appendChild(overlay);
     resetModalScrollPositions();
+
+    // Folders: add create handler and render initial tree
+const foldersSection = document.getElementById('foldersSection');
+const foldersTreeContainer = document.getElementById('foldersTreeContainer');
+const createFolderBtn = document.getElementById('createNewFolderBtn');
+
+if (createFolderBtn) {
+    createFolderBtn.addEventListener('click', async () => {
+        const name = prompt('Folder name:');
+        if (!name || !name.trim()) return;
+        try {
+            // Add to root for now; you’ll add "add-to-any-folder" soon
+            await stcmFolders.addFolder(name.trim(), "root");
+            await renderFoldersTree();
+            toastr.success(`Folder "${name.trim()}" created!`);
+        } catch (e) {
+            toastr.error(e.message || 'Failed to create folder');
+        }
+    });
+}
+
+// Call on open to render the folder tree
+async function renderFoldersTree() {
+    // This function will recursively render the folder structure
+    const folders = await stcmFolders.loadFolders(); // always up-to-date
+    if (!foldersTreeContainer) return;
+    foldersTreeContainer.innerHTML = '';
+    const root = folders.find(f => f.id === 'root');
+    if (root) {
+        const tree = renderFolderNode(root, folders, 0);
+        foldersTreeContainer.appendChild(tree);
+    }
+}
+
+// Recursive render function
+function renderFolderNode(folder, allFolders, depth) {
+    const container = document.createElement('div');
+    container.className = 'stcm_folder_node';
+    container.style.marginLeft = `${depth * 18}px`;
+
+    const label = document.createElement('span');
+    label.textContent = `📁 ${folder.name}`;
+    label.className = 'stcm_folder_label';
+    label.style.fontWeight = depth === 0 ? 'bold' : 'normal';
+    container.appendChild(label);
+
+    // Add button to create subfolder, if depth < 5
+    if (depth < 4) {
+        const addBtn = document.createElement('button');
+        addBtn.className = 'stcm_menu_button tiny interactable';
+        addBtn.innerHTML = '<i class="fa-solid fa-folder-plus"></i>';
+        addBtn.title = 'Add Subfolder';
+        addBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const subName = prompt('Subfolder name:');
+            if (!subName || !subName.trim()) return;
+            try {
+                await stcmFolders.addFolder(subName.trim(), folder.id);
+                await renderFoldersTree();
+            } catch (e) {
+                toastr.error(e.message || 'Failed to create subfolder');
+            }
+        });
+        container.appendChild(addBtn);
+    }
+
+    // List children: show subfolders, skip characters for now
+    folder.children.forEach(childId => {
+        // If it's a folder, render it
+        const child = allFolders.find(f => f.id === childId);
+        if (child) {
+            container.appendChild(renderFolderNode(child, allFolders, depth + 1));
+        }
+        // If it's a character, you could render a stub here (optional)
+    });
+
+    return container;
+}
+renderFoldersTree().catch(console.error);
+
 
 
     function escToCloseHandler(e) {
@@ -1844,7 +1939,9 @@ function updatePrivateFolderObservers() {
 }
 
 
-eventSource.on(event_types.APP_READY, () => {
+eventSource.on(event_types.APP_READY, async () => {
+    await stcmFolders.loadFolders(); // Load or initialize folders
+
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
