@@ -240,30 +240,90 @@ if (createFolderBtn) {
 
 // Call on open to render the folder tree
 async function renderFoldersTree() {
-    // This function will recursively render the folder structure
-    const folders = await stcmFolders.loadFolders(); // always up-to-date
+    const folders = await stcmFolders.loadFolders();
     if (!foldersTreeContainer) return;
     foldersTreeContainer.innerHTML = '';
     const root = folders.find(f => f.id === 'root');
     if (root) {
-        const tree = renderFolderNode(root, folders, 0);
-        foldersTreeContainer.appendChild(tree);
+        foldersTreeContainer.appendChild(renderFolderNode(root, folders, 0, renderFoldersTree));
     }
 }
 
+
 // Recursive render function
-function renderFolderNode(folder, allFolders, depth) {
+// Recursive render function
+function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     const container = document.createElement('div');
     container.className = 'stcm_folder_node';
     container.style.marginLeft = `${depth * 18}px`;
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.gap = '7px';
 
-    const label = document.createElement('span');
-    label.textContent = `📁 ${folder.name}`;
-    label.className = 'stcm_folder_label';
-    label.style.fontWeight = depth === 0 ? 'bold' : 'normal';
-    container.appendChild(label);
+    // 1. ICON (font awesome)
+    const iconEl = document.createElement('span');
+    iconEl.className = `fa-solid ${folder.icon || 'fa-folder'} fa-fw stcm-folder-icon`;
+    iconEl.style.fontSize = '1.1em';
+    iconEl.style.cursor = 'pointer';
+    iconEl.title = 'Change Folder Icon';
+    iconEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showIconPicker(folder, container, renderFoldersTree);
+    });
+    container.appendChild(iconEl);
 
-    // Add button to create subfolder, if depth < 5
+    // 2. FOLDER NAME (inline editable)
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = folder.name;
+    nameSpan.className = 'stcm-folder-label';
+    nameSpan.style.fontWeight = depth === 0 ? 'bold' : 'normal';
+    nameSpan.style.cursor = 'pointer';
+    nameSpan.title = 'Click to rename';
+    nameSpan.addEventListener('click', (e) => {
+        e.stopPropagation();
+        makeFolderNameEditable(nameSpan, folder, renderFoldersTree);
+    });
+    container.appendChild(nameSpan);
+
+    // 3. EDIT ICON (pencil, also triggers name editing)
+    const editBtn = document.createElement('button');
+    editBtn.className = 'stcm-folder-edit-btn stcm_menu_button tiny interactable';
+    editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
+    editBtn.title = 'Rename Folder';
+    editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        makeFolderNameEditable(nameSpan, folder, renderFoldersTree);
+    });
+    container.appendChild(editBtn);
+
+    // 4. CHANGE ICON BUTTON (separate from icon click if you want both, can remove if redundant)
+    // (Optionally comment out if icon click is enough)
+    /*
+    const iconBtn = document.createElement('button');
+    iconBtn.className = 'stcm-folder-icon-btn stcm_menu_button tiny interactable';
+    iconBtn.innerHTML = '<i class="fa-solid fa-icons"></i>';
+    iconBtn.title = 'Change Icon';
+    iconBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showIconPicker(folder, container, renderFoldersTree);
+    });
+    container.appendChild(iconBtn);
+    */
+
+    // 5. DELETE BUTTON
+    if (folder.id !== 'root') {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'stcm-folder-delete-btn stcm_menu_button tiny red interactable';
+        delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        delBtn.title = 'Delete Folder';
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            confirmDeleteFolder(folder, renderFoldersTree);
+        });
+        container.appendChild(delBtn);
+    }
+
+    // 6. ADD SUBFOLDER BUTTON (if depth < 4)
     if (depth < 4) {
         const addBtn = document.createElement('button');
         addBtn.className = 'stcm_menu_button tiny interactable';
@@ -283,19 +343,106 @@ function renderFolderNode(folder, allFolders, depth) {
         container.appendChild(addBtn);
     }
 
-    // List children: show subfolders, skip characters for now
-    folder.children.forEach(childId => {
-        // If it's a folder, render it
-        const child = allFolders.find(f => f.id === childId);
-        if (child) {
-            container.appendChild(renderFolderNode(child, allFolders, depth + 1));
-        }
-        // If it's a character, you could render a stub here (optional)
-    });
+    // 7. Render children (folders only)
+    if (Array.isArray(folder.children)) {
+        folder.children.forEach(childId => {
+            const child = allFolders.find(f => f.id === childId);
+            if (child) {
+                container.appendChild(renderFolderNode(child, allFolders, depth + 1, renderFoldersTree));
+            }
+        });
+    }
 
     return container;
 }
+
 renderFoldersTree().catch(console.error);
+
+function makeFolderNameEditable(span, folder, rerender) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = folder.name;
+    input.className = 'stcm-folder-name-input menu_input';
+    input.style.width = Math.max(80, span.offsetWidth + 20) + 'px';
+
+    const save = async () => {
+        const val = input.value.trim();
+        if (val && val !== folder.name) {
+            await stcmFolders.renameFolder(folder.id, val);
+            rerender();
+        } else {
+            rerender();
+        }
+    };
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); save(); }
+        if (e.key === 'Escape') rerender();
+    });
+    span.replaceWith(input);
+    input.focus();
+    input.select();
+}
+
+function showIconPicker(folder, parentNode, rerender) {
+    const icons = [
+        'fa-folder', 'fa-folder-open', 'fa-book', 'fa-users', 'fa-star',
+        'fa-dice-d20', 'fa-dragon', 'fa-heart', 'fa-sun', 'fa-ghost',
+        'fa-user', 'fa-robot', 'fa-hat-wizard', 'fa-chess-knight', 'fa-bolt'
+    ];
+
+    const popup = document.createElement('div');
+    popup.className = 'stcm-icon-picker-popup';
+    popup.style.position = 'absolute';
+    popup.style.background = '#222';
+    popup.style.border = '1px solid #444';
+    popup.style.borderRadius = '8px';
+    popup.style.padding = '8px';
+    popup.style.zIndex = 10000;
+    popup.style.display = 'grid';
+    popup.style.gridTemplateColumns = 'repeat(5, 32px)';
+    popup.style.gap = '8px';
+
+    icons.forEach(ico => {
+        const btn = document.createElement('button');
+        btn.className = 'stcm-icon-btn stcm_menu_button tiny';
+        btn.innerHTML = `<i class="fa-solid ${ico} fa-fw"></i>`;
+        btn.title = ico.replace('fa-', '').replace(/-/g, ' ');
+        btn.addEventListener('click', async () => {
+            await stcmFolders.setFolderIcon(folder.id, ico);
+            rerender();
+            popup.remove();
+        });
+        popup.appendChild(btn);
+    });
+
+    function onClose(e) {
+        if (!popup.contains(e.target)) popup.remove(), document.removeEventListener('mousedown', onClose, true);
+    }
+    setTimeout(() => document.addEventListener('mousedown', onClose, true), 10);
+
+    document.body.appendChild(popup);
+    const rect = parentNode.getBoundingClientRect();
+    popup.style.left = (rect.left + window.scrollX + 60) + "px";
+    popup.style.top = (rect.top + window.scrollY) + "px";
+}
+
+function confirmDeleteFolder(folder, rerender) {
+    const isEmpty = !folder.children || folder.children.length === 0;
+    const html = document.createElement('div');
+    html.innerHTML = `
+        <h3>Delete Folder?</h3>
+        <p>Are you sure you want to delete <strong>${escapeHtml(folder.name)}</strong>?<br>
+        ${isEmpty ? '' : '<b>This folder is not empty and contains child folders or characters!</b>'}
+        <span style="color:#e57373;">This cannot be undone.</span>
+        </p>`;
+    callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Folder')
+        .then(async result => {
+            if (result !== POPUP_RESULT.AFFIRMATIVE) return;
+            await stcmFolders.deleteFolder(folder.id);
+            rerender();
+        });
+}
 
 
 

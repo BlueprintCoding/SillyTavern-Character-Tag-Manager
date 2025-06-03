@@ -10,7 +10,7 @@ export async function loadFolders() {
     let url = localStorage.getItem(FOLDER_FILE_KEY);
     if (!url) {
         // Initialize default folder structure
-        folders = [ { id: "root", name: "Root", parentId: null, children: [] } ];
+        folders = [ { id: "root", name: "Root", icon: 'fa-folder', parentId: null, children: [] } ];
         await saveFolders();
         return folders;
     }
@@ -83,4 +83,37 @@ function getFolderDepth(folderId) {
         depth++;
     }
     return depth;
+}
+
+export async function renameFolder(id, newName) {
+    const folders = await loadFolders();
+    const folder = folders.find(f => f.id === id);
+    if (folder && newName.trim()) {
+        folder.name = newName.trim();
+        await saveFolders(folders);
+    }
+}
+export async function setFolderIcon(id, icon) {
+    const folders = await loadFolders();
+    const folder = folders.find(f => f.id === id);
+    if (folder) {
+        folder.icon = icon;
+        await saveFolders(folders);
+    }
+}
+export async function deleteFolder(id) {
+    let folders = await loadFolders();
+    // Remove recursively and from parents' children arrays
+    function removeRecursive(fid) {
+        const idx = folders.findIndex(f => f.id === fid);
+        if (idx !== -1) {
+            const folder = folders[idx];
+            folder.children?.forEach(childId => removeRecursive(childId));
+            folders.splice(idx, 1);
+        }
+    }
+    // Remove id from any parent's children
+    folders.forEach(f => f.children = f.children?.filter(cid => cid !== id));
+    removeRecursive(id);
+    await saveFolders(folders);
 }
