@@ -768,6 +768,10 @@
     margin-left: 6px;
 }
 
+.stcm-icon-btn i {
+margin-right: 0!important;
+}
+
 
 /* === Merge Tag Buttons/States === */
 #cancelMergeTags {
