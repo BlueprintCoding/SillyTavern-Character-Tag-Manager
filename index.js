@@ -245,7 +245,22 @@ async function renderFoldersTree() {
     foldersTreeContainer.innerHTML = '';
     const root = folders.find(f => f.id === 'root');
     if (root) {
-        foldersTreeContainer.appendChild(renderFolderNode(root, folders, 0, renderFoldersTree));
+                // In your renderFoldersTree() function:
+        const folders = await stcmFolders.loadFolders();
+        if (!foldersTreeContainer) return;
+        foldersTreeContainer.innerHTML = '';
+        const root = folders.find(f => f.id === 'root');
+        if (root) {
+            // Instead of rendering the "root" node itself, render only its children
+            root.children.forEach(childId => {
+                const child = folders.find(f => f.id === childId);
+                if (child) {
+                    foldersTreeContainer.appendChild(
+                        renderFolderNode(child, folders, 0, renderFoldersTree)
+                    );
+                }
+            });
+        }
     }
 }
 
