@@ -745,6 +745,11 @@
     margin: 2px 0;
     padding: 2px 0;
     user-select: none;
+    margin-bottom: 4px;
+}
+
+.stcm_folder_children {
+    margin-left: 0; /* already handled by node */
 }
 .stcm_folder_label {
     cursor: pointer;

@@ -251,7 +251,6 @@ async function renderFoldersTree() {
 
 
 // Recursive render function
-// Recursive render function
 function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     const container = document.createElement('div');
     container.className = 'stcm_folder_node';
@@ -344,16 +343,26 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     }
 
     // 7. Render children (folders only)
-    if (Array.isArray(folder.children)) {
-        folder.children.forEach(childId => {
-            const child = allFolders.find(f => f.id === childId);
-            if (child) {
-                container.appendChild(renderFolderNode(child, allFolders, depth + 1, renderFoldersTree));
-            }
-        });
-    }
+  if (Array.isArray(folder.children) && folder.children.length > 0) {
+    const childrenContainer = document.createElement('div');
+    childrenContainer.className = 'stcm_folder_children';
+    childrenContainer.style.display = 'block'; // or 'flex', 'column'
+    childrenContainer.style.width = '100%';
 
-    return container;
+    folder.children.forEach(childId => {
+        const child = allFolders.find(f => f.id === childId);
+        if (child) {
+            // Render recursively, depth+1
+            const childNode = renderFolderNode(child, allFolders, depth + 1, renderFoldersTree);
+            childrenContainer.appendChild(childNode);
+        }
+    });
+
+    // Now append children container *below* this node
+    container.appendChild(childrenContainer);
+}
+
+return container;
 }
 
 renderFoldersTree().catch(console.error);
