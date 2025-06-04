@@ -347,6 +347,8 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
             try {
                 await stcmFolders.addFolder(subName.trim(), folder.id);
                 await renderFoldersTree();
+                sidebarFolders = await stcmFolders.loadFolders();
+                injectSidebarFolders(sidebarFolders, characters);
             } catch (e) {
                 toastr.error(e.message || 'Failed to create subfolder');
             }
@@ -751,6 +753,10 @@ function confirmDeleteFolder(folder, rerender) {
         .then(async result => {
             if (result !== POPUP_RESULT.AFFIRMATIVE) return;
             await stcmFolders.deleteFolder(folder.id);
+            await renderFoldersTree();
+            sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(sidebarFolders, characters);
+
             rerender();
         });
 }
