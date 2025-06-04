@@ -386,7 +386,7 @@ return node;
 
 function showFolderCharactersSection(folder) {
     const section = document.getElementById('folderCharactersSection');
-    section.innerHTML = ''; // Clear previous
+    section.innerHTML = '';
 
     // --- Header
     const header = document.createElement('div');
@@ -394,7 +394,7 @@ function showFolderCharactersSection(folder) {
     header.innerHTML = `<h3>Folder: ${escapeHtml(folder.name)}</h3>`;
     section.appendChild(header);
 
-    // --- Chips for currently assigned characters (quick unassign)
+    // --- Chips for currently assigned characters (now with avatar)
     const chipsRow = document.createElement('div');
     chipsRow.className = 'stcm_folder_chars_chips_row';
     const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
@@ -403,81 +403,103 @@ function showFolderCharactersSection(folder) {
         if (!char) return;
         const chip = document.createElement('span');
         chip.className = 'stcm_char_chip';
-        chip.innerHTML = `${escapeHtml(char.name)} <span class="remove" title="Remove">&#10005;</span>`;
-        chip.querySelector('.remove').addEventListener('click', async () => {
+
+        const img = document.createElement('img');
+        img.src = char.avatar ? `/characters/${char.avatar}` : 'img/ai4.png';
+        img.alt = char.name;
+        img.className = 'stcm_char_chip_avatar';
+        img.onerror = () => img.src = 'img/ai4.png';
+
+        chip.appendChild(img);
+        chip.appendChild(document.createTextNode(' ' + char.name + ' '));
+
+        const remove = document.createElement('span');
+        remove.className = 'remove';
+        remove.title = "Remove";
+        remove.innerHTML = '&#10005;';
+        remove.addEventListener('click', async () => {
             await stcmFolders.removeCharacterFromFolder(folder, charId);
-            showFolderCharactersSection(folder); // Update after data change
+            showFolderCharactersSection(folder);
             renderFoldersTree();
         });
+
+        chip.appendChild(remove);
         chipsRow.appendChild(chip);
     });
     section.appendChild(chipsRow);
 
-    // --- Character assignment dropdown
-    const assignDiv = document.createElement('div');
-    assignDiv.className = 'stcm_folder_chars_assign_row';
-    assignDiv.innerHTML = `<label>Assign Characters:</label>`;
+    // --- Assign character list (replaces select box)
+    // Track checked items for batch assign
+    let assignSelection = new Set();
 
-    const select = document.createElement('select');
-    select.multiple = true;
-    select.style.minWidth = '200px';
+    // Only characters NOT already assigned
+    const unassignedCharacters = characters.filter(c => !assignedIds.includes(c.avatar));
 
-    // List of characters *not already assigned*
-    characters.forEach(char => {
-        if (assignedIds.includes(char.avatar)) return;
-        const opt = document.createElement('option');
-        opt.value = char.avatar;
-        opt.textContent = char.name;
-        select.appendChild(opt);
-    });
-
-    assignDiv.appendChild(select);
+    // Assignment row and button
+    const assignRow = document.createElement('div');
+    assignRow.className = 'stcm_folder_chars_assign_row';
 
     const assignBtn = document.createElement('button');
     assignBtn.className = 'stcm_menu_button small';
     assignBtn.textContent = 'Assign Selected';
+    assignBtn.style.marginBottom = '1em';
     assignBtn.addEventListener('click', async () => {
-        const selected = Array.from(select.selectedOptions).map(opt => opt.value);
-        await stcmFolders.assignCharactersToFolder(folder, selected);
+        if (!assignSelection.size) {
+            toastr.warning("No characters selected.");
+            return;
+        }
+        await stcmFolders.assignCharactersToFolder(folder, Array.from(assignSelection));
         showFolderCharactersSection(folder);
         renderFoldersTree();
     });
-    assignDiv.appendChild(assignBtn);
+    assignRow.appendChild(assignBtn);
+    section.appendChild(assignRow);
 
-    section.appendChild(assignDiv);
-
-    // --- Main Assigned Character List (pretty view only)
+    // Character list for assignment
     const charList = document.createElement('ul');
-    charList.className = 'charList stcm_folder_charList';
+    charList.className = 'charList stcm_folder_assign_charList';
 
-    assignedIds.forEach(charId => {
-        const char = characters.find(c => c.avatar === charId);
-        if (!char) return;
-
+    unassignedCharacters.forEach(char => {
         const li = document.createElement('li');
-        li.classList.add('charListItemWrapper');
+        li.className = 'charListItemWrapper';
 
-        const metaWrapper = document.createElement('div');
-        metaWrapper.className = 'charMeta stcm_flex_row_between';
+        // Left: Checkbox, Avatar, Name
+        const left = document.createElement('div');
+        left.className = 'charLeftSide';
 
-        // Left: avatar + name
-        const leftSide = document.createElement('div');
-        leftSide.className = 'charLeftSide';
+        const label = document.createElement('label');
+        label.className = 'customCheckboxWrapper';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = char.avatar;
+        checkbox.className = 'folderAssignCharCheckbox';
+
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) assignSelection.add(char.avatar);
+            else assignSelection.delete(char.avatar);
+        });
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createElement('span')); // for custom checkbox styling
+
+        left.appendChild(label);
 
         const img = document.createElement('img');
         img.className = 'stcm_avatar_thumb';
-        img.alt = char.name;
         img.src = char.avatar ? `/characters/${char.avatar}` : 'img/ai4.png';
+        img.alt = char.name;
         img.onerror = () => img.src = 'img/ai4.png';
+        left.appendChild(img);
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'charName';
         nameSpan.textContent = char.name;
+        left.appendChild(nameSpan);
 
-        leftSide.appendChild(img);
-        leftSide.appendChild(nameSpan);
+        li.appendChild(left);
 
-        // Tags (chips, no X)
+        // Right: Tag chips
         const tagListWrapper = document.createElement('div');
         tagListWrapper.className = 'assignedTagsWrapper';
         const tagMapById = buildTagMap(tags);
@@ -485,30 +507,24 @@ function showFolderCharactersSection(folder) {
         assignedTags.forEach(tagId => {
             const tag = tagMapById.get(tagId);
             if (!tag) return;
-
             const tagBox = document.createElement('span');
             tagBox.className = 'tagBox';
             tagBox.textContent = tag.name;
+            // Color fallback logic
             const defaultBg = '#333';
             const defaultFg = '#fff';
-            const bgColor = (typeof tag.color === 'string' && tag.color.trim() && tag.color.trim() !== '#') ? tag.color.trim() : defaultBg;
-            const fgColor = (typeof tag.color2 === 'string' && tag.color2.trim() && tag.color2.trim() !== '#') ? tag.color2.trim() : defaultFg;
-            tagBox.style.backgroundColor = bgColor;
-            tagBox.style.color = fgColor;
-
-            // --- NO REMOVE X ---
+            tagBox.style.backgroundColor = (tag.color && tag.color !== '#') ? tag.color : defaultBg;
+            tagBox.style.color = (tag.color2 && tag.color2 !== '#') ? tag.color2 : defaultFg;
             tagListWrapper.appendChild(tagBox);
         });
+        li.appendChild(tagListWrapper);
 
-        metaWrapper.appendChild(leftSide);
-        metaWrapper.appendChild(tagListWrapper);
-
-        li.appendChild(metaWrapper);
         charList.appendChild(li);
     });
 
     section.appendChild(charList);
 }
+
 
 
 
