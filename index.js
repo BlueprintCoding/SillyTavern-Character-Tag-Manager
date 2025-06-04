@@ -2450,19 +2450,24 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
     if (!container) return;
     container.innerHTML = "";
 
-        // --- Breadcrumb Label ---
-        const breadcrumbDiv = document.createElement('div');
-        breadcrumbDiv.className = 'stcm_folders_breadcrumb';
-        // Build breadcrumb
-        if (folderId === 'root') {
-            breadcrumbDiv.textContent = "FOLDERS";
-        } else {
-            // Get folder chain, e.g., /Root/Child/Grandchild
-            const chain = getFolderChain(folderId, folders);
-            breadcrumbDiv.textContent = chain.map(f => f.name).join(' / ');
-        }
-        container.appendChild(breadcrumbDiv);
+    // --- Breadcrumb Label ---
+    const breadcrumbDiv = document.createElement('div');
+    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
 
+    if (folderId === 'root') {
+        breadcrumbDiv.textContent = "FOLDERS";
+    } else {
+        const chain = getFolderChain(folderId, folders);
+        if (chain.length > 0) {
+            // Add .../ before the first folder
+            const names = chain.map(f => f.name);
+            names[0] = '.../' + names[0];
+            breadcrumbDiv.textContent = names.join(' / ');
+        } else {
+            breadcrumbDiv.textContent = ".../"; // fallback
+        }
+    }
+    container.appendChild(breadcrumbDiv);
 
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
