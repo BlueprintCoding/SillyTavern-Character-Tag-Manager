@@ -778,7 +778,7 @@
 margin-right: 0!important;
 }
 
-#folderCharactersSection { margin-top: 20px; background: var(--ac-style-color-panel, #181818); border-radius: 7px; padding: 18px; }
+#folderCharactersSection { margin-top: 20px; background:  #181818; border-radius: 7px; padding: 18px; }
 .stcm_folder_chars_header h3 { margin-top: 0; }
 .stcm_folder_chars_chips_row { margin-bottom: 12px; }
 
@@ -856,11 +856,12 @@ min-width: 130px;
     gap: 12px;
     padding: 8px 10px;
     border-radius: 8px;
-    background: var(--ac-style-color-panel, #222);
+    background: #222;
     cursor: pointer;
     min-height: 48px;
     transition: background 0.15s;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-bottom: 4px solid #222;
 }
 
 .stcm_folder_sidebar:hover {
