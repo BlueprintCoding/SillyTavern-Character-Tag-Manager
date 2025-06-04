@@ -905,6 +905,13 @@ min-width: 130px;
     border: 1.5px solid #444;
 }
 
+.stcm_folders_breadcrumb
+{
+    color: var(--SmartThemeBodyColor);
+    font-size:'1.09em';
+    font-weight: 'bold';
+    margin: '6px 0 10px 0';
+}
 
 
 /* === Merge Tag Buttons/States === */

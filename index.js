@@ -2453,10 +2453,6 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
         // --- Breadcrumb Label ---
         const breadcrumbDiv = document.createElement('div');
         breadcrumbDiv.className = 'stcm_folders_breadcrumb';
-        breadcrumbDiv.style.margin = '6px 0 10px 0';
-        breadcrumbDiv.style.fontWeight = 'bold';
-        breadcrumbDiv.style.fontSize = '1.09em';
-        breadcrumbDiv.style.color = '#ff3232'; // your red, or use a CSS variable
     
         // Build breadcrumb
         if (folderId === 'root') {
