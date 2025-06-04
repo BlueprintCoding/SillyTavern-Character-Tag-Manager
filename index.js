@@ -2375,6 +2375,26 @@ async function handleNotesImport(importData) {
     }
 }
 
+function renderCharacterCard(char) {
+    const div = document.createElement('div');
+    div.className = 'character-card'; // or whatever your class is
+    div.innerHTML = `
+        <img class="character-avatar" src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">
+        <div class="character-main">
+            <div class="character-title">
+                <span class="character-name">${char.name}</span>
+                <span class="character-version">${char.version || ''}</span>
+            </div>
+            <div class="character-desc">${char.description ? char.description.slice(0, 48) + '…' : ''}</div>
+            <div class="character-tags">
+                ${(char.tags || []).map(t =>
+                    `<span class="character-tag" style="background:${t.color||'#333'};color:${t.color2||'#fff'}">${t.name}</span>`
+                ).join('')}
+            </div>
+        </div>
+    `;
+    return div;
+}
 
 
 function refreshPrivateFolderToggle() {
@@ -2474,21 +2494,54 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
         }
     });
 
-    // Show characters in this folder
-    (folder.characters || []).forEach(charId => {
-        const char = allCharacters.find(c => c.avatar === charId);
-        if (char) {
-            const charDiv = document.createElement('div');
-            charDiv.className = 'sidebar-folder-character';
-            charDiv.innerHTML = `
-                <img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}" style="width:30px;height:30px;border-radius:50%;margin-right:8px;">
-                <span>${char.name}</span>
-            `;
-            container.appendChild(charDiv);
-        }
-    });
+// Show characters in this folder (full card style)
+(folder.characters || []).forEach(charId => {
+    const char = allCharacters.find(c => c.avatar === charId);
+    if (char) {
+        // If tags not populated on char, add here if you have tag_map, etc
+        // char.tags = getTagsForChar(char.avatar);  // If needed
+
+        const charCard = renderSidebarCharacterCard(char);
+        container.appendChild(charCard);
+    }
+});
+
 }
 
+function renderSidebarCharacterCard(char) {
+    // Build character card using standard classes + a custom sidebar marker
+    const div = document.createElement('div');
+    div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
+    div.setAttribute('chid', char.avatar);
+    div.setAttribute('data-chid', char.avatar);
+    div.tabIndex = 0;
+
+    // Card avatar
+    div.innerHTML = `
+        <div class="avatar" title="[Character] ${char.name}\nFile: ${char.avatar}">
+            <img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">
+        </div>
+        <div class="flex-container wide100pLess70px character_select_container">
+            <div class="wide100p character_name_block">
+                <span class="ch_name" title="[Character] ${char.name}">${char.name}</span>
+                <small class="ch_additional_info ch_add_placeholder">+++</small>
+                <small class="ch_additional_info character_version">${char.version || ''}</small>
+                <small class="ch_additional_info ch_avatar_url"></small>
+            </div>
+            <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
+            <input class="ch_fav" value="" hidden="" keeper-ignore="">
+            <div class="ch_description">${char.description ? char.description : ''}</div>
+            <div class="tags tags_inline">
+                ${(char.tags || []).map(tag =>
+                    `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
+                        <span class="tag_name">${tag.name}</span>
+                    </span>`
+                ).join('')}
+            </div>
+        </div>
+    `;
+    return div;
+}
 
 
 function watchSidebarFolderInjection() {
