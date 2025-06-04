@@ -2474,6 +2474,25 @@ function updatePrivateFolderObservers() {
     watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState); // If you use this for folder icon/char blocks too
 }
 
+function watchSidebarFolderInjection() {
+    const container = document.getElementById('rm_print_characters_block');
+    if (!container) return;
+    let lastInjectedAt = 0;
+
+    // Avoid reinjecting too rapidly (debounce for performance)
+    const debouncedInject = debounce(async () => {
+        sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(sidebarFolders, characters);
+        lastInjectedAt = Date.now();
+    }, 120);
+
+    const observer = new MutationObserver(mutations => {
+        // Only react if child list changed (character block usually full-rebuilds)
+        debouncedInject();
+    });
+
+    observer.observe(container, { childList: true, subtree: false });
+}
 
 eventSource.on(event_types.APP_READY, async () => {
     sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!
@@ -2483,6 +2502,7 @@ eventSource.on(event_types.APP_READY, async () => {
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
     injectSidebarFolders(sidebarFolders, characters);  // <--- use sidebarFolders!
+    watchSidebarFolderInjection(); 
     injectStcmSettingsPanel();    
     // private folder observer
     updatePrivateFolderObservers();
