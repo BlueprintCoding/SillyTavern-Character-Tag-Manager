@@ -456,7 +456,7 @@ function showFolderCharactersSection(folder) {
     assignRow.appendChild(assignBtn);
     section.appendChild(assignRow);
 
-    // --- Sort/filter UI
+    // --- Sort/filter UI (with hint)
     const sortFilterRow = document.createElement('div');
     sortFilterRow.className = 'stcm_sort_row stcm_folder_assign_sort_row';
     sortFilterRow.innerHTML = `
@@ -469,24 +469,80 @@ function showFolderCharactersSection(folder) {
             <option value="with_notes">With Notes</option>
             <option value="without_notes">Without Notes</option>
         </select>
-        <input type="text" id="folderCharSearchInput" class="menu_input stcm_fullwidth_input" placeholder="Search characters..." style="margin-left:8px;min-width:140px;">
+        <input type="text" id="folderCharSearchInput" class="menu_input stcm_fullwidth_input" placeholder="Search characters/groups..." style="margin-left:8px;min-width:140px;">
     `;
     section.appendChild(sortFilterRow);
+
+    const searchHint = document.createElement('span');
+    searchHint.className = "smallInstructions";
+    searchHint.style.display = 'block';
+    searchHint.style.marginTop = '2px';
+    searchHint.innerHTML = `Search by character name, or use "<b>A:</b>" to search all fields, "<b>T:</b>" for tag, <b>,</b> for OR, <b>-</b> for NOT.`;
+    section.appendChild(searchHint);
 
     // --- Character list container
     const charList = document.createElement('ul');
     charList.className = 'charList stcm_folder_assign_charList';
     section.appendChild(charList);
 
+    // --- Helper for advanced character search ---
+    function matchesCharacterAdv(char, search) {
+        const tagsById = buildTagMap(tags);
+        const tagNames = (tag_map[char.avatar] || [])
+            .map(tid => tagsById.get(tid)?.name?.toLowerCase() || '').filter(Boolean);
+
+        // all fields: name, description, notes
+        const fields = [
+            char.name?.toLowerCase() || '',
+            char.description?.toLowerCase() || '',
+            (getNotes().charNotes && getNotes().charNotes[char.avatar]?.toLowerCase()) || ''
+        ];
+        // For negative/positive logic
+        let input = search.trim();
+        let neg = false;
+        if (input.startsWith('-')) {
+            neg = true;
+            input = input.slice(1);
+        }
+        input = input.trim();
+
+        if (input.startsWith('A:')) {
+            const val = input.slice(2).trim();
+            const match = fields.some(f => f.includes(val));
+            return neg ? !match : match;
+        }
+        if (input.startsWith('T:')) {
+            const val = input.slice(2).trim();
+            const match = tagNames.some(tn => tn.includes(val));
+            return neg ? !match : match;
+        }
+        // Plain search: name (or other field)
+        const match = char.name?.toLowerCase().includes(input) || false;
+        return neg ? !match : match;
+    }
+
     // --- RENDER FUNCTION ---
     function renderAssignCharList() {
         charList.innerHTML = '';
-        // 1. Filter
-        let filtered = unassignedCharacters.filter(char => {
-            if (!folderCharSearchTerm) return true;
-            return char.name.toLowerCase().includes(folderCharSearchTerm.toLowerCase());
-        });
-        // 2. Sort
+        // Advanced search: comma = OR, space = AND, minus = NOT
+        let filtered = unassignedCharacters;
+
+        // Parse search terms
+        let raw = folderCharSearchTerm.trim();
+        if (raw) {
+            // Comma = OR
+            const orGroups = raw.split(',').map(s => s.trim()).filter(Boolean);
+            filtered = filtered.filter(char => {
+                // Any OR group matches
+                return orGroups.some(orGroup => {
+                    // Space = AND
+                    const andTerms = orGroup.split(' ').map(t => t.trim()).filter(Boolean);
+                    return andTerms.every(term => matchesCharacterAdv(char, term));
+                });
+            });
+        }
+
+        // Sort
         switch (folderCharSortMode) {
             case 'alpha_asc':
                 filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -511,7 +567,7 @@ function showFolderCharactersSection(folder) {
                 filtered = filtered.filter(c => !(getNotes().charNotes || {})[c.avatar]);
                 break;
         }
-        // 3. Render
+
         filtered.forEach(char => {
             const li = document.createElement('li');
             li.style.display = 'flex';
@@ -570,7 +626,7 @@ function showFolderCharactersSection(folder) {
 
             li.appendChild(left);
 
-            // Tag chips (optional)
+            // Tag chips
             const tagListWrapper = document.createElement('div');
             tagListWrapper.className = 'assignedTagsWrapper';
             const tagMapById = buildTagMap(tags);
@@ -581,7 +637,6 @@ function showFolderCharactersSection(folder) {
                 const tagBox = document.createElement('span');
                 tagBox.className = 'tagBox';
                 tagBox.textContent = tag.name;
-                // Color fallback logic
                 const defaultBg = '#333';
                 const defaultFg = '#fff';
                 tagBox.style.backgroundColor = (tag.color && tag.color !== '#') ? tag.color : defaultBg;

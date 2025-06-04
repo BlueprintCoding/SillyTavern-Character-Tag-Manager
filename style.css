@@ -285,7 +285,8 @@
 /* === Search Inputs, Selects, & Instructions === */
 #tagSearchInput,
 #charSearchInput,
-#assignTagSearchInput {
+#assignTagSearchInput,
+#folderCharSearchInput {
     background-color: rgba(255, 255, 255, 0.04);
     color: #fff;
     margin-bottom: -3px;
@@ -596,7 +597,7 @@
     margin: 0;
 }
 
-.customCheckbox, .folderAssignCharCheckbox {
+.customCheckbox {
     position: absolute;
     left: 0;
     top: 0;
