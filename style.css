@@ -596,7 +596,7 @@
     margin: 0;
 }
 
-.customCheckbox {
+.customCheckbox, .folderAssignCharCheckbox {
     position: absolute;
     left: 0;
     top: 0;
