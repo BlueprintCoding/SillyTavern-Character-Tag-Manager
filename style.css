@@ -808,6 +808,16 @@ margin-right: 0!important;
     margin-top: 10px;
 }
 
+.assignCharsFolders {
+    min-width: 130px;
+    background-color: #3d8b44;
+    color: white;
+    min-width: 125px;
+}
+
+.assignCharsFolders:hover {
+    background-color: #2e7035;
+}
 
 /* === Merge Tag Buttons/States === */
 #cancelMergeTags {

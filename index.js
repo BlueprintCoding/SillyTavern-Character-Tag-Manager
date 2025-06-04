@@ -458,9 +458,8 @@ function showFolderCharactersSection(folder) {
 
     // --- Assignment button (now IN the same row) ---
     const assignBtn = document.createElement('button');
-    assignBtn.className = 'stcm_menu_button small';
+    assignBtn.className = 'stcm_menu_button small assignCharsFolders';
     assignBtn.textContent = 'Assign Selected';
-    assignBtn.style.marginLeft = '10px';
     assignBtn.addEventListener('click', async () => {
         if (!assignSelection.size) {
             toastr.warning("No characters selected.");
