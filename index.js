@@ -473,7 +473,7 @@ function showFolderCharactersSection(folder) {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.value = char.avatar;
-        checkbox.className = 'folderAssignCharCheckbox';
+        checkbox.className = 'folderAssignCharCheckbox customCheckbox';
 
         checkbox.addEventListener('change', () => {
             if (checkbox.checked) assignSelection.add(char.avatar);
