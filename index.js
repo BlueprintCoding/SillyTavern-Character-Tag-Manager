@@ -460,6 +460,16 @@ function showFolderCharactersSection(folder) {
     charList.className = 'charList stcm_folder_assign_charList';
 
     unassignedCharacters.forEach(char => {
+            const li = document.createElement('li');
+            li.style.display = 'flex';
+            li.style.alignItems = 'center';
+            li.style.gap = '1em';
+        
+            const left = document.createElement('div');
+            left.style.display = 'flex';
+            left.style.alignItems = 'center';
+            left.style.gap = '8px';
+
         const label = document.createElement('label');
         label.className = 'customCheckboxWrapper';
         
