@@ -158,6 +158,7 @@ function openCharacterTagManagerModal() {
                     </button>
                 </div>
                 <div id="foldersTreeContainer"><div class="loading">Loading folders...</div></div>
+                <div id="folderCharactersSection"></div>
 
             </div>
         </div>
@@ -352,6 +353,17 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         row.appendChild(addBtn);
     }
 
+    const charBtn = document.createElement('button');
+    charBtn.className = 'stcm_menu_button tiny stcm_folder_chars_btn interactable';
+    charBtn.innerHTML = '<i class="fa-solid fa-users"></i> Characters';
+    charBtn.title = 'Manage Characters in this Folder';
+    charBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showFolderCharactersSection(folder);
+    });
+    row.appendChild(charBtn);
+
+
     // Append the folder row to the node
     node.appendChild(row);
 
@@ -372,6 +384,71 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 return node;
 }
 
+function showFolderCharactersSection(folder) {
+    const section = document.getElementById('folderCharactersSection');
+    section.innerHTML = ''; // Clear previous
+
+    // --- Header
+    const header = document.createElement('div');
+    header.className = 'stcm_folder_chars_header';
+    header.innerHTML = `<h3>Folder: ${escapeHtml(folder.name)}</h3>`;
+    section.appendChild(header);
+
+    // --- Chips for currently assigned characters
+    const chipsRow = document.createElement('div');
+    chipsRow.className = 'stcm_folder_chars_chips_row';
+    // Assume you have access to all characters as `characters`
+    const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
+    assignedIds.forEach(charId => {
+        const char = characters.find(c => c.avatar === charId);
+        if (!char) return;
+        const chip = document.createElement('span');
+        chip.className = 'stcm_char_chip';
+        chip.innerHTML = `${escapeHtml(char.name)} <span class="remove" title="Remove">&#10005;</span>`;
+        chip.querySelector('.remove').addEventListener('click', async () => {
+            await stcmFolders.removeCharacterFromFolder(folder, charId);
+            showFolderCharactersSection(folder); // Update after data change
+            renderFoldersTree();
+        });
+        
+        chipsRow.appendChild(chip);
+    });
+    section.appendChild(chipsRow);
+
+    // --- Character assignment dropdown
+    const assignDiv = document.createElement('div');
+    assignDiv.className = 'stcm_folder_chars_assign_row';
+    assignDiv.innerHTML = `<label>Assign Characters:</label>`;
+
+    const select = document.createElement('select');
+    select.multiple = true;
+    select.style.minWidth = '200px';
+
+    // List of characters *not already assigned*
+    characters.forEach(char => {
+        if (assignedIds.includes(char.avatar)) return;
+        const opt = document.createElement('option');
+        opt.value = char.avatar;
+        opt.textContent = char.name;
+        select.appendChild(opt);
+    });
+
+    assignDiv.appendChild(select);
+
+    const assignBtn = document.createElement('button');
+    assignBtn.className = 'stcm_menu_button small';
+    assignBtn.textContent = 'Assign Selected';
+    assignBtn.addEventListener('click', async () => {
+        const selected = Array.from(select.selectedOptions).map(opt => opt.value);
+        await stcmFolders.assignCharactersToFolder(folder, selected);
+        showFolderCharactersSection(folder);
+        renderFoldersTree();
+    });
+    
+    assignDiv.appendChild(assignBtn);
+
+    section.appendChild(assignDiv);
+}
 
 
 function makeFolderNameEditable(span, folder, rerender) {

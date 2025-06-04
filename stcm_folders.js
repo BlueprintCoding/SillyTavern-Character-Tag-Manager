@@ -28,6 +28,23 @@ export async function loadFolders() {
     return folders;
 }
 
+export async function assignCharactersToFolder(folder, charIds) {
+    if (!Array.isArray(folder.characters)) folder.characters = [];
+    for (const id of charIds) {
+        if (!folder.characters.includes(id)) {
+            folder.characters.push(id);
+        }
+    }
+    await saveFolders();
+}
+
+export async function removeCharacterFromFolder(folder, charId) {
+    if (!Array.isArray(folder.characters)) return;
+    folder.characters = folder.characters.filter(id => id !== charId);
+    await saveFolders();
+}
+
+
 
 export async function saveFolders() {
     const json = JSON.stringify(folders, null, 2);
