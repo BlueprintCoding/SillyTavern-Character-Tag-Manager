@@ -2470,6 +2470,7 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
         }
     }
 
+    const tagsById = buildTagMap(tags);
     // Show folders (children)
     (folder.children || []).forEach(childId => {
         const child = folders.find(f => f.id === childId);
@@ -2494,19 +2495,26 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
         }
     });
 
-// Show characters in this folder (full card style)
-(folder.characters || []).forEach(charId => {
-    const char = allCharacters.find(c => c.avatar === charId);
-    if (char) {
-        // If tags not populated on char, add here if you have tag_map, etc
-        // char.tags = getTagsForChar(char.avatar);  // If needed
+        // Show characters in this folder (full card style)
 
-        const charCard = renderSidebarCharacterCard(char);
-        container.appendChild(charCard);
-    }
-});
+        (folder.characters || []).forEach(charId => {
+            const char = allCharacters.find(c => c.avatar === charId);
+            if (char) {
+                const tagsForChar = getTagsForChar(char.avatar, tagsById);
+                // Pass tags explicitly to avoid global mutation:
+                const charCard = renderSidebarCharacterCard({ ...char, tags: tagsForChar });
+                container.appendChild(charCard);
+            }
+        });
 
 }
+
+function getTagsForChar(charId) {
+    const tagIds = tag_map[charId] || [];
+    const tagsById = buildTagMap(tags); // Only build this once per render if you can
+    return tagIds.map(id => tagsById.get(id)).filter(Boolean);
+}
+
 
 function renderSidebarCharacterCard(char) {
     // Build character card using standard classes + a custom sidebar marker
@@ -2525,12 +2533,11 @@ function renderSidebarCharacterCard(char) {
             <div class="wide100p character_name_block">
                 <span class="ch_name" title="[Character] ${char.name}">${char.name}</span>
                 <small class="ch_additional_info ch_add_placeholder">+++</small>
-                <small class="ch_additional_info character_version">${char.version || ''}</small>
                 <small class="ch_additional_info ch_avatar_url"></small>
             </div>
             <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
             <input class="ch_fav" value="" hidden="" keeper-ignore="">
-            <div class="ch_description">${char.description ? char.description : ''}</div>
+            <div class="ch_description">${char.creatorcomment ? char.description : ''}</div>
             <div class="tags tags_inline">
                 ${(char.tags || []).map(tag =>
                     `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
