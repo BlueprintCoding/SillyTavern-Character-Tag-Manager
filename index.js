@@ -460,30 +460,26 @@ function showFolderCharactersSection(folder) {
     charList.className = 'charList stcm_folder_assign_charList';
 
     unassignedCharacters.forEach(char => {
-        const li = document.createElement('li');
-        li.className = 'charListItemWrapper';
-
-        // Left: Checkbox, Avatar, Name
-        const left = document.createElement('div');
-        left.className = 'charLeftSide';
-
         const label = document.createElement('label');
         label.className = 'customCheckboxWrapper';
-
+        
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.value = char.avatar;
-        checkbox.className = 'folderAssignCharCheckbox customCheckbox';
-
+        checkbox.className = 'folderAssignCharCheckbox';
+        
         checkbox.addEventListener('change', () => {
             if (checkbox.checked) assignSelection.add(char.avatar);
             else assignSelection.delete(char.avatar);
         });
-
         label.appendChild(checkbox);
-        label.appendChild(document.createElement('span')); // for custom checkbox styling
-
+        
+        const checkmark = document.createElement('span');
+        checkmark.className = 'customCheckbox';
+        label.appendChild(checkmark);
+        
         left.appendChild(label);
+        
 
         const img = document.createElement('img');
         img.className = 'stcm_avatar_thumb';
