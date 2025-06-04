@@ -743,15 +743,19 @@
 /* === STCM Custom Folders === */
 .stcm_folder_node {
     margin: 2px 0 4px 0;
-    /* block by default */
+    padding: 0;
+    /* display: block; (default) */
 }
+
 .stcm_folder_row {
     display: flex;
     align-items: center;
     gap: 7px;
 }
+
 .stcm_folder_children {
-    /* nothing needed, block is default */
+    margin-left: 0; /* margin-left applied on .stcm_folder_node already */
+    display: block;
 }
 
 .stcm_folder_label {
