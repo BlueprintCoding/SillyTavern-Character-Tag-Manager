@@ -436,29 +436,12 @@ function showFolderCharactersSection(folder) {
     let folderCharSortMode = 'alpha_asc';
     let folderCharSearchTerm = '';
 
-    // --- Assignment row and button
-    const assignRow = document.createElement('div');
-    assignRow.className = 'stcm_folder_chars_assign_row';
-
-    const assignBtn = document.createElement('button');
-    assignBtn.className = 'stcm_menu_button small';
-    assignBtn.textContent = 'Assign Selected';
-    assignBtn.style.marginBottom = '1em';
-    assignBtn.addEventListener('click', async () => {
-        if (!assignSelection.size) {
-            toastr.warning("No characters selected.");
-            return;
-        }
-        await stcmFolders.assignCharactersToFolder(folder, Array.from(assignSelection));
-        showFolderCharactersSection(folder);
-        renderFoldersTree();
-    });
-    assignRow.appendChild(assignBtn);
-    section.appendChild(assignRow);
-
-    // --- Sort/filter UI (with hint)
+    // --- Sort/filter UI (with Assign button and hint) ---
     const sortFilterRow = document.createElement('div');
     sortFilterRow.className = 'stcm_sort_row stcm_folder_assign_sort_row';
+    sortFilterRow.style.alignItems = 'center'; // for vertical alignment
+    sortFilterRow.style.gap = '10px'; // optional: flex gap for spacing
+
     sortFilterRow.innerHTML = `
         <span>SORT</span>
         <select id="folderCharSortMode" class="stcm_menu_button interactable" style="min-width:110px;">
@@ -469,10 +452,31 @@ function showFolderCharactersSection(folder) {
             <option value="with_notes">With Notes</option>
             <option value="without_notes">Without Notes</option>
         </select>
-        <input type="text" id="folderCharSearchInput" class="menu_input stcm_fullwidth_input" placeholder="Search characters/groups..." style="margin-left:8px;min-width:140px;">
+        <input type="text" id="folderCharSearchInput" class="menu_input stcm_fullwidth_input" 
+            placeholder="Search characters/groups..." style="min-width:140px;">
     `;
+
+    // --- Assignment button (now IN the same row) ---
+    const assignBtn = document.createElement('button');
+    assignBtn.className = 'stcm_menu_button small';
+    assignBtn.textContent = 'Assign Selected';
+    assignBtn.style.marginLeft = '10px';
+    assignBtn.addEventListener('click', async () => {
+        if (!assignSelection.size) {
+            toastr.warning("No characters selected.");
+            return;
+        }
+        await stcmFolders.assignCharactersToFolder(folder, Array.from(assignSelection));
+        showFolderCharactersSection(folder);
+        renderFoldersTree();
+    });
+    // Add button to row
+    sortFilterRow.appendChild(assignBtn);
+
+    // Add the row to section
     section.appendChild(sortFilterRow);
 
+    // --- Search hint below the row ---
     const searchHint = document.createElement('span');
     searchHint.className = "smallInstructions";
     searchHint.style.display = 'block';
