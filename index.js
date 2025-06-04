@@ -2453,7 +2453,6 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
         // --- Breadcrumb Label ---
         const breadcrumbDiv = document.createElement('div');
         breadcrumbDiv.className = 'stcm_folders_breadcrumb';
-    
         // Build breadcrumb
         if (folderId === 'root') {
             breadcrumbDiv.textContent = "FOLDERS";
@@ -2476,7 +2475,6 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
             backBtn.className = "sidebar-folder-back";
             backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
             backBtn.style.cursor = 'pointer';
-            backBtn.style.marginBottom = '10px';
             backBtn.onclick = () => {
                 currentSidebarFolderId = parent.id;
                 renderSidebarFolderContents(folders, allCharacters, parent.id);
