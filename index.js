@@ -62,6 +62,7 @@ let selectedPrimaryTagId = null;          // Global merge radio selection
 let selectedTagIds = new Set();
 let isBulkDeleteMode = false;
 const selectedBulkDeleteTags = new Set();
+let sidebarFolders = [];
 
 
 
@@ -2469,12 +2470,13 @@ function updatePrivateFolderObservers() {
 
 
 eventSource.on(event_types.APP_READY, async () => {
-    await stcmFolders.loadFolders(); // Load or initialize folders
+    sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!
+
 
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
-    injectSidebarFolders(folders, characters);
+    injectSidebarFolders(sidebarFolders, characters);  // <--- use sidebarFolders!
     injectStcmSettingsPanel();    
     // private folder observer
     updatePrivateFolderObservers();
