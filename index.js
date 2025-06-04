@@ -807,23 +807,6 @@ function renderSidebarFolder(folder, allCharacters, folderColor='#8b2ae6') {
     return folderDiv;
 }
 
-function injectSidebarFolders(folders, allCharacters) {
-    const container = document.getElementById('rm_print_characters_block');
-    if (!container) return;
-
-    // Remove old folder blocks if any (tagged with our class)
-    Array.from(container.querySelectorAll('.stcm_folder_sidebar')).forEach(el => el.remove());
-
-    // Render and prepend all folders (you may want to control order)
-    folders.forEach(folder => {
-        // Only display folders with at least 1 character
-        if (Array.isArray(folder.characters) && folder.characters.length) {
-            const folderEl = renderSidebarFolder(folder, allCharacters);
-            container.insertBefore(folderEl, container.firstChild);
-        }
-    });
-}
-
 
 // END CUSTOM FOLDERS
 
@@ -2436,6 +2419,23 @@ async function handleNotesImport(importData) {
         renderCharacterTagData();
         toastr.success('Notes imported successfully!');
     }
+}
+
+function injectSidebarFolders(folders, allCharacters) {
+    const container = document.getElementById('rm_print_characters_block');
+    if (!container) return;
+
+    // Remove old folder blocks if any (tagged with our class)
+    Array.from(container.querySelectorAll('.stcm_folder_sidebar')).forEach(el => el.remove());
+
+    // Render and prepend all folders (you may want to control order)
+    folders.forEach(folder => {
+        // Only display folders with at least 1 character
+        if (Array.isArray(folder.characters) && folder.characters.length) {
+            const folderEl = renderSidebarFolder(folder, allCharacters);
+            container.insertBefore(folderEl, container.firstChild);
+        }
+    });
 }
 
 
