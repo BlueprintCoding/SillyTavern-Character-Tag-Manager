@@ -761,59 +761,6 @@ function confirmDeleteFolder(folder, rerender) {
         });
 }
 
-// Utility: renders a single folder block for sidebar nav
-function renderSidebarFolder(folder, allCharacters, folderColor='#8b2ae6') {
-    // --- Get the characters for this folder
-    const charIds = Array.isArray(folder.characters) ? folder.characters : [];
-    const chars = allCharacters.filter(c => charIds.includes(c.avatar));
-
-    // --- Main folder block
-    const folderDiv = document.createElement('div');
-    folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
-    folderDiv.setAttribute('tabindex', '0');
-    folderDiv.setAttribute('folderid', folder.id);
-    folderDiv.id = `SidebarFolder${folder.id}`;
-
-    // --- Folder icon/avatar
-    const color = folder.color || folderColor;
-    const name = folder.name || 'Folder';
-    const icon = folder.icon || 'fa-folder-open';
-    folderDiv.innerHTML = `
-        <div class="avatar flex alignitemscenter textAlignCenter" 
-             style="background-color: ${color}; color: #fff;" 
-             title="[Folder] ${name}">
-            <i class="bogus_folder_icon fa-solid fa-xl ${icon}"></i>
-        </div>
-        <div class="flex-container wide100pLess70px character_select_container">
-            <div class="wide100p character_name_block">
-                <span class="ch_name" title="[Folder] ${name}">${name}</span>
-                <small class="ch_additional_info bogus_folder_counter">${chars.length} character${chars.length===1?'':'s'}</small>
-            </div>
-            <div class="bogus_folder_avatars_block avatars_inline avatars_inline_small tags tags_inline">
-            </div>
-        </div>
-    `;
-
-    // --- Add character avatars
-    const avatarsBlock = folderDiv.querySelector('.bogus_folder_avatars_block');
-    chars.forEach(char => {
-        const avatarDiv = document.createElement('div');
-        avatarDiv.className = 'avatar inline_avatar flex alignitemscenter textAlignCenter';
-        avatarDiv.setAttribute('data-type', 'character');
-        avatarDiv.setAttribute('data-chid', char.chid || char.avatar);
-        avatarDiv.title = `[Character] ${char.name}\nFile: ${char.avatar}`;
-        avatarDiv.innerHTML = `<img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">`;
-        // Optionally: add click handler to select the character
-        avatarDiv.addEventListener('click', () => {
-            // Optionally select or focus this character
-            // triggerCharacterSelect(char.avatar); 
-        });
-        avatarsBlock.appendChild(avatarDiv);
-    });
-
-    return folderDiv;
-}
-
 
 // END CUSTOM FOLDERS
 
@@ -2473,6 +2420,61 @@ function updatePrivateFolderObservers() {
     });
     watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState); // If you use this for folder icon/char blocks too
 }
+
+
+// Utility: renders a single folder block for sidebar nav
+function renderSidebarFolder(folder, allCharacters, folderColor='#8b2ae6') {
+    // --- Get the characters for this folder
+    const charIds = Array.isArray(folder.characters) ? folder.characters : [];
+    const chars = allCharacters.filter(c => charIds.includes(c.avatar));
+
+    // --- Main folder block
+    const folderDiv = document.createElement('div');
+    folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+    folderDiv.setAttribute('tabindex', '0');
+    folderDiv.setAttribute('folderid', folder.id);
+    folderDiv.id = `SidebarFolder${folder.id}`;
+
+    // --- Folder icon/avatar
+    const color = folder.color || folderColor;
+    const name = folder.name || 'Folder';
+    const icon = folder.icon || 'fa-folder-open';
+    folderDiv.innerHTML = `
+        <div class="avatar flex alignitemscenter textAlignCenter" 
+             style="background-color: ${color}; color: #fff;" 
+             title="[Folder] ${name}">
+            <i class="bogus_folder_icon fa-solid fa-xl ${icon}"></i>
+        </div>
+        <div class="flex-container wide100pLess70px character_select_container">
+            <div class="wide100p character_name_block">
+                <span class="ch_name" title="[Folder] ${name}">${name}</span>
+                <small class="ch_additional_info bogus_folder_counter">${chars.length} character${chars.length===1?'':'s'}</small>
+            </div>
+            <div class="bogus_folder_avatars_block avatars_inline avatars_inline_small tags tags_inline">
+            </div>
+        </div>
+    `;
+
+    // --- Add character avatars
+    const avatarsBlock = folderDiv.querySelector('.bogus_folder_avatars_block');
+    chars.forEach(char => {
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'avatar inline_avatar flex alignitemscenter textAlignCenter';
+        avatarDiv.setAttribute('data-type', 'character');
+        avatarDiv.setAttribute('data-chid', char.chid || char.avatar);
+        avatarDiv.title = `[Character] ${char.name}\nFile: ${char.avatar}`;
+        avatarDiv.innerHTML = `<img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">`;
+        // Optionally: add click handler to select the character
+        avatarDiv.addEventListener('click', () => {
+            // Optionally select or focus this character
+            // triggerCharacterSelect(char.avatar); 
+        });
+        avatarsBlock.appendChild(avatarDiv);
+    });
+
+    return folderDiv;
+}
+
 
 function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
