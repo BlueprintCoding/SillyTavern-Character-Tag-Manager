@@ -907,8 +907,8 @@ min-width: 130px;
 
 .stcm_folders_breadcrumb {
     color: var(--SmartThemeBodyColor);
-    font-size:'1.09em';
-    font-weight: 'bold';
+    font-size:1.09em;
+    font-weight: bold;
 }
 
 
