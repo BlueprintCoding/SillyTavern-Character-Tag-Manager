@@ -496,6 +496,18 @@ function showFolderCharactersSection(folder) {
         nameSpan.className = 'charName';
         nameSpan.textContent = char.name;
         left.appendChild(nameSpan);
+                const assignOneBtn = document.createElement('button');
+        assignOneBtn.className = 'stcm_menu_button tiny';
+        assignOneBtn.textContent = '+';
+        assignOneBtn.title = 'Assign this character';
+        assignOneBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await stcmFolders.assignCharactersToFolder(folder, [char.avatar]);
+            showFolderCharactersSection(folder);
+            renderFoldersTree();
+        });
+        left.appendChild(assignOneBtn);
+
 
         li.appendChild(left);
 
