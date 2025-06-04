@@ -2450,6 +2450,25 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
     if (!container) return;
     container.innerHTML = "";
 
+        // --- Breadcrumb Label ---
+        const breadcrumbDiv = document.createElement('div');
+        breadcrumbDiv.className = 'stcm_folders_breadcrumb';
+        breadcrumbDiv.style.margin = '6px 0 10px 0';
+        breadcrumbDiv.style.fontWeight = 'bold';
+        breadcrumbDiv.style.fontSize = '1.09em';
+        breadcrumbDiv.style.color = '#ff3232'; // your red, or use a CSS variable
+    
+        // Build breadcrumb
+        if (folderId === 'root') {
+            breadcrumbDiv.textContent = "FOLDERS";
+        } else {
+            // Get folder chain, e.g., /Root/Child/Grandchild
+            const chain = getFolderChain(folderId, folders);
+            breadcrumbDiv.textContent = chain.map(f => f.name).join(' / ');
+        }
+        container.appendChild(breadcrumbDiv);
+
+
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
 
@@ -2507,6 +2526,19 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
             }
         });
 
+}
+
+// Helper to build parent/ancestor folder chain
+function getFolderChain(folderId, folders) {
+    const chain = [];
+    let current = folders.find(f => f.id === folderId);
+    while (current && current.id !== 'root') {
+        chain.unshift(current);
+        // Find parent
+        const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(current.id));
+        current = parent;
+    }
+    return chain;
 }
 
 function getTagsForChar(charId) {

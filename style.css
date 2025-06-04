@@ -835,6 +835,7 @@ min-width: 130px;
     min-width: 220px;
     width: 100%;
     box-sizing: border-box;
+    border-bottom: 4px solid #222;
 }
 
 .sidebar-folder-back {
@@ -861,7 +862,6 @@ min-width: 130px;
     min-height: 48px;
     transition: background 0.15s;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    border-bottom: 4px solid #222;
 }
 
 .stcm_folder_sidebar:hover {
