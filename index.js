@@ -394,10 +394,9 @@ function showFolderCharactersSection(folder) {
     header.innerHTML = `<h3>Folder: ${escapeHtml(folder.name)}</h3>`;
     section.appendChild(header);
 
-    // --- Chips for currently assigned characters
+    // --- Chips for currently assigned characters (quick unassign)
     const chipsRow = document.createElement('div');
     chipsRow.className = 'stcm_folder_chars_chips_row';
-    // Assume you have access to all characters as `characters`
     const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
     assignedIds.forEach(charId => {
         const char = characters.find(c => c.avatar === charId);
@@ -410,7 +409,6 @@ function showFolderCharactersSection(folder) {
             showFolderCharactersSection(folder); // Update after data change
             renderFoldersTree();
         });
-        
         chipsRow.appendChild(chip);
     });
     section.appendChild(chipsRow);
@@ -444,11 +442,74 @@ function showFolderCharactersSection(folder) {
         showFolderCharactersSection(folder);
         renderFoldersTree();
     });
-    
     assignDiv.appendChild(assignBtn);
 
     section.appendChild(assignDiv);
+
+    // --- Main Assigned Character List (pretty view only)
+    const charList = document.createElement('ul');
+    charList.className = 'charList stcm_folder_charList';
+
+    assignedIds.forEach(charId => {
+        const char = characters.find(c => c.avatar === charId);
+        if (!char) return;
+
+        const li = document.createElement('li');
+        li.classList.add('charListItemWrapper');
+
+        const metaWrapper = document.createElement('div');
+        metaWrapper.className = 'charMeta stcm_flex_row_between';
+
+        // Left: avatar + name
+        const leftSide = document.createElement('div');
+        leftSide.className = 'charLeftSide';
+
+        const img = document.createElement('img');
+        img.className = 'stcm_avatar_thumb';
+        img.alt = char.name;
+        img.src = char.avatar ? `/characters/${char.avatar}` : 'img/ai4.png';
+        img.onerror = () => img.src = 'img/ai4.png';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'charName';
+        nameSpan.textContent = char.name;
+
+        leftSide.appendChild(img);
+        leftSide.appendChild(nameSpan);
+
+        // Tags (chips, no X)
+        const tagListWrapper = document.createElement('div');
+        tagListWrapper.className = 'assignedTagsWrapper';
+        const tagMapById = buildTagMap(tags);
+        const assignedTags = tag_map[char.avatar] || [];
+        assignedTags.forEach(tagId => {
+            const tag = tagMapById.get(tagId);
+            if (!tag) return;
+
+            const tagBox = document.createElement('span');
+            tagBox.className = 'tagBox';
+            tagBox.textContent = tag.name;
+            const defaultBg = '#333';
+            const defaultFg = '#fff';
+            const bgColor = (typeof tag.color === 'string' && tag.color.trim() && tag.color.trim() !== '#') ? tag.color.trim() : defaultBg;
+            const fgColor = (typeof tag.color2 === 'string' && tag.color2.trim() && tag.color2.trim() !== '#') ? tag.color2.trim() : defaultFg;
+            tagBox.style.backgroundColor = bgColor;
+            tagBox.style.color = fgColor;
+
+            // --- NO REMOVE X ---
+            tagListWrapper.appendChild(tagBox);
+        });
+
+        metaWrapper.appendChild(leftSide);
+        metaWrapper.appendChild(tagListWrapper);
+
+        li.appendChild(metaWrapper);
+        charList.appendChild(li);
+    });
+
+    section.appendChild(charList);
 }
+
 
 
 function makeFolderNameEditable(span, folder, rerender) {
