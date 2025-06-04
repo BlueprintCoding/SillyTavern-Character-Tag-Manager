@@ -2379,17 +2379,20 @@ function injectSidebarFolders(folders, allCharacters) {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
 
-    // Remove old folder blocks if any (tagged with our class)
+    // Remove old folder blocks
     Array.from(container.querySelectorAll('.stcm_folder_sidebar')).forEach(el => el.remove());
 
-    // Render and prepend all folders (you may want to control order)
-    folders.forEach(folder => {
-        // Only display folders with at least 1 character
-        if (Array.isArray(folder.characters) && folder.characters.length) {
-            const folderEl = renderSidebarFolder(folder, allCharacters);
-            container.insertBefore(folderEl, container.firstChild);
-        }
-    });
+    // Render only root-level children
+    const root = folders.find(f => f.id === 'root');
+    if (root && root.children && root.children.length) {
+        root.children.forEach(childId => {
+            const child = folders.find(f => f.id === childId);
+            if (child) {
+                const el = renderSidebarFolder(child, allCharacters, folders, 0);
+                container.insertBefore(el, container.firstChild);
+            }
+        });
+    }
 }
 
 
@@ -2422,21 +2425,21 @@ function updatePrivateFolderObservers() {
 }
 
 
-// Utility: renders a single folder block for sidebar nav
-function renderSidebarFolder(folder, allCharacters, folderColor='#8b2ae6') {
-    // --- Get the characters for this folder
+function renderSidebarFolder(folder, allCharacters, folders, depth = 0) {
+    // Get the characters for this folder
     const charIds = Array.isArray(folder.characters) ? folder.characters : [];
     const chars = allCharacters.filter(c => charIds.includes(c.avatar));
 
-    // --- Main folder block
+    // Main folder block
     const folderDiv = document.createElement('div');
     folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
     folderDiv.setAttribute('tabindex', '0');
     folderDiv.setAttribute('folderid', folder.id);
     folderDiv.id = `SidebarFolder${folder.id}`;
+    folderDiv.style.marginLeft = `${depth * 20}px`; // Indent for nesting
 
-    // --- Folder icon/avatar
-    const color = folder.color || folderColor;
+    // Folder icon/avatar
+    const color = folder.color || '#8b2ae6';
     const name = folder.name || 'Folder';
     const icon = folder.icon || 'fa-folder-open';
     folderDiv.innerHTML = `
@@ -2455,7 +2458,7 @@ function renderSidebarFolder(folder, allCharacters, folderColor='#8b2ae6') {
         </div>
     `;
 
-    // --- Add character avatars
+    // Add character avatars
     const avatarsBlock = folderDiv.querySelector('.bogus_folder_avatars_block');
     chars.forEach(char => {
         const avatarDiv = document.createElement('div');
@@ -2464,16 +2467,23 @@ function renderSidebarFolder(folder, allCharacters, folderColor='#8b2ae6') {
         avatarDiv.setAttribute('data-chid', char.chid || char.avatar);
         avatarDiv.title = `[Character] ${char.name}\nFile: ${char.avatar}`;
         avatarDiv.innerHTML = `<img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">`;
-        // Optionally: add click handler to select the character
-        avatarDiv.addEventListener('click', () => {
-            // Optionally select or focus this character
-            // triggerCharacterSelect(char.avatar); 
-        });
         avatarsBlock.appendChild(avatarDiv);
     });
 
+    // ---- RECURSIVELY ADD CHILD FOLDERS ----
+    if (Array.isArray(folder.children) && folder.children.length > 0) {
+        folder.children.forEach(childId => {
+            const child = folders.find(f => f.id === childId);
+            if (child) {
+                const childEl = renderSidebarFolder(child, allCharacters, folders, depth + 1);
+                folderDiv.appendChild(childEl);
+            }
+        });
+    }
+
     return folderDiv;
 }
+
 
 
 function watchSidebarFolderInjection() {
