@@ -807,15 +807,16 @@ margin-right: 0!important;
 .stcm_folder_chars_assign_row {
     margin-top: 10px;
 }
-
 .assignCharsFolders {
-    min-width: 130px;
-    background-color: #3d8b44;
-    color: white;
-    min-width: 125px;
+min-width: 130px;
 }
 
-.assignCharsFolders:hover {
+.assignCharsFolders, .assignCharsFoldersSmall {
+    background-color: #3d8b44;
+    color: white;
+}
+
+.assignCharsFolders:hover, .assignCharsFoldersSmall:hover {
     background-color: #2e7035;
 }
 

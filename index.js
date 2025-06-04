@@ -616,7 +616,7 @@ function showFolderCharactersSection(folder) {
             left.appendChild(nameSpan);
 
             const assignOneBtn = document.createElement('button');
-            assignOneBtn.className = 'stcm_menu_button tiny';
+            assignOneBtn.className = 'stcm_menu_button tiny assignCharsFoldersSmall';
             assignOneBtn.textContent = '+';
             assignOneBtn.title = 'Assign this character';
             assignOneBtn.addEventListener('click', async (e) => {
