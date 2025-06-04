@@ -252,14 +252,20 @@ async function renderFoldersTree() {
 
 // Recursive render function
 function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
-    const container = document.createElement('div');
-    container.className = 'stcm_folder_node';
-    container.style.marginLeft = `${depth * 18}px`;
-    container.style.display = 'flex';
-    container.style.alignItems = 'center';
-    container.style.gap = '7px';
+    // OUTER NODE (block)
+    const node = document.createElement('div');
+    node.className = 'stcm_folder_node';
+    node.style.marginLeft = `${depth * 18}px`;
+    node.style.marginBottom = '4px';
 
-    // 1. ICON (font awesome)
+    // FOLDER ROW (flex)
+    const row = document.createElement('div');
+    row.className = 'stcm_folder_row';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '7px';
+
+    // Icon, name, buttons (append to row)
     const iconEl = document.createElement('span');
     iconEl.className = `fa-solid ${folder.icon || 'fa-folder'} fa-fw stcm-folder-icon`;
     iconEl.style.fontSize = '1.1em';
@@ -267,11 +273,10 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     iconEl.title = 'Change Folder Icon';
     iconEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        showIconPicker(folder, container, renderFoldersTree);
+        showIconPicker(folder, node, renderFoldersTree);
     });
-    container.appendChild(iconEl);
+    row.appendChild(iconEl);
 
-    // 2. FOLDER NAME (inline editable)
     const nameSpan = document.createElement('span');
     nameSpan.textContent = folder.name;
     nameSpan.className = 'stcm-folder-label';
@@ -282,9 +287,8 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         e.stopPropagation();
         makeFolderNameEditable(nameSpan, folder, renderFoldersTree);
     });
-    container.appendChild(nameSpan);
+    row.appendChild(nameSpan);
 
-    // 3. EDIT ICON (pencil, also triggers name editing)
     const editBtn = document.createElement('button');
     editBtn.className = 'stcm-folder-edit-btn stcm_menu_button tiny interactable';
     editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
@@ -293,23 +297,8 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         e.stopPropagation();
         makeFolderNameEditable(nameSpan, folder, renderFoldersTree);
     });
-    container.appendChild(editBtn);
+    row.appendChild(editBtn);
 
-    // 4. CHANGE ICON BUTTON (separate from icon click if you want both, can remove if redundant)
-    // (Optionally comment out if icon click is enough)
-    /*
-    const iconBtn = document.createElement('button');
-    iconBtn.className = 'stcm-folder-icon-btn stcm_menu_button tiny interactable';
-    iconBtn.innerHTML = '<i class="fa-solid fa-icons"></i>';
-    iconBtn.title = 'Change Icon';
-    iconBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showIconPicker(folder, container, renderFoldersTree);
-    });
-    container.appendChild(iconBtn);
-    */
-
-    // 5. DELETE BUTTON
     if (folder.id !== 'root') {
         const delBtn = document.createElement('button');
         delBtn.className = 'stcm-folder-delete-btn stcm_menu_button tiny red interactable';
@@ -319,10 +308,9 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
             e.stopPropagation();
             confirmDeleteFolder(folder, renderFoldersTree);
         });
-        container.appendChild(delBtn);
+        row.appendChild(delBtn);
     }
 
-    // 6. ADD SUBFOLDER BUTTON (if depth < 4)
     if (depth < 4) {
         const addBtn = document.createElement('button');
         addBtn.className = 'stcm_menu_button tiny interactable';
@@ -339,31 +327,32 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
                 toastr.error(e.message || 'Failed to create subfolder');
             }
         });
-        container.appendChild(addBtn);
+        row.appendChild(addBtn);
     }
 
-    // 7. Render children (folders only)
-  if (Array.isArray(folder.children) && folder.children.length > 0) {
-    const childrenContainer = document.createElement('div');
-    childrenContainer.className = 'stcm_folder_children';
-    childrenContainer.style.display = 'block'; // or 'flex', 'column'
-    childrenContainer.style.width = '100%';
+    // Append the folder row to the node
+    node.appendChild(row);
 
-    folder.children.forEach(childId => {
-        const child = allFolders.find(f => f.id === childId);
-        if (child) {
-            // Render recursively, depth+1
-            const childNode = renderFolderNode(child, allFolders, depth + 1, renderFoldersTree);
-            childrenContainer.appendChild(childNode);
-        }
-    });
+    // CHILDREN (vertical)
+    if (Array.isArray(folder.children) && folder.children.length > 0) {
+        const childrenContainer = document.createElement('div');
+        childrenContainer.className = 'stcm_folder_children';
+        childrenContainer.style.display = 'block'; // Ensure vertical stack
 
-    // Now append children container *below* this node
-    container.appendChild(childrenContainer);
+        folder.children.forEach(childId => {
+            const child = allFolders.find(f => f.id === childId);
+            if (child) {
+                const childNode = renderFolderNode(child, allFolders, depth + 1, renderFoldersTree);
+                childrenContainer.appendChild(childNode);
+            }
+        });
+
+        node.appendChild(childrenContainer);
+    }
+
+    return node;
 }
 
-return container;
-}
 
 renderFoldersTree().catch(console.error);
 
