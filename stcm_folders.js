@@ -8,16 +8,26 @@ let folders = []; // In-memory cache
 
 export async function loadFolders() {
     let url = localStorage.getItem(FOLDER_FILE_KEY);
-    if (!url) {
-        // Initialize default folder structure
-        folders = [ { id: "root", name: "Root", icon: 'fa-folder', parentId: null, children: [] } ];
-        await saveFolders();
-        return folders;
+    let json = null;
+    if (url) {
+        try {
+            json = await getFileAttachment(url);
+            if (!json) throw new Error("No content");
+            folders = JSON.parse(json);
+            // Optional: Check structure, or fallback if not an array
+            if (!Array.isArray(folders)) throw new Error("Corrupt file");
+            return folders;
+        } catch (e) {
+            console.warn("Failed to load folder file, resetting:", e);
+            // FALL THROUGH to create new
+        }
     }
-    const json = await getFileAttachment(url);
-    folders = JSON.parse(json);
+    // If no file, or error, create default
+    folders = [ { id: "root", name: "Root", icon: 'fa-folder', parentId: null, children: [] } ];
+    await saveFolders();
     return folders;
 }
+
 
 export async function saveFolders() {
     const json = JSON.stringify(folders, null, 2);
