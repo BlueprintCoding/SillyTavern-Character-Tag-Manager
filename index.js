@@ -157,7 +157,8 @@ function openCharacterTagManagerModal() {
                         <i class="fa-solid fa-folder-plus"></i> New Folder
                     </button>
                 </div>
-                <div id="foldersTreeContainer"></div>
+                <div id="foldersTreeContainer"><div class="loading">Loading folders...</div></div>
+
             </div>
         </div>
 
@@ -217,6 +218,10 @@ function openCharacterTagManagerModal() {
 
     document.body.appendChild(overlay);
     resetModalScrollPositions();
+    setTimeout(() => {
+        renderFoldersTree().catch(console.error);
+    }, 0);
+    
 
     // Folders: add create handler and render initial tree
 const foldersSection = document.getElementById('foldersSection');
@@ -240,7 +245,9 @@ if (createFolderBtn) {
 
 // Call on open to render the folder tree
 async function renderFoldersTree() {
+    foldersTreeContainer.innerHTML = '<div class="loading">Loading folders...</div>';
     const folders = await stcmFolders.loadFolders();
+    foldersTreeContainer.innerHTML = '';
     if (!foldersTreeContainer) return;
     foldersTreeContainer.innerHTML = '';
     const root = folders.find(f => f.id === 'root');
@@ -366,7 +373,6 @@ return node;
 }
 
 
-renderFoldersTree().catch(console.error);
 
 function makeFolderNameEditable(span, folder, rerender) {
     const input = document.createElement('input');
