@@ -825,6 +825,87 @@ min-width: 130px;
     background-color: #2e7035;
 }
 
+/* --- Sidebar nav wrapper --- */
+#stcm_sidebar_folder_nav {
+    display: flex;
+    flex-direction: column;
+    padding: 0.8em 0.5em;
+    gap: 10px;
+    background: var(--ac-style-color-background, #18181a);
+    min-width: 220px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.sidebar-folder-back {
+    font-weight: bold;
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--ac-style-color-accent, #8b2ae6);
+    padding: 3px 0 7px 0;
+    cursor: pointer;
+    background: none;
+    border: none;
+}
+
+.stcm_folder_sidebar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--ac-style-color-panel, #222);
+    cursor: pointer;
+    min-height: 48px;
+    transition: background 0.15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.stcm_folder_sidebar:hover {
+    background: var(--ac-style-color-hover, #302850);
+}
+
+.stcm_folder_sidebar .avatar {
+    min-width: 38px;
+    min-height: 38px;
+    max-width: 38px;
+    max-height: 38px;
+    border-radius: 8px;
+    background: #8b2ae6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stcm_folder_sidebar .ch_name {
+    font-weight: bold;
+    font-size: 1.09em;
+    color: var(--ac-style-color-text, #fff);
+}
+
+.sidebar-folder-character {
+    display: flex;
+    align-items: center;
+    padding-left: 44px; /* indent for folder */
+    padding-top: 3px;
+    padding-bottom: 3px;
+    font-size: 0.98em;
+    gap: 10px;
+}
+
+.sidebar-folder-character img {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    background: #232;
+    border: 1.5px solid #444;
+}
+
+
+
 /* === Merge Tag Buttons/States === */
 #cancelMergeTags {
     background-color: #ca7673;
