@@ -2408,17 +2408,93 @@ function updatePrivateFolderObservers() {
 let currentSidebarFolderId = 'root';
 
 function injectSidebarFolders(folders, allCharacters) {
-    currentSidebarFolderId = 'root'; // Always reset to root on new injection
+    currentSidebarFolderId = 'root';
+    // Inject our sidebar if not present
+    let sidebar = document.getElementById('stcm_sidebar_folder_nav');
+    const parent = document.getElementById('rm_print_characters_block');
+    if (!parent) return;
+
+    if (!sidebar) {
+        sidebar = document.createElement('div');
+        sidebar.id = 'stcm_sidebar_folder_nav';
+        sidebar.className = 'stcm_sidebar_folder_nav';
+        // Insert at the top, or wherever you want
+        parent.insertBefore(sidebar, parent.firstChild);
+    }
     renderSidebarFolderContents(folders, allCharacters, 'root');
 }
 
+function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
+    // Only update our sidebar
+    const container = document.getElementById('stcm_sidebar_folder_nav');
+    if (!container) return;
+    container.innerHTML = "";
 
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    // Show "Back" if not root
+    if (folderId !== 'root') {
+        const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
+        if (parent) {
+            const backBtn = document.createElement('div');
+            backBtn.className = "sidebar-folder-back";
+            backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
+            backBtn.style.cursor = 'pointer';
+            backBtn.style.marginBottom = '10px';
+            backBtn.onclick = () => {
+                currentSidebarFolderId = parent.id;
+                renderSidebarFolderContents(folders, allCharacters, parent.id);
+            };
+            container.appendChild(backBtn);
+        }
+    }
+
+    // Show folders (children)
+    (folder.children || []).forEach(childId => {
+        const child = folders.find(f => f.id === childId);
+        if (child) {
+            const folderDiv = document.createElement('div');
+            folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+            folderDiv.style.cursor = 'pointer';
+            folderDiv.innerHTML = `
+                <div class="avatar flex alignitemscenter textAlignCenter" 
+                    style="background-color: ${child.color || '#8b2ae6'}; color: #fff;">
+                    <i class="bogus_folder_icon fa-solid fa-xl ${child.icon || 'fa-folder-open'}"></i>
+                </div>
+                <div>
+                    <span class="ch_name" title="[Folder] ${child.name}">${child.name}</span>
+                </div>
+            `;
+            folderDiv.onclick = () => {
+                currentSidebarFolderId = child.id;
+                renderSidebarFolderContents(folders, allCharacters, child.id);
+            };
+            container.appendChild(folderDiv);
+        }
+    });
+
+    // Show characters in this folder
+    (folder.characters || []).forEach(charId => {
+        const char = allCharacters.find(c => c.avatar === charId);
+        if (char) {
+            const charDiv = document.createElement('div');
+            charDiv.className = 'sidebar-folder-character';
+            charDiv.innerHTML = `
+                <img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}" style="width:30px;height:30px;border-radius:50%;margin-right:8px;">
+                <span>${char.name}</span>
+            `;
+            container.appendChild(charDiv);
+        }
+    });
+}
 
 
 function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
-    const container = document.getElementById('rm_print_characters_block');
+    // Only update our sidebar
+    const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
-    container.innerHTML = ""; // Clear existing
+    container.innerHTML = "";
 
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
