@@ -2375,25 +2375,6 @@ async function handleNotesImport(importData) {
     }
 }
 
-function injectSidebarFolders(folders, allCharacters) {
-    const container = document.getElementById('rm_print_characters_block');
-    if (!container) return;
-
-    // Remove old folder blocks
-    Array.from(container.querySelectorAll('.stcm_folder_sidebar')).forEach(el => el.remove());
-
-    // Render only root-level children
-    const root = folders.find(f => f.id === 'root');
-    if (root && root.children && root.children.length) {
-        root.children.forEach(childId => {
-            const child = folders.find(f => f.id === childId);
-            if (child) {
-                const el = renderSidebarFolder(child, allCharacters, folders, 0);
-                container.insertBefore(el, container.firstChild);
-            }
-        });
-    }
-}
 
 
 function refreshPrivateFolderToggle() {
@@ -2424,64 +2405,78 @@ function updatePrivateFolderObservers() {
     watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState); // If you use this for folder icon/char blocks too
 }
 
+let currentSidebarFolderId = 'root';
 
-function renderSidebarFolder(folder, allCharacters, folders, depth = 0) {
-    // Get the characters for this folder
-    const charIds = Array.isArray(folder.characters) ? folder.characters : [];
-    const chars = allCharacters.filter(c => charIds.includes(c.avatar));
+function injectSidebarFolders(folders, allCharacters) {
+    currentSidebarFolderId = 'root'; // Always reset to root on new injection
+    renderSidebarFolderContents(folders, allCharacters, 'root');
+}
 
-    // Main folder block
-    const folderDiv = document.createElement('div');
-    folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
-    folderDiv.setAttribute('tabindex', '0');
-    folderDiv.setAttribute('folderid', folder.id);
-    folderDiv.id = `SidebarFolder${folder.id}`;
-    folderDiv.style.marginLeft = `${depth * 20}px`; // Indent for nesting
 
-    // Folder icon/avatar
-    const color = folder.color || '#8b2ae6';
-    const name = folder.name || 'Folder';
-    const icon = folder.icon || 'fa-folder-open';
-    folderDiv.innerHTML = `
-        <div class="avatar flex alignitemscenter textAlignCenter" 
-             style="background-color: ${color}; color: #fff;" 
-             title="[Folder] ${name}">
-            <i class="bogus_folder_icon fa-solid fa-xl ${icon}"></i>
-        </div>
-        <div class="flex-container wide100pLess70px character_select_container">
-            <div class="wide100p character_name_block">
-                <span class="ch_name" title="[Folder] ${name}">${name}</span>
-                <small class="ch_additional_info bogus_folder_counter">${chars.length} character${chars.length===1?'':'s'}</small>
-            </div>
-            <div class="bogus_folder_avatars_block avatars_inline avatars_inline_small tags tags_inline">
-            </div>
-        </div>
-    `;
 
-    // Add character avatars
-    const avatarsBlock = folderDiv.querySelector('.bogus_folder_avatars_block');
-    chars.forEach(char => {
-        const avatarDiv = document.createElement('div');
-        avatarDiv.className = 'avatar inline_avatar flex alignitemscenter textAlignCenter';
-        avatarDiv.setAttribute('data-type', 'character');
-        avatarDiv.setAttribute('data-chid', char.chid || char.avatar);
-        avatarDiv.title = `[Character] ${char.name}\nFile: ${char.avatar}`;
-        avatarDiv.innerHTML = `<img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">`;
-        avatarsBlock.appendChild(avatarDiv);
-    });
 
-    // ---- RECURSIVELY ADD CHILD FOLDERS ----
-    if (Array.isArray(folder.children) && folder.children.length > 0) {
-        folder.children.forEach(childId => {
-            const child = folders.find(f => f.id === childId);
-            if (child) {
-                const childEl = renderSidebarFolder(child, allCharacters, folders, depth + 1);
-                folderDiv.appendChild(childEl);
-            }
-        });
+function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
+    const container = document.getElementById('rm_print_characters_block');
+    if (!container) return;
+    container.innerHTML = ""; // Clear existing
+
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    // Show "Back" if not root
+    if (folderId !== 'root') {
+        const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
+        if (parent) {
+            const backBtn = document.createElement('div');
+            backBtn.className = "sidebar-folder-back";
+            backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
+            backBtn.style.cursor = 'pointer';
+            backBtn.style.marginBottom = '10px';
+            backBtn.onclick = () => {
+                currentSidebarFolderId = parent.id;
+                renderSidebarFolderContents(folders, allCharacters, parent.id);
+            };
+            container.appendChild(backBtn);
+        }
     }
 
-    return folderDiv;
+    // Show folders (children)
+    (folder.children || []).forEach(childId => {
+        const child = folders.find(f => f.id === childId);
+        if (child) {
+            const folderDiv = document.createElement('div');
+            folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+            folderDiv.style.cursor = 'pointer';
+            folderDiv.innerHTML = `
+                <div class="avatar flex alignitemscenter textAlignCenter" 
+                    style="background-color: ${child.color || '#8b2ae6'}; color: #fff;">
+                    <i class="bogus_folder_icon fa-solid fa-xl ${child.icon || 'fa-folder-open'}"></i>
+                </div>
+                <div>
+                    <span class="ch_name" title="[Folder] ${child.name}">${child.name}</span>
+                </div>
+            `;
+            folderDiv.onclick = () => {
+                currentSidebarFolderId = child.id;
+                renderSidebarFolderContents(folders, allCharacters, child.id);
+            };
+            container.appendChild(folderDiv);
+        }
+    });
+
+    // Show characters in this folder
+    (folder.characters || []).forEach(charId => {
+        const char = allCharacters.find(c => c.avatar === charId);
+        if (char) {
+            const charDiv = document.createElement('div');
+            charDiv.className = 'sidebar-folder-character';
+            charDiv.innerHTML = `
+                <img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}" style="width:30px;height:30px;border-radius:50%;margin-right:8px;">
+                <span>${char.name}</span>
+            `;
+            container.appendChild(charDiv);
+        }
+    });
 }
 
 
@@ -2508,8 +2503,6 @@ function watchSidebarFolderInjection() {
 
 eventSource.on(event_types.APP_READY, async () => {
     sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!
-
-
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
