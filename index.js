@@ -518,8 +518,6 @@ function showFolderCharactersSection(folder, folders) {
     // --- Character List Setup ---
     let folderCharSortMode = 'alpha_asc';
 
-
-
     const sortFilterRow = document.createElement('div');
     sortFilterRow.className = 'stcm_sort_row stcm_folder_assign_sort_row';
     sortFilterRow.style.alignItems = 'center';
@@ -573,7 +571,7 @@ function showFolderCharactersSection(folder, folders) {
     charList.className = 'charList stcm_folder_assign_charList';
     section.appendChild(charList);
 
-    folderCharSearchTerm = '';
+    let folderCharSearchTerm = '';
     setTimeout(() => {
         const searchInput = document.getElementById('folderCharSearchInput');
         if (searchInput) searchInput.value = '';
