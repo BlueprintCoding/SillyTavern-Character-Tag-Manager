@@ -297,7 +297,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     row.style.display = 'flex';
     row.style.alignItems = 'center';
     row.style.gap = '7px';
-    row.style.marginLeft = `${depth * 18}px`; 
+    row.style.marginLeft = `${depth * 24}px`; 
 
     // Icon, name, buttons (append to row)
     const iconBg = document.createElement('div');
