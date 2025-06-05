@@ -333,6 +333,5 @@ saveNotes,
 persistNotesToFile, 
 restoreNotesFromFile, 
 watchTagFilterBar,
-hashPin,
 promptInput
 };
