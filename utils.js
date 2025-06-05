@@ -10,7 +10,9 @@ import {
 import {
     characters
 } from "../../../../script.js";
-
+import {
+     groups
+ } from "../../../../scripts/group-chats.js";
 
 
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
