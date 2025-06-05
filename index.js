@@ -800,14 +800,41 @@ function showFolderCharactersSection(folder, folders) {
     document.addEventListener('keydown', escToCloseHandler);
 
     // Accordion toggle behavior
-    overlay.querySelectorAll('.accordionToggle').forEach(button => {
-        button.addEventListener('click', () => {
-            const targetId = button.dataset.target;
-            const section = document.getElementById(targetId);
-            const isOpen = section.classList.toggle('open');
-            button.innerHTML = `${isOpen ? '▼' : '▶'} ${button.textContent.slice(2)}`;
+        // 1. Map each section to its render function
+        const accordionRenderers = {
+            tagsSection: renderCharacterTagData,
+            foldersSection: renderFoldersTree,
+            charactersSection: renderCharacterList
+        };
+
+        // 2. Add event listeners to all toggles (after you add the modal to DOM)
+        overlay.querySelectorAll('.accordionToggle').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.dataset.target;
+                const section = document.getElementById(targetId);
+
+                // Close all other sections and update their toggles
+                overlay.querySelectorAll('.accordionContent').forEach(content => {
+                    if (content !== section) {
+                        content.classList.remove('open');
+                        // Find its toggle and reset arrow
+                        const otherToggle = overlay.querySelector(`.accordionToggle[data-target="${content.id}"]`);
+                        if (otherToggle) {
+                            otherToggle.innerHTML = `▶ ${otherToggle.textContent.replace(/^.? /, "")}`;
+                        }
+                    }
+                });
+
+                // Open/close this section and update toggle arrow
+                const isNowOpen = section.classList.toggle('open');
+                button.innerHTML = `${isNowOpen ? '▼' : '▶'} ${button.textContent.replace(/^.? /, "")}`;
+
+                // Only render if opening (optionally always render if you want)
+                if (isNowOpen && accordionRenderers[targetId]) {
+                    accordionRenderers[targetId]();
+                }
+            });
         });
-    });
 
     // Dropdown toggle for Import/Export
     const toggleIE = document.getElementById('toggleImportExport');
