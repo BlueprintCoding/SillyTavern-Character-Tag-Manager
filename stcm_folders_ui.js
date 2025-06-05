@@ -113,10 +113,20 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
                 </div>
             `;
 
-            folderDiv.onclick = () => {
-                currentSidebarFolderId = child.id;
-                renderSidebarFolderContents(folders, allCharacters, child.id);
-            };
+            // Only allow click if folder has at least one character or child folder
+            if (charCount > 0 || folderCount > 0) {
+                folderDiv.style.cursor = 'pointer';
+                folderDiv.onclick = () => {
+                    currentSidebarFolderId = child.id;
+                    renderSidebarFolderContents(folders, allCharacters, child.id);
+                };
+            } else {
+                folderDiv.style.cursor = 'not-allowed';
+                folderDiv.classList.add('stcm_folder_disabled');
+                folderDiv.title = 'Empty folder';
+                folderDiv.onclick = null;
+            }
+
             container.appendChild(folderDiv);
         }
     });
