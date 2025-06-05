@@ -236,7 +236,6 @@ function openCharacterTagManagerModal() {
     
 
     // Folders: add create handler and render initial tree
-const foldersSection = document.getElementById('foldersSection');
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');
 const createFolderBtn = document.getElementById('createNewFolderBtn');
 
@@ -454,6 +453,7 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSel
             assignSelection.delete(charId); // <--- now assignSelection is defined!
             renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
             renderAssignCharList();
+            await renderFoldersTree();
         });
 
         chip.appendChild(remove);
@@ -530,9 +530,10 @@ function showFolderCharactersSection(folder) {
         for (const charId of assignSelection) {
             if (!folder.characters.includes(charId)) folder.characters.push(charId);
         }
+        renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection); 
         assignSelection.clear();
-        renderAssignedChipsRow(folder, section, renderAssignCharList);
         renderAssignCharList();
+        await renderFoldersTree();
     });
     sortFilterRow.appendChild(assignBtn);
     section.appendChild(sortFilterRow);
@@ -688,6 +689,7 @@ function showFolderCharactersSection(folder) {
                 if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                 renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                 renderAssignCharList();
+                await renderFoldersTree();
             });
             
             left.appendChild(assignOneBtn);
