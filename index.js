@@ -419,7 +419,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 return node;
 }
 
-function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection) {
+function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
     let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
     if (chipsRow) chipsRow.remove();
 
@@ -736,7 +736,8 @@ function showFolderCharactersSection(folder) {
         renderAssignCharList();
     }));
 
-    renderAssignedChipsRow(folder, section, renderAssignCharList);
+
+    renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
     renderAssignCharList();
 }
 
