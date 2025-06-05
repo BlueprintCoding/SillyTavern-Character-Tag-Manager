@@ -852,7 +852,7 @@ function showFolderCharactersSection(folder, folders) {
 
                 if (isNowOpen && accordionRenderers[targetId]) {
                     // --- Always clear content before re-rendering ---
-                    section.innerHTML = ""; // Important: Remove old content!
+
                     // Now render fresh from latest data
                     accordionRenderers[targetId]();
                 }
@@ -1693,6 +1693,7 @@ function renderCharacterTagData() {
         content.innerHTML = `<p>Tags or character map not loaded.</p>`;
         return;
     }
+    content.innerHTML = '';
 
     const sortMode = document.getElementById('tagSortMode')?.value || 'alpha_asc';
     const rawInput = document.getElementById('tagSearchInput')?.value.toLowerCase() || '';
