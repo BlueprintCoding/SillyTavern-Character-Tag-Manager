@@ -243,6 +243,8 @@ export function makeFolderNameEditable(span, folder, rerender) {
         if (val && val !== folder.name) {
             await stcmFolders.renameFolder(folder.id, val);
             rerender();
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
         } else {
             rerender();
         }
@@ -284,6 +286,8 @@ export function showIconPicker(folder, parentNode, rerender) {
         btn.addEventListener('click', async () => {
             await stcmFolders.setFolderIcon(folder.id, ico);
             rerender();
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
             popup.remove();
         });
         popup.appendChild(btn);

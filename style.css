@@ -82,7 +82,7 @@
     min-height: 40px;
 }
 
-.stcm_tags_section {
+.stcm_tags_section, .stcm_folders_section {
     margin-top: .5em;
 }
 
