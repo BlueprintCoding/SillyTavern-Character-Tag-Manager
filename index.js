@@ -393,7 +393,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     charBtn.title = 'Manage Characters in this Folder';
     charBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        showFolderCharactersSection(folder);
+        showFolderCharactersSection(folder, allFolders);
     });
     row.appendChild(charBtn);
     
@@ -471,7 +471,7 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSel
     }
 }
 
-function showFolderCharactersSection(folder) {
+function showFolderCharactersSection(folder, folders) {
     const section = document.getElementById('folderCharactersSection');
     section.innerHTML = '';
     section.style.position = 'relative';
