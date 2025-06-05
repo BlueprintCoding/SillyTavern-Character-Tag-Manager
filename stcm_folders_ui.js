@@ -437,28 +437,59 @@ export function confirmDeleteFolder(folder, rerender) {
         });
 }
 
-function getMaxFolderSubtreeDepth(folderId, folders, currentDepth = 1) {
+function walkFolderTree(folderId, folders, opts = {}, depth = 0) {
     const folder = folders.find(f => f.id === folderId);
-    if (!folder || !folder.children?.length) return currentDepth;
-    let maxDepth = currentDepth;
-    for (const childId of folder.children) {
-        const childDepth = getMaxFolderSubtreeDepth(childId, folders, currentDepth + 1);
-        if (childDepth > maxDepth) maxDepth = childDepth;
+    if (!folder) return opts.collector || [];
+
+    // 1. For descendant IDs
+    if (opts.mode === 'descendants') {
+        let ids = [];
+        for (const childId of folder.children || []) {
+            ids.push(childId);
+            ids = ids.concat(walkFolderTree(childId, folders, opts, depth + 1));
+        }
+        return ids;
     }
-    return maxDepth;
+    // 2. For max depth
+    if (opts.mode === 'maxDepth') {
+        let maxDepth = depth + 1;
+        for (const childId of folder.children || []) {
+            const childDepth = walkFolderTree(childId, folders, opts, depth + 1);
+            if (childDepth > maxDepth) maxDepth = childDepth;
+        }
+        return maxDepth;
+    }
+    // 3. For options tree
+    if (opts.mode === 'options') {
+        let options = [];
+        if (!opts.excludeIds || !opts.excludeIds.includes(folderId)) {
+            const indent = "&nbsp;".repeat(depth * 4);
+            options.push({
+                id: folder.id,
+                name: (folder.id === "root" ? "Top Level (Root)" : indent + escapeHtml(folder.name)),
+                depth: depth,
+            });
+        }
+        for (const childId of folder.children || []) {
+            options = options.concat(
+                walkFolderTree(childId, folders, opts, depth + 1)
+            );
+        }
+        return options;
+    }
+    return [];
 }
 
+// Then, replace:
 function getAllDescendantFolderIds(folderId, folders) {
-    let ids = [];
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder) return ids;
-    for (const childId of folder.children || []) {
-        ids.push(childId);
-        ids = ids.concat(getAllDescendantFolderIds(childId, folders));
-    }
-    return ids;
+    return walkFolderTree(folderId, folders, { mode: 'descendants' }, 0);
 }
-
+function getMaxFolderSubtreeDepth(folderId, folders) {
+    return walkFolderTree(folderId, folders, { mode: 'maxDepth' }, 0);
+}
+function getFolderOptionsTree(folders, excludeIds = [], parentId = "root", depth = 0) {
+    return walkFolderTree(parentId, folders, { mode: 'options', excludeIds }, depth);
+}
 
 
 export function showChangeParentPopup(folder, allFolders, rerender) {
@@ -492,16 +523,20 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         return (destDepth + subtreeDepth - 1) < MAX_DEPTH;
     });
 
+        // Build hierarchical option list
+    const optionsTree = getFolderOptionsTree(allFolders, descendants);
+
+    // Now, only include those in validFolders
+    const validOptionIds = new Set(validFolders.map(f => f.id));
+    const validOptions = optionsTree.filter(opt => validOptionIds.has(opt.id));
+
     const container = document.createElement('div');
     container.innerHTML = `
         <label><b>Choose New Parent Folder</b></label><br>
         <select style="width:100%;margin:12px 0;" id="stcmMoveFolderSelect">
-        ${validFolders.map(f =>
-            `<option value="${f.id}" ${f.id === 'root' ? 'selected' : ''}>
-                ${f.id === 'root' ? 'Top Level (Root)' : escapeHtml(f.name)}
-            </option>`
+        ${validOptions.map(f =>
+            `<option value="${f.id}" ${f.id === folder.parentId ? 'selected' : ''}>${f.name}</option>`
         ).join('')}
-        
         </select>
         <div style="font-size:0.93em;color:#fa7878;" id="stcmMoveFolderError"></div>
     `;
