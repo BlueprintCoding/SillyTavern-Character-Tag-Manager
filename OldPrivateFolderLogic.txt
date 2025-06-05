@@ -1,7 +1,3 @@
-function getFolderTypeForUI(tag, notes) {
-    if (tag.folder_type === "CLOSED" && notes?.tagPrivate?.[tag.id]) return "PRIVATE";
-    return tag.folder_type || "NONE";
-}
 
 /**
  * Mutate bogus folder icons for private folders in #rm_print_characters_block
@@ -285,3 +281,21 @@ function showModalPinPrompt(message = "Enter PIN") {
         }, 150);
     });
 }
+
+function refreshPrivateFolderToggle() {
+    const notes = getNotes();
+    const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
+    mutateBogusFolderIcons(privateIds);
+
+    // Set up the toggle if there are private folders
+    injectPrivateFolderToggle(privateIds, (state) => {
+        applyPrivateFolderVisibility(state, privateIds);
+        hidePrivateTagsInFilterBar();
+    });
+
+    // Optionally, set visibility on load (if persisting state)
+    const savedState = Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
+    applyPrivateFolderVisibility(savedState, privateIds);
+    hidePrivateTagsInFilterBar();
+}
+

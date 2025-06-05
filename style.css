@@ -825,6 +825,19 @@ margin-right: 0!important;
     font-size: 0.9em;
 }
 
+.stcm_folder_private .stcm_folder_main {
+    opacity: 0.75;
+    position: relative;
+}
+.stcm_folder_private .stcm_folder_main::after {
+    content: '🔒';
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    font-size: 0.8em;
+    color: #f97;
+}
+
 
 .stcm_char_chip .remove {
     margin-left: 7px;

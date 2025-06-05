@@ -26,6 +26,8 @@ import {
     } from "../../../popup.js"
     
 let currentSidebarFolderId = 'root';
+let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
+
 
 export function injectSidebarFolders(folders, allCharacters) {
     currentSidebarFolderId = 'root';
@@ -79,7 +81,47 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             breadcrumbDiv.textContent = ".../"; // fallback
         }
     }
-    container.appendChild(breadcrumbDiv);
+
+    // === Private Folder Toggle Icon ===
+    const controlRow = document.createElement('div');
+    controlRow.className = 'stcm_folders_header_controls';
+    controlRow.style.display = 'flex';
+    controlRow.style.alignItems = 'center';
+    controlRow.style.gap = '8px';
+
+    const toggleBtn = document.createElement('i');
+    toggleBtn.className = 'fa-solid fa-eye-slash stcm_private_toggle_icon';
+    toggleBtn.style.cursor = 'pointer';
+    toggleBtn.title = 'Click to show private folders';
+    toggleBtn.style.fontSize = '1.1em';
+    toggleBtn.style.padding = '4px';
+    toggleBtn.style.borderRadius = '6px';
+
+    function updateToggleIcon() {
+        toggleBtn.classList.remove('fa-eye', 'fa-eye-slash', 'fa-user-secret');
+
+        if (privateFolderVisibilityMode === 0) {
+            toggleBtn.classList.add('fa-eye-slash');
+            toggleBtn.title = 'Private folders hidden';
+        } else if (privateFolderVisibilityMode === 1) {
+            toggleBtn.classList.add('fa-eye');
+            toggleBtn.title = 'Showing all folders';
+        } else if (privateFolderVisibilityMode === 2) {
+            toggleBtn.classList.add('fa-user-secret');
+            toggleBtn.title = 'Only showing private folders';
+        }
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        privateFolderVisibilityMode = (privateFolderVisibilityMode + 1) % 3;
+        renderSidebarFolderContents(folders, allCharacters, folderId);
+    });
+
+    updateToggleIcon();
+    controlRow.appendChild(toggleBtn);
+    controlRow.appendChild(breadcrumbDiv); // Breadcrumb goes to the right of icon
+    container.appendChild(controlRow);
+
 
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
@@ -102,50 +144,65 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
 
     const tagsById = buildTagMap(tags);
     // Show folders (children)
-    (folder.children || []).forEach(childId => {
-        const child = folders.find(f => f.id === childId);
-        if (child) {
-            // Count characters and subfolders
-            const charCount = child.characters?.length || 0;
-            const folderCount = child.children?.length || 0;
-    
-            const folderDiv = document.createElement('div');
-            folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
-            folderDiv.style.cursor = 'pointer';
-            folderDiv.innerHTML = `
-                <div class="stcm_folder_main">
+   (folder.children || []).forEach(childId => {
+    const child = folders.find(f => f.id === childId);
+    if (child) {
+        const isPrivate = !!child.private;
+
+        // Count characters and subfolders
+        const charCount = child.characters?.length || 0;
+        const folderCount = child.children?.length || 0;
+
+        const folderDiv = document.createElement('div');
+        folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+        folderDiv.setAttribute('data-folder-id', child.id);
+
+        if (isPrivate) {
+            folderDiv.classList.add('stcm_folder_private');
+            folderDiv.setAttribute('data-private', 'true');
+        }
+
+        // Apply visibility rules for current toggle mode
+        if (
+            (privateFolderVisibilityMode === 0 && isPrivate) ||      // Hide private
+            (privateFolderVisibilityMode === 2 && !isPrivate)        // Only show private
+        ) {
+            folderDiv.style.display = 'none';
+        }
+
+        folderDiv.style.cursor = 'pointer';
+        folderDiv.innerHTML = `
+            <div class="stcm_folder_main">
                 <div class="avatar flex alignitemscenter textAlignCenter"
                     style="background-color: ${child.color || '#8b2ae6'}; color: #fff;">
                     <i class="bogus_folder_icon fa-solid fa-xl ${child.icon || 'fa-folder-open'}"></i>
                 </div>
-                    <span class="ch_name stcm_folder_name" title="[Folder] ${child.name}">${child.name}</span>
-                    <div class="stcm_folder_counts">
-                        <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
-                        <div class="stcm_folder_folder_count">${folderCount} folder${folderCount === 1 ? '' : 's'}</div>
-                    </div>
+                <span class="ch_name stcm_folder_name" title="[Folder] ${child.name}">${child.name}</span>
+                <div class="stcm_folder_counts">
+                    <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
+                    <div class="stcm_folder_folder_count">${folderCount} folder${folderCount === 1 ? '' : 's'}</div>
                 </div>
-            `;
+            </div>
+        `;
 
-            // Only allow click if folder has at least one character or child folder
-            const folderHasAnyChars = hasAnyCharacters(child.id, folders);
+        const folderHasAnyChars = hasAnyCharacters(child.id, folders);
 
-            if (folderHasAnyChars) {
-                folderDiv.style.cursor = 'pointer';
-                folderDiv.onclick = () => {
-                    currentSidebarFolderId = child.id;
-                    renderSidebarFolderContents(folders, allCharacters, child.id);
-                };
-            } else {
-                folderDiv.style.cursor = 'default';
-                folderDiv.classList.add('stcm_folder_disabled');
-                folderDiv.title = 'Empty folder';
-                folderDiv.onclick = null;
-            }
-
-            container.appendChild(folderDiv);
+        if (folderHasAnyChars) {
+            folderDiv.onclick = () => {
+                currentSidebarFolderId = child.id;
+                renderSidebarFolderContents(folders, allCharacters, child.id);
+            };
+        } else {
+            folderDiv.style.cursor = 'default';
+            folderDiv.classList.add('stcm_folder_disabled');
+            folderDiv.title = 'Empty folder';
+            folderDiv.onclick = null;
         }
-    });
-    
+
+        container.appendChild(folderDiv);
+    }
+});
+   
 
         // Show characters in this folder (full card style)
 
