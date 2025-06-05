@@ -419,8 +419,27 @@ return node;
 
 function showFolderCharactersSection(folder) {
     const section = document.getElementById('folderCharactersSection');
-    section.style.display = 'block';
     section.innerHTML = '';
+
+    // Create the close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'stcm_folder_chars_close_btn';
+    closeBtn.title = 'Close';
+    
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid fa-xmark'; // or 'fa fa-times' for FA4/5
+    closeBtn.appendChild(icon);
+
+    // Click: clear and hide section
+    closeBtn.onclick = () => {
+        section.innerHTML = '';
+        section.style.display = 'none';
+    };
+
+    section.style.position = 'relative'; // Ensure positioning works
+    section.style.display = 'block';     // Show section
+
+    section.appendChild(closeBtn);
 
     // --- Header
     const header = document.createElement('div');

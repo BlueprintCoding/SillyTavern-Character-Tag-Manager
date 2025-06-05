@@ -747,6 +747,26 @@
 }
 
 /* === STCM Custom Folders === */
+
+.stcm_folder_chars_close_btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #c32b2b;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 5;
+    transition: background 0.13s;
+}
+.stcm_folder_chars_close_btn:hover {
+    background: #a90000;
+}
+
 .stcm_folder_node {
     margin: 2px 0 4px 0;
     padding: 0;
