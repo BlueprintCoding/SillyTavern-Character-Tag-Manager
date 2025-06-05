@@ -299,16 +299,29 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     row.style.gap = '7px';
 
     // Icon, name, buttons (append to row)
+    const iconBg = document.createElement('div');
+    iconBg.className = 'avatar flex alignitemscenter textAlignCenter stcm-folder-avatar';
+    iconBg.style.backgroundColor = folder.color || '#8b2ae6';
+    iconBg.style.color = '#fff'; // You can make this smarter if needed
+    iconBg.style.width = '28px';
+    iconBg.style.height = '28px';
+    iconBg.style.borderRadius = '7px';
+    iconBg.style.display = 'flex';
+    iconBg.style.justifyContent = 'center';
+    iconBg.style.alignItems = 'center';
+    iconBg.style.cursor = 'pointer';
+    iconBg.title = 'Change Folder Icon';
+
     const iconEl = document.createElement('span');
     iconEl.className = `fa-solid ${folder.icon || 'fa-folder'} fa-fw stcm-folder-icon`;
-    iconEl.style.fontSize = '1.1em';
-    iconEl.style.cursor = 'pointer';
-    iconEl.title = 'Change Folder Icon';
-    iconEl.addEventListener('click', (e) => {
+    iconEl.style.fontSize = '1.2em';
+
+    iconBg.appendChild(iconEl);
+    iconBg.addEventListener('click', (e) => {
         e.stopPropagation();
         showIconPicker(folder, node, renderFoldersTree);
     });
-    row.appendChild(iconEl);
+    row.appendChild(iconBg);
 
     const nameSpan = document.createElement('span');
     nameSpan.textContent = folder.name;
