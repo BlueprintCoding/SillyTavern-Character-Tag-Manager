@@ -168,7 +168,7 @@ function openCharacterTagManagerModal() {
                     </button>
                 </div>
                 <div id="foldersTreeContainer"><div class="loading">Loading folders...</div></div>
-                <div id="folderCharactersSection"></div>
+                <div id="folderCharactersSection" style="display:none;"></div>
 
             </div>
         </div>
@@ -419,6 +419,7 @@ return node;
 
 function showFolderCharactersSection(folder) {
     const section = document.getElementById('folderCharactersSection');
+    section.style.display = 'block';
     section.innerHTML = '';
 
     // --- Header
