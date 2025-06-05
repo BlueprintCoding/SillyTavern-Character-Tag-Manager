@@ -453,7 +453,7 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSel
             assignSelection.delete(charId);
             renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
             renderAssignCharList();
-            updateFolderCharacterCount(folder);
+            stcmFolders.updateFolderCharacterCount (folder);
             STCM.sidebarFolders = await stcmFolders.loadFolders();
             injectSidebarFolders(STCM.sidebarFolders, characters);
         });
@@ -535,7 +535,7 @@ function showFolderCharactersSection(folder, folders) {
         renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection); 
         assignSelection.clear();
         renderAssignCharList();
-        updateFolderCharacterCount(folder);
+        stcmFolders.updateFolderCharacterCount (folder);
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
     });
@@ -691,7 +691,7 @@ function showFolderCharactersSection(folder, folders) {
                     if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                     renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                     renderAssignCharList();
-                    updateFolderCharacterCount(folder);
+                    stcmFolders.updateFolderCharacterCount (folder);
                     STCM.sidebarFolders = await stcmFolders.loadFolders();
                     injectSidebarFolders(STCM.sidebarFolders, characters);
                 });
@@ -734,7 +734,7 @@ function showFolderCharactersSection(folder, folders) {
                 if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                 renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                 renderAssignCharList();
-                updateFolderCharacterCount(folder);
+                stcmFolders.updateFolderCharacterCount (folder);
                 STCM.sidebarFolders = await stcmFolders.loadFolders();
                 injectSidebarFolders(STCM.sidebarFolders, characters);
             });
