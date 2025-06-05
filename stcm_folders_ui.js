@@ -262,9 +262,18 @@ export function makeFolderNameEditable(span, folder, rerender) {
 
 export function showIconPicker(folder, parentNode, rerender) {
     const icons = [
-        'fa-folder', 'fa-folder-open', 'fa-book', 'fa-users', 'fa-star',
-        'fa-dice-d20', 'fa-dragon', 'fa-heart', 'fa-sun', 'fa-ghost',
-        'fa-user', 'fa-robot', 'fa-hat-wizard', 'fa-chess-knight', 'fa-bolt'
+        'fa-folder', 'fa-folder-open', 'fa-archive', 'fa-box', 'fa-boxes-stacked',
+        'fa-book', 'fa-book-bookmark', 'fa-books', 'fa-journal-whills', 'fa-address-book',
+        'fa-users', 'fa-user', 'fa-user-astronaut', 'fa-user-ninja', 'fa-user-gear', 'fa-user-secret',
+        'fa-dice-d20', 'fa-dragon', 'fa-ghost', 'fa-hat-wizard', 'fa-chess-knight',
+        'fa-bolt', 'fa-sun', 'fa-moon', 'fa-star', 'fa-star-half-stroke', 'fa-gem', 'fa-leaf', 'fa-tree',
+        'fa-heart', 'fa-shield', 'fa-shield-halved', 'fa-lock', 'fa-unlock', 'fa-key',
+        'fa-gears', 'fa-screwdriver-wrench', 'fa-flask', 'fa-flask-vial', 'fa-microscope', 'fa-brain', 'fa-lightbulb',
+        'fa-cloud', 'fa-cloud-sun', 'fa-cloud-moon', 'fa-mountain', 'fa-fire', 'fa-ice-cream',
+        'fa-robot', 'fa-rocket', 'fa-wand-magic-sparkles', 'fa-wand-magic', 'fa-spaghetti-monster-flying',
+        'fa-skull', 'fa-skull-crossbones', 'fa-feather', 'fa-feather-pointed', 'fa-anchor', 'fa-compass',
+        'fa-globe', 'fa-map', 'fa-location-dot', 'fa-dungeon', 'fa-tower-cell', 'fa-tower-observation',
+        'fa-chess-rook', 'fa-chess-queen', 'fa-chess-bishop', 'fa-chess-pawn'
     ];
 
     const popup = document.createElement('div');
@@ -273,17 +282,42 @@ export function showIconPicker(folder, parentNode, rerender) {
     popup.style.background = '#222';
     popup.style.border = '1px solid #444';
     popup.style.borderRadius = '8px';
-    popup.style.padding = '8px';
+    popup.style.padding = '16px 12px 10px 12px';
     popup.style.zIndex = 10000;
-    popup.style.display = 'grid';
-    popup.style.gridTemplateColumns = 'repeat(5, 32px)';
-    popup.style.gap = '8px';
+    popup.style.minWidth = '270px';
+
+    // --- Instructions & custom field ---
+    const instr = document.createElement('div');
+    instr.innerHTML = `
+        <div style="margin-bottom:8px; font-size: 0.97em;">
+            <b>Choose an icon below</b> or type your own Font Awesome icon class.
+            <br>
+            <a href="https://fontawesome.com/search?m=free" target="_blank" style="color:#6ec0ff; text-decoration:underline; font-size: 0.96em;">
+                Browse all free icons
+            </a>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:7px;">
+            <input type="text" id="stcmCustomIconInput" placeholder="e.g. fa-dragon, fa-solid fa-bug" style="flex:1;min-width:0;padding:4px 8px;border-radius:4px;border:1px solid #444;background:#181818;color:#eee;">
+            <button class="stcm_menu_button tiny" id="stcmSetCustomIconBtn" style="padding:3px 8px;">Set</button>
+        </div>
+        <div id="stcmIconError" style="color:#fa7878;font-size:0.93em;min-height:18px;"></div>
+    `;
+    popup.appendChild(instr);
+
+    // --- Icon grid ---
+    const grid = document.createElement('div');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(7, 32px)';
+    grid.style.gap = '8px';
 
     icons.forEach(ico => {
         const btn = document.createElement('button');
         btn.className = 'stcm-icon-btn stcm_menu_button tiny';
         btn.innerHTML = `<i class="fa-solid ${ico} fa-fw"></i>`;
         btn.title = ico.replace('fa-', '').replace(/-/g, ' ');
+        btn.style.background = 'none';
+        btn.style.border = 'none';
+        btn.style.cursor = 'pointer';
         btn.addEventListener('click', async () => {
             await stcmFolders.setFolderIcon(folder.id, ico);
             rerender();
@@ -291,9 +325,40 @@ export function showIconPicker(folder, parentNode, rerender) {
             injectSidebarFolders(STCM.sidebarFolders, characters);
             popup.remove();
         });
-        popup.appendChild(btn);
+        grid.appendChild(btn);
+    });
+    popup.appendChild(grid);
+
+    // --- Custom icon logic ---
+    const customInput = instr.querySelector('#stcmCustomIconInput');
+    const customBtn = instr.querySelector('#stcmSetCustomIconBtn');
+    const errorDiv = instr.querySelector('#stcmIconError');
+
+    customBtn.addEventListener('click', async () => {
+        let val = customInput.value.trim();
+        if (!val) {
+            errorDiv.textContent = 'Please enter a Font Awesome icon class.';
+            return;
+        }
+        // Accept "fa-solid fa-bug" or just "fa-bug"
+        if (!val.startsWith('fa-')) {
+            errorDiv.textContent = 'Must start with "fa-" (e.g. fa-hat-wizard)';
+            return;
+        }
+        // Try to preview/test (optional, just for feedback)
+        // You may choose to check if this class exists visually
+        await stcmFolders.setFolderIcon(folder.id, val);
+        rerender();
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
+        popup.remove();
     });
 
+    customInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') customBtn.click();
+    });
+
+    // --- Close on outside click ---
     function onClose(e) {
         if (!popup.contains(e.target)) popup.remove(), document.removeEventListener('mousedown', onClose, true);
     }
@@ -304,6 +369,7 @@ export function showIconPicker(folder, parentNode, rerender) {
     popup.style.left = (rect.left + window.scrollX + 60) + "px";
     popup.style.top = (rect.top + window.scrollY) + "px";
 }
+
 
 export function confirmDeleteFolder(folder, rerender) {
     const isEmpty = !folder.children || folder.children.length === 0;
