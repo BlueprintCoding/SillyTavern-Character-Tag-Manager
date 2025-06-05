@@ -167,6 +167,20 @@ function saveModalPosSize(modalContent) {
     }));
 }
 
+
+function cleanTagMap() {
+    const validCharIds = new Set([
+        ...characters.map(c => c.avatar),
+        ...groups.map(g => g.id)
+    ]);
+    for (const charId of Object.keys(tag_map)) {
+        if (!validCharIds.has(charId)) {
+            delete tag_map[charId];
+        }
+    }
+}
+
+
 function buildTagMap(tags) {
     return new Map(tags.map(tag => [tag.id, tag]));
 }

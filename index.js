@@ -12,6 +12,7 @@ saveModalPosSize,
 getNotes, 
 saveNotes, 
 buildCharNameMap, 
+cleanTagMap,
 buildTagMap, 
 getFolderTypeForUI, 
 mutateBogusFolderIcons, 
@@ -423,9 +424,23 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSel
     let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
     if (chipsRow) chipsRow.remove();
 
+        // Clean orphan IDs out of folder.characters in-place
+        if (Array.isArray(folder.characters)) {
+            // Find all characters that still exist
+            const validIds = folder.characters.filter(charId =>
+                characters.some(c => c.avatar === charId)
+            );
+            if (validIds.length !== folder.characters.length) {
+                folder.characters = validIds;
+                // Optional: persist this change if your folders are saved
+                stcmFolders.saveFolder && stcmFolders.saveFolder(folder);
+            }
+        }
+    
+        const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
+
     chipsRow = document.createElement('div');
     chipsRow.className = 'stcm_folder_chars_chips_row';
-    const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
 
     assignedIds.forEach(charId => {
         const char = characters.find(c => c.avatar === charId);
@@ -557,6 +572,7 @@ function showFolderCharactersSection(folder, folders) {
 
     // --- Helper for advanced character search ---
     function matchesCharacterAdv(char, search) {
+        
         const tagsById = buildTagMap(tags);
         const tagNames = (tag_map[char.avatar] || [])
             .map(tid => tagsById.get(tid)?.name?.toLowerCase() || '').filter(Boolean);
@@ -746,6 +762,7 @@ function showFolderCharactersSection(folder, folders) {
             // Tag chips (as before)
             const tagListWrapper = document.createElement('div');
             tagListWrapper.className = 'assignedTagsWrapper';
+            cleanTagMap();
             const tagMapById = buildTagMap(tags);
             const assignedTags = tag_map[char.avatar] || [];
             assignedTags.forEach(tagId => {
@@ -812,6 +829,7 @@ function showFolderCharactersSection(folder, folders) {
             button.addEventListener('click', () => {
                 const targetId = button.dataset.target;
                 const section = document.getElementById(targetId);
+                cleanTagMap();
 
                 // Close all other sections and update their toggles
                 overlay.querySelectorAll('.accordionContent').forEach(content => {
@@ -2235,6 +2253,7 @@ function confirmDeleteTag(tag) {
 }
 
 async function callSaveandReload() {
+    cleanTagMap();
     updatePrivateFolderObservers();
     saveSettingsDebounced();
     await getCharacters();

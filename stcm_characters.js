@@ -3,7 +3,8 @@ import { debouncePersist,
     buildTagMap,
     getNotes,
     saveNotes,
-    restoreNotesFromFile
+    restoreNotesFromFile,
+    cleanTagMap
  } from './utils.js';
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
 import { characters, selectCharacterById } from "../../../../script.js";
