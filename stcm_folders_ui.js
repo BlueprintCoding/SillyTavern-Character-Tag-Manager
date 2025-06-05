@@ -331,7 +331,7 @@ export function showIconPicker(folder, parentNode, rerender) {
             </a>
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:7px;">
-            <input type="text" id="stcmCustomIconInput" placeholder="e.g. fa-dragon, fa-solid fa-bug" style="flex:1;min-width:0;padding:4px 8px;border-radius:4px;border:1px solid #444;background:#181818;color:#eee;">
+            <input type="text" id="stcmCustomIconInput" placeholder="e.g. fa-dragon" style="flex:1;min-width:0;padding:4px 8px;border-radius:4px;border:1px solid #444;background:#181818;color:#eee;">
             <button class="stcm_menu_button tiny" id="stcmSetCustomIconBtn" style="padding:3px 8px;">Set</button>
         </div>
         <div id="stcmIconError" style="color:#fa7878;font-size:0.93em;min-height:18px;"></div>
@@ -340,6 +340,7 @@ export function showIconPicker(folder, parentNode, rerender) {
 
     // --- Icon grid ---
     const grid = document.createElement('div');
+    grid.className = 'stcm-icon-grid';
     grid.style.display = 'grid';
     grid.style.gridTemplateColumns = 'repeat(11, 32px)';
     grid.style.gap = '8px';
@@ -374,10 +375,10 @@ export function showIconPicker(folder, parentNode, rerender) {
             errorDiv.textContent = 'Please enter a Font Awesome icon class.';
             return;
         }
-        // Accept "fa-solid fa-bug" or just "fa-bug"
-        if (!val.startsWith('fa-')) {
-            errorDiv.textContent = 'Must start with "fa-" (e.g. fa-hat-wizard)';
-            return;
+       // Accept "fa-solid fa-bug" or just "fa-bug"
+       if (!val.startsWith('fa-')) {
+        errorDiv.textContent = 'Must start with "fa-" (e.g. fa-hat-wizard)';
+        return;
         }
         // Try to preview/test (optional, just for feedback)
         // You may choose to check if this class exists visually
