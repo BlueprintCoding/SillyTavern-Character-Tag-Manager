@@ -30,7 +30,8 @@ import {
     showFolderColorPicker,
     makeFolderNameEditable,
     showIconPicker,
-    confirmDeleteFolder
+    confirmDeleteFolder,
+    showChangeParentPopup
 } from './stcm_folders_ui.js';
 
 
@@ -362,6 +363,17 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         });
         row.appendChild(delBtn);
     }
+
+        // === Change Parent Button ===
+        const moveBtn = document.createElement('button');
+        moveBtn.className = 'stcm-folder-move-btn stcm_menu_button tiny interactable';
+        moveBtn.innerHTML = '<i class="fa-solid fa-share"></i>'; // Or any icon you like
+        moveBtn.title = 'Change Parent Folder';
+        moveBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            showChangeParentPopup(folder, allFolders, renderFoldersTree);
+        });
+        row.appendChild(moveBtn);
 
     if (depth < 4) {
         const addBtn = document.createElement('button');
@@ -718,8 +730,6 @@ function showFolderCharactersSection(folder) {
     // --- Initial render
     renderAssignCharList();
 }
-
-
 
 
 

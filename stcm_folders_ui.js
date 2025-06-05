@@ -437,7 +437,52 @@ export function confirmDeleteFolder(folder, rerender) {
         });
 }
 
+export function showChangeParentPopup(folder, allFolders, rerender) {
+    // List all possible parent folders (not self or descendants)
+    const invalidIds = new Set();
+    function markDescendants(fid) {
+        invalidIds.add(fid);
+        const f = allFolders.find(x => x.id === fid);
+        if (f && Array.isArray(f.children)) {
+            f.children.forEach(markDescendants);
+        }
+    }
+    markDescendants(folder.id);
 
-// ========================================================================================================== //
-// STCM CUSTOM FOLDERS END
-// ========================================================================================================== //
+    // Build list of valid folders
+    const validFolders = allFolders.filter(f => !invalidIds.has(f.id));
+
+    const container = document.createElement('div');
+    container.innerHTML = `
+        <label><b>Choose New Parent Folder</b></label><br>
+        <select style="width:100%;margin:12px 0;" id="stcmMoveFolderSelect">
+            ${validFolders.map(f =>
+                `<option value="${f.id}" ${f.id === 'root' ? 'selected' : ''}>
+                    ${f.name}${f.id === 'root' ? ' (Root)' : ''}
+                </option>`
+            ).join('')}
+        </select>
+        <div style="font-size:0.93em;color:#fa7878;" id="stcmMoveFolderError"></div>
+    `;
+
+    callGenericPopup(container, POPUP_TYPE.CONFIRM, 'Move Folder', {
+        okButton: 'Move Folder',
+        cancelButton: 'Cancel'
+    }).then(async result => {
+        if (result !== POPUP_RESULT.AFFIRMATIVE) return;
+        const select = container.querySelector('#stcmMoveFolderSelect');
+        const newParentId = select.value;
+        if (newParentId === folder.parentId) return; // No change
+        try {
+            await stcmFolders.moveFolder(folder.id, newParentId);
+            rerender();
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
+        } catch (e) {
+            const errDiv = container.querySelector('#stcmMoveFolderError');
+            errDiv.textContent = e.message || "Failed to move folder.";
+        }
+    });
+}
+
+
