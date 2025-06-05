@@ -19,41 +19,21 @@ import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
     renderCharacterList();         // After loading notes
 })();
 
-function parseSearchTerms(raw) {
-    // Split on spaces, except within quotes
-    const matches = raw.match(/(-?[AT]?:?"[^"]+"|-?[AT]?:?\S+)/g) || [];
-    return matches.map(term => {
-        let positive = true, field = 'name', value = term;
-        if (value.startsWith('-')) {
-            positive = false;
-            value = value.slice(1);
-        }
-        if (value.toUpperCase().startsWith('A:')) {
-            field = 'a';
-            value = value.slice(2);
-        } else if (value.toUpperCase().startsWith('T:')) {
-            field = 't';
-            value = value.slice(2);
-        } else if (value.startsWith(':')) {
-            // Edge: :foo is invalid, just treat as name
-            value = value.slice(1);
-        }
-        // Remove quotes
-        value = value.replace(/^"|"$/g, '').trim();
-        return { positive, field, value: value.toLowerCase() };
-    }).filter(t => t.value);
-}
-
-
 function renderCharacterList() {
-    const container = document.getElementById('characterListContainer');
-    if (!container) return;
+    const containerMain = document.getElementById('characterListContainer');
+    if (!containerMain) return;
 
     const wrapper = document.getElementById('characterListWrapper');
     if (!wrapper) return;
-    wrapper.innerHTML = ''; 
+    wrapper.innerHTML = ''; // Wipes all children!
 
-    const tagMapById = buildTagMap(tags);
+    // Always re-create the container!
+    const container = document.createElement('div');
+    container.id = 'characterListContainer';
+    container.className = 'stcm_scroll_300'; // if needed
+    wrapper.appendChild(container);
+
+        const tagMapById = buildTagMap(tags);
 
     const selectedTagIds = Array.from(document.getElementById('assignTagSelect')?.selectedOptions || []).map(opt => opt.value);
     const selectedTagsDisplay = document.getElementById('selectedTagsDisplay');
