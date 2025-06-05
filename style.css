@@ -888,6 +888,19 @@ min-width: 130px;
     gap: 5px;
 }
 
+.stcm-folder-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    max-width: 25px;
+    max-height: 25px;
+
+}
+
 .stcm_folder_name {
     flex: 1 1 0;
     min-width: 0;

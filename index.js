@@ -302,14 +302,6 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     const iconBg = document.createElement('div');
     iconBg.className = 'avatar flex alignitemscenter textAlignCenter stcm-folder-avatar';
     iconBg.style.backgroundColor = folder.color || '#8b2ae6';
-    iconBg.style.color = '#fff'; // You can make this smarter if needed
-    iconBg.style.width = '28px';
-    iconBg.style.height = '28px';
-    iconBg.style.borderRadius = '7px';
-    iconBg.style.display = 'flex';
-    iconBg.style.justifyContent = 'center';
-    iconBg.style.alignItems = 'center';
-    iconBg.style.cursor = 'pointer';
     iconBg.title = 'Change Folder Icon';
 
     const iconEl = document.createElement('span');
