@@ -323,6 +323,19 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     });
     row.appendChild(editBtn);
 
+    const colorBtn = document.createElement('button');
+    colorBtn.className = 'stcm-folder-color-btn stcm_menu_button tiny interactable';
+    colorBtn.innerHTML = '<i class="fa-solid fa-palette"></i>';
+    colorBtn.title = 'Change Folder Color';
+
+    colorBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        showFolderColorPicker(folder, renderFoldersTree);
+    });
+
+    row.appendChild(colorBtn);
+
+
     if (folder.id !== 'root') {
         const delBtn = document.createElement('button');
         delBtn.className = 'stcm-folder-delete-btn stcm_menu_button tiny red interactable';
@@ -2375,28 +2388,9 @@ async function handleNotesImport(importData) {
     }
 }
 
-function renderCharacterCard(char) {
-    const div = document.createElement('div');
-    div.className = 'character-card'; // or whatever your class is
-    div.innerHTML = `
-        <img class="character-avatar" src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">
-        <div class="character-main">
-            <div class="character-title">
-                <span class="character-name">${char.name}</span>
-                <span class="character-version">${char.version || ''}</span>
-            </div>
-            <div class="character-desc">${char.description ? char.description.slice(0, 48) + '…' : ''}</div>
-            <div class="character-tags">
-                ${(char.tags || []).map(t =>
-                    `<span class="character-tag" style="background:${t.color||'#333'};color:${t.color2||'#fff'}">${t.name}</span>`
-                ).join('')}
-            </div>
-        </div>
-    `;
-    return div;
-}
-
-
+// ========================================================================================================== //
+// STCM CUSTOM FOLDERS START
+// ========================================================================================================== //
 function refreshPrivateFolderToggle() {
     const notes = getNotes();
     const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
@@ -2556,6 +2550,26 @@ function getTagsForChar(charId) {
     return tagIds.map(id => tagsById.get(id)).filter(Boolean);
 }
 
+function showFolderColorPicker(folder, rerender) {
+    const container = document.createElement('div');
+    container.innerHTML = `
+        <label>Folder Color:</label>
+        <input type="color" value="${folder.color || '#8b2ae6'}" class="stcm-folder-color-input" style="margin-left: 1em; width: 40px; height: 40px;">
+    `;
+    callGenericPopup(container, POPUP_TYPE.CONFIRM, 'Set Folder Color', {
+        okButton: 'Save Color',
+        cancelButton: 'Cancel'
+    }).then(async result => {
+        if (result !== POPUP_RESULT.AFFIRMATIVE) return;
+        const colorInput = container.querySelector('.stcm-folder-color-input');
+        const color = colorInput.value || '#8b2ae6';
+        // Update folder in storage
+        await stcmFolders.setFolderColor(folder.id, color);
+        rerender();
+        sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(sidebarFolders, characters);
+    });
+}
 
 function renderSidebarCharacterCard(char) {
     // Build character card using standard classes + a custom sidebar marker
@@ -2611,6 +2625,10 @@ function watchSidebarFolderInjection() {
 
     observer.observe(container, { childList: true, subtree: false });
 }
+
+// ========================================================================================================== //
+// STCM CUSTOM FOLDERS END
+// ========================================================================================================== //
 
 eventSource.on(event_types.APP_READY, async () => {
     sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!

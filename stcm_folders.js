@@ -23,7 +23,7 @@ export async function loadFolders() {
         }
     }
     // If no file, or error, create default
-    folders = [ { id: "root", name: "Root", icon: 'fa-folder', parentId: null, children: [], characters: [] } ];
+    folders = [ { id: "root", name: "Root", icon: 'fa-folder', color, parentId: null, children: [], characters: [] } ];
     await saveFolders();
     return folders;
 }
@@ -63,7 +63,7 @@ export function getFolder(id) {
 }
 
 // Add a new folder
-export async function addFolder(name, parentId = "root") {
+export async function addFolder(name, parentId = "root", color = '#8b2ae6') {
     const id = crypto.randomUUID();
     const parent = getFolder(parentId);
     if (!parent || getFolderDepth(parentId) >= 5) throw new Error("Folder depth limit exceeded.");
@@ -71,10 +71,11 @@ export async function addFolder(name, parentId = "root") {
     folders.push({ 
         id, 
         name, 
+        icon: 'fa-folder',
+        color,
         parentId, 
         children: [], 
         characters: [], 
-        icon: 'fa-folder'  // <--- Add this!
     });
     await saveFolders();
     return id;
