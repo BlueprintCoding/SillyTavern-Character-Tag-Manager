@@ -1,4 +1,4 @@
-// index.js - Folder rework
+// stcm_folders_ui.js
 import { 
     debounce, 
     buildTagMap, 
