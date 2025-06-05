@@ -314,8 +314,8 @@ export function confirmDeleteFolder(folder, rerender) {
             if (result !== POPUP_RESULT.AFFIRMATIVE) return;
             await stcmFolders.deleteFolder(folder.id);
             await renderFoldersTree();
-            sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(sidebarFolders, characters);
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
 
             rerender();
         });
