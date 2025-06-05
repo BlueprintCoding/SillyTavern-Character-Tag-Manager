@@ -35,6 +35,19 @@ export function getCharacterAssignedFolder(charId, folders) {
     return folders.find(f => Array.isArray(f.characters) && f.characters.includes(charId));
 }
 
+export function updateFolderCharacterCount(folder) {
+    // Find the span inside the button for this folder
+    const countSpan = document.querySelector(`.folderCharCount[data-folder-id="${folder.id}"]`);
+    if (countSpan) {
+        countSpan.textContent = Array.isArray(folder.characters) ? folder.characters.length : 0;
+    }
+}
+
+export function updateAllFolderCharacterCounts(folders) {
+    folders.forEach(folder => updateFolderCharacterCount(folder));
+}
+
+
 
 export async function assignCharactersToFolder(folderOrId, charIds) {
     // Accept either the folder object or its id

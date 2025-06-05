@@ -389,7 +389,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     const charCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
     const charBtn = document.createElement('button');
     charBtn.className = 'stcm_menu_button tiny stcm_folder_chars_btn interactable';
-    charBtn.innerHTML = `<i class="fa-solid fa-users"></i> Characters (${charCount})`;
+    charBtn.innerHTML = `<i class="fa-solid fa-users"></i> Characters (<span class="folderCharCount" data-folder-id="${folder.id}">${charCount}</span>)`;
     charBtn.title = 'Manage Characters in this Folder';
     charBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -453,7 +453,7 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSel
             assignSelection.delete(charId);
             renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
             renderAssignCharList();
-            // await renderFoldersTree();
+            updateFolderCharacterCount(folder);
             STCM.sidebarFolders = await stcmFolders.loadFolders();
             injectSidebarFolders(STCM.sidebarFolders, characters);
         });
@@ -535,7 +535,7 @@ function showFolderCharactersSection(folder, folders) {
         renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection); 
         assignSelection.clear();
         renderAssignCharList();
-        // await renderFoldersTree();
+        updateFolderCharacterCount(folder);
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
     });
@@ -691,7 +691,7 @@ function showFolderCharactersSection(folder, folders) {
                     if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                     renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                     renderAssignCharList();
-                    // await renderFoldersTree();
+                    updateFolderCharacterCount(folder);
                     STCM.sidebarFolders = await stcmFolders.loadFolders();
                     injectSidebarFolders(STCM.sidebarFolders, characters);
                 });
@@ -734,7 +734,7 @@ function showFolderCharactersSection(folder, folders) {
                 if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                 renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                 renderAssignCharList();
-                // await renderFoldersTree();
+                updateFolderCharacterCount(folder);
                 STCM.sidebarFolders = await stcmFolders.loadFolders();
                 injectSidebarFolders(STCM.sidebarFolders, characters);
             });
