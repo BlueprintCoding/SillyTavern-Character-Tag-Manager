@@ -262,19 +262,53 @@ export function makeFolderNameEditable(span, folder, rerender) {
 
 export function showIconPicker(folder, parentNode, rerender) {
     const icons = [
+        // === Utility/Folders ===
         'fa-folder', 'fa-folder-open', 'fa-archive', 'fa-box', 'fa-boxes-stacked',
-        'fa-book', 'fa-book-bookmark', 'fa-books', 'fa-journal-whills', 'fa-address-book',
-        'fa-users', 'fa-user', 'fa-user-astronaut', 'fa-user-ninja', 'fa-user-gear', 'fa-user-secret',
-        'fa-dice-d20', 'fa-dragon', 'fa-ghost', 'fa-hat-wizard', 'fa-chess-knight',
-        'fa-bolt', 'fa-sun', 'fa-moon', 'fa-star', 'fa-star-half-stroke', 'fa-gem', 'fa-leaf', 'fa-tree',
-        'fa-heart', 'fa-shield', 'fa-shield-halved', 'fa-lock', 'fa-unlock', 'fa-key',
-        'fa-gears', 'fa-screwdriver-wrench', 'fa-flask', 'fa-flask-vial', 'fa-microscope', 'fa-brain', 'fa-lightbulb',
-        'fa-cloud', 'fa-cloud-sun', 'fa-cloud-moon', 'fa-mountain', 'fa-fire', 'fa-ice-cream',
-        'fa-robot', 'fa-rocket', 'fa-wand-magic-sparkles', 'fa-wand-magic', 'fa-spaghetti-monster-flying',
-        'fa-skull', 'fa-skull-crossbones', 'fa-feather', 'fa-feather-pointed', 'fa-anchor', 'fa-compass',
-        'fa-globe', 'fa-map', 'fa-location-dot', 'fa-dungeon', 'fa-tower-cell', 'fa-tower-observation',
-        'fa-chess-rook', 'fa-chess-queen', 'fa-chess-bishop', 'fa-chess-pawn'
+        'fa-book', 'fa-book-bookmark', 'fa-book-skull', 'fa-journal-whills', 'fa-address-book',
+    
+        // === People / Avatars ===
+        'fa-users', 'fa-user', 'fa-user-astronaut', 'fa-user-ninja', 'fa-user-gear', 'fa-user-secret', 'fa-user-nurse', 'fa-person', 'fa-person-dress', 
+    
+        // === Gaming Icons ===
+        'fa-dice-six',            // only one dice
+        'fa-chess-knight', 'fa-chess-rook', 'fa-chess-queen', 'fa-chess-bishop', 'fa-chess-pawn',
+        'fa-chess',               // classic board
+        'fa-gamepad',             // generic gamepad
+        'fa-dungeon', 'fa-dragon', // fantasy
+        'fa-tower-cell', 'fa-tower-observation',
+
+        // === Emoji Icons ===
+        'fa-face-smile', 'fa-face-meh', 'fa-face-frown', 'fa-face-laugh', 'fa-face-surprise',
+        'fa-face-grin', 'fa-face-grin-stars', 'fa-face-grin-beam', 'fa-face-grin-squint',
+        'fa-face-grin-wink', 'fa-face-grin-wide', 'fa-face-grin-tears', 'fa-face-kiss',
+        'fa-face-kiss-wink-heart', 'fa-face-dizzy', 'fa-face-tired', 'fa-face-angry',
+        'fa-face-sad-cry', 'fa-face-sad-tear', 'fa-face-grin-hearts', 'fa-face-grin-tongue',
+        'fa-face-grin-tongue-wink', 'fa-face-grin-tongue-squint', 'fa-face-grin-beam-sweat',
+        
+        // === Halloween Icons ===
+        'fa-ghost', 'fa-hat-wizard', 'fa-skull', 'fa-skull-crossbones', 'fa-spider', 'fa-spaghetti-monster-flying',
+        'fa-broom', 'fa-crow', 'fa-bat', 'fa-cat', 'fa-candy-cane', 'fa-bone', 'fa-pumpkin', 'fa-cauldron', 
+        'fa-mask', 'fa-moon', 'fa-star-half-stroke', 'fa-icicles',
+    
+        // === Animal Icons ===
+        'fa-dog', 'fa-cat', 'fa-crow', 'fa-frog', 'fa-dove', 'fa-otter', 'fa-fish', 'fa-horse', 'fa-spider', 'fa-hippo', 'fa-feather', 'fa-feather-pointed', 'fa-paw', 'fa-dragon', 'fa-dove', 'fa-cow', 'fa-dove', 'fa-bug', 'fa-worm', 'fa-sheep', 'fa-shrimp', 'fa-locust', 'fa-snake', 'fa-elephant',
+    
+        // === Nature / Elements ===
+        'fa-leaf', 'fa-tree', 'fa-mountain', 'fa-fire', 'fa-icicles', 'fa-cloud', 'fa-cloud-sun', 'fa-cloud-moon', 'fa-moon', 'fa-sun', 'fa-gem', 'fa-heart',
+    
+        // === Fantasy / Magic ===
+        'fa-wand-magic', 'fa-wand-magic-sparkles', 'fa-hat-wizard', 'fa-flask', 'fa-flask-vial', 'fa-microscope', 'fa-brain', 'fa-lightbulb',
+    
+        // === Security ===
+        'fa-shield', 'fa-shield-halved', 'fa-lock', 'fa-unlock', 'fa-key',
+    
+        // === Miscellaneous/Science/Tech ===
+        'fa-robot', 'fa-rocket', 'fa-gears', 'fa-screwdriver-wrench', 'fa-anchor', 'fa-compass', 'fa-globe', 'fa-map', 'fa-location-dot',
+    
+        // === Other fun or thematic ===
+        'fa-star', 'fa-bolt', 'fa-broom', 'fa-anchor', 'fa-candy-cane'
     ];
+    
 
     const popup = document.createElement('div');
     popup.className = 'stcm-icon-picker-popup';
