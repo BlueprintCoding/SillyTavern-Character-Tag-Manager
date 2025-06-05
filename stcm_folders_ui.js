@@ -230,6 +230,98 @@ export function watchSidebarFolderInjection() {
     observer.observe(container, { childList: true, subtree: false });
 }
 
+
+export function makeFolderNameEditable(span, folder, rerender) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = folder.name;
+    input.className = 'stcm-folder-name-input menu_input';
+    input.style.width = Math.max(80, span.offsetWidth + 20) + 'px';
+
+    const save = async () => {
+        const val = input.value.trim();
+        if (val && val !== folder.name) {
+            await stcmFolders.renameFolder(folder.id, val);
+            rerender();
+        } else {
+            rerender();
+        }
+    };
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); save(); }
+        if (e.key === 'Escape') rerender();
+    });
+    span.replaceWith(input);
+    input.focus();
+    input.select();
+}
+
+export function showIconPicker(folder, parentNode, rerender) {
+    const icons = [
+        'fa-folder', 'fa-folder-open', 'fa-book', 'fa-users', 'fa-star',
+        'fa-dice-d20', 'fa-dragon', 'fa-heart', 'fa-sun', 'fa-ghost',
+        'fa-user', 'fa-robot', 'fa-hat-wizard', 'fa-chess-knight', 'fa-bolt'
+    ];
+
+    const popup = document.createElement('div');
+    popup.className = 'stcm-icon-picker-popup';
+    popup.style.position = 'absolute';
+    popup.style.background = '#222';
+    popup.style.border = '1px solid #444';
+    popup.style.borderRadius = '8px';
+    popup.style.padding = '8px';
+    popup.style.zIndex = 10000;
+    popup.style.display = 'grid';
+    popup.style.gridTemplateColumns = 'repeat(5, 32px)';
+    popup.style.gap = '8px';
+
+    icons.forEach(ico => {
+        const btn = document.createElement('button');
+        btn.className = 'stcm-icon-btn stcm_menu_button tiny';
+        btn.innerHTML = `<i class="fa-solid ${ico} fa-fw"></i>`;
+        btn.title = ico.replace('fa-', '').replace(/-/g, ' ');
+        btn.addEventListener('click', async () => {
+            await stcmFolders.setFolderIcon(folder.id, ico);
+            rerender();
+            popup.remove();
+        });
+        popup.appendChild(btn);
+    });
+
+    function onClose(e) {
+        if (!popup.contains(e.target)) popup.remove(), document.removeEventListener('mousedown', onClose, true);
+    }
+    setTimeout(() => document.addEventListener('mousedown', onClose, true), 10);
+
+    document.body.appendChild(popup);
+    const rect = parentNode.getBoundingClientRect();
+    popup.style.left = (rect.left + window.scrollX + 60) + "px";
+    popup.style.top = (rect.top + window.scrollY) + "px";
+}
+
+export function confirmDeleteFolder(folder, rerender) {
+    const isEmpty = !folder.children || folder.children.length === 0;
+    const html = document.createElement('div');
+    html.innerHTML = `
+        <h3>Delete Folder?</h3>
+        <p>Are you sure you want to delete <strong>${escapeHtml(folder.name)}</strong>?<br>
+        ${isEmpty ? '' : '<b>This folder is not empty and contains child folders or characters!</b>'}
+        <span style="color:#e57373;">This cannot be undone.</span>
+        </p>`;
+    callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Folder')
+        .then(async result => {
+            if (result !== POPUP_RESULT.AFFIRMATIVE) return;
+            await stcmFolders.deleteFolder(folder.id);
+            await renderFoldersTree();
+            sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(sidebarFolders, characters);
+
+            rerender();
+        });
+}
+
+
 // ========================================================================================================== //
 // STCM CUSTOM FOLDERS END
 // ========================================================================================================== //
