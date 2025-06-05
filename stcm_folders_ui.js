@@ -15,6 +15,9 @@ import {
         characters,
     } from "../../../../script.js";
     
+    import {
+        sidebarFolders 
+    } from "./index.js";
     
     import {
         POPUP_RESULT,
