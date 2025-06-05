@@ -2546,4 +2546,7 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     toastr.success('Selected notes imported!');
 }
 
-export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton, sidebarFolders };
+export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton };
+export const STCM = {
+    sidebarFolders: [],
+};

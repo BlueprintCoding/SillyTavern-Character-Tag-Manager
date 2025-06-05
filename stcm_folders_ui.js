@@ -15,9 +15,7 @@ import {
         characters,
     } from "../../../../script.js";
     
-    import {
-        sidebarFolders 
-    } from "./index.js";
+    import { STCM } from './index.js';
     
     import {
         POPUP_RESULT,
@@ -171,8 +169,8 @@ export function showFolderColorPicker(folder, rerender) {
         const color = colorInput.value || '#8b2ae6';
         await stcmFolders.setFolderColor(folder.id, color); // <--- This should now update and save!
         rerender();
-        sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(sidebarFolders, characters);
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
     });
 }
 
@@ -219,8 +217,8 @@ export function watchSidebarFolderInjection() {
 
     // Avoid reinjecting too rapidly (debounce for performance)
     const debouncedInject = debounce(async () => {
-        sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(sidebarFolders, characters);
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
         lastInjectedAt = Date.now();
     }, 120);
 
