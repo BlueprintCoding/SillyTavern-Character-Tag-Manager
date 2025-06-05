@@ -287,7 +287,8 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     // OUTER NODE (block, indented)
     const node = document.createElement('div');
     node.className = 'stcm_folder_node';
-    node.style.marginLeft = `${depth * 18}px`;
+    node.classList.add(`stcm_depth_${depth}`);
+    node.style.marginLeft = `${depth * 10}px`;
     node.style.marginBottom = '4px';
 
 
