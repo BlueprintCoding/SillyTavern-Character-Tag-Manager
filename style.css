@@ -964,6 +964,11 @@ min-width: 130px;
     border: 1.5px solid #444;
 }
 
+.stcm_folder_disabled {
+    opacity: 0.55;
+    filter: grayscale(0.5);
+}
+
 .stcm_folders_breadcrumb {
     color: var(--SmartThemeBodyColor);
     font-size:.8em;
