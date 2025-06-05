@@ -641,7 +641,7 @@ function showFolderCharactersSection(folder) {
 
         filtered.forEach(char => {
             // Check if assigned to another folder
-            const assignedFolder = getCharacterAssignedFolder(char.avatar, folders);
+            const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
             const isAssignedHere = folder.characters.includes(char.avatar);
             const isAssignedElsewhere = assignedFolder && !isAssignedHere;
         
