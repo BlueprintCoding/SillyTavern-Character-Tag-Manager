@@ -422,7 +422,9 @@ return node;
 
 function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
     let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
+    chipsRow.innerHTML = '';
     if (chipsRow) chipsRow.remove();
+    
 
         // Clean orphan IDs out of folder.characters in-place
         if (Array.isArray(folder.characters)) {
@@ -831,28 +833,32 @@ function showFolderCharactersSection(folder, folders) {
                 const section = document.getElementById(targetId);
                 cleanTagMap();
 
-                // Close all other sections and update their toggles
+                // -- Close all other sections and reset toggles --
                 overlay.querySelectorAll('.accordionContent').forEach(content => {
                     if (content !== section) {
                         content.classList.remove('open');
-                        // Find its toggle and reset arrow
+                        // Find its toggle and set to closed arrow
                         const otherToggle = overlay.querySelector(`.accordionToggle[data-target="${content.id}"]`);
                         if (otherToggle) {
+                            // Remove the leading arrow and add closed
                             otherToggle.innerHTML = `▶ ${otherToggle.textContent.replace(/^.? /, "")}`;
                         }
                     }
                 });
 
-                // Open/close this section and update toggle arrow
+                // -- Toggle open/close this section --
                 const isNowOpen = section.classList.toggle('open');
                 button.innerHTML = `${isNowOpen ? '▼' : '▶'} ${button.textContent.replace(/^.? /, "")}`;
 
-                // Only render if opening (optionally always render if you want)
                 if (isNowOpen && accordionRenderers[targetId]) {
+                    // --- Always clear content before re-rendering ---
+                    section.innerHTML = ""; // Important: Remove old content!
+                    // Now render fresh from latest data
                     accordionRenderers[targetId]();
                 }
             });
         });
+
 
     // Dropdown toggle for Import/Export
     const toggleIE = document.getElementById('toggleImportExport');

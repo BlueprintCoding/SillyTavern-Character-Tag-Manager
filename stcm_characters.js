@@ -49,6 +49,10 @@ function renderCharacterList() {
     const container = document.getElementById('characterListContainer');
     if (!container) return;
 
+    const wrapper = document.getElementById('characterListWrapper');
+    if (!wrapper) return;
+    wrapper.innerHTML = ''; 
+
     const tagMapById = buildTagMap(tags);
 
     const selectedTagIds = Array.from(document.getElementById('assignTagSelect')?.selectedOptions || []).map(opt => opt.value);
