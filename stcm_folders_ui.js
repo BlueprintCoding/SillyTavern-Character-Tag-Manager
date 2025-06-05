@@ -16,7 +16,7 @@ import {
         characters,
     } from "../../../../script.js";
     
-    import { STCM, renderFoldersTree } from './index.js';
+    import { STCM } from './index.js';
     
     import {
         POPUP_RESULT,
