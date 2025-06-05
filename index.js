@@ -457,11 +457,9 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList) {
         remove.innerHTML = '&#10005;';
         remove.addEventListener('click', async () => {
             await stcmFolders.removeCharacterFromFolder(folder, charId);
-            // Remove from folder.characters in-place
             const idx = folder.characters.indexOf(charId);
             if (idx !== -1) folder.characters.splice(idx, 1);
-            // Also clear from assignSelection if present
-            assignSelection.delete(charId);
+            assignSelection.delete(charId); // In case it was selected in assign list
             renderAssignedChipsRow(folder, section, renderAssignCharList);
             renderAssignCharList();
         });
@@ -695,9 +693,11 @@ function showFolderCharactersSection(folder) {
             assignOneBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 await stcmFolders.assignCharactersToFolder(folder, [char.avatar]);
-                showFolderCharactersSection(folder);
-                renderFoldersTree();
+                if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
+                renderAssignedChipsRow(folder, section, renderAssignCharList);
+                renderAssignCharList();
             });
+            
             left.appendChild(assignOneBtn);
 
             li.appendChild(left);
