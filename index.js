@@ -387,7 +387,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     const charCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
     const charBtn = document.createElement('button');
     charBtn.className = 'stcm_menu_button tiny stcm_folder_chars_btn interactable';
-    charBtn.innerHTML = `<i class="fa-solid fa-users"></i> Characters${charCount ? ' (' + charCount + ')' : ''}`;
+    charBtn.innerHTML = `<i class="fa-solid fa-users"></i> Characters (${charCount})`;
     charBtn.title = 'Manage Characters in this Folder';
     charBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -395,7 +395,6 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     });
     row.appendChild(charBtn);
     
-
 
     // Append the folder row to the node
     node.appendChild(row);
