@@ -886,6 +886,18 @@ min-width: 130px;
     color: var(--ac-style-color-text, #fff);
 }
 
+.stcm_folder_main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.stcm_folder_counts {
+    text-align: right;
+    margin-left: 20px;
+}
+
 .sidebar-folder-character {
     display: flex;
     align-items: center;
