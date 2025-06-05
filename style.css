@@ -891,8 +891,16 @@ min-width: 130px;
     align-items: center;
     justify-content: space-between;
     width: 100%;
+    min-width: 0;  /* prevents overflow/wrapping issues */
 }
-
+.stcm_folder_name {
+    flex-grow: 1;
+    min-width: 0;
+    /* optional: ellipsis if name too long */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .stcm_folder_counts {
     text-align: right;
     margin-left: 20px;

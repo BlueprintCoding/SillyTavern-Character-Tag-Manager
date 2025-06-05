@@ -2506,8 +2506,8 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
                 <i class="bogus_folder_icon fa-solid fa-xl ${child.icon || 'fa-folder-open'}"></i>
             </div>
             <div class="stcm_folder_main flex wide100p" style="align-items: center; justify-content: space-between;">
-                <span class="ch_name" title="[Folder] ${child.name}">${child.name}</span>
-                <div class="stcm_folder_counts" style="text-align: right; margin-left: 20px;">
+                 <span class="ch_name stcm_folder_name" title="[Folder] ${child.name}">${child.name}</span>
+                 <div class="stcm_folder_counts" style="text-align: right; margin-left: 20px;">
                     <div style="font-size: 1.18em; font-weight: bold;">${charCount} Character${charCount === 1 ? '' : 's'}</div>
                     <div style="font-size: 0.95em; opacity: 0.7;">${folderCount} folder${folderCount === 1 ? '' : 's'}</div>
                 </div>
