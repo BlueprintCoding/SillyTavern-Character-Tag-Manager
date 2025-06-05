@@ -519,6 +519,13 @@ function showFolderCharactersSection(folder, folders) {
     let folderCharSortMode = 'alpha_asc';
     let folderCharSearchTerm = '';
 
+    // Ensure input is cleared and state matches UI!
+    setTimeout(() => {
+        const searchInput = document.getElementById('folderCharSearchInput');
+        if (searchInput) searchInput.value = '';
+    }, 0);
+
+
     const sortFilterRow = document.createElement('div');
     sortFilterRow.className = 'stcm_sort_row stcm_folder_assign_sort_row';
     sortFilterRow.style.alignItems = 'center';
