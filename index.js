@@ -21,6 +21,7 @@ applyPrivateFolderVisibility,
 watchCharacterBlockMutations,
 watchTagFilterBar,
 hidePrivateTagsInFilterBar,
+promptInput
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
@@ -242,7 +243,7 @@ const createFolderBtn = document.getElementById('createNewFolderBtn');
 
 if (createFolderBtn) {
     createFolderBtn.addEventListener('click', async () => {
-        const name = prompt('Folder name:');
+        const name = await promptInput({ label: 'Enter folder name:', title: 'New Folder', ok: 'Create', cancel: 'Cancel', initial: '' });
         if (!name || !name.trim()) return;
         try {
             // Add to root for now; you’ll add "add-to-any-folder" soon
@@ -373,7 +374,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         addBtn.title = 'Add Subfolder';
         addBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            const subName = prompt('Subfolder name:');
+            const subName = await promptInput({ label: 'Enter sub-folder name:', title: 'New Sub-Folder', ok: 'Create', cancel: 'Cancel', initial: '' });
             if (!subName || !subName.trim()) return;
             try {
                 await stcmFolders.addFolder(subName.trim(), folder.id);

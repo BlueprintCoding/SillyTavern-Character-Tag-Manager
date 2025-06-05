@@ -588,6 +588,34 @@ function hidePrivateTagsInFilterBar() {
 }
 
 
+async function promptInput({ label, title = 'Input', ok = 'OK', cancel = 'Cancel', initial = '' }) {
+    return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = initial;
+        input.className = 'menu_input';
+        input.style.width = '100%';
+
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(document.createTextNode(label));
+        wrapper.appendChild(document.createElement('br'));
+        wrapper.appendChild(input);
+
+        callGenericPopup(wrapper, POPUP_TYPE.CONFIRM, title, {
+            okButton: ok,
+            cancelButton: cancel
+        }).then((result) => {
+            if (result === POPUP_RESULT.AFFIRMATIVE) {
+                resolve(input.value.trim());
+            } else {
+                resolve(null);
+            }
+        });
+        setTimeout(() => input.focus(), 50);
+    });
+}
+
+
 export { 
 debounce, 
 debouncePersist, 
@@ -612,5 +640,6 @@ injectPrivateFolderToggle,
 watchCharacterBlockMutations,
 watchTagFilterBar,
 hashPin,
-hidePrivateTagsInFilterBar
+hidePrivateTagsInFilterBar,
+promptInput
 };
