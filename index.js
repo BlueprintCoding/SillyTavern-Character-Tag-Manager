@@ -428,41 +428,14 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 }
 return node;
 }
+function renderAssignedChipsRow(folder, section, renderAssignCharList) {
+    let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
+    if (chipsRow) chipsRow.remove();
 
-function showFolderCharactersSection(folder) {
-    const section = document.getElementById('folderCharactersSection');
-    section.innerHTML = '';
-
-    // Create the close button
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'stcm_folder_chars_close_btn stcm_menu_button';
-    closeBtn.title = 'Close';
-    
-    const icon = document.createElement('i');
-    icon.className = 'fa-solid fa-xmark'; // or 'fa fa-times' for FA4/5
-    closeBtn.appendChild(icon);
-
-    // Click: clear and hide section
-    closeBtn.onclick = () => {
-        section.innerHTML = '';
-        section.style.display = 'none';
-    };
-
-    section.style.position = 'relative'; // Ensure positioning works
-    section.style.display = 'block';     // Show section
-
-    section.appendChild(closeBtn);
-
-    // --- Header
-    const header = document.createElement('div');
-    header.className = 'stcm_folder_chars_header';
-    header.innerHTML = `<h3>Folder: ${escapeHtml(folder.name)}</h3>`;
-    section.appendChild(header);
-
-    // --- Chips for currently assigned characters (with avatar, remove)
-    const chipsRow = document.createElement('div');
+    chipsRow = document.createElement('div');
     chipsRow.className = 'stcm_folder_chars_chips_row';
     const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
+
     assignedIds.forEach(charId => {
         const char = characters.find(c => c.avatar === charId);
         if (!char) return;
@@ -484,31 +457,63 @@ function showFolderCharactersSection(folder) {
         remove.innerHTML = '&#10005;';
         remove.addEventListener('click', async () => {
             await stcmFolders.removeCharacterFromFolder(folder, charId);
-            STCM.sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(STCM.sidebarFolders, characters);
-            showFolderCharactersSection(folder);
-            renderFoldersTree();
+            // Remove from folder.characters in-place
+            const idx = folder.characters.indexOf(charId);
+            if (idx !== -1) folder.characters.splice(idx, 1);
+            // Also clear from assignSelection if present
+            assignSelection.delete(charId);
+            renderAssignedChipsRow(folder, section, renderAssignCharList);
+            renderAssignCharList();
         });
 
         chip.appendChild(remove);
         chipsRow.appendChild(chip);
     });
-    section.appendChild(chipsRow);
 
-    // --- Assign character controls
+    // Insert after close button and header
+    const insertIndex = 2;
+    if (section.children.length > insertIndex) {
+        section.insertBefore(chipsRow, section.children[insertIndex]);
+    } else {
+        section.appendChild(chipsRow);
+    }
+}
+
+function showFolderCharactersSection(folder) {
+    const section = document.getElementById('folderCharactersSection');
+    section.innerHTML = '';
+    section.style.position = 'relative';
+    section.style.display = 'block';
+
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'stcm_folder_chars_close_btn stcm_menu_button';
+    closeBtn.title = 'Close';
+    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    closeBtn.onclick = () => {
+        section.innerHTML = '';
+        section.style.display = 'none';
+    };
+    section.appendChild(closeBtn);
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'stcm_folder_chars_header';
+    header.innerHTML = `<h3>Folder: ${escapeHtml(folder.name)}</h3>`;
+    section.appendChild(header);
+
+    // Chips row, updated after assign/unassign
     let assignSelection = new Set();
-    const unassignedCharacters = characters.filter(c => !assignedIds.includes(c.avatar));
+    const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
 
-    // --- Sort/filter state for this folder
+    // --- Character List Setup ---
     let folderCharSortMode = 'alpha_asc';
     let folderCharSearchTerm = '';
 
-    // --- Sort/filter UI (with Assign button and hint) ---
     const sortFilterRow = document.createElement('div');
     sortFilterRow.className = 'stcm_sort_row stcm_folder_assign_sort_row';
-    sortFilterRow.style.alignItems = 'center'; // for vertical alignment
-    sortFilterRow.style.gap = '10px'; // optional: flex gap for spacing
-
+    sortFilterRow.style.alignItems = 'center';
+    sortFilterRow.style.gap = '10px';
     sortFilterRow.innerHTML = `
         <span>SORT</span>
         <select id="folderCharSortMode" class="stcm_menu_button interactable" style="min-width:110px;">
@@ -522,8 +527,7 @@ function showFolderCharactersSection(folder) {
         <input type="text" id="folderCharSearchInput" class="menu_input stcm_fullwidth_input" 
             placeholder="Search characters/groups..." style="min-width:140px;">
     `;
-
-    // --- Assignment button (now IN the same row) ---
+    // Assignment button
     const assignBtn = document.createElement('button');
     assignBtn.className = 'stcm_menu_button small assignCharsFolders';
     assignBtn.textContent = 'Assign Selected';
@@ -533,18 +537,17 @@ function showFolderCharactersSection(folder) {
             return;
         }
         await stcmFolders.assignCharactersToFolder(folder, Array.from(assignSelection));
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
-        showFolderCharactersSection(folder);
-        renderFoldersTree();
+        for (const charId of assignSelection) {
+            if (!folder.characters.includes(charId)) folder.characters.push(charId);
+        }
+        assignSelection.clear();
+        renderAssignedChipsRow(folder, section, renderAssignCharList);
+        renderAssignCharList();
     });
-    // Add button to row
     sortFilterRow.appendChild(assignBtn);
-
-    // Add the row to section
     section.appendChild(sortFilterRow);
 
-    // --- Search hint below the row ---
+    // Search hint
     const searchHint = document.createElement('span');
     searchHint.className = "smallInstructions";
     searchHint.style.display = 'block';
@@ -552,7 +555,7 @@ function showFolderCharactersSection(folder) {
     searchHint.innerHTML = `Search by character name, or use "<b>A:</b>" to search all fields, "<b>T:</b>" for tag, <b>,</b> for OR, <b>-</b> for NOT.`;
     section.appendChild(searchHint);
 
-    // --- Character list container
+    // Assignable character list
     const charList = document.createElement('ul');
     charList.className = 'charList stcm_folder_assign_charList';
     section.appendChild(charList);
@@ -597,6 +600,7 @@ function showFolderCharactersSection(folder) {
     function renderAssignCharList() {
         charList.innerHTML = '';
         // Advanced search: comma = OR, space = AND, minus = NOT
+        let unassignedCharacters = characters.filter(c => !folder.characters.includes(c.avatar));
         let filtered = unassignedCharacters;
 
         // Parse search terms
@@ -721,7 +725,8 @@ function showFolderCharactersSection(folder) {
         });
     }
 
-    // --- Attach event listeners
+
+    // Attach event listeners
     sortFilterRow.querySelector('#folderCharSortMode').addEventListener('change', (e) => {
         folderCharSortMode = e.target.value;
         renderAssignCharList();
@@ -731,7 +736,7 @@ function showFolderCharactersSection(folder) {
         renderAssignCharList();
     }));
 
-    // --- Initial render
+    renderAssignedChipsRow(folder, section, renderAssignCharList);
     renderAssignCharList();
 }
 
