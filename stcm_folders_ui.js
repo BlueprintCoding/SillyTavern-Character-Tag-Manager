@@ -287,11 +287,11 @@ export function showIconPicker(folder, parentNode, rerender) {
         
         // === Halloween Icons ===
         'fa-ghost', 'fa-hat-wizard', 'fa-skull', 'fa-skull-crossbones', 'fa-spider', 'fa-spaghetti-monster-flying',
-        'fa-broom', 'fa-crow', 'fa-bat', 'fa-cat', 'fa-candy-cane', 'fa-bone', 'fa-pumpkin', 'fa-cauldron', 
-        'fa-mask', 'fa-moon', 'fa-star-half-stroke', 'fa-icicles',
+        'fa-broom', 'fa-candy-cane', 'fa-bone', 'fa-mask', 'fa-moon', 'fa-star-half-stroke', 'fa-icicles',
     
         // === Animal Icons ===
-        'fa-dog', 'fa-cat', 'fa-crow', 'fa-frog', 'fa-dove', 'fa-otter', 'fa-fish', 'fa-horse', 'fa-spider', 'fa-hippo', 'fa-feather', 'fa-feather-pointed', 'fa-paw', 'fa-dragon', 'fa-dove', 'fa-cow', 'fa-dove', 'fa-bug', 'fa-worm', 'fa-sheep', 'fa-shrimp', 'fa-locust', 'fa-snake', 'fa-elephant',
+        'fa-dog', 'fa-cat', 'fa-crow', 'fa-frog', 'fa-dove', 'fa-otter', 'fa-fish', 'fa-horse', 'fa-spider', 'fa-hippo', 'fa-feather', 'fa-feather-pointed', 'fa-paw', 
+        'fa-dragon', 'fa-dove', 'fa-cow', 'fa-dove', 'fa-bug', 'fa-worm', 'fa-shrimp',
     
         // === Nature / Elements ===
         'fa-leaf', 'fa-tree', 'fa-mountain', 'fa-fire', 'fa-icicles', 'fa-cloud', 'fa-cloud-sun', 'fa-cloud-moon', 'fa-moon', 'fa-sun', 'fa-gem', 'fa-heart',
@@ -341,7 +341,7 @@ export function showIconPicker(folder, parentNode, rerender) {
     // --- Icon grid ---
     const grid = document.createElement('div');
     grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(7, 32px)';
+    grid.style.gridTemplateColumns = 'repeat(11, 32px)';
     grid.style.gap = '8px';
 
     icons.forEach(ico => {

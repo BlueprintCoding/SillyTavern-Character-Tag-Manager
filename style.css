@@ -970,7 +970,13 @@ min-width: 130px;
     font-weight: bold;
     opacity: 0.7;
 }
+.stcm-icon-grid {
+    overflow-y: scroll;
+}
 
+.stcm-icon-picker-popup .stcm-icon-btn {
+    font-size: 1em!important;
+}
 
 /* === Merge Tag Buttons/States === */
 #cancelMergeTags {
