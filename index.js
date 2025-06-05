@@ -640,16 +640,69 @@ function showFolderCharactersSection(folder) {
         }
 
         filtered.forEach(char => {
+            // Check if assigned to another folder
+            const assignedFolder = getCharacterAssignedFolder(char.avatar, folders);
+            const isAssignedHere = folder.characters.includes(char.avatar);
+            const isAssignedElsewhere = assignedFolder && !isAssignedHere;
+        
             const li = document.createElement('li');
             li.style.display = 'flex';
             li.style.alignItems = 'center';
             li.style.gap = '1em';
-
+        
             const left = document.createElement('div');
             left.style.display = 'flex';
             left.style.alignItems = 'center';
             left.style.gap = '8px';
-
+        
+            // Avatar + name
+            const img = document.createElement('img');
+            img.className = 'stcm_avatar_thumb';
+            img.src = char.avatar ? `/characters/${char.avatar}` : 'img/ai4.png';
+            img.alt = char.name;
+            img.onerror = () => img.src = 'img/ai4.png';
+            left.appendChild(img);
+        
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'charName';
+            nameSpan.textContent = char.name;
+            left.appendChild(nameSpan);
+        
+            if (isAssignedElsewhere) {
+                li.style.opacity = '0.6';
+                li.title = `Already assigned to "${assignedFolder.name}"`;
+        
+                // Text label
+                const assignedLabel = document.createElement('span');
+                assignedLabel.style.fontStyle = 'italic';
+                assignedLabel.style.color = '#ccc';
+                assignedLabel.textContent = `Already assigned to '${assignedFolder.name}'`;
+                left.appendChild(assignedLabel);
+        
+                // "Reassign here" button
+                const reassignBtn = document.createElement('button');
+                reassignBtn.className = 'stcm_menu_button tiny';
+                reassignBtn.textContent = 'Reassign here';
+                reassignBtn.title = `Remove from "${assignedFolder.name}" and assign here`;
+                reassignBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await stcmFolders.assignCharactersToFolder(folder, [char.avatar]);
+                    // Update local view
+                    if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
+                    renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
+                    renderAssignCharList();
+                    await renderFoldersTree();
+                    STCM.sidebarFolders = await stcmFolders.loadFolders();
+                    injectSidebarFolders(STCM.sidebarFolders, characters);
+                });
+                left.appendChild(reassignBtn);
+        
+                li.appendChild(left);
+                charList.appendChild(li);
+                return;
+            }
+        
+            // Otherwise: normal assign controls
             // Checkbox
             const label = document.createElement('label');
             label.className = 'customCheckboxWrapper';
@@ -663,26 +716,14 @@ function showFolderCharactersSection(folder) {
                 else assignSelection.delete(char.avatar);
             });
             label.appendChild(checkbox);
-
+        
             const checkmark = document.createElement('span');
             checkmark.className = 'customCheckbox';
             label.appendChild(checkmark);
-
-            left.appendChild(label);
-
-            // Avatar + name + assign one
-            const img = document.createElement('img');
-            img.className = 'stcm_avatar_thumb';
-            img.src = char.avatar ? `/characters/${char.avatar}` : 'img/ai4.png';
-            img.alt = char.name;
-            img.onerror = () => img.src = 'img/ai4.png';
-            left.appendChild(img);
-
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'charName';
-            nameSpan.textContent = char.name;
-            left.appendChild(nameSpan);
-
+        
+            left.insertBefore(label, img);
+        
+            // Assign one button
             const assignOneBtn = document.createElement('button');
             assignOneBtn.className = 'stcm_menu_button tiny assignCharsFoldersSmall';
             assignOneBtn.textContent = '+';
@@ -697,12 +738,12 @@ function showFolderCharactersSection(folder) {
                 STCM.sidebarFolders = await stcmFolders.loadFolders();
                 injectSidebarFolders(STCM.sidebarFolders, characters);
             });
-            
+        
             left.appendChild(assignOneBtn);
-
+        
             li.appendChild(left);
-
-            // Tag chips
+        
+            // Tag chips (as before)
             const tagListWrapper = document.createElement('div');
             tagListWrapper.className = 'assignedTagsWrapper';
             const tagMapById = buildTagMap(tags);
@@ -720,10 +761,12 @@ function showFolderCharactersSection(folder) {
                 tagListWrapper.appendChild(tagBox);
             });
             li.appendChild(tagListWrapper);
-
+        
             charList.appendChild(li);
         });
+        
     }
+
 
 
     // Attach event listeners

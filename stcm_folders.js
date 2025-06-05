@@ -31,6 +31,11 @@ export async function loadFolders() {
     return folders;
 }
 
+export function getCharacterAssignedFolder(charId, folders) {
+    return folders.find(f => Array.isArray(f.characters) && f.characters.includes(charId));
+}
+
+
 export async function assignCharactersToFolder(folderOrId, charIds) {
     // Accept either the folder object or its id
     let id = typeof folderOrId === 'object' ? folderOrId.id : folderOrId;
@@ -38,7 +43,16 @@ export async function assignCharactersToFolder(folderOrId, charIds) {
     const folder = folders.find(f => f.id === id);
     if (!folder) throw new Error('Folder not found');
     if (!Array.isArray(folder.characters)) folder.characters = [];
+
+    // Remove each charId from all other folders first
     for (const charId of charIds) {
+        for (const f of folders) {
+            if (f !== folder && Array.isArray(f.characters)) {
+                const idx = f.characters.indexOf(charId);
+                if (idx !== -1) f.characters.splice(idx, 1);
+            }
+        }
+        // Then add to the target folder if not present
         if (!folder.characters.includes(charId)) {
             folder.characters.push(charId);
         }
