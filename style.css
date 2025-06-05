@@ -1056,6 +1056,10 @@ min-width: 130px;
     z-index: 9999 !important;
 }
 
+.stcm_generic_toast_input {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: #fff;
+}
 
 .stcm_custom-add-tag-popup .newTagName {
     background-color: rgba(255, 255, 255, 0.04);

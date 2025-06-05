@@ -593,7 +593,7 @@ async function promptInput({ label, title = 'Input', ok = 'OK', cancel = 'Cancel
         const input = document.createElement('input');
         input.type = 'text';
         input.value = initial;
-        input.className = 'menu_input';
+        input.className = 'menu_input stcm_generic_toast_input';
         input.style.width = '100%';
 
         const wrapper = document.createElement('div');
