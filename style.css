@@ -748,7 +748,17 @@
 
 /* === STCM Custom Folders === */
 
+.stcm_folder_chars_close_btn {
+    position: absolute;
+    top: 8px;
+    right: 8px; 
+    background-color: #d9534f;
+    color: white;  
+}
 
+.stcm_folder_chars_close_btn i {
+    margin-right: 0px !important;
+}
 
 .stcm_folder_node {
     margin: 2px 0 4px 0;
