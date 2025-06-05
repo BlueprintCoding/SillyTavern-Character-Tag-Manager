@@ -27,6 +27,7 @@ import * as stcmFolders from './stcm_folders.js';
 import {
     watchSidebarFolderInjection,
     injectSidebarFolders,
+    showFolderColorPicker 
 } from './stcm_folders_ui.js';
 
 
