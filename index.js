@@ -423,7 +423,7 @@ function showFolderCharactersSection(folder) {
 
     // Create the close button
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'stcm_folder_chars_close_btn';
+    closeBtn.className = 'stcm_folder_chars_close_btn stcm_menu_button';
     closeBtn.title = 'Close';
     
     const icon = document.createElement('i');
