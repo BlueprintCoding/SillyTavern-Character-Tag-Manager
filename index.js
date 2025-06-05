@@ -450,10 +450,10 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSel
             await stcmFolders.removeCharacterFromFolder(folder, charId);
             const idx = folder.characters.indexOf(charId);
             if (idx !== -1) folder.characters.splice(idx, 1);
-            assignSelection.delete(charId); // <--- now assignSelection is defined!
+            assignSelection.delete(charId);
             renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
             renderAssignCharList();
-            await renderFoldersTree();
+            // await renderFoldersTree();
             STCM.sidebarFolders = await stcmFolders.loadFolders();
             injectSidebarFolders(STCM.sidebarFolders, characters);
         });
@@ -535,7 +535,7 @@ function showFolderCharactersSection(folder, folders) {
         renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection); 
         assignSelection.clear();
         renderAssignCharList();
-        await renderFoldersTree();
+        // await renderFoldersTree();
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
     });
@@ -691,7 +691,7 @@ function showFolderCharactersSection(folder, folders) {
                     if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                     renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                     renderAssignCharList();
-                    await renderFoldersTree();
+                    // await renderFoldersTree();
                     STCM.sidebarFolders = await stcmFolders.loadFolders();
                     injectSidebarFolders(STCM.sidebarFolders, characters);
                 });
@@ -734,7 +734,7 @@ function showFolderCharactersSection(folder, folders) {
                 if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                 renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                 renderAssignCharList();
-                await renderFoldersTree();
+                // await renderFoldersTree();
                 STCM.sidebarFolders = await stcmFolders.loadFolders();
                 injectSidebarFolders(STCM.sidebarFolders, characters);
             });
