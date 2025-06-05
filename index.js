@@ -15,12 +15,6 @@ buildCharNameMap,
 cleanTagMap,
 buildTagMap, 
 getFolderTypeForUI, 
-mutateBogusFolderIcons, 
-injectPrivateFolderToggle, 
-applyPrivateFolderVisibility,
-watchCharacterBlockMutations,
-watchTagFilterBar,
-hidePrivateTagsInFilterBar,
 promptInput
 } from './utils.js';
 
@@ -107,7 +101,6 @@ function openCharacterTagManagerModal() {
                         <option value="no_folder">No Folder Tags</option>
                         <option value="open_folder">Open Folder Tags</option>
                         <option value="closed_folder">Closed Folder Tags</option>
-                        <option value="private_folder">Private Folder Tags</option>
                     </select>
                                         <input type="text" id="tagSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search tags..." />                   
                 </div>
@@ -918,11 +911,6 @@ function showFolderCharactersSection(folder, folders) {
             const index = tags.findIndex(t => t.id === tagId);
             if (index !== -1) tags.splice(index, 1);
         }
-        for (const tagId of selectedBulkDeleteTags) {
-            if (notes.tagPrivate && notes.tagPrivate[tagId]) {
-                delete notes.tagPrivate[tagId];
-            }
-        }
 
         saveNotes(notes);
         toastr.success(`Deleted ${selectedBulkDeleteTags.size} tag(s): ${tagNames.join(', ')}`, 'Bulk Delete');
@@ -1503,15 +1491,6 @@ function showFolderCharactersSection(folder, folders) {
 
 }
 
-const privateTagIds = new Set(/* array of private tag ids */);
-watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState);
-
-
-
-function getCurrentVisibilityState() {
-    // Get current state (0, 1, 2) from localStorage, or from your UI
-    return Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
-}
 
 
 
@@ -1718,7 +1697,6 @@ function renderCharacterTagData() {
     function getFolderType(tag) {
         if (!tag || typeof tag.folder_type !== 'string') return 'NONE';
         const ft = tag.folder_type.toUpperCase();
-        if (ft === 'CLOSED' && notes.tagPrivate && notes.tagPrivate[tag.id]) return 'PRIVATE';
         if (['NONE','OPEN','CLOSED'].includes(ft)) return ft;
         return 'NONE';
     }
@@ -1735,7 +1713,6 @@ function renderCharacterTagData() {
         if (sortMode === 'no_folder' && getFolderType(group.tag) !== 'NONE') return false;
         if (sortMode === 'open_folder' && getFolderType(group.tag) !== 'OPEN') return false;
         if (sortMode === 'closed_folder' && getFolderType(group.tag) !== 'CLOSED') return false;
-        if (sortMode === 'private_folder' && getFolderType(group.tag) !== 'PRIVATE') return false;
         if (sortMode === 'only_zero' && group.charIds.length > 0) return false;
 
         // --- Comma search: OR logic ---
@@ -1770,7 +1747,6 @@ function renderCharacterTagData() {
             sortMode === 'no_folder' ||
             sortMode === 'open_folder' ||
             sortMode === 'closed_folder' ||
-            sortMode === 'private_folder' ||
             sortMode === 'only_zero'
         ) {
             return a.tag.name.localeCompare(b.tag.name);
@@ -1858,12 +1834,6 @@ function renderCharacterTagData() {
                 label: 'Closed Folder',
                 icon: 'fa-folder-closed',
                 tooltip: 'Closed Folder (Hide all characters unless selected)'
-            },
-            {
-                value: 'PRIVATE',
-                label: 'Private Folder',
-                icon: 'fa-user-lock',
-                tooltip: 'Private Folder (Visible only to you; not shared or exported unless specified)'
             }
         ];
 
@@ -1892,16 +1862,7 @@ function renderCharacterTagData() {
             opt.innerHTML = `<i class="fa-solid ${ft.icon}" style="margin-right: 6px;"></i> ${ft.label}`;
             opt.title = ft.tooltip;
             opt.addEventListener('click', () => {
-                if (ft.value === "PRIVATE") {
-                    group.tag.folder_type = "CLOSED";
-                    if (!notes.tagPrivate) notes.tagPrivate = {};
-                    notes.tagPrivate[group.tag.id] = true;
-                } else {
                     group.tag.folder_type = ft.value;
-                    if (notes.tagPrivate && notes.tagPrivate[group.tag.id]) {
-                        delete notes.tagPrivate[group.tag.id];
-                    }
-                }
                 saveNotes(notes);
                 debouncePersist();
                 folderSelected.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
@@ -2125,7 +2086,6 @@ function showFolderInfoPopup(anchorEl) {
             <li><b>No Folder:</b> Tag behaves as a regular label, no grouping.</li>
             <li><b>Open Folder:</b> Tag acts as a folder. All characters with this tag are always visible and grouped together.</li>
             <li><b>Closed Folder:</b> Tag acts as a collapsed folder. Characters with this tag are hidden unless you open this folder.</li>
-            <li><b>Private Folder:</b> <span style="color:#c77600;">Visible only to you; not exported/shared unless explicitly selected. (Only works with this extension)</span></li>
         </ul>
         <div style="margin-top: 8px; font-size: 0.95em;">
             <em>You can assign multiple folders per character, and folders can be stacked!</em>
@@ -2250,11 +2210,6 @@ function confirmDeleteTag(tag) {
             }
         }
 
-        const notes = getNotes();
-        if (notes.tagPrivate && notes.tagPrivate[tag.id]) {
-            delete notes.tagPrivate[tag.id];
-            saveNotes(notes);
-        }
 
         const index = tags.findIndex(t => t.id === tag.id);
         if (index !== -1) tags.splice(index, 1);
@@ -2268,7 +2223,6 @@ function confirmDeleteTag(tag) {
 
 async function callSaveandReload() {
     cleanTagMap();
-    updatePrivateFolderObservers();
     saveSettingsDebounced();
     await getCharacters();
     await printCharactersDebounced();
@@ -2370,7 +2324,6 @@ function exportTagCharacterNotes() {
     // Only keep tagNotes and charNotes for the export
     const exportData = {
         tagNotes: notes.tagNotes || {},
-        tagPrivate: notes.tagPrivate || {},
         charNotes: notes.charNotes || {}
     };
     const json = JSON.stringify(exportData, null, 2);
@@ -2390,11 +2343,10 @@ async function handleNotesImport(importData) {
     }
     const notes = getNotes ? getNotes() : {};
     const tagNotes = notes.tagNotes || {};
-    const tagPrivate = notes.tagPrivate || {};
     const charNotes = notes.charNotes || {};
 
     let conflicts = [];
-    let newNotes = { tagNotes: {}, tagPrivate: {}, charNotes: {} };
+    let newNotes = { tagNotes: {}, charNotes: {} };
 
     // Tags notes
     for (const [tagId, note] of Object.entries(importData.tagNotes || {})) {
@@ -2407,16 +2359,6 @@ async function handleNotesImport(importData) {
         }
     }
 
-    // Tags (Private flags)
-    for (const [tagId, isPrivate] of Object.entries(importData.tagPrivate || {})) {
-        if (tags.find(t => t.id === tagId)) {
-            // Only set if not already set, or to preserve a new import as True
-            // You could also show a conflict dialog here if you want
-            if (!tagPrivate[tagId] || isPrivate === true) {
-                newNotes.tagPrivate[tagId] = isPrivate;
-            }
-        }
-    }
 
     // Characters (robust match: avatar, avatar basename, and optionally name)
     for (const [importKey, note] of Object.entries(importData.charNotes || {})) {
@@ -2450,8 +2392,7 @@ async function handleNotesImport(importData) {
         // Apply new notes
         Object.assign(tagNotes, newNotes.tagNotes);
         Object.assign(charNotes, newNotes.charNotes);
-        Object.assign(tagPrivate, newNotes.tagPrivate);  // <-- Merge private flags
-        saveNotes({ ...notes, tagNotes, charNotes, tagPrivate }); // <-- Save with tagPrivate
+        saveNotes({ ...notes, tagNotes, charNotes }); 
         await debouncePersist();
         renderCharacterList();
         renderCharacterTagData();
@@ -2462,33 +2403,6 @@ async function handleNotesImport(importData) {
 // ========================================================================================================== //
 // STCM CUSTOM FOLDERS START
 // ========================================================================================================== //
-function refreshPrivateFolderToggle() {
-    const notes = getNotes();
-    const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
-    mutateBogusFolderIcons(privateIds);
-
-    // Set up the toggle if there are private folders
-    injectPrivateFolderToggle(privateIds, (state) => {
-        applyPrivateFolderVisibility(state, privateIds);
-        hidePrivateTagsInFilterBar();
-    });
-
-    // Optionally, set visibility on load (if persisting state)
-    const savedState = Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
-    applyPrivateFolderVisibility(savedState, privateIds);
-    hidePrivateTagsInFilterBar();
-}
-
-function updatePrivateFolderObservers() {
-    refreshPrivateFolderToggle();
-    const notes = getNotes();
-    const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
-    watchTagFilterBar(privateTagIds, (state) => {
-        applyPrivateFolderVisibility(state, privateTagIds);
-        hidePrivateTagsInFilterBar();
-    });
-    watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState); // If you use this for folder icon/char blocks too
-}
 
 
 eventSource.on(event_types.APP_READY, async () => {
@@ -2499,8 +2413,6 @@ eventSource.on(event_types.APP_READY, async () => {
     injectSidebarFolders(STCM.sidebarFolders, characters);  // <--- use sidebarFolders!
     watchSidebarFolderInjection(); 
     injectStcmSettingsPanel();    
-    // private folder observer
-    updatePrivateFolderObservers();
 
 });
 
@@ -2587,7 +2499,6 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     // Apply selected conflicts
     const notes = getNotes ? getNotes() : {};
     const tagNotes = notes.tagNotes || {};
-    const tagPrivate = notes.tagPrivate || {};
     const charNotes = notes.charNotes || {};
 
     conflicts.forEach((conflict, idx) => {
