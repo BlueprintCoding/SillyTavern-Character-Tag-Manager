@@ -969,6 +969,10 @@ min-width: 130px;
     filter: grayscale(0.5);
 }
 
+.stcm_folder_disabled:hover {
+    background: #222;
+}
+
 .stcm_folders_breadcrumb {
     color: var(--SmartThemeBodyColor);
     font-size:.8em;
