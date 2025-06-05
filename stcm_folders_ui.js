@@ -456,11 +456,12 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
     container.innerHTML = `
         <label><b>Choose New Parent Folder</b></label><br>
         <select style="width:100%;margin:12px 0;" id="stcmMoveFolderSelect">
-            ${validFolders.map(f =>
-                `<option value="${f.id}" ${f.id === 'root' ? 'selected' : ''}>
-                    ${f.name}${f.id === 'root' ? ' (Root)' : ''}
-                </option>`
-            ).join('')}
+        ${validFolders.map(f =>
+            `<option value="${f.id}" ${f.id === 'root' ? 'selected' : ''}>
+                ${f.id === 'root' ? 'Top Level (Root)' : escapeHtml(f.name)}
+            </option>`
+        ).join('')}
+        
         </select>
         <div style="font-size:0.93em;color:#fa7878;" id="stcmMoveFolderError"></div>
     `;

@@ -978,7 +978,7 @@ min-width: 130px;
 }
 
 .stcm_folder_disabled {
-    opacity: 0.55;
+    opacity: 0.3;
     filter: grayscale(0.8);
     -webkit-user-select: none; /* Safari */
     -moz-user-select: none;    /* Firefox */
