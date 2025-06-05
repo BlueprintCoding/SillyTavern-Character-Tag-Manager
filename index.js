@@ -2501,18 +2501,19 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
             folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
             folderDiv.style.cursor = 'pointer';
             folderDiv.innerHTML = `
-                <div class="avatar flex alignitemscenter textAlignCenter" 
-                    style="background-color: ${child.color || '#8b2ae6'}; color: #fff;">
-                    <i class="bogus_folder_icon fa-solid fa-xl ${child.icon || 'fa-folder-open'}"></i>
+            <div class="avatar flex alignitemscenter textAlignCenter"
+                style="background-color: ${child.color || '#8b2ae6'}; color: #fff;">
+                <i class="bogus_folder_icon fa-solid fa-xl ${child.icon || 'fa-folder-open'}"></i>
+            </div>
+            <div class="stcm_folder_main flex wide100p" style="align-items: center; justify-content: space-between;">
+                <span class="ch_name" title="[Folder] ${child.name}">${child.name}</span>
+                <div class="stcm_folder_counts" style="text-align: right; margin-left: 20px;">
+                    <div style="font-size: 1.18em; font-weight: bold;">${charCount} Character${charCount === 1 ? '' : 's'}</div>
+                    <div style="font-size: 0.95em; opacity: 0.7;">${folderCount} folder${folderCount === 1 ? '' : 's'}</div>
                 </div>
-                <div class="wide100p">
-                    <span class="ch_name" title="[Folder] ${child.name}">${child.name}</span>
-                    <div class="stcm_folder_counts" style="float: right; text-align: right;">
-                        <div style="font-size: 1.18em; font-weight: bold;">${charCount} Character${charCount === 1 ? '' : 's'}</div>
-                        <div style="font-size: 0.95em; opacity: 0.7;">${folderCount} folder${folderCount === 1 ? '' : 's'}</div>
-                    </div>
-                </div>
-            `;
+            </div>
+        `;
+
             folderDiv.onclick = () => {
                 currentSidebarFolderId = child.id;
                 renderSidebarFolderContents(folders, allCharacters, child.id);
