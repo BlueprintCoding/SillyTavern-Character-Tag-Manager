@@ -454,6 +454,8 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSel
             renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
             renderAssignCharList();
             await renderFoldersTree();
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
         });
 
         chip.appendChild(remove);
@@ -534,6 +536,8 @@ function showFolderCharactersSection(folder) {
         assignSelection.clear();
         renderAssignCharList();
         await renderFoldersTree();
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
     });
     sortFilterRow.appendChild(assignBtn);
     section.appendChild(sortFilterRow);
@@ -690,6 +694,8 @@ function showFolderCharactersSection(folder) {
                 renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                 renderAssignCharList();
                 await renderFoldersTree();
+                STCM.sidebarFolders = await stcmFolders.loadFolders();
+                injectSidebarFolders(STCM.sidebarFolders, characters);
             });
             
             left.appendChild(assignOneBtn);
