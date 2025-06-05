@@ -121,6 +121,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
                     renderSidebarFolderContents(folders, allCharacters, child.id);
                 };
             } else {
+                folderDiv.style.cursor = 'none';
                 folderDiv.classList.add('stcm_folder_disabled');
                 folderDiv.title = 'Empty folder';
                 folderDiv.onclick = null;
