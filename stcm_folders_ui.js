@@ -14,6 +14,7 @@ import {
     
     import {
         characters,
+        selectCharacterById
     } from "../../../../script.js";
     
     import { STCM } from './index.js';
