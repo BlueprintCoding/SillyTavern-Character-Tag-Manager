@@ -882,8 +882,8 @@ min-width: 130px;
 
 .stcm_folder_sidebar .ch_name {
     font-weight: bold;
-    font-size: 1.09em;
-    color: var(--ac-style-color-text, #fff);
+    font-size: var(--mainFontSize, 1em);
+    color: var(--SmartThemeBodyColor, #fff);
 }
 
 .stcm_folder_main {
@@ -891,6 +891,7 @@ min-width: 130px;
     align-items: center;
     width: 100%;
     min-width: 0;
+    gap: 5px;
 }
 
 .stcm_folder_name {
@@ -914,12 +915,14 @@ min-width: 130px;
 
 .stcm_folder_char_count {
     font-size: 1.18em;
-    font-weight: bold;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.7;
 }
 
 .stcm_folder_folder_count {
-    font-size: 0.95em;
     opacity: 0.7;
+    font-size: calc(var(--mainFontSize) * 0.6);
+    color: var(--grey7070a);
 }
 
 .sidebar-folder-character {

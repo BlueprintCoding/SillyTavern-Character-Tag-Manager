@@ -2501,11 +2501,11 @@ function renderSidebarFolderContents(folders, allCharacters, folderId = currentS
             folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
             folderDiv.style.cursor = 'pointer';
             folderDiv.innerHTML = `
+                <div class="stcm_folder_main">
                 <div class="avatar flex alignitemscenter textAlignCenter"
                     style="background-color: ${child.color || '#8b2ae6'}; color: #fff;">
                     <i class="bogus_folder_icon fa-solid fa-xl ${child.icon || 'fa-folder-open'}"></i>
                 </div>
-                <div class="stcm_folder_main">
                     <span class="ch_name stcm_folder_name" title="[Folder] ${child.name}">${child.name}</span>
                     <div class="stcm_folder_counts">
                         <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
