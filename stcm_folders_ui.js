@@ -318,7 +318,7 @@ export function confirmDeleteFolder(folder, rerender) {
         .then(async result => {
             if (result !== POPUP_RESULT.AFFIRMATIVE) return;
             await stcmFolders.deleteFolder(folder.id);
-            await renderFoldersTree();
+            // await renderFoldersTree();
             STCM.sidebarFolders = await stcmFolders.loadFolders();
             injectSidebarFolders(STCM.sidebarFolders, characters);
 

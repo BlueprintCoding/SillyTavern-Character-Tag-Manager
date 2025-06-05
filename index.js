@@ -234,7 +234,8 @@ function openCharacterTagManagerModal() {
     }, 0);
     
 
-
+    // Folders: add create handler and render initial tree
+const foldersTreeContainer = document.getElementById('foldersTreeContainer');
 const createFolderBtn = document.getElementById('createNewFolderBtn');
 
 if (createFolderBtn) {
@@ -252,41 +253,6 @@ if (createFolderBtn) {
     });
 }
 
-
-
-    const charBtn = document.createElement('button');
-    charBtn.className = 'stcm_menu_button tiny stcm_folder_chars_btn interactable';
-    charBtn.innerHTML = '<i class="fa-solid fa-users"></i> Characters';
-    charBtn.title = 'Manage Characters in this Folder';
-    charBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showFolderCharactersSection(folder);
-    });
-    row.appendChild(charBtn);
-
-
-    // Append the folder row to the node
-    node.appendChild(row);
-
-  // CHILDREN (vertical, as own block)
-  if (Array.isArray(folder.children) && folder.children.length > 0) {
-    const childrenContainer = document.createElement('div');
-    childrenContainer.className = 'stcm_folder_children';
-    childrenContainer.style.display = 'block';
-    folder.children.forEach(childId => {
-        const child = allFolders.find(f => f.id === childId);
-        if (child) {
-            const childNode = renderFolderNode(child, allFolders, depth + 1, renderFoldersTree);
-            childrenContainer.appendChild(childNode);
-        }
-    });
-    node.appendChild(childrenContainer);
-}
-return node;
-}
-
-// Folders: add create handler and render initial tree
-const foldersTreeContainer = document.getElementById('foldersTreeContainer');
 // Call on open to render the folder tree
 async function renderFoldersTree() {
     foldersTreeContainer.innerHTML = '<div class="loading">Loading folders...</div>';
@@ -410,6 +376,37 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         });
         row.appendChild(addBtn);
     }
+
+    const charBtn = document.createElement('button');
+    charBtn.className = 'stcm_menu_button tiny stcm_folder_chars_btn interactable';
+    charBtn.innerHTML = '<i class="fa-solid fa-users"></i> Characters';
+    charBtn.title = 'Manage Characters in this Folder';
+    charBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showFolderCharactersSection(folder);
+    });
+    row.appendChild(charBtn);
+
+
+    // Append the folder row to the node
+    node.appendChild(row);
+
+  // CHILDREN (vertical, as own block)
+  if (Array.isArray(folder.children) && folder.children.length > 0) {
+    const childrenContainer = document.createElement('div');
+    childrenContainer.className = 'stcm_folder_children';
+    childrenContainer.style.display = 'block';
+    folder.children.forEach(childId => {
+        const child = allFolders.find(f => f.id === childId);
+        if (child) {
+            const childNode = renderFolderNode(child, allFolders, depth + 1, renderFoldersTree);
+            childrenContainer.appendChild(childNode);
+        }
+    });
+    node.appendChild(childrenContainer);
+}
+return node;
+}
 
 function showFolderCharactersSection(folder) {
     const section = document.getElementById('folderCharactersSection');
