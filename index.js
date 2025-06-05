@@ -287,8 +287,6 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     // OUTER NODE (block, indented)
     const node = document.createElement('div');
     node.className = 'stcm_folder_node';
-    node.classList.add(`stcm_depth_${depth}`);
-    node.style.marginLeft = `${depth * 20}px`;
     node.style.marginBottom = '4px';
 
 
@@ -298,6 +296,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     row.style.display = 'flex';
     row.style.alignItems = 'center';
     row.style.gap = '7px';
+    row.style.marginLeft = `${depth * 18}px`; 
 
     // Icon, name, buttons (append to row)
     const iconBg = document.createElement('div');
@@ -397,6 +396,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 
     // Append the folder row to the node
     node.appendChild(row);
+
 
   // CHILDREN (vertical, as own block)
   if (Array.isArray(folder.children) && folder.children.length > 0) {
