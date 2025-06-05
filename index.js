@@ -484,6 +484,8 @@ function showFolderCharactersSection(folder) {
         remove.innerHTML = '&#10005;';
         remove.addEventListener('click', async () => {
             await stcmFolders.removeCharacterFromFolder(folder, charId);
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
             showFolderCharactersSection(folder);
             renderFoldersTree();
         });
@@ -531,6 +533,8 @@ function showFolderCharactersSection(folder) {
             return;
         }
         await stcmFolders.assignCharactersToFolder(folder, Array.from(assignSelection));
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
         showFolderCharactersSection(folder);
         renderFoldersTree();
     });

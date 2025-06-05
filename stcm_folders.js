@@ -31,22 +31,31 @@ export async function loadFolders() {
     return folders;
 }
 
-export async function assignCharactersToFolder(folder, charIds) {
+export async function assignCharactersToFolder(folderOrId, charIds) {
+    // Accept either the folder object or its id
+    let id = typeof folderOrId === 'object' ? folderOrId.id : folderOrId;
+    await loadFolders(); // Always reload to get up-to-date list
+    const folder = folders.find(f => f.id === id);
+    if (!folder) throw new Error('Folder not found');
     if (!Array.isArray(folder.characters)) folder.characters = [];
-    for (const id of charIds) {
-        if (!folder.characters.includes(id)) {
-            folder.characters.push(id);
+    for (const charId of charIds) {
+        if (!folder.characters.includes(charId)) {
+            folder.characters.push(charId);
         }
     }
     await saveFolders();
 }
 
-export async function removeCharacterFromFolder(folder, charId) {
-    if (!Array.isArray(folder.characters)) return;
+
+export async function removeCharacterFromFolder(folderOrId, charId) {
+    // Accept folder object or ID
+    const folderId = typeof folderOrId === 'object' ? folderOrId.id : folderOrId;
+    await loadFolders(); // Always reload to get the latest folders
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder || !Array.isArray(folder.characters)) return;
     folder.characters = folder.characters.filter(id => id !== charId);
     await saveFolders();
 }
-
 
 
 export async function saveFolders() {
