@@ -340,19 +340,18 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     const typeSelect = document.createElement('select');
     typeSelect.className = 'stcm_folder_type_select tiny';
     typeSelect.title = 'Set Folder Type: Public or Private';
-    typeSelect.style.marginLeft = 'auto'; // push to the end
 
     // Option: Public
     const optPublic = document.createElement('option');
     optPublic.value = 'public';
-    optPublic.textContent = 'Public';
+    optPublic.textContent = '👁️ Public';
     if (!folder.private) optPublic.selected = true;
     typeSelect.appendChild(optPublic);
 
     // Option: Private
     const optPrivate = document.createElement('option');
     optPrivate.value = 'private';
-    optPrivate.textContent = 'Private';
+    optPrivate.textContent = '🔒 Private';
     if (folder.private) optPrivate.selected = true;
     typeSelect.appendChild(optPrivate);
 
