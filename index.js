@@ -517,13 +517,7 @@ function showFolderCharactersSection(folder, folders) {
 
     // --- Character List Setup ---
     let folderCharSortMode = 'alpha_asc';
-    let folderCharSearchTerm = '';
 
-    // Ensure input is cleared and state matches UI!
-    setTimeout(() => {
-        const searchInput = document.getElementById('folderCharSearchInput');
-        if (searchInput) searchInput.value = '';
-    }, 0);
 
 
     const sortFilterRow = document.createElement('div');
@@ -579,6 +573,13 @@ function showFolderCharactersSection(folder, folders) {
     charList.className = 'charList stcm_folder_assign_charList';
     section.appendChild(charList);
 
+    folderCharSearchTerm = '';
+    setTimeout(() => {
+        const searchInput = document.getElementById('folderCharSearchInput');
+        if (searchInput) searchInput.value = '';
+        renderAssignCharList();
+    }, 0);
+
     // --- Helper for advanced character search ---
     function matchesCharacterAdv(char, search) {
         
@@ -623,8 +624,8 @@ function showFolderCharactersSection(folder, folders) {
         let unassignedCharacters = characters.filter(c => !folder.characters.includes(c.avatar));
         let filtered = unassignedCharacters;
 
-        // Parse search terms
-        let raw = folderCharSearchTerm.trim();
+        const searchInput = document.getElementById('folderCharSearchInput');
+        let raw = (searchInput?.value || '').trim();
         if (raw) {
             // Comma = OR
             const orGroups = raw.split(',').map(s => s.trim()).filter(Boolean);
