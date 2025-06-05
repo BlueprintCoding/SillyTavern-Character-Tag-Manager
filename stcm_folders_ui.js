@@ -2,6 +2,7 @@
 import { 
     debounce, 
     buildTagMap, 
+    escapeHtml
     } from './utils.js';
     
     import * as stcmFolders from './stcm_folders.js';
