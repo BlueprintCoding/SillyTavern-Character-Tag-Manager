@@ -369,8 +369,8 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
             try {
                 await stcmFolders.addFolder(subName.trim(), folder.id);
                 await renderFoldersTree();
-                sidebarFolders = await stcmFolders.loadFolders();
-                injectSidebarFolders(sidebarFolders, characters);
+                STCM.sidebarFolders = await stcmFolders.loadFolders();
+                injectSidebarFolders(STCM.sidebarFolders, characters);
             } catch (e) {
                 toastr.error(e.message || 'Failed to create subfolder');
             }
@@ -2341,11 +2341,11 @@ function updatePrivateFolderObservers() {
 
 
 eventSource.on(event_types.APP_READY, async () => {
-    sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!
+    STCM.sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
-    injectSidebarFolders(sidebarFolders, characters);  // <--- use sidebarFolders!
+    injectSidebarFolders(STCM.sidebarFolders, characters);  // <--- use sidebarFolders!
     watchSidebarFolderInjection(); 
     injectStcmSettingsPanel();    
     // private folder observer
