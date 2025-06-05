@@ -44,6 +44,18 @@ export function injectSidebarFolders(folders, allCharacters) {
     renderSidebarFolderContents(folders, allCharacters, 'root');
 }
 
+function hasAnyCharacters(folderId, folders) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return false;
+    if (Array.isArray(folder.characters) && folder.characters.length > 0) return true;
+    // Recursively check children
+    for (const childId of (folder.children || [])) {
+        if (hasAnyCharacters(childId, folders)) return true;
+    }
+    return false;
+}
+
+
 export function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
@@ -115,7 +127,9 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             `;
 
             // Only allow click if folder has at least one character or child folder
-            if (charCount > 0 || folderCount > 0) {
+            const folderHasAnyChars = hasAnyCharacters(child.id, folders);
+
+            if (folderHasAnyChars) {
                 folderDiv.style.cursor = 'pointer';
                 folderDiv.onclick = () => {
                     currentSidebarFolderId = child.id;
