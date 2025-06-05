@@ -13,6 +13,10 @@ import {
 import {
      groups
  } from "../../../../scripts/group-chats.js";
+import {
+    tag_map,
+} from "../../../tags.js";
+
 
 
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
