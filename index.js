@@ -235,6 +235,7 @@ function openCharacterTagManagerModal() {
     
 
     // Folders: add create handler and render initial tree
+const foldersSection = document.getElementById('foldersSection');
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');
 const createFolderBtn = document.getElementById('createNewFolderBtn');
 
@@ -2458,7 +2459,7 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     toastr.success('Selected notes imported!');
 }
 
-export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton, renderFoldersTree };
+export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton };
 export const STCM = {
     sidebarFolders: [],
 };
