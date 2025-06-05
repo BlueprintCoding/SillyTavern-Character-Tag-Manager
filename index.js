@@ -336,6 +336,37 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 
     row.appendChild(colorBtn);
 
+    // Folder Type Dropdown
+    const typeSelect = document.createElement('select');
+    typeSelect.className = 'stcm_folder_type_select tiny';
+    typeSelect.title = 'Set Folder Type: Public or Private';
+    typeSelect.style.marginLeft = 'auto'; // push to the end
+
+    // Option: Public
+    const optPublic = document.createElement('option');
+    optPublic.value = 'public';
+    optPublic.textContent = 'Public';
+    if (!folder.private) optPublic.selected = true;
+    typeSelect.appendChild(optPublic);
+
+    // Option: Private
+    const optPrivate = document.createElement('option');
+    optPrivate.value = 'private';
+    optPrivate.textContent = 'Private';
+    if (folder.private) optPrivate.selected = true;
+    typeSelect.appendChild(optPrivate);
+
+    // Change handler
+    typeSelect.addEventListener('change', async (e) => {
+        const isPrivate = e.target.value === 'private';
+        await stcmFolders.setFolderPrivacy(folder.id, isPrivate);
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
+        renderFoldersTree();
+    });
+
+    row.appendChild(typeSelect);
+
 
     if (folder.id !== 'root') {
         const delBtn = document.createElement('button');

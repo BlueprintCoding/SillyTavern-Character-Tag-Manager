@@ -18,6 +18,7 @@ export async function loadFolders() {
             if (!Array.isArray(folders)) throw new Error("Corrupt file");
             for (const f of folders) {
                 if (!f.color) f.color = '#8b2ae6';
+                if (typeof f.private !== 'boolean') f.private = false;
             }
             return folders;
         } catch (e) {
@@ -47,6 +48,14 @@ export function updateAllFolderCharacterCounts(folders) {
     folders.forEach(folder => updateFolderCharacterCount(folder));
 }
 
+export async function setFolderPrivacy(id, isPrivate) {
+    await loadFolders();
+    const folder = folders.find(f => f.id === id);
+    if (folder) {
+        folder.private = !!isPrivate;
+        await saveFolders();
+    }
+}
 
 
 export async function assignCharactersToFolder(folderOrId, charIds) {
@@ -115,6 +124,7 @@ export async function addFolder(name, parentId = "root", color = '#8b2ae6') {
         parentId, 
         children: [], 
         characters: [], 
+        private: false
     });
     await saveFolders();
     return id;
