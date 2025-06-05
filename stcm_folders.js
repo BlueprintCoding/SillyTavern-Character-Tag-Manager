@@ -16,6 +16,9 @@ export async function loadFolders() {
             folders = JSON.parse(json);
             // Optional: Check structure, or fallback if not an array
             if (!Array.isArray(folders)) throw new Error("Corrupt file");
+            for (const f of folders) {
+                if (!f.color) f.color = '#8b2ae6';
+            }
             return folders;
         } catch (e) {
             console.warn("Failed to load folder file, resetting:", e);
@@ -23,7 +26,7 @@ export async function loadFolders() {
         }
     }
     // If no file, or error, create default
-    folders = [ { id: "root", name: "Root", icon: 'fa-folder', color, parentId: null, children: [], characters: [] } ];
+    folders = [ { id: "root", name: "Root", icon: 'fa-folder', color: '#8b2ae6', parentId: null, children: [], characters: [] } ];
     await saveFolders();
     return folders;
 }
@@ -79,6 +82,15 @@ export async function addFolder(name, parentId = "root", color = '#8b2ae6') {
     });
     await saveFolders();
     return id;
+}
+
+export async function setFolderColor(id, color) {
+    await loadFolders();
+    const folder = folders.find(f => f.id === id);
+    if (folder) {
+        folder.color = color;
+        await saveFolders();   // <- no arg, saves the global "folders"
+    }
 }
 
 

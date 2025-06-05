@@ -166,13 +166,13 @@ export function showFolderColorPicker(folder, rerender) {
         if (result !== POPUP_RESULT.AFFIRMATIVE) return;
         const colorInput = container.querySelector('.stcm-folder-color-input');
         const color = colorInput.value || '#8b2ae6';
-        // Update folder in storage
-        await stcmFolders.setFolderColor(folder.id, color);
+        await stcmFolders.setFolderColor(folder.id, color); // <--- This should now update and save!
         rerender();
         sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(sidebarFolders, characters);
     });
 }
+
 
 export function renderSidebarCharacterCard(char) {
     // Build character card using standard classes + a custom sidebar marker
