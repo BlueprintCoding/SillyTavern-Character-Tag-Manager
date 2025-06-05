@@ -888,17 +888,28 @@ min-width: 130px;
     gap: 5px;
 }
 
+#foldersTreeContainer .stcm_folder_node > .stcm_folder_row {
+    transition: background 0.2s;
+}
+
+#foldersTreeContainer .stcm_folder_node:nth-child(odd) > .stcm_folder_row {
+    background: rgba(255,255,255,0.03); /* very light band, or adjust to your theme */
+}
+#foldersTreeContainer .stcm_folder_node:nth-child(even) > .stcm_folder_row {
+    background: rgba(255,255,255,0.07); /* slightly more visible */
+}
+
+
 .stcm-folder-avatar {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
+    max-width: 30px;
+    max-height: 30px;
     border-radius: 7px;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    max-width: 25px;
-    max-height: 25px;
-
 }
 
 .stcm_folder_name {
