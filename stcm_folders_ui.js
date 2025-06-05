@@ -217,6 +217,18 @@ export function renderSidebarCharacterCard(char) {
             </div>
         </div>
     `;
+    // Make the entire card clickable for activation:
+    div.addEventListener('click', function(e) {
+        const id = char.avatar ? characters.findIndex(c => c.avatar === char.avatar) : -1;
+        if (id !== -1 && typeof selectCharacterById === 'function') {
+            selectCharacterById(id);
+            if (typeof setActiveGroup === 'function') setActiveGroup(null);
+            if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+        } else {
+            toastr.warning('Unable to activate character: not found.');
+        }
+    });
+
     return div;
 }
 
