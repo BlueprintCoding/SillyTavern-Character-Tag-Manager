@@ -261,25 +261,16 @@ async function renderFoldersTree() {
     const folders = await stcmFolders.loadFolders();
     foldersTreeContainer.innerHTML = '';
     if (!foldersTreeContainer) return;
-    foldersTreeContainer.innerHTML = '';
     const root = folders.find(f => f.id === 'root');
     if (root) {
-                // In your renderFoldersTree() function:
-        const folders = await stcmFolders.loadFolders();
-        if (!foldersTreeContainer) return;
-        foldersTreeContainer.innerHTML = '';
-        const root = folders.find(f => f.id === 'root');
-        if (root) {
-            // Instead of rendering the "root" node itself, render only its children
-            root.children.forEach(childId => {
-                const child = folders.find(f => f.id === childId);
-                if (child) {
-                    foldersTreeContainer.appendChild(
-                        renderFolderNode(child, folders, 0, renderFoldersTree)
-                    );
-                }
-            });
-        }
+        root.children.forEach(childId => {
+            const child = folders.find(f => f.id === childId);
+            if (child) {
+                foldersTreeContainer.appendChild(
+                    renderFolderNode(child, folders, 0, renderFoldersTree)
+                );
+            }
+        });
     }
 }
 
@@ -428,7 +419,8 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 }
 return node;
 }
-function renderAssignedChipsRow(folder, section, renderAssignCharList) {
+
+function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection) {
     let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
     if (chipsRow) chipsRow.remove();
 
@@ -459,8 +451,8 @@ function renderAssignedChipsRow(folder, section, renderAssignCharList) {
             await stcmFolders.removeCharacterFromFolder(folder, charId);
             const idx = folder.characters.indexOf(charId);
             if (idx !== -1) folder.characters.splice(idx, 1);
-            assignSelection.delete(charId); // In case it was selected in assign list
-            renderAssignedChipsRow(folder, section, renderAssignCharList);
+            assignSelection.delete(charId); // <--- now assignSelection is defined!
+            renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
             renderAssignCharList();
         });
 
@@ -694,7 +686,7 @@ function showFolderCharactersSection(folder) {
                 e.stopPropagation();
                 await stcmFolders.assignCharactersToFolder(folder, [char.avatar]);
                 if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
-                renderAssignedChipsRow(folder, section, renderAssignCharList);
+                renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                 renderAssignCharList();
             });
             
