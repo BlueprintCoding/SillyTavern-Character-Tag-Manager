@@ -7,6 +7,11 @@ import {
     callGenericPopup
 } from "../../../popup.js";
 
+import {
+    characters
+} from "../../../../script.js";
+
+
 
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
 
