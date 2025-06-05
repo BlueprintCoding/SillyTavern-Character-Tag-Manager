@@ -437,20 +437,60 @@ export function confirmDeleteFolder(folder, rerender) {
         });
 }
 
-export function showChangeParentPopup(folder, allFolders, rerender) {
-    // List all possible parent folders (not self or descendants)
-    const invalidIds = new Set();
-    function markDescendants(fid) {
-        invalidIds.add(fid);
-        const f = allFolders.find(x => x.id === fid);
-        if (f && Array.isArray(f.children)) {
-            f.children.forEach(markDescendants);
-        }
+function getMaxFolderSubtreeDepth(folderId, folders, currentDepth = 1) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder || !folder.children?.length) return currentDepth;
+    let maxDepth = currentDepth;
+    for (const childId of folder.children) {
+        const childDepth = getMaxFolderSubtreeDepth(childId, folders, currentDepth + 1);
+        if (childDepth > maxDepth) maxDepth = childDepth;
     }
-    markDescendants(folder.id);
+    return maxDepth;
+}
 
-    // Build list of valid folders
-    const validFolders = allFolders.filter(f => !invalidIds.has(f.id));
+function getAllDescendantFolderIds(folderId, folders) {
+    let ids = [];
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return ids;
+    for (const childId of folder.children || []) {
+        ids.push(childId);
+        ids = ids.concat(getAllDescendantFolderIds(childId, folders));
+    }
+    return ids;
+}
+
+
+
+export function showChangeParentPopup(folder, allFolders, rerender) {
+    const currentId = folder.id;
+
+    // 1. Exclude descendants (and self)
+    const descendants = getAllDescendantFolderIds(currentId, allFolders);
+    descendants.push(currentId);
+
+    // 2. Compute how deep this folder's tree is
+    const subtreeDepth = getMaxFolderSubtreeDepth(currentId, allFolders); // e.g., 3
+
+    // 3. Only allow destination if it will not violate max depth
+    const MAX_DEPTH = 5; // whatever your limit is
+
+    function getFolderDepth(folderId) {
+        let depth = 0;
+        let curr = allFolders.find(f => f.id === folderId);
+        while (curr && curr.parentId) {
+            curr = allFolders.find(f => f.id === curr.parentId);
+            depth++;
+        }
+        return depth;
+    }
+
+    const validFolders = allFolders.filter(f => {
+        if (descendants.includes(f.id)) return false; // can't move into self or descendants
+        const destDepth = getFolderDepth(f.id);
+        // If destination is "root", depth = 0, so max possible new depth = subtreeDepth-1
+        // So destDepth + subtreeDepth - 1 < MAX_DEPTH
+        return (destDepth + subtreeDepth - 1) < MAX_DEPTH;
+    });
 
     const container = document.createElement('div');
     container.innerHTML = `
