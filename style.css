@@ -895,6 +895,13 @@ min-width: 130px;
     border-left: 3px solid transparent;
 }
 
+.stcm_depth_0 > .stcm_folder_row { background: rgba(255,255,255,0.10); }
+.stcm_depth_1 > .stcm_folder_row { background: rgba(255,255,255,0.07); }
+.stcm_depth_2 > .stcm_folder_row { background: rgba(255,255,255,0.05); }
+.stcm_depth_3 > .stcm_folder_row { background: rgba(255,255,255,0.03); }
+.stcm_depth_4 > .stcm_folder_row { background: rgba(255,255,255,0.02); }
+
+
 .stcm_depth_1 > .stcm_folder_row { border-left: 3px solid #803ad6; }
 .stcm_depth_2 > .stcm_folder_row { border-left: 3px solid #aa00cc; }
 .stcm_depth_3 > .stcm_folder_row { border-left: 3px solid #e040fb; }
