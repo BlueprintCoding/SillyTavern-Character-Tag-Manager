@@ -212,7 +212,7 @@ export async function deleteFolder(id) {
     await saveFolders(folders);
 }
 
-async function convertTagToRealFolder(tag) {
+export async function convertTagToRealFolder(tag) {
     if (!tag || !tag.name) return;
 
     const folderName = tag.name.trim();
