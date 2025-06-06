@@ -19,30 +19,40 @@ let folders = [];
 
 export async function loadFolders() {
     try {
-        const attachments = getDataBankAttachments(true); // get global attachments
+        const attachments = getDataBankAttachments(true);
         const file = attachments.find(a => a.name === FOLDER_FILE_NAME);
-        if (file) {
-            const json = await getFileAttachment(file.url);
 
-            if (!json || typeof json !== 'string') throw new Error("Invalid or missing folder file");
+        let json;
 
-            folders = JSON.parse(json);
-            if (!Array.isArray(folders)) throw new Error("Corrupt folder data");
-
-            folders.forEach(f => {
-                if (!f.color) f.color = "#8b2ae6";
-                if (typeof f.private !== "boolean") f.private = false;
-            });
-
-            return folders;
+        // Try the attachment URL first
+        if (file?.url) {
+            json = await getFileAttachment(file.url);
         }
+
+        // Fallback to direct path if that fails or file is missing
+        if (!json) {
+            const fallbackUrl = `/user/files/${FOLDER_FILE_NAME}`;
+            json = await getFileAttachment(fallbackUrl);
+        }
+
+        if (!json || typeof json !== 'string') throw new Error("Invalid or missing folder file");
+
+        folders = JSON.parse(json);
+        if (!Array.isArray(folders)) throw new Error("Corrupt folder data");
+
+        folders.forEach(f => {
+            if (!f.color) f.color = "#8b2ae6";
+            if (typeof f.private !== "boolean") f.private = false;
+        });
+
+        return folders;
     } catch (e) {
         const msg = typeof e === 'string' ? e : e?.message || String(e);
         console.warn("Failed to load folders:", msg);
         toastr.error(msg, "Failed to load folders");
     }
 
-    // Fallback to default
+    // Fallback
     folders = [{
         id: "root",
         name: "Root",
@@ -55,6 +65,7 @@ export async function loadFolders() {
     await saveFolders(folders);
     return folders;
 }
+
 
 
 export async function saveFolders(foldersToSave = folders) {
