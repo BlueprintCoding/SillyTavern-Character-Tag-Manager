@@ -6,7 +6,7 @@ import {
 } from "../../../tags.js";
 import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import { escapeHtml } from "./utils.js";
-import { STCM, callSaveandReload, renderCharacterTagData, renderFoldersTree } from "./index.js";
+import { STCM, callSaveandReload, renderCharacterTagData } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
@@ -268,7 +268,8 @@ export async function convertTagToRealFolder(tag) {
                 foldersToggle.innerHTML = `▼ Folders`;
             }
 
-            await renderFoldersTree();
+            await STCM.renderFoldersTree();
+
         }
 
         // Prompt to delete tag
