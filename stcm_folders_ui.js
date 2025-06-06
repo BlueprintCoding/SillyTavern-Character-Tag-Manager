@@ -46,8 +46,41 @@ export function injectSidebarFolders(folders, allCharacters) {
         // Insert at the top, or wherever you want
         parent.insertBefore(sidebar, parent.firstChild);
     }
+    hideFolderedCharactersOutsideSidebar(folders);
     renderSidebarFolderContents(folders, allCharacters, 'root');
 }
+
+function hideFolderedCharactersOutsideSidebar(folders) {
+    const folderedCharIds = new Set();
+    for (const folder of folders) {
+        if (Array.isArray(folder.characters)) {
+            for (const charId of folder.characters) {
+                folderedCharIds.add(charId);
+            }
+        }
+    }
+
+    const globalList = document.getElementById('rm_print_characters_block');
+    if (!globalList) return;
+
+    // Skip our own sidebar
+    const sidebar = document.getElementById('stcm_sidebar_folder_nav');
+    if (!sidebar) return;
+
+    for (const el of globalList.querySelectorAll('.character_select')) {
+        const chid = el.getAttribute('data-chid') || el.getAttribute('chid');
+        if (!chid) continue;
+
+        // Don't touch elements rendered in the sidebar
+        if (sidebar.contains(el)) continue;
+
+        // Hide if it's assigned to a folder
+        if (folderedCharIds.has(chid)) {
+            el.style.display = 'none';
+        }
+    }
+}
+
 
 function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
@@ -440,6 +473,7 @@ export function watchSidebarFolderInjection() {
     const debouncedInject = debounce(async () => {
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
+        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
         lastInjectedAt = Date.now();
     }, 120);
 
