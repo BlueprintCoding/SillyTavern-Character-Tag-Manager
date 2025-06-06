@@ -23,19 +23,26 @@ export async function loadFolders() {
         const file = attachments.find(a => a.name === FOLDER_FILE_NAME);
         if (file) {
             const json = await getFileAttachment(file.url);
+
+            if (!json || typeof json !== 'string') throw new Error("Invalid or missing folder file");
+
             folders = JSON.parse(json);
             if (!Array.isArray(folders)) throw new Error("Corrupt folder data");
+
             folders.forEach(f => {
                 if (!f.color) f.color = "#8b2ae6";
                 if (typeof f.private !== "boolean") f.private = false;
             });
+
             return folders;
         }
     } catch (e) {
-        console.warn("Failed to load folders:", e);
+        const msg = typeof e === 'string' ? e : e?.message || String(e);
+        console.warn("Failed to load folders:", msg);
+        toastr.error(msg, "Failed to load folders");
     }
 
-    // Default if nothing found or failed
+    // Fallback to default
     folders = [{
         id: "root",
         name: "Root",
@@ -48,6 +55,7 @@ export async function loadFolders() {
     await saveFolders(folders);
     return folders;
 }
+
 
 export async function saveFolders(foldersToSave = folders) {
     const json = JSON.stringify(foldersToSave, null, 2);
