@@ -4,7 +4,8 @@ import {
     buildTagMap, 
     escapeHtml,
     getStoredPinHash, 
-    hashPin
+    hashPin,
+    promptInput
     } from './utils.js';
     
     import * as stcmFolders from './stcm_folders.js';
@@ -99,6 +100,23 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
     toggleBtn.style.padding = '4px';
     toggleBtn.style.borderRadius = '6px';
 
+    const logoutBtn = document.createElement('i');
+    logoutBtn.className = 'fa-solid fa-right-from-bracket stcm_private_logout_icon';
+    logoutBtn.style.cursor = 'pointer';
+    logoutBtn.style.fontSize = '1.1em';
+    logoutBtn.style.padding = '4px';
+    logoutBtn.style.borderRadius = '6px';
+    logoutBtn.title = 'Log out of private folders';
+    logoutBtn.style.display = sessionStorage.getItem("stcm_pin_okay") ? 'inline-block' : 'none';
+
+    logoutBtn.addEventListener('click', () => {
+        sessionStorage.removeItem("stcm_pin_okay");
+        toastr.info("Private folder access has been locked.");
+        logoutBtn.style.display = 'none';
+        renderSidebarFolderContents(folders, allCharacters, folderId);
+    });
+
+
     function updateToggleIcon() {
         toggleBtn.classList.remove('fa-eye', 'fa-eye-slash', 'fa-user-secret');
 
@@ -120,18 +138,26 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
         if (privateFolderVisibilityMode !== 0) {
             const pinHash = getStoredPinHash();
             if (pinHash && !sessionStorage.getItem("stcm_pin_okay")) {
-                const input = prompt("Enter PIN to view private folders:");
+                const input = await promptInput({
+                    label: 'Enter your PIN to unlock private folders:',
+                    title: 'Private Folder Access',
+                    ok: 'Unlock',
+                    cancel: 'Cancel'
+                });
+                
                 if (!input) {
                     privateFolderVisibilityMode = 0;
                     return;
                 }
-                const enteredHash = await hashPin(input);
+                
+                const enteredHash = await hashPin(input);                
                 if (enteredHash !== pinHash) {
                     toastr.error("Incorrect PIN.");
                     privateFolderVisibilityMode = 0;
                     return;
                 }
                 sessionStorage.setItem("stcm_pin_okay", "true");
+                logoutBtn.style.display = 'inline-block';
                 toastr.success("Private folders unlocked.");
             }
         }
@@ -141,6 +167,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
     
     updateToggleIcon();
     controlRow.appendChild(toggleBtn);
+    controlRow.appendChild(logoutBtn);
     controlRow.appendChild(breadcrumbDiv); // Breadcrumb goes to the right of icon
     container.appendChild(controlRow);
 
