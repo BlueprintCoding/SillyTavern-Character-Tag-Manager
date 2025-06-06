@@ -734,23 +734,50 @@ export function showIconPicker(folder, parentNode, rerender) {
     customBtn.addEventListener('click', async () => {
         let val = customInput.value.trim();
         if (!val) {
-            errorDiv.textContent = 'Please enter a Font Awesome icon class.';
+            errorDiv.textContent = 'Please enter a Font Awesome icon class or tag.';
             return;
         }
-       // Accept "fa-solid fa-bug" or just "fa-bug"
-       if (!val.startsWith('fa-')) {
-        errorDiv.textContent = 'Must start with "fa-" (e.g. fa-hat-wizard)';
-        return;
+    
+        let classStr = '';
+    
+        if (val.startsWith('<i') && val.includes('class=')) {
+            try {
+                const temp = document.createElement('div');
+                temp.innerHTML = val;
+                const iTag = temp.querySelector('i');
+                if (!iTag || !iTag.classList.length) throw new Error('Invalid <i> tag');
+                classStr = iTag.className;
+            } catch (e) {
+                errorDiv.textContent = 'Could not parse <i> tag.';
+                return;
+            }
+        } else {
+            classStr = val;
         }
-        // Try to preview/test (optional, just for feedback)
-        // You may choose to check if this class exists visually
-        await stcmFolders.setFolderIcon(folder.id, val);
-        
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
-        rerender();
-        popup.remove();
+    
+        // Split and normalize
+        const parts = classStr.trim().split(/\s+/);
+        const iconClass = parts.find(c =>
+            c.startsWith('fa-') &&
+            !['fa-solid', 'fa-regular', 'fa-brands', 'fa-light', 'fa-thin', 'fa-duotone', 'fa-sharp'].includes(c)
+        );
+    
+        if (!iconClass) {
+            errorDiv.textContent = 'No valid Font Awesome icon class found (e.g. fa-dragon).';
+            return;
+        }
+    
+        try {
+            await stcmFolders.setFolderIcon(folder.id, iconClass);
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
+            rerender();
+            popup.remove();
+        } catch (err) {
+            errorDiv.textContent = 'Failed to apply icon: ' + (err.message || err);
+        }
     });
+    
 
     customInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') customBtn.click();
