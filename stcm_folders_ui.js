@@ -162,11 +162,14 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             folderDiv.setAttribute('data-private', 'true');
         }
 
-        // Apply visibility rules for current toggle mode
-        if (
-            (privateFolderVisibilityMode === 0 && isPrivate) ||      // Hide private
-            (privateFolderVisibilityMode === 2 && !isPrivate)        // Only show private
-        ) {
+        let shouldHide = false;
+        if (child.id !== folderId) {
+            shouldHide =
+                (privateFolderVisibilityMode === 0 && isPrivate) || 
+                (privateFolderVisibilityMode === 2 && !isPrivate && !hasPrivateDescendant(child.id, folders));
+        }
+        
+        if (shouldHide) {
             folderDiv.style.display = 'none';
         }
 
