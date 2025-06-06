@@ -263,6 +263,59 @@ async function renderFoldersTree() {
     if (!foldersTreeContainer) return;
     const root = folders.find(f => f.id === 'root');
     if (root) {
+
+        const dropToRoot = document.createElement('div');
+        dropToRoot.className = 'stcm-drop-to-root-zone';
+        dropToRoot.textContent = 'Drop here to move folder to root level';
+        dropToRoot.style.padding = '8px';
+        dropToRoot.style.marginBottom = '10px';
+        dropToRoot.style.textAlign = 'center';
+        dropToRoot.style.border = '2px dashed var(--ac-style-color-accent)';
+        dropToRoot.style.borderRadius = '5px';
+        dropToRoot.style.color = 'var(--ac-style-color-accent)';
+        dropToRoot.style.cursor = 'pointer';
+        dropToRoot.style.fontSize = '0.85rem';
+
+        dropToRoot.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropToRoot.classList.add('stcm-drop-hover');
+        });
+
+        dropToRoot.addEventListener('dragleave', () => {
+            dropToRoot.classList.remove('stcm-drop-hover');
+        });
+
+        dropToRoot.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropToRoot.classList.remove('stcm-drop-hover');
+
+            const draggedId = e.dataTransfer.getData('text/plain');
+            if (!draggedId) return;
+
+            const dragged = folders.find(f => f.id === draggedId);
+            if (!dragged) return;
+
+            const currentDepth = getFolderChain(draggedId, folders).length;
+            const subtreeDepth = getMaxFolderSubtreeDepth(draggedId, folders);
+            const maxDepth = 5;
+
+            if (subtreeDepth > maxDepth - 1) {
+                toastr.warning("Folder too deep to move to root.");
+                return;
+            }
+
+            try {
+                await stcmFolders.moveFolder(draggedId, 'root');
+                STCM.sidebarFolders = await stcmFolders.loadFolders();
+                injectSidebarFolders(STCM.sidebarFolders, characters);
+                renderFoldersTree();
+            } catch (err) {
+                toastr.error("Failed to move folder to root: " + (err.message || err));
+            }
+        });
+
+        foldersTreeContainer.appendChild(dropToRoot);
+
         root.children.forEach(childId => {
             const child = folders.find(f => f.id === childId);
             if (child) {
