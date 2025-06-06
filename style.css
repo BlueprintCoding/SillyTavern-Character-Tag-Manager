@@ -782,10 +782,10 @@
     cursor: grab;
     color: var(--ac-style-color-dim-text, #888);
 }
-
+/* 
 .dz-hidden {
     display: none !important;
-}
+} */
 
 
 .stcm_folder_children {
