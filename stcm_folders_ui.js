@@ -48,7 +48,105 @@ export function injectSidebarFolders(folders, allCharacters) {
     }
     hideFolderedCharactersOutsideSidebar(folders);
     renderSidebarFolderContents(folders, allCharacters, 'root');
+    hookIntoCharacterSearchBar(folders, allCharacters);
 }
+
+function hookIntoCharacterSearchBar(folders, allCharacters) {
+    const input = document.getElementById('character_search_bar');
+    if (!input || input.dataset.stcmHooked) return;
+
+    input.dataset.stcmHooked = "true";
+
+    input.addEventListener('input', debounce(() => {
+        const term = input.value.trim().toLowerCase();
+        if (!term) {
+            renderSidebarFolderContents(folders, allCharacters);
+        } else {
+            renderSidebarFolderSearchResults(folders, allCharacters, term);
+        }
+    }, 150));
+}
+
+function renderSidebarFolderSearchResults(folders, allCharacters, searchTerm) {
+    const container = document.getElementById('stcm_sidebar_folder_nav');
+    if (!container) return;
+    container.innerHTML = "";
+
+    const tagsById = buildTagMap(tags);
+    const term = searchTerm.toLowerCase();
+
+    const matchedFolders = [];
+    const matchedCharacters = [];
+
+    // Search folders by name
+    for (const folder of folders) {
+        if (folder.name?.toLowerCase().includes(term)) {
+            matchedFolders.push(folder);
+        }
+    }
+
+    // Search characters by name
+    for (const folder of folders) {
+        if (!Array.isArray(folder.characters)) continue;
+
+        for (const charId of folder.characters) {
+            const char = allCharacters.find(c => c.avatar === charId);
+            if (!char) continue;
+
+            const name = char.name?.toLowerCase() || '';
+            const description = char.description?.toLowerCase() || '';
+
+            if (name.includes(term) || description.includes(term)) {
+                const tagsForChar = getTagsForChar(char.avatar, tagsById);
+                matchedCharacters.push({ ...char, tags: tagsForChar });
+            }
+        }
+    }
+
+    const header = document.createElement('div');
+    header.className = 'stcm_folders_breadcrumb';
+    header.textContent = `Search Results: ${matchedFolders.length} folder${matchedFolders.length !== 1 ? 's' : ''}, ${matchedCharacters.length} character${matchedCharacters.length !== 1 ? 's' : ''}`;
+    container.appendChild(header);
+
+    if (matchedFolders.length === 0 && matchedCharacters.length === 0) {
+        container.innerHTML += `<div class="stcm_no_results">No matching characters or folders found.</div>`;
+        return;
+    }
+
+    // Show matched folders
+    matchedFolders.forEach(folder => {
+        const folderDiv = document.createElement('div');
+        folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+        folderDiv.setAttribute('data-folder-id', folder.id);
+        folderDiv.innerHTML = `
+            <div class="stcm_folder_main">
+                <div class="avatar flex alignitemscenter textAlignCenter"
+                    style="background-color: ${folder.color || '#8b2ae6'}; color: #fff;">
+                    <i class="bogus_folder_icon fa-solid fa-xl ${folder.icon || 'fa-folder-open'}"></i>
+                </div>
+                <span class="ch_name stcm_folder_name" title="[Folder] ${folder.name}">${folder.name}</span>
+                <div class="stcm_folder_counts"><div class="stcm_folder_char_count">
+                    ${folder.characters?.length || 0} Character${folder.characters?.length === 1 ? '' : 's'}
+                </div></div>
+            </div>
+        `;
+
+        folderDiv.onclick = () => {
+            currentSidebarFolderId = folder.id;
+            renderSidebarFolderContents(folders, allCharacters, folder.id);
+        };
+
+        container.appendChild(folderDiv);
+    });
+
+    // Show matched characters
+    matchedCharacters.forEach(char => {
+        const charCard = renderSidebarCharacterCard(char);
+        container.appendChild(charCard);
+    });
+}
+
+
 
 function hideFolderedCharactersOutsideSidebar(folders) {
     const folderedCharAvatars = new Set();
