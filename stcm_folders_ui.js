@@ -49,14 +49,23 @@ export function injectSidebarFolders(folders, allCharacters) {
     renderSidebarFolderContents(folders, allCharacters, 'root');
 }
 
-function hasAnyCharacters(folderId, folders) {
+function hasAnyCharacters(folderId, folders, includeHidden = true) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return false;
-    if (Array.isArray(folder.characters) && folder.characters.length > 0) return true;
-    // Recursively check children
-    for (const childId of (folder.children || [])) {
-        if (hasAnyCharacters(childId, folders)) return true;
+
+    const isPrivate = !!folder.private;
+    if (!includeHidden && isPrivate && !sessionStorage.getItem("stcm_pin_okay")) {
+        return false;
     }
+
+    if (Array.isArray(folder.characters) && folder.characters.length > 0) {
+        return true;
+    }
+
+    for (const childId of (folder.children || [])) {
+        if (hasAnyCharacters(childId, folders, includeHidden)) return true;
+    }
+
     return false;
 }
 
@@ -200,7 +209,15 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
 
         // Count characters and subfolders
         const charCount = child.characters?.length || 0;
-        const folderCount = child.children?.length || 0;
+        const visibleChildren = (child.children || []).filter(cid => {
+            const f = folders.find(f => f.id === cid);
+            if (!f) return false;
+            if (privateFolderVisibilityMode === 0 && f.private) return false;
+            if (privateFolderVisibilityMode === 2 && !f.private) return false;
+            return true;
+        });
+        const folderCount = visibleChildren.length;
+        
 
         const folderDiv = document.createElement('div');
         folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
@@ -237,7 +254,8 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             </div>
         `;
 
-        const folderHasAnyChars = hasAnyCharacters(child.id, folders);
+        const folderHasAnyChars = hasAnyCharacters(child.id, folders, privateFolderVisibilityMode !== 0 || !!sessionStorage.getItem("stcm_pin_okay"));
+
 
         if (folderHasAnyChars) {
             folderDiv.onclick = () => {
@@ -631,7 +649,6 @@ function walkFolderTree(folderId, folders, opts = {}, depth = 0) {
     return [];
 }
 
-// Then, replace:
 function getAllDescendantFolderIds(folderId, folders) {
     return walkFolderTree(folderId, folders, { mode: 'descendants' }, 0);
 }
