@@ -1,5 +1,6 @@
 // stcm_folders.js
 import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
+import { STCM } from './index.js';
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
 const FOLDER_FILE_KEY = "stcm_folders_url"; // localStorage key
@@ -219,7 +220,7 @@ export async function convertTagToRealFolder(tag) {
     const folderColor = tag.color || '#8b2ae6';
 
     try {
-        const folders = await stcmFolders.loadFolders();
+        const folders = await loadFolders();
         const existingFolder = folders.find(f => f.name.trim().toLowerCase() === folderName.toLowerCase());
 
         if (existingFolder) {
@@ -227,8 +228,8 @@ export async function convertTagToRealFolder(tag) {
             return;
         }
 
-        const newFolderId = await stcmFolders.addFolder(folderName, "root", folderColor);
-        const updatedFolders = await stcmFolders.loadFolders();
+        const newFolderId = await addFolder(folderName, "root", folderColor);
+        const updatedFolders = await loadFolders();
         const newFolder = updatedFolders.find(f => f.id === newFolderId);
         if (!newFolder) throw new Error("Failed to locate new folder");
 
@@ -236,11 +237,11 @@ export async function convertTagToRealFolder(tag) {
             .filter(([_, tagIds]) => Array.isArray(tagIds) && tagIds.includes(tag.id))
             .map(([charId]) => charId);
 
-        await stcmFolders.assignCharactersToFolder(newFolder, assignedChars);
+        await assignCharactersToFolder(newFolder, assignedChars);
 
         toastr.success(`Converted "${tag.name}" into real folder with ${assignedChars.length} characters`);
 
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        STCM.sidebarFolders = await loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
 
         // 📌 Switch UI to Folders accordion
