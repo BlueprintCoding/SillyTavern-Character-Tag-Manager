@@ -30,7 +30,10 @@ import {
     showIconPicker,
     confirmDeleteFolder,
     showChangeParentPopup,
-    reorderChildren
+    reorderChildren,
+    getAllDescendantFolderIds,
+    getMaxFolderSubtreeDepth,
+    getFolderChain
 } from './stcm_folders_ui.js';
 
 
@@ -480,7 +483,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
             siblings.splice(fromIndex, 1);
             siblings.splice(toIndex, 0, dragged.id);
     
-            await stcmFolders.reorderChildren(parent.id, siblings);
+            await reorderChildren(parent.id, siblings);
         } else {
             // Validate and move if not same parent
             const canDrop = validateDropTarget(dragged, folder, allFolders);

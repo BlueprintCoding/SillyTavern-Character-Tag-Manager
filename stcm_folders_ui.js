@@ -881,13 +881,13 @@ function walkFolderTree(folderId, folders, opts = {}, depth = 0) {
     return [];
 }
 
-function getAllDescendantFolderIds(folderId, folders) {
+export function getAllDescendantFolderIds(folderId, folders) {
     return walkFolderTree(folderId, folders, { mode: 'descendants' }, 0);
 }
-function getMaxFolderSubtreeDepth(folderId, folders) {
+export function getMaxFolderSubtreeDepth(folderId, folders) {
     return walkFolderTree(folderId, folders, { mode: 'maxDepth' }, 0);
 }
-function getFolderOptionsTree(folders, excludeIds = [], parentId = "root", depth = 0) {
+export function getFolderOptionsTree(folders, excludeIds = [], parentId = "root", depth = 0) {
     return walkFolderTree(parentId, folders, { mode: 'options', excludeIds }, depth);
 }
 
