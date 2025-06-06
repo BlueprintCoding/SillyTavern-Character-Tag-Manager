@@ -9,6 +9,10 @@ import { escapeHtml } from "./utils.js";
 import { STCM, callSaveandReload, renderCharacterTagData } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
 import { injectSidebarFolders } from "./stcm_folders_ui.js";
+import {
+    characters
+} from "../../../../script.js";
+
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
 const FOLDER_FILE_KEY = "stcm_folders_url"; // localStorage key
@@ -23,22 +27,44 @@ export async function loadFolders() {
             json = await getFileAttachment(url);
             if (!json) throw new Error("No content");
             folders = JSON.parse(json);
-            // Optional: Check structure, or fallback if not an array
             if (!Array.isArray(folders)) throw new Error("Corrupt file");
-            for (const f of folders) {
+            folders.forEach(f => {
                 if (!f.color) f.color = '#8b2ae6';
                 if (typeof f.private !== 'boolean') f.private = false;
-            }
+            });
             return folders;
         } catch (e) {
-            console.warn("Failed to load folder file, resetting:", e);
-            // FALL THROUGH to create new
+            console.warn("Failed to load from file, trying cache:", e);
         }
     }
-    // If no file, or error, create default
+
+    // 🔄 Fallback: Try cache
+    const cached = localStorage.getItem("stcm_folders_cache");
+    if (cached) {
+        try {
+            folders = JSON.parse(cached);
+            return folders;
+        } catch (e) {
+            console.warn("Failed to load from cache too:", e);
+        }
+    }
+
+    // 🆕 If everything fails, start fresh
     folders = [ { id: "root", name: "Root", icon: 'fa-folder', color: '#8b2ae6', parentId: null, children: [], characters: [] } ];
-    await saveFolders(folders); 
+    await saveFolders(folders);
     return folders;
+}
+
+
+export async function saveFolders(foldersToSave = folders) {
+    const json = JSON.stringify(foldersToSave, null, 2);
+    const base64 = window.btoa(unescape(encodeURIComponent(json)));
+    const url = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
+    if (url) {
+        localStorage.setItem(FOLDER_FILE_KEY, url);
+    }
+    localStorage.setItem("stcm_folders_cache", json);
+    folders = foldersToSave; // Update the global cache too
 }
 
 export function getCharacterAssignedFolder(charId, folders) {
@@ -103,16 +129,7 @@ export async function removeCharacterFromFolder(folderOrId, charId) {
 }
 
 
-export async function saveFolders(foldersToSave = folders) {
-    const json = JSON.stringify(foldersToSave, null, 2);
-    const base64 = window.btoa(unescape(encodeURIComponent(json)));
-    const url = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
-    if (url) {
-        localStorage.setItem(FOLDER_FILE_KEY, url);
-    }
-    localStorage.setItem("stcm_folders_cache", json);
-    folders = foldersToSave; // Update the global cache too
-}
+
 
 // Utility to get folder by ID
 export function getFolder(id) {
