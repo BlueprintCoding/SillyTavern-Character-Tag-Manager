@@ -783,6 +783,10 @@
     color: var(--ac-style-color-dim-text, #888);
 }
 
+.dz-hidden {
+    display: none !important;
+}
+
 
 .stcm_folder_children {
     margin-left: 0; /* margin-left applied on .stcm_folder_node already */
