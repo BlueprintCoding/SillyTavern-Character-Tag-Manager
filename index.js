@@ -212,7 +212,7 @@ function openCharacterTagManagerModal() {
                                 <i class="fa-solid fa-trash"></i> Delete Selected
                             </button>
                             </div>
-                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms</span>
+                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms (- comes before modifiers like -T:Comedy)</span>
                                 </div>
 
                     </div>
@@ -589,7 +589,7 @@ function showFolderCharactersSection(folder, folders) {
     searchHint.className = "smallInstructions";
     searchHint.style.display = 'block';
     searchHint.style.marginTop = '2px';
-    searchHint.innerHTML = `Search by character name, or use "<b>A:</b>" to search all fields, "<b>T:</b>" for tag, <b>,</b> for OR, <b>-</b> for NOT.`;
+    searchHint.innerHTML = `Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms (- comes before modifiers like -T:Comedy)`;
     section.appendChild(searchHint);
 
     // Assignable character list
