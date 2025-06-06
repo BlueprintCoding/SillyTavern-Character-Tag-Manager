@@ -49,25 +49,56 @@ export function injectSidebarFolders(folders, allCharacters) {
     renderSidebarFolderContents(folders, allCharacters, 'root');
 }
 
-function hasAnyCharacters(folderId, folders, includeHidden = true) {
+function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return false;
 
-    const isPrivate = !!folder.private;
-    if (!includeHidden && isPrivate && !sessionStorage.getItem("stcm_pin_okay")) {
-        return false;
-    }
-
+    // If this folder has visible characters
     if (Array.isArray(folder.characters) && folder.characters.length > 0) {
         return true;
     }
 
-    for (const childId of (folder.children || [])) {
-        if (hasAnyCharacters(childId, folders, includeHidden)) return true;
+    // Check for any visible children
+    for (const childId of folder.children || []) {
+        const child = folders.find(f => f.id === childId);
+        if (!child) continue;
+
+        const isPrivate = !!child.private;
+        if (privateFolderVisibilityMode === 0 && isPrivate) continue;
+        if (privateFolderVisibilityMode === 2 && !isPrivate) continue;
+
+        // Either child has characters, or recurse
+        if (
+            (Array.isArray(child.characters) && child.characters.length > 0) ||
+            hasVisibleChildrenOrCharacters(child.id, folders)
+        ) {
+            return true;
+        }
     }
 
     return false;
 }
+
+
+// function hasAnyCharacters(folderId, folders, includeHidden = true) {
+//     const folder = folders.find(f => f.id === folderId);
+//     if (!folder) return false;
+
+//     const isPrivate = !!folder.private;
+//     if (!includeHidden && isPrivate && !sessionStorage.getItem("stcm_pin_okay")) {
+//         return false;
+//     }
+
+//     if (Array.isArray(folder.characters) && folder.characters.length > 0) {
+//         return true;
+//     }
+
+//     for (const childId of (folder.children || [])) {
+//         if (hasAnyCharacters(childId, folders, includeHidden)) return true;
+//     }
+
+//     return false;
+// }
 
 
 export function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
@@ -254,10 +285,9 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             </div>
         `;
 
-        const folderHasAnyChars = hasAnyCharacters(child.id, folders, privateFolderVisibilityMode !== 0 || !!sessionStorage.getItem("stcm_pin_okay"));
+        const folderIsVisible = hasVisibleChildrenOrCharacters(child.id, folders);
 
-
-        if (folderHasAnyChars) {
+        if (folderIsVisible) {
             folderDiv.onclick = () => {
                 currentSidebarFolderId = child.id;
                 renderSidebarFolderContents(folders, allCharacters, child.id);
