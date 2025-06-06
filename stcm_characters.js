@@ -4,7 +4,9 @@ import { debouncePersist,
     getNotes,
     saveNotes,
     restoreNotesFromFile,
-    cleanTagMap
+    cleanTagMap,
+    parseSearchGroups,
+    parseSearchTerm
  } from './utils.js';
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
 import { characters, selectCharacterById } from "../../../../script.js";
@@ -56,30 +58,6 @@ function renderCharacterList() {
     const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIds.length > 0;
 
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
-
-        // --- New Parsing Functions ---
-        function parseSearchGroups(input) {
-            return input
-                .split(',')
-                .map(group => group.trim())
-                .filter(Boolean)
-                .map(group => group.match(/(?:[^\s"]+|"[^"]*")+/g) || []);
-        }
-
-        function parseSearchTerm(term) {
-            let positive = true;
-            term = term.trim();
-            if (!term) return null;
-            if (term.startsWith('-')) {
-                positive = false;
-                term = term.slice(1).trim();
-            }
-            const m = term.match(/^([ta]):(.+)$/i);
-            if (m) {
-                return { field: m[1].toLowerCase(), value: m[2].toLowerCase(), positive };
-            }
-            return { field: '', value: term.toLowerCase(), positive };
-        }
 
         const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
         const sortMode = document.getElementById('charSortMode')?.value || 'alpha_asc';

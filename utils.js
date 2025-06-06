@@ -319,6 +319,31 @@ function getFolderTypeForUI(tag, notes) {
     return tag.folder_type || "NONE";
 }
 
+// Search Functions for Characters
+function parseSearchGroups(input) {
+    return input
+        .split(',')
+        .map(group => group.trim())
+        .filter(Boolean)
+        .map(group => group.match(/(?:[^\s"]+|"[^"]*")+/g) || []);
+}
+
+function parseSearchTerm(term) {
+    let positive = true;
+    term = term.trim();
+    if (!term) return null;
+    if (term.startsWith('-')) {
+        positive = false;
+        term = term.slice(1).trim();
+    }
+    const m = term.match(/^([ta]):(.+)$/i);
+    if (m) {
+        return { field: m[1].toLowerCase(), value: m[2].toLowerCase(), positive };
+    }
+    return { field: '', value: term.toLowerCase(), positive };
+}
+
+
 
 export { 
 debounce, 
@@ -339,5 +364,7 @@ persistNotesToFile,
 restoreNotesFromFile, 
 watchTagFilterBar,
 promptInput,
-getFolderTypeForUI
+getFolderTypeForUI,
+parseSearchGroups,
+parseSearchTerm
 };

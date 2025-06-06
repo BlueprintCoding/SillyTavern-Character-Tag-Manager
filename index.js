@@ -15,7 +15,9 @@ buildCharNameMap,
 cleanTagMap,
 buildTagMap, 
 getFolderTypeForUI, 
-promptInput
+promptInput,
+parseSearchGroups,
+parseSearchTerm
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
@@ -645,22 +647,49 @@ function showFolderCharactersSection(folder, folders) {
         // Advanced search: comma = OR, space = AND, minus = NOT
         let unassignedCharacters = characters.filter(c => !folder.characters.includes(c.avatar));
         let filtered = unassignedCharacters;
-
+    
         const searchInput = document.getElementById('folderCharSearchInput');
-        let raw = (searchInput?.value || '').trim();
-        if (raw) {
-            // Comma = OR
-            const orGroups = raw.split(',').map(s => s.trim()).filter(Boolean);
-            filtered = filtered.filter(char => {
-                // Any OR group matches
-                return orGroups.some(orGroup => {
-                    // Space = AND
-                    const andTerms = orGroup.split(' ').map(t => t.trim()).filter(Boolean);
-                    return andTerms.every(term => matchesCharacterAdv(char, term));
-                });
+        const rawInput = (searchInput?.value || '').trim();
+        const tagMapById = buildTagMap(tags); // needed for tag lookups
+        const searchGroups = parseSearchGroups(rawInput);
+    
+        if (searchGroups.length > 0) {
+            filtered = unassignedCharacters.filter(char => {
+                const tagIds = tag_map[char.avatar] || [];
+                const tagNames = tagIds.map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
+                const allFields = Object.values(char).filter(v => typeof v === 'string').join(' ').toLowerCase();
+                const name = char.name.toLowerCase();
+    
+                for (const group of searchGroups) {
+                    let groupMatches = true;
+                    for (const termStr of group) {
+                        const term = parseSearchTerm(termStr);
+                        if (!term) continue;
+                        let match = false;
+    
+                        if (term.field === 'a') {
+                            match = allFields.includes(term.value);
+                        } else if (term.field === 't') {
+                            match = tagNames.some(tagName => tagName.includes(term.value));
+                        } else {
+                            match = name.includes(term.value);
+                        }
+    
+                        if (term.positive && !match) {
+                            groupMatches = false;
+                            break;
+                        }
+                        if (!term.positive && match) {
+                            groupMatches = false;
+                            break;
+                        }
+                    }
+                    if (groupMatches) return true; // OR group passed
+                }
+                return false;
             });
         }
-
+    
         // Sort
         switch (folderCharSortMode) {
             case 'alpha_asc':
