@@ -1,5 +1,5 @@
 // stcm_folders.js
-import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
+import { getDataBankAttachments, uploadFileAttachment, uploadFileAttachmentToServer, getFileAttachment } from '../../../chats.js';
 import {
     tags,
     tag_map,
@@ -13,8 +13,6 @@ import {
     characters
 } from "../../../../script.js";
 
-
-import { getDataBankAttachments, getFileAttachment, uploadFileAttachmentToServer } from "../../../chats.js";
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
 let folders = [];
