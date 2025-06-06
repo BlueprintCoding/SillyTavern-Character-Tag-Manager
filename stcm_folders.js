@@ -8,6 +8,7 @@ import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import { escapeHtml } from "./utils.js";
 import { STCM, callSaveandReload, renderCharacterTagData } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
+import { injectSidebarFolders } from "./stcm_folders_ui.js";
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
 const FOLDER_FILE_KEY = "stcm_folders_url"; // localStorage key
