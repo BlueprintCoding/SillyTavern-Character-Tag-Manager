@@ -102,7 +102,7 @@ function renderSidebarFolderSearchResults(folders, allCharacters, searchTerm) {
             const name = char.name?.toLowerCase() || '';
             const description = char.description?.toLowerCase() || '';
 
-            if (name.includes(term) || description.includes(term)) {
+            if (name.includes(term)) {
                 const tagsForChar = getTagsForChar(char.avatar, tagsById);
                 matchedCharacters.push({ ...char, tags: tagsForChar });
             }
