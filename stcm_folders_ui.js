@@ -54,24 +54,28 @@ function hasVisibleChildrenOrCharacters(folderId, folders) {
     if (!folder) return false;
 
     const isPrivate = !!folder.private;
+    const hasPIN = !!sessionStorage.getItem("stcm_pin_okay");
 
-    // In private-only mode: allow walking public parents if they lead to private content
-    const shouldSkip = (
-        (privateFolderVisibilityMode === 0 && isPrivate) ||
-        (privateFolderVisibilityMode === 2 && !isPrivate)
-    );
-    if (shouldSkip) return false;
+    // Skip truly hidden folders
+    if (privateFolderVisibilityMode === 0 && isPrivate) return false;
+    if (privateFolderVisibilityMode === 2 && !isPrivate && !hasPIN) {
+        // Don't skip yet — might contain private children
+    } else if (privateFolderVisibilityMode === 2 && !isPrivate) {
+        // If no visible children, skip this folder
+        const hasVisibleChild = (folder.children || []).some(childId => {
+            return hasVisibleChildrenOrCharacters(childId, folders);
+        });
+        return hasVisibleChild;
+    }
 
-    // Has characters
+    // Direct characters
     if (Array.isArray(folder.characters) && folder.characters.length > 0) {
         return true;
     }
 
+    // Check child folders recursively
     for (const childId of folder.children || []) {
-        const child = folders.find(f => f.id === childId);
-        if (!child) continue;
-
-        if (hasVisibleChildrenOrCharacters(child.id, folders)) {
+        if (hasVisibleChildrenOrCharacters(childId, folders)) {
             return true;
         }
     }
