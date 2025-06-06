@@ -43,8 +43,7 @@ export function injectSidebarFolders(folders, allCharacters) {
         sidebar = document.createElement('div');
         sidebar.id = 'stcm_sidebar_folder_nav';
         sidebar.className = 'stcm_sidebar_folder_nav';
-        // Insert at the top, or wherever you want
-        parent.insertBefore(sidebar, pinTabs);
+        pinTabs.parentNode.insertBefore(sidebar, pinTabs);
     }
     renderSidebarFolderContents(folders, allCharacters, 'root');
 }
