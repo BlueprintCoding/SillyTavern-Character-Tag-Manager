@@ -58,21 +58,33 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
 
     input.dataset.stcmHooked = "true";
 
+    // Suspend immediately on focus
+    input.addEventListener('focus', () => {
+        suspendFolderObserver();
+    });
+
+    // Or suspend on first character input
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
-    
+
         if (!term) {
             stcmIsShowingSearchResults = false;
             resumeFolderObserver();
             renderSidebarFolderContents(folders, allCharacters);
         } else {
-            suspendFolderObserver(); // Move this to before DOM change
+            suspendFolderObserver(); // Ensure this always fires
             stcmIsShowingSearchResults = true;
             renderSidebarFolderSearchResults(folders, allCharacters, term);
         }
     }, 150));
-    
+
+    input.addEventListener('blur', () => {
+        if (!input.value.trim()) {
+            resumeFolderObserver();
+        }
+    });
 }
+
 
 function renderSidebarFolderSearchResults(folders, allCharacters, searchTerm) {
     stcmIsShowingSearchResults = true; // ← Add this
