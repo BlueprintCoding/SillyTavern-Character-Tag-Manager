@@ -305,10 +305,13 @@ async function renderFoldersTree() {
             }
 
             try {
-                await stcmFolders.moveFolder(draggedId, 'root');
+                await stcmFolders.moveFolder(draggedId, 'root');             
+                const dropZone = document.querySelector('.stcm-drop-to-root-zone');
+                if (dropZone) dropZone.classList.add('dz-hidden');
                 STCM.sidebarFolders = await stcmFolders.loadFolders();
                 injectSidebarFolders(STCM.sidebarFolders, characters);
                 renderFoldersTree();
+
             } catch (err) {
                 toastr.error("Failed to move folder to root: " + (err.message || err));
             }
@@ -370,14 +373,6 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     
         // Cleanup ghost after drag
         setTimeout(() => dragGhost.remove(), 0);
-    });
-    
-    row.addEventListener('dragend', () => {
-        // Delay hiding the drop zone to allow drop to register
-        setTimeout(() => {
-            const dropZone = document.querySelector('.stcm-drop-to-root-zone');
-            if (dropZone) dropZone.classList.add('dz-hidden');
-        }, 100); // small delay (~1 frame)
     });
 
     row.prepend(dragHandle);
