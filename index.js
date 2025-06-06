@@ -373,8 +373,11 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     });
     
     row.addEventListener('dragend', () => {
-        const dropZone = document.querySelector('.stcm-drop-to-root-zone');
-        if (dropZone) dropZone.classList.add('dz-hidden');
+        // Delay hiding the drop zone to allow drop to register
+        setTimeout(() => {
+            const dropZone = document.querySelector('.stcm-drop-to-root-zone');
+            if (dropZone) dropZone.classList.add('dz-hidden');
+        }, 100); // small delay (~1 frame)
     });
 
     row.prepend(dragHandle);
