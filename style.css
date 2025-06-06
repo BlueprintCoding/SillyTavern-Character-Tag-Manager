@@ -832,10 +832,9 @@ margin-right: 0!important;
 .stcm_folder_private .stcm_folder_main::after {
     content: '🔒';
     position: absolute;
-    top: 5px;
-    right: 10px;
+    top: -6px;
+    left: -4px;
     font-size: 0.8em;
-    color: #f97;
 }
 
 

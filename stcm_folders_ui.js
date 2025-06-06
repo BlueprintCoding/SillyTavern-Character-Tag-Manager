@@ -218,6 +218,21 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
 
 }
 
+function hasPrivateDescendant(folderId, folders) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder || !folder.children) return false;
+
+    for (const childId of folder.children) {
+        const child = folders.find(f => f.id === childId);
+        if (child) {
+            if (child.private) return true;
+            if (hasPrivateDescendant(child.id, folders)) return true;
+        }
+    }
+    return false;
+}
+
+
 // Helper to build parent/ancestor folder chain
 export function getFolderChain(folderId, folders) {
     const chain = [];
