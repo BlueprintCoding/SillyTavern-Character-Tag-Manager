@@ -269,6 +269,7 @@ async function renderFoldersTree() {
         });
     }
 }
+STCM.renderFoldersTree = renderFoldersTree;
 
 
 function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
@@ -2602,7 +2603,8 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     toastr.success('Selected notes imported!');
 }
 
-export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton, renderFoldersTree };
+export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton};
 export const STCM = {
     sidebarFolders: [],
+    renderFoldersTree: null, // placeholder for assignment later
 };
