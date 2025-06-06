@@ -962,7 +962,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
     });
 }
 export async function reorderChildren(parentId, orderedChildIds) {
-    const folders = await loadFolders();
+    const folders = await stcmFolders.loadFolders();
     const parent = folders.find(f => f.id === parentId);
     if (!parent) throw new Error("Parent folder not found.");
 
