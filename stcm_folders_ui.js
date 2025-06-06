@@ -2,7 +2,9 @@
 import { 
     debounce, 
     buildTagMap, 
-    escapeHtml
+    escapeHtml,
+    getStoredPinHash, 
+    hashPin
     } from './utils.js';
     
     import * as stcmFolders from './stcm_folders.js';
@@ -116,8 +118,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
         privateFolderVisibilityMode = (privateFolderVisibilityMode + 1) % 3;
     
         if (privateFolderVisibilityMode !== 0) {
-            const notes = getNotes();
-            const pinHash = notes.tagPrivatePinHash;
+            const pinHash = getStoredPinHash();
             if (pinHash && !sessionStorage.getItem("stcm_pin_okay")) {
                 const input = prompt("Enter PIN to view private folders:");
                 if (!input) {
