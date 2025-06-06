@@ -60,16 +60,18 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
 
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
+    
         if (!term) {
             stcmIsShowingSearchResults = false;
-            resumeFolderObserver(); // ← RE-ENABLE observer
+            resumeFolderObserver();
             renderSidebarFolderContents(folders, allCharacters);
         } else {
+            suspendFolderObserver(); // Move this to before DOM change
             stcmIsShowingSearchResults = true;
-            suspendFolderObserver(); // ← SUSPEND observer
             renderSidebarFolderSearchResults(folders, allCharacters, term);
         }
     }, 150));
+    
 }
 
 function renderSidebarFolderSearchResults(folders, allCharacters, searchTerm) {
@@ -597,7 +599,10 @@ export function watchSidebarFolderInjection() {
     if (!container) return;
 
     const debouncedInject = debounce(async () => {
-        if (stcmObserverSuspended || stcmIsShowingSearchResults) return;
+        const input = document.getElementById('character_search_bar');
+        const isSearching = input && input.value.trim().length > 0;
+
+        if (stcmObserverSuspended || isSearching) return;
 
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
