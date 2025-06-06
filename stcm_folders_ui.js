@@ -86,13 +86,13 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
                 name.includes(term) &&
                 isAvatarInVisibleFolder(avatarFile, folders)
             ) {
-                el.style.display = ''; // unhide only if folder is visible
+                el.classList.remove('stcm_force_hidden'); // unhide only if folder is visible
             } else if (term && !name.includes(term)) {
-                el.style.display = 'none'; // hide non-matching
+                el.classList.add('stcm_force_hidden'); // hide non-matching
             } else if (wasHiddenByFolder) {
-                el.style.display = 'none'; // restore original hidden state
+                el.classList.add('stcm_force_hidden'); // restore original hidden state
             } else {
-                el.style.display = ''; // restore visible
+                el.classList.remove('stcm_force_hidden'); // restore visible
             }
         }
 
@@ -109,9 +109,9 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
                 const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
 
                 if (el.dataset.stcmHiddenByFolder === 'true') {
-                    el.style.display = 'none';
+                    el.classList.add('stcm_force_hidden');
                 } else {
-                    el.style.display = '';
+                    el.classList.remove('stcm_force_hidden');
                 }
             }
         }
@@ -164,9 +164,10 @@ function hideFolderedCharactersOutsideSidebar(folders) {
 
         if (folderedCharAvatars.has(avatarFile)) {
             const shouldHide = !isAvatarInVisibleFolder(avatarFile, folders);
-            el.style.display = shouldHide ? 'none' : '';
             el.dataset.stcmHiddenByFolder = shouldHide ? 'true' : 'false';
+            el.classList.toggle('stcm_force_hidden', shouldHide);
         }
+        
         
     }
 
@@ -570,7 +571,6 @@ export function renderSidebarCharacterCard(char) {
 }
 
 let stcmObserver = null;
-let stcmObserverSuspended = false;
 let lastInjectedAt = 0;
 
 export function watchSidebarFolderInjection() {
@@ -588,15 +588,6 @@ export function watchSidebarFolderInjection() {
 
     stcmObserver = new MutationObserver(() => debouncedInject());
     stcmObserver.observe(container, { childList: true, subtree: false });
-}
-
-
-export function suspendFolderObserver() {
-    stcmObserverSuspended = true;
-}
-
-export function resumeFolderObserver() {
-    stcmObserverSuspended = false;
 }
 
 

@@ -820,6 +820,11 @@ margin-right: 0!important;
     width:140px;
 }
 
+.stcm_force_hidden {
+    display: none !important;
+}
+
+
 .folderCharSelectAll .customCheckboxWrapper {
     min-width: 70px;
     margin-left: 16px;
