@@ -53,31 +53,32 @@ function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return false;
 
-    // If this folder has visible characters
+    const isPrivate = !!folder.private;
+
+    // In private-only mode: allow walking public parents if they lead to private content
+    const shouldSkip = (
+        (privateFolderVisibilityMode === 0 && isPrivate) ||
+        (privateFolderVisibilityMode === 2 && !isPrivate)
+    );
+    if (shouldSkip) return false;
+
+    // Has characters
     if (Array.isArray(folder.characters) && folder.characters.length > 0) {
         return true;
     }
 
-    // Check for any visible children
     for (const childId of folder.children || []) {
         const child = folders.find(f => f.id === childId);
         if (!child) continue;
 
-        const isPrivate = !!child.private;
-        if (privateFolderVisibilityMode === 0 && isPrivate) continue;
-        if (privateFolderVisibilityMode === 2 && !isPrivate) continue;
-
-        // Either child has characters, or recurse
-        if (
-            (Array.isArray(child.characters) && child.characters.length > 0) ||
-            hasVisibleChildrenOrCharacters(child.id, folders)
-        ) {
+        if (hasVisibleChildrenOrCharacters(child.id, folders)) {
             return true;
         }
     }
 
     return false;
 }
+
 
 function getVisibleDescendantCharacterCount(folderId, folders) {
     let total = 0;
