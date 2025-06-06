@@ -448,8 +448,10 @@ return node;
 
 function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
     let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
-    chipsRow.innerHTML = '';
-    if (chipsRow) chipsRow.remove();
+    if (chipsRow) {
+        chipsRow.innerHTML = '';
+        chipsRow.remove();
+    }
     
 
         // Clean orphan IDs out of folder.characters in-place
