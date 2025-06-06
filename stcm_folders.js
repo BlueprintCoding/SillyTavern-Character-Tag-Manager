@@ -14,59 +14,50 @@ import {
 } from "../../../../script.js";
 
 
-const FOLDER_FILE_NAME = "stcm-folders.json";
+import { getDataBankAttachments, getFileAttachment, uploadFileAttachmentToServer } from "../../../chats.js";
 
-let folders = []; // In-memory cache
+const FOLDER_FILE_NAME = "stcm-folders.json";
+let folders = [];
 
 export async function loadFolders() {
-    let json = null;
-    const url = localStorage.getItem(FOLDER_FILE_KEY); // <-- load the real URL
-    if (url) {
-        try {
-            json = await getFileAttachment(url); // use URL not filename
-            if (!json) throw new Error("No content");
+    try {
+        const attachments = getDataBankAttachments(true); // get global attachments
+        const file = attachments.find(a => a.name === FOLDER_FILE_NAME);
+        if (file) {
+            const json = await getFileAttachment(file.url);
             folders = JSON.parse(json);
-            if (!Array.isArray(folders)) throw new Error("Corrupt file");
+            if (!Array.isArray(folders)) throw new Error("Corrupt folder data");
             folders.forEach(f => {
-                if (!f.color) f.color = '#8b2ae6';
-                if (typeof f.private !== 'boolean') f.private = false;
+                if (!f.color) f.color = "#8b2ae6";
+                if (typeof f.private !== "boolean") f.private = false;
             });
             return folders;
-        } catch (e) {
-            console.warn("Failed to load from file, trying cache:", e);
         }
+    } catch (e) {
+        console.warn("Failed to load folders:", e);
     }
 
-    // Fallback to cache or default
-    const cached = localStorage.getItem("stcm_folders_cache");
-    if (cached) {
-        try {
-            folders = JSON.parse(cached);
-            return folders;
-        } catch (e) {
-            console.warn("Failed to load from cache:", e);
-        }
-    }
-
-    folders = [{ id: "root", name: "Root", icon: 'fa-folder', color: '#8b2ae6', parentId: null, children: [], characters: [] }];
+    // Default if nothing found or failed
+    folders = [{
+        id: "root",
+        name: "Root",
+        icon: "fa-folder",
+        color: "#8b2ae6",
+        parentId: null,
+        children: [],
+        characters: []
+    }];
     await saveFolders(folders);
     return folders;
 }
 
-
-
 export async function saveFolders(foldersToSave = folders) {
     const json = JSON.stringify(foldersToSave, null, 2);
-    const base64 = window.btoa(unescape(encodeURIComponent(json)));
-
-    const url = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
-    if (url) {
-        localStorage.setItem(FOLDER_FILE_KEY, url); // <-- store returned path
-    }
-
+    const file = new File([json], FOLDER_FILE_NAME, { type: "application/json" });
+    await uploadFileAttachmentToServer(file, "global");
     folders = foldersToSave;
-    localStorage.setItem("stcm_folders_cache", json); // optional fallback
 }
+
 
 export function getCharacterAssignedFolder(charId, folders) {
     return folders.find(f => Array.isArray(f.characters) && f.characters.includes(charId));
