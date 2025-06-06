@@ -51,8 +51,9 @@ export async function loadFolders() {
 
 export async function saveFolders(foldersToSave = folders) {
     const json = JSON.stringify(foldersToSave, null, 2);
-    const file = new File([json], FOLDER_FILE_NAME, { type: "application/json" });
-    await uploadFileAttachmentToServer(file, "global");
+    const base64 = window.btoa(unescape(encodeURIComponent(json)));
+    const url = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
+    if (!url) throw new Error("Upload failed");
     folders = foldersToSave;
 }
 
