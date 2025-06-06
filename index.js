@@ -75,7 +75,7 @@ let selectedPrimaryTagId = null;          // Global merge radio selection
 let selectedTagIds = new Set();
 let isBulkDeleteMode = false;
 const selectedBulkDeleteTags = new Set();
-
+let STCM_currentlyDraggedFolderId = null;
 
 
 function openCharacterTagManagerModal() {
@@ -363,6 +363,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     
         e.dataTransfer.setDragImage(dragGhost, 0, 0);
         e.dataTransfer.setData('text/plain', folder.id);
+        STCM_currentlyDraggedFolderId = folder.id;
         e.dataTransfer.effectAllowed = 'move';
     
         e.stopPropagation();
@@ -536,7 +537,8 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         row.classList.remove('stcm-drop-hover');
         node.classList.remove('stcm-drop-target');
     
-        const draggedId = e.dataTransfer.getData('text/plain');
+        const draggedId = STCM_currentlyDraggedFolderId;
+        STCM_currentlyDraggedFolderId = null;
         if (draggedId === folder.id) return;
     
         const dragged = allFolders.find(f => f.id === draggedId);
