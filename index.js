@@ -549,6 +549,10 @@ function showFolderCharactersSection(folder, folders) {
     sortFilterRow.style.alignItems = 'center';
     sortFilterRow.style.gap = '10px';
     sortFilterRow.innerHTML = `
+        <label class="customCheckboxWrapper" title="Select all visible characters">
+        <input type="checkbox" id="selectAllVisibleAssignables" />
+        <span class="customCheckbox"></span> Select All
+        </label>
         <span>SORT</span>
         <select id="folderCharSortMode" class="stcm_menu_button interactable" style="min-width:110px;">
             <option value="alpha_asc">A → Z</option>
@@ -582,6 +586,8 @@ function showFolderCharactersSection(folder, folders) {
         injectSidebarFolders(STCM.sidebarFolders, characters);
     });
     sortFilterRow.appendChild(assignBtn);
+
+
     section.appendChild(sortFilterRow);
 
     // Search hint
@@ -597,6 +603,18 @@ function showFolderCharactersSection(folder, folders) {
     charList.className = 'charList stcm_folder_assign_charList';
     section.appendChild(charList);
 
+    sortFilterRow.querySelector('#selectAllVisibleAssignables').addEventListener('change', (e) => {
+        const checked = e.target.checked;
+        const checkboxes = charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)');
+        checkboxes.forEach(cb => {
+            cb.checked = checked;
+            if (checked) assignSelection.add(cb.value);
+            else assignSelection.delete(cb.value);
+        });
+    });
+
+
+    
     let folderCharSearchTerm = '';
     setTimeout(() => {
         const searchInput = document.getElementById('folderCharSearchInput');
@@ -604,42 +622,7 @@ function showFolderCharactersSection(folder, folders) {
         renderAssignCharList();
     }, 0);
 
-    // --- Helper for advanced character search ---
-    function matchesCharacterAdv(char, search) {
-        
-        const tagsById = buildTagMap(tags);
-        const tagNames = (tag_map[char.avatar] || [])
-            .map(tid => tagsById.get(tid)?.name?.toLowerCase() || '').filter(Boolean);
-
-        // all fields: name, description, notes
-        const fields = [
-            char.name?.toLowerCase() || '',
-            char.description?.toLowerCase() || '',
-            (getNotes().charNotes && getNotes().charNotes[char.avatar]?.toLowerCase()) || ''
-        ];
-        // For negative/positive logic
-        let input = search.trim();
-        let neg = false;
-        if (input.startsWith('-')) {
-            neg = true;
-            input = input.slice(1);
-        }
-        input = input.trim();
-
-        if (input.startsWith('A:')) {
-            const val = input.slice(2).trim();
-            const match = fields.some(f => f.includes(val));
-            return neg ? !match : match;
-        }
-        if (input.startsWith('T:')) {
-            const val = input.slice(2).trim();
-            const match = tagNames.some(tn => tn.includes(val));
-            return neg ? !match : match;
-        }
-        // Plain search: name (or other field)
-        const match = char.name?.toLowerCase().includes(input) || false;
-        return neg ? !match : match;
-    }
+   
 
     // --- RENDER FUNCTION ---
     function renderAssignCharList() {
@@ -789,9 +772,23 @@ function showFolderCharactersSection(folder, folders) {
             checkbox.className = 'folderAssignCharCheckbox';
             checkbox.checked = assignSelection.has(char.avatar);
             checkbox.addEventListener('change', () => {
-                if (checkbox.checked) assignSelection.add(char.avatar);
-                else assignSelection.delete(char.avatar);
+                if (checkbox.checked) {
+                    assignSelection.add(char.avatar); }
+                else {
+
+                 assignSelection.delete(char.avatar);
+            }
+
+                    // 🔄 Sync "Select All" if it exists
+                const selectAllCheckbox = document.getElementById('selectAllVisibleAssignables');
+                if (selectAllCheckbox) {
+                    const allVisible = [...charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)')];
+                    const allChecked = allVisible.length > 0 && allVisible.every(cb => cb.checked);
+                    selectAllCheckbox.checked = allChecked;
+                }
             });
+
+
             label.appendChild(checkbox);
         
             const checkmark = document.createElement('span');
@@ -842,6 +839,15 @@ function showFolderCharactersSection(folder, folders) {
         
             charList.appendChild(li);
         });
+
+                    // Sync "Select All" checkbox based on current view
+const selectAllCheckbox = document.getElementById('selectAllVisibleAssignables');
+if (selectAllCheckbox) {
+    const allVisible = [...charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)')];
+    const allChecked = allVisible.length > 0 && allVisible.every(cb => cb.checked);
+    selectAllCheckbox.checked = allChecked;
+}
+
         
     }
 
