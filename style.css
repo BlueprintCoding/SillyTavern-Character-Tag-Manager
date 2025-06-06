@@ -817,7 +817,16 @@ margin-right: 0!important;
 }
 
 .folderCharSelectAll {
-    width:90px;
+    width:140px;
+}
+
+.folderCharSelectAll .customCheckboxWrapper {
+    min-width: 70px;
+    margin-left: 16px;
+}
+
+.folderCharSelectAll .customCheckbox {
+    margin-left: -15px;
 }
 
 .stcm_folder_type_select {
