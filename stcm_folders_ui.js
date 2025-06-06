@@ -36,14 +36,15 @@ export function injectSidebarFolders(folders, allCharacters) {
     currentSidebarFolderId = 'root';
     // Inject our sidebar if not present
     let sidebar = document.getElementById('stcm_sidebar_folder_nav');
-    const pinTabs = document.getElementById('rm_PinAndTabs');
-    if (!pinTabs) return;
+    const parent = document.getElementById('rm_print_characters_block');
+    if (!parent) return;
 
     if (!sidebar) {
         sidebar = document.createElement('div');
         sidebar.id = 'stcm_sidebar_folder_nav';
         sidebar.className = 'stcm_sidebar_folder_nav';
-        pinTabs.parentNode.insertBefore(sidebar, pinTabs);
+        // Insert at the top, or wherever you want
+        parent.insertBefore(sidebar, parent.firstChild);
     }
     renderSidebarFolderContents(folders, allCharacters, 'root');
 }
