@@ -973,5 +973,5 @@ export async function reorderChildren(parentId, orderedChildIds) {
     }
 
     parent.children = orderedChildIds;
-    await saveFolders(folders); // persist new order
+    await stcmFolders.saveFolders(folders); // persist new order
 }
