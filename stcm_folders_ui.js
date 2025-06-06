@@ -673,13 +673,16 @@ export function showIconPicker(folder, parentNode, rerender) {
 
     const popup = document.createElement('div');
     popup.className = 'stcm-icon-picker-popup';
-    popup.style.position = 'absolute';
+    popup.style.position = 'fixed';
     popup.style.background = '#222';
     popup.style.border = '1px solid #444';
     popup.style.borderRadius = '8px';
     popup.style.padding = '16px 12px 10px 12px';
     popup.style.zIndex = 10000;
     popup.style.minWidth = '270px';
+    popup.style.maxHeight = '80vh';
+    popup.style.overflowY = 'auto';
+    popup.style.overflowX = 'hidden';
 
     // --- Instructions & custom field ---
     const instr = document.createElement('div');
@@ -791,8 +794,26 @@ export function showIconPicker(folder, parentNode, rerender) {
 
     document.body.appendChild(popup);
     const rect = parentNode.getBoundingClientRect();
-    popup.style.left = (rect.left + window.scrollX + 60) + "px";
-    popup.style.top = (rect.top + window.scrollY) + "px";
+    
+    // Default placement
+    popup.style.left = (rect.left + 60) + "px";
+    popup.style.top = rect.top + "px";
+    
+    // Wait for popup to render to measure
+    requestAnimationFrame(() => {
+        const popupRect = popup.getBoundingClientRect();
+        const margin = 10;
+    
+        // Clamp to right edge
+        if (popupRect.right > window.innerWidth - margin) {
+            popup.style.left = `${window.innerWidth - popupRect.width - margin}px`;
+        }
+    
+        // Clamp to bottom edge
+        if (popupRect.bottom > window.innerHeight - margin) {
+            popup.style.top = `${window.innerHeight - popupRect.height - margin}px`;
+        }
+    });
 }
 
 
