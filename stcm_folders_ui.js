@@ -961,3 +961,17 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         }
     });
 }
+export async function reorderChildren(parentId, orderedChildIds) {
+    const folders = await loadFolders();
+    const parent = folders.find(f => f.id === parentId);
+    if (!parent) throw new Error("Parent folder not found.");
+
+    // Validate all IDs exist and belong to the same parent
+    const validIds = new Set(parent.children);
+    if (!orderedChildIds.every(id => validIds.has(id))) {
+        throw new Error("Invalid child IDs in reordering.");
+    }
+
+    parent.children = orderedChildIds;
+    await saveFolders(folders); // persist new order
+}

@@ -29,7 +29,8 @@ import {
     makeFolderNameEditable,
     showIconPicker,
     confirmDeleteFolder,
-    showChangeParentPopup
+    showChangeParentPopup,
+    reorderChildren
 } from './stcm_folders_ui.js';
 
 
@@ -288,6 +289,21 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     row.style.gap = '7px';
     row.style.marginLeft = `${depth * 24}px`; 
 
+    const dragHandle = document.createElement('div');
+    dragHandle.className = 'stcm-folder-drag-handle';
+    dragHandle.innerHTML = '<i class="fa-solid fa-grip-lines"></i>';
+    dragHandle.draggable = true;
+    dragHandle.style.cursor = 'grab';
+
+    dragHandle.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', folder.id);
+        e.dataTransfer.effectAllowed = 'move';
+        e.stopPropagation();
+    });
+
+    row.prepend(dragHandle);
+
+
     // Icon, name, buttons (append to row)
     const iconBg = document.createElement('div');
     iconBg.className = 'avatar flex alignitemscenter textAlignCenter stcm-folder-avatar';
@@ -429,6 +445,59 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     // Append the folder row to the node
     node.appendChild(row);
 
+    node.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        node.classList.add('stcm-drop-target');
+    });
+    
+    node.addEventListener('dragleave', () => {
+        node.classList.remove('stcm-drop-target');
+    });
+    
+    node.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        node.classList.remove('stcm-drop-target');
+    
+        const draggedId = e.dataTransfer.getData('text/plain');
+        if (draggedId === folder.id) return;
+    
+        const dragged = allFolders.find(f => f.id === draggedId);
+        if (!dragged) return;
+    
+        const sameParent = folder.parentId && dragged.parentId === folder.parentId;
+    
+        if (sameParent) {
+            const parent = allFolders.find(f => f.id === folder.parentId);
+            if (!parent || !Array.isArray(parent.children)) return;
+    
+            const siblings = [...parent.children];
+            const fromIndex = siblings.indexOf(dragged.id);
+            const toIndex = siblings.indexOf(folder.id);
+    
+            if (fromIndex === -1 || toIndex === -1) return;
+    
+            siblings.splice(fromIndex, 1);
+            siblings.splice(toIndex, 0, dragged.id);
+    
+            await stcmFolders.reorderChildren(parent.id, siblings);
+        } else {
+            // Validate and move if not same parent
+            const canDrop = validateDropTarget(dragged, folder, allFolders);
+            if (!canDrop) {
+                toastr.warning("Invalid move.");
+                return;
+            }
+            await stcmFolders.moveFolder(dragged.id, folder.id);
+        }
+    
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
+        renderFoldersTree();
+    });
+    
+    
+
 
   // CHILDREN (vertical, as own block)
   if (Array.isArray(folder.children) && folder.children.length > 0) {
@@ -446,6 +515,19 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 }
 return node;
 }
+
+function validateDropTarget(dragged, target, folders) {
+    const descendants = getAllDescendantFolderIds(dragged.id, folders);
+    if (descendants.includes(target.id)) return false;
+
+    const subtreeDepth = getMaxFolderSubtreeDepth(dragged.id, folders);
+    const targetDepth = getFolderChain(target.id, folders).length;
+    const maxDepth = 5;
+
+    return (targetDepth + subtreeDepth) < maxDepth;
+}
+
+
 
 function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
     let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
