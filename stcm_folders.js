@@ -37,7 +37,7 @@ export async function loadFolders() {
     }
     // If no file, or error, create default
     folders = [ { id: "root", name: "Root", icon: 'fa-folder', color: '#8b2ae6', parentId: null, children: [], characters: [] } ];
-    await saveFolders();
+    await saveFolders(folders); 
     return folders;
 }
 
@@ -62,7 +62,7 @@ export async function setFolderPrivacy(id, isPrivate) {
     const folder = folders.find(f => f.id === id);
     if (folder) {
         folder.private = !!isPrivate;
-        await saveFolders();
+        await saveFolders(folders); 
     }
 }
 
@@ -88,7 +88,7 @@ export async function assignCharactersToFolder(folderOrId, charIds) {
             folder.characters.push(charId);
         }
     }
-    await saveFolders();
+    await saveFolders(folders); 
 }
 
 
@@ -99,7 +99,7 @@ export async function removeCharacterFromFolder(folderOrId, charId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder || !Array.isArray(folder.characters)) return;
     folder.characters = folder.characters.filter(id => id !== charId);
-    await saveFolders();
+    await saveFolders(folders); 
 }
 
 
@@ -135,7 +135,7 @@ export async function addFolder(name, parentId = "root", color = '#8b2ae6') {
         characters: [], 
         private: false
     });
-    await saveFolders();
+    await saveFolders(folders); 
     return id;
 }
 
@@ -144,7 +144,7 @@ export async function setFolderColor(id, color) {
     const folder = folders.find(f => f.id === id);
     if (folder) {
         folder.color = color;
-        await saveFolders();   // <- no arg, saves the global "folders"
+        await saveFolders(folders);    // <- no arg, saves the global "folders"
     }
 }
 
@@ -159,7 +159,7 @@ export async function moveCharacterToFolder(charId, folderId) {
     const folder = getFolder(folderId);
     if (!folder || getFolderDepth(folderId) >= 5) throw new Error("Folder depth limit exceeded.");
     folder.children.push("char:" + charId);
-    await saveFolders();
+    await saveFolders(folders); 
 }
 
 // Move a folder to a new parent (careful with cycles/depth)
@@ -175,7 +175,7 @@ export async function moveFolder(folderId, newParentId) {
     if (!newParent || getFolderDepth(newParentId) >= 5) throw new Error("Folder depth limit exceeded.");
     newParent.children.push(folderId);
     oldFolder.parentId = newParentId;
-    await saveFolders();
+    await saveFolders(folders); 
 }
 
 function getFolderDepth(folderId) {
