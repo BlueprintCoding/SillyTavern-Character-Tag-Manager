@@ -103,15 +103,15 @@ export async function removeCharacterFromFolder(folderOrId, charId) {
 }
 
 
-export async function saveFolders() {
-    const json = JSON.stringify(folders, null, 2);
+export async function saveFolders(foldersToSave = folders) {
+    const json = JSON.stringify(foldersToSave, null, 2);
     const base64 = window.btoa(unescape(encodeURIComponent(json)));
     const url = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
     if (url) {
         localStorage.setItem(FOLDER_FILE_KEY, url);
     }
-    // Save to local cache
     localStorage.setItem("stcm_folders_cache", json);
+    folders = foldersToSave; // Update the global cache too
 }
 
 // Utility to get folder by ID
