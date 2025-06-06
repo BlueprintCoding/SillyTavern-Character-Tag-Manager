@@ -51,11 +51,11 @@ export function injectSidebarFolders(folders, allCharacters) {
 }
 
 function hideFolderedCharactersOutsideSidebar(folders) {
-    const folderedCharIds = new Set();
+    const folderedCharAvatars = new Set();
     for (const folder of folders) {
         if (Array.isArray(folder.characters)) {
-            for (const charId of folder.characters) {
-                folderedCharIds.add(charId);
+            for (const charAvatar of folder.characters) {
+                folderedCharAvatars.add(charAvatar);
             }
         }
     }
@@ -63,19 +63,20 @@ function hideFolderedCharactersOutsideSidebar(folders) {
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
-    // Skip our own sidebar
     const sidebar = document.getElementById('stcm_sidebar_folder_nav');
     if (!sidebar) return;
 
     for (const el of globalList.querySelectorAll('.character_select')) {
-        const chid = el.getAttribute('data-chid') || el.getAttribute('chid');
-        if (!chid) continue;
-
-        // Don't touch elements rendered in the sidebar
         if (sidebar.contains(el)) continue;
 
-        // Hide if it's assigned to a folder
-        if (folderedCharIds.has(chid)) {
+        // Get the avatar from the image src
+        const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
+        if (!img) continue;
+
+        const url = new URL(img.src, window.location.origin);
+        const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
+
+        if (folderedCharAvatars.has(avatarFile)) {
             el.style.display = 'none';
         }
     }
