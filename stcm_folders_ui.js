@@ -597,7 +597,7 @@ export function watchSidebarFolderInjection() {
     if (!container) return;
 
     const debouncedInject = debounce(async () => {
-        if (stcmObserverSuspended) return;
+        if (stcmObserverSuspended || stcmIsShowingSearchResults) return;
 
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
@@ -608,6 +608,7 @@ export function watchSidebarFolderInjection() {
     stcmObserver = new MutationObserver(() => debouncedInject());
     stcmObserver.observe(container, { childList: true, subtree: false });
 }
+
 
 export function suspendFolderObserver() {
     stcmObserverSuspended = true;
