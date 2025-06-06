@@ -255,8 +255,7 @@ export async function convertTagToRealFolder(tag) {
         }
 
         const newFolderId = await addFolder(folderName, "root", folderColor);
-        const updatedFolders = await loadFolders();
-        const newFolder = updatedFolders.find(f => f.id === newFolderId);
+        const newFolder = getFolder(newFolderId); // ✅ fixed here
         if (!newFolder) throw new Error("Failed to locate new folder");
 
         const assignedChars = Object.entries(tag_map)
@@ -288,7 +287,6 @@ export async function convertTagToRealFolder(tag) {
             }
 
             await STCM.renderFoldersTree();
-
         }
 
         // Prompt to delete tag
