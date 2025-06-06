@@ -1,6 +1,13 @@
 // stcm_folders.js
 import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
-import { STCM } from './index.js';
+import {
+    tags,
+    tag_map,
+} from "../../../tags.js";
+import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
+import { escapeHtml } from "./utils.js";
+import { STCM, callSaveandReload, renderCharacterTagData, renderFoldersTree } from "./index.js";
+import { renderCharacterList } from "./stcm_characters.js"; 
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
 const FOLDER_FILE_KEY = "stcm_folders_url"; // localStorage key
