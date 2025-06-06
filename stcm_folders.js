@@ -18,41 +18,35 @@ const FOLDER_FILE_NAME = "stcm-folders.json";
 let folders = [];
 
 export async function loadFolders() {
+    const fileUrl = localStorage.getItem('stcm_folders_url');
     try {
-        const attachments = getDataBankAttachments(true);
-        const file = attachments.find(a => a.name === FOLDER_FILE_NAME);
+        if (fileUrl) {
+            const content = await getFileAttachment(fileUrl);
+            folders = JSON.parse(content);
+            if (!Array.isArray(folders)) throw new Error("Corrupt folder data");
 
-        let json;
+            folders.forEach(f => {
+                if (!f.color) f.color = "#8b2ae6";
+                if (typeof f.private !== "boolean") f.private = false;
+            });
 
-        // Try the attachment URL first
-        if (file?.url) {
-            json = await getFileAttachment(file.url);
+            return folders;
         }
-
-        // Fallback to direct path if that fails or file is missing
-        if (!json) {
-            const fallbackUrl = `/user/files/${FOLDER_FILE_NAME}`;
-            json = await getFileAttachment(fallbackUrl);
-        }
-
-        if (!json || typeof json !== 'string') throw new Error("Invalid or missing folder file");
-
-        folders = JSON.parse(json);
-        if (!Array.isArray(folders)) throw new Error("Corrupt folder data");
-
-        folders.forEach(f => {
-            if (!f.color) f.color = "#8b2ae6";
-            if (typeof f.private !== "boolean") f.private = false;
-        });
-
-        return folders;
     } catch (e) {
-        const msg = typeof e === 'string' ? e : e?.message || String(e);
-        console.warn("Failed to load folders:", msg);
-        toastr.error(msg, "Failed to load folders");
+        console.warn("Failed to load folders:", e);
     }
 
-    // Fallback
+    // Fallback to cached or default
+    const cached = localStorage.getItem('stcm_folders_cache');
+    if (cached) {
+        try {
+            folders = JSON.parse(cached);
+            return folders;
+        } catch (e) {
+            console.warn("Failed to parse folder cache:", e);
+        }
+    }
+
     folders = [{
         id: "root",
         name: "Root",
@@ -68,11 +62,17 @@ export async function loadFolders() {
 
 
 
+
 export async function saveFolders(foldersToSave = folders) {
     const json = JSON.stringify(foldersToSave, null, 2);
     const base64 = window.btoa(unescape(encodeURIComponent(json)));
-    const url = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
-    if (!url) throw new Error("Upload failed");
+
+    const fileUrl = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
+    if (fileUrl) {
+        localStorage.setItem('stcm_folders_url', fileUrl);
+        localStorage.setItem('stcm_folders_cache', JSON.stringify(foldersToSave));
+    }
+
     folders = foldersToSave;
 }
 
