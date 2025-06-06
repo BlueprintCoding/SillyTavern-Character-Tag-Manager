@@ -551,10 +551,11 @@ function showFolderCharactersSection(folder, folders) {
     sortFilterRow.style.alignItems = 'center';
     sortFilterRow.style.gap = '10px';
     sortFilterRow.innerHTML = `
+        <div class="folderCharSelectAll">
         <label class="customCheckboxWrapper" title="Select all visible characters">
         <input type="checkbox" id="selectAllVisibleAssignables" />
         <span class="customCheckbox"></span> Select All
-        </label>
+        </label></div>
         <span>SORT</span>
         <select id="folderCharSortMode" class="stcm_menu_button interactable" style="min-width:110px;">
             <option value="alpha_asc">A → Z</option>

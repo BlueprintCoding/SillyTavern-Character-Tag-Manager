@@ -816,6 +816,10 @@ margin-right: 0!important;
     margin-right: 8px;
 }
 
+.folderCharSelectAll {
+    width:90px;
+}
+
 .stcm_folder_type_select {
     background: #222;
     border: 1px solid #555;
