@@ -20,39 +20,52 @@ let folders = []; // In-memory cache
 
 export async function loadFolders() {
     let json = null;
-    try {
-        json = await getFileAttachment(FOLDER_FILE_NAME);
-        if (!json) throw new Error("No content");
-        folders = JSON.parse(json);
-        if (!Array.isArray(folders)) throw new Error("Corrupt file");
-        folders.forEach(f => {
-            if (!f.color) f.color = '#8b2ae6';
-            if (typeof f.private !== 'boolean') f.private = false;
-        });
-        return folders;
-    } catch (e) {
-        console.warn("Failed to load stcm-folders.json, creating default:", e);
-        folders = [{
-            id: "root",
-            name: "Root",
-            icon: 'fa-folder',
-            color: '#8b2ae6',
-            parentId: null,
-            children: [],
-            characters: [],
-            private: false
-        }];
-        await saveFolders(folders);
-        return folders;
+    const url = localStorage.getItem(FOLDER_FILE_KEY); // <-- load the real URL
+    if (url) {
+        try {
+            json = await getFileAttachment(url); // use URL not filename
+            if (!json) throw new Error("No content");
+            folders = JSON.parse(json);
+            if (!Array.isArray(folders)) throw new Error("Corrupt file");
+            folders.forEach(f => {
+                if (!f.color) f.color = '#8b2ae6';
+                if (typeof f.private !== 'boolean') f.private = false;
+            });
+            return folders;
+        } catch (e) {
+            console.warn("Failed to load from file, trying cache:", e);
+        }
     }
+
+    // Fallback to cache or default
+    const cached = localStorage.getItem("stcm_folders_cache");
+    if (cached) {
+        try {
+            folders = JSON.parse(cached);
+            return folders;
+        } catch (e) {
+            console.warn("Failed to load from cache:", e);
+        }
+    }
+
+    folders = [{ id: "root", name: "Root", icon: 'fa-folder', color: '#8b2ae6', parentId: null, children: [], characters: [] }];
+    await saveFolders(folders);
+    return folders;
 }
+
 
 
 export async function saveFolders(foldersToSave = folders) {
     const json = JSON.stringify(foldersToSave, null, 2);
     const base64 = window.btoa(unescape(encodeURIComponent(json)));
-    await uploadFileAttachment(FOLDER_FILE_NAME, base64);
-    folders = foldersToSave; // Update the global cache too
+
+    const url = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
+    if (url) {
+        localStorage.setItem(FOLDER_FILE_KEY, url); // <-- store returned path
+    }
+
+    folders = foldersToSave;
+    localStorage.setItem("stcm_folders_cache", json); // optional fallback
 }
 
 export function getCharacterAssignedFolder(charId, folders) {
