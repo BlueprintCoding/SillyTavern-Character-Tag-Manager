@@ -1976,7 +1976,7 @@ function renderCharacterTagData() {
         convertBtn.title = 'Create a real folder with this tag’s settings';
         convertBtn.style.marginLeft = '6px';
         convertBtn.addEventListener('click', () => {
-            stcm.convertTagToRealFolder(group.tag);
+            stcmFolders.convertTagToRealFolder(group.tag);
         });
         folderWrapper.appendChild(convertBtn);
 
