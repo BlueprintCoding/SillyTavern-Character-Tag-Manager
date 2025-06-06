@@ -66,10 +66,10 @@ function hideFolderedCharactersOutsideSidebar(folders) {
     const sidebar = document.getElementById('stcm_sidebar_folder_nav');
     if (!sidebar) return;
 
+    // Hide main character cards
     for (const el of globalList.querySelectorAll('.character_select')) {
         if (sidebar.contains(el)) continue;
 
-        // Get the avatar from the image src
         const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
         if (!img) continue;
 
@@ -80,7 +80,23 @@ function hideFolderedCharactersOutsideSidebar(folders) {
             el.style.display = 'none';
         }
     }
+
+    // Hide avatars in bogus folder previews
+    for (const container of document.querySelectorAll('.bogus_folder_avatars_block')) {
+        for (const el of container.querySelectorAll('.avatar[data-type="character"]')) {
+            const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
+            if (!img) continue;
+
+            const url = new URL(img.src, window.location.origin);
+            const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
+
+            if (folderedCharAvatars.has(avatarFile)) {
+                el.style.display = 'none';
+            }
+        }
+    }
 }
+
 
 
 function hasVisibleChildrenOrCharacters(folderId, folders) {
