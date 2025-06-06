@@ -1887,21 +1887,21 @@ function renderCharacterTagData() {
         const folderTypes = [
             {
                 value: 'NONE',
-                label: 'No Folder',
+                label: 'No Tag Folder',
                 icon: 'fa-xmark',
                 tooltip: 'No Folder'
             },
             {
                 value: 'OPEN',
-                label: 'Open Folder',
+                label: 'Open Tag Folder',
                 icon: 'fa-folder-open',
-                tooltip: 'Open Folder (Show all characters even if not selected)'
+                tooltip: 'Open Tag Folder (Show all characters even if not selected)'
             },
             {
                 value: 'CLOSED',
-                label: 'Closed Folder',
+                label: 'Closed Tag Folder',
                 icon: 'fa-folder-closed',
-                tooltip: 'Closed Folder (Hide all characters unless selected)'
+                tooltip: 'Closed Tag Folder (Hide all characters unless selected)'
             }
         ];
 
@@ -1960,7 +1960,7 @@ function renderCharacterTagData() {
 
         // Label with icon
         const folderLabel = document.createElement('span');
-        folderLabel.innerHTML = `<i class="fa-solid fa-folder" style="margin-right: 4px;"></i>Type:`;
+        folderLabel.innerHTML = `<i class="fa-solid fa-folder" style="margin-right: 4px;"></i>Tag Type:`;
         folderLabel.style.fontWeight = 'bold';
         folderLabel.style.whiteSpace = 'nowrap';
         folderLabel.title = "Choose how this tag behaves as a folder";
@@ -1968,8 +1968,21 @@ function renderCharacterTagData() {
         // Append label and dropdown to wrapper
         folderWrapper.appendChild(folderLabel);
         folderWrapper.appendChild(folderDropdownWrapper);
+        
+        // add convert folder button
+        const convertBtn = document.createElement('button');
+        convertBtn.className = 'stcm_menu_button tiny interactable';
+        convertBtn.textContent = 'Convert to Real Folder';
+        convertBtn.title = 'Create a real folder with this tag’s settings';
+        convertBtn.style.marginLeft = '6px';
+        convertBtn.addEventListener('click', () => {
+            stcm.convertTagToRealFolder(group.tag);
+        });
+        folderWrapper.appendChild(convertBtn);
+
 
         header.appendChild(folderWrapper);
+        
 
         const infoIcon = document.createElement('i');
         infoIcon.className = 'fa-solid fa-circle-info stcm_folder_info_icon';

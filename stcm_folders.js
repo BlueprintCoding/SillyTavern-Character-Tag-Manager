@@ -211,3 +211,84 @@ export async function deleteFolder(id) {
     removeRecursive(id);
     await saveFolders(folders);
 }
+
+async function convertTagToRealFolder(tag) {
+    if (!tag || !tag.name) return;
+
+    const folderName = tag.name.trim();
+    const folderColor = tag.color || '#8b2ae6';
+
+    try {
+        const folders = await stcmFolders.loadFolders();
+        const existingFolder = folders.find(f => f.name.trim().toLowerCase() === folderName.toLowerCase());
+
+        if (existingFolder) {
+            toastr.warning(`A folder named "${folderName}" already exists. Conversion cancelled.`);
+            return;
+        }
+
+        const newFolderId = await stcmFolders.addFolder(folderName, "root", folderColor);
+        const updatedFolders = await stcmFolders.loadFolders();
+        const newFolder = updatedFolders.find(f => f.id === newFolderId);
+        if (!newFolder) throw new Error("Failed to locate new folder");
+
+        const assignedChars = Object.entries(tag_map)
+            .filter(([_, tagIds]) => Array.isArray(tagIds) && tagIds.includes(tag.id))
+            .map(([charId]) => charId);
+
+        await stcmFolders.assignCharactersToFolder(newFolder, assignedChars);
+
+        toastr.success(`Converted "${tag.name}" into real folder with ${assignedChars.length} characters`);
+
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
+
+        // 📌 Switch UI to Folders accordion
+        const overlay = document.getElementById('characterTagManagerModal');
+        if (overlay) {
+            overlay.querySelectorAll('.accordionContent').forEach(c => c.classList.remove('open'));
+            overlay.querySelectorAll('.accordionToggle').forEach(t => {
+                const text = t.textContent.replace(/^.? /, "");
+                t.innerHTML = `▶ ${text}`;
+            });
+
+            const foldersSection = document.getElementById('foldersSection');
+            if (foldersSection) foldersSection.classList.add('open');
+
+            const foldersToggle = overlay.querySelector(`.accordionToggle[data-target="foldersSection"]`);
+            if (foldersToggle) {
+                foldersToggle.innerHTML = `▼ Folders`;
+            }
+
+            await renderFoldersTree();
+        }
+
+        // Prompt to delete tag
+        const html = document.createElement('div');
+        html.innerHTML = `
+            <h3>Delete Original Tag?</h3>
+            <p>The tag <strong>${escapeHtml(tag.name)}</strong> was just converted into a real folder.</p>
+            <p>Would you like to delete the tag now to avoid redundancy?</p>
+        `;
+        const choice = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Tag?');
+
+        if (choice === POPUP_RESULT.AFFIRMATIVE) {
+            for (const [charId, tagList] of Object.entries(tag_map)) {
+                if (Array.isArray(tagList)) {
+                    tag_map[charId] = tagList.filter(tid => tid !== tag.id);
+                }
+            }
+            const index = tags.findIndex(t => t.id === tag.id);
+            if (index !== -1) tags.splice(index, 1);
+
+            toastr.success(`Deleted tag "${tag.name}"`);
+            await callSaveandReload();
+            renderCharacterList();
+            renderCharacterTagData();
+        }
+
+    } catch (err) {
+        console.error(err);
+        toastr.error(`Failed to convert tag: ${err.message || err}`);
+    }
+}
