@@ -78,7 +78,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
             const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
             const name = (el.querySelector('.ch_name')?.textContent || '').toLowerCase();
 
-            const wasHiddenByFolder = folderedCharAvatars.has(avatarFile);
+            const wasHiddenByFolder = el.dataset.stcmHiddenByFolder === 'true';
 
             if (
                 term &&
@@ -163,9 +163,11 @@ function hideFolderedCharactersOutsideSidebar(folders) {
         const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
 
         if (folderedCharAvatars.has(avatarFile)) {
-            el.style.display = 'none';
-            el.dataset.stcmHiddenByFolder = 'true'; // Mark as hidden by folder
+            const shouldHide = !isAvatarInVisibleFolder(avatarFile, folders);
+            el.style.display = shouldHide ? 'none' : '';
+            el.dataset.stcmHiddenByFolder = shouldHide ? 'true' : 'false';
         }
+        
     }
 
     // Hide avatars in bogus folder previews
