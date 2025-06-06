@@ -79,27 +79,29 @@ function hasVisibleChildrenOrCharacters(folderId, folders) {
     return false;
 }
 
+function getVisibleDescendantCharacterCount(folderId, folders) {
+    let total = 0;
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return 0;
 
-// function hasAnyCharacters(folderId, folders, includeHidden = true) {
-//     const folder = folders.find(f => f.id === folderId);
-//     if (!folder) return false;
+    // Count characters in this folder
+    if (Array.isArray(folder.characters)) {
+        total += folder.characters.length;
+    }
 
-//     const isPrivate = !!folder.private;
-//     if (!includeHidden && isPrivate && !sessionStorage.getItem("stcm_pin_okay")) {
-//         return false;
-//     }
+    for (const childId of folder.children || []) {
+        const child = folders.find(f => f.id === childId);
+        if (!child) continue;
 
-//     if (Array.isArray(folder.characters) && folder.characters.length > 0) {
-//         return true;
-//     }
+        const isPrivate = !!child.private;
+        if (privateFolderVisibilityMode === 0 && isPrivate) continue;
+        if (privateFolderVisibilityMode === 2 && !isPrivate) continue;
 
-//     for (const childId of (folder.children || [])) {
-//         if (hasAnyCharacters(childId, folders, includeHidden)) return true;
-//     }
+        total += getVisibleDescendantCharacterCount(child.id, folders);
+    }
 
-//     return false;
-// }
-
+    return total;
+}
 
 export function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
     // Only update our sidebar
@@ -248,6 +250,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             return true;
         });
         const folderCount = visibleChildren.length;
+        const totalCharCount = getVisibleDescendantCharacterCount(child.id, folders);
         
 
         const folderDiv = document.createElement('div');
@@ -279,9 +282,12 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
                 </div>
                 <span class="ch_name stcm_folder_name" title="[Folder] ${child.name}">${child.name}</span>
                 <div class="stcm_folder_counts">
-                    <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
-                    <div class="stcm_folder_folder_count">${folderCount} folder${folderCount === 1 ? '' : 's'}</div>
-                </div>
+                <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
+                    <div class="stcm_folder_folder_count">
+                        ${folderCount} folder${folderCount === 1 ? '' : 's'}
+                        ${totalCharCount > charCount ? ` with ${totalCharCount - charCount} character${(totalCharCount - charCount === 1) ? '' : 's'}` : ''}
+                    </div>
+             </div>
             </div>
         `;
 
