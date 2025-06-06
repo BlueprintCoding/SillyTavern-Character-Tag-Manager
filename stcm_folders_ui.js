@@ -27,7 +27,8 @@ import {
         POPUP_TYPE,
         callGenericPopup
     } from "../../../popup.js"
-    
+
+let stcmIsShowingSearchResults = false;
 let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
 
@@ -60,14 +61,17 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
         if (!term) {
+            stcmIsShowingSearchResults = false; // ← Reset flag
             renderSidebarFolderContents(folders, allCharacters);
         } else {
             renderSidebarFolderSearchResults(folders, allCharacters, term);
         }
     }, 150));
+    
 }
 
 function renderSidebarFolderSearchResults(folders, allCharacters, searchTerm) {
+    stcmIsShowingSearchResults = true; // ← Add this
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
@@ -586,6 +590,8 @@ export function watchSidebarFolderInjection() {
 
     // Avoid reinjecting too rapidly (debounce for performance)
     const debouncedInject = debounce(async () => {
+        if (stcmIsShowingSearchResults) return; // ← ADD THIS LINE
+    
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
