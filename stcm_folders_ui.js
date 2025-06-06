@@ -517,9 +517,10 @@ export function showFolderColorPicker(folder, rerender) {
         const colorInput = container.querySelector('.stcm-folder-color-input');
         const color = colorInput.value || '#8b2ae6';
         await stcmFolders.setFolderColor(folder.id, color); // <--- This should now update and save!
-        rerender();
+        
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
+        rerender();
     });
 }
 
@@ -602,9 +603,10 @@ export function makeFolderNameEditable(span, folder, rerender) {
         const val = input.value.trim();
         if (val && val !== folder.name) {
             await stcmFolders.renameFolder(folder.id, val);
-            rerender();
+            
             STCM.sidebarFolders = await stcmFolders.loadFolders();
             injectSidebarFolders(STCM.sidebarFolders, characters);
+            rerender();
         } else {
             rerender();
         }
@@ -714,9 +716,10 @@ export function showIconPicker(folder, parentNode, rerender) {
         btn.style.cursor = 'pointer';
         btn.addEventListener('click', async () => {
             await stcmFolders.setFolderIcon(folder.id, ico);
-            rerender();
+            
             STCM.sidebarFolders = await stcmFolders.loadFolders();
             injectSidebarFolders(STCM.sidebarFolders, characters);
+            rerender();
             popup.remove();
         });
         grid.appendChild(btn);
@@ -742,9 +745,10 @@ export function showIconPicker(folder, parentNode, rerender) {
         // Try to preview/test (optional, just for feedback)
         // You may choose to check if this class exists visually
         await stcmFolders.setFolderIcon(folder.id, val);
-        rerender();
+        
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
+        rerender();
         popup.remove();
     });
 
@@ -899,9 +903,10 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         if (newParentId === folder.parentId) return; // No change
         try {
             await stcmFolders.moveFolder(folder.id, newParentId);
-            rerender();
+            
             STCM.sidebarFolders = await stcmFolders.loadFolders();
             injectSidebarFolders(STCM.sidebarFolders, characters);
+            rerender();
         } catch (e) {
             const errDiv = container.querySelector('#stcmMoveFolderError');
             errDiv.textContent = e.message || "Failed to move folder.";
