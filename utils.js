@@ -343,6 +343,57 @@ function parseSearchTerm(term) {
     return { field: '', value: term.toLowerCase(), positive };
 }
 
+async function hashPin(pin) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+    // Convert buffer to hex string
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getStoredPinHash() {
+    try {
+        const data = JSON.parse(localStorage.getItem('stcm_pin_cache') || '{}');
+        return data.pinHash || "";
+    } catch {
+        return "";
+    }
+}
+
+function saveStoredPinHash(hash) {
+    const data = { pinHash: hash };
+    localStorage.setItem('stcm_pin_cache', JSON.stringify(data));
+}
+
+async function persistPinToFile() {
+    const pinHash = getStoredPinHash();
+    const data = { pinHash };
+    const json = JSON.stringify(data, null, 2);
+    const base64 = window.btoa(unescape(encodeURIComponent(json)));
+    const fileUrl = await uploadFileAttachment('stcm-folder-pin.json', base64);
+    if (fileUrl) {
+        localStorage.setItem('stcm_pin_url', fileUrl);
+    }
+}
+
+async function restorePinFromFile() {
+    const fileUrl = localStorage.getItem('stcm_pin_url');
+    if (!fileUrl) {
+        await persistPinToFile(); // Write blank one
+        return;
+    }
+
+    try {
+        const content = await getFileAttachment(fileUrl);
+        const parsed = JSON.parse(content);
+        localStorage.setItem('stcm_pin_cache', JSON.stringify(parsed));
+    } catch (e) {
+        console.warn('[STCM] Failed to load PIN file, reinitializing.');
+        saveStoredPinHash("");
+        await persistPinToFile();
+    }
+}
+
 
 
 export { 
@@ -366,5 +417,10 @@ watchTagFilterBar,
 promptInput,
 getFolderTypeForUI,
 parseSearchGroups,
-parseSearchTerm
+parseSearchTerm,
+hashPin,
+getStoredPinHash,
+saveStoredPinHash,
+persistPinToFile,
+restorePinFromFile,
 };

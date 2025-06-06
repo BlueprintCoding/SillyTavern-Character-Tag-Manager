@@ -299,3 +299,23 @@ function refreshPrivateFolderToggle() {
     hidePrivateTagsInFilterBar();
 }
 
+
+
+///
+Settings
+
+// export function updateBlurPrivatePreviews(isBlur = false) {
+//     let styleEl = document.getElementById('stcm-blur-private-previews');
+//     if (!styleEl && isBlur) {
+//         styleEl = document.createElement('style');
+//         styleEl.id = 'stcm-blur-private-previews';
+//         styleEl.textContent = `
+//             .bogus_folder_select.stcm-private-folder .bogus_folder_avatars_block img {
+//                 filter: blur(2px) !important;
+//             }
+//         `;
+//         document.head.appendChild(styleEl);
+//     } else if (styleEl && !isBlur) {
+//         styleEl.remove();
+//     }
+// }

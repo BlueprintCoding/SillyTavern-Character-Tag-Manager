@@ -112,11 +112,32 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
         }
     }
 
-    toggleBtn.addEventListener('click', () => {
+    toggleBtn.addEventListener('click', async () => {
         privateFolderVisibilityMode = (privateFolderVisibilityMode + 1) % 3;
+    
+        if (privateFolderVisibilityMode !== 0) {
+            const notes = getNotes();
+            const pinHash = notes.tagPrivatePinHash;
+            if (pinHash && !sessionStorage.getItem("stcm_pin_okay")) {
+                const input = prompt("Enter PIN to view private folders:");
+                if (!input) {
+                    privateFolderVisibilityMode = 0;
+                    return;
+                }
+                const enteredHash = await hashPin(input);
+                if (enteredHash !== pinHash) {
+                    toastr.error("Incorrect PIN.");
+                    privateFolderVisibilityMode = 0;
+                    return;
+                }
+                sessionStorage.setItem("stcm_pin_okay", "true");
+                toastr.success("Private folders unlocked.");
+            }
+        }
+    
         renderSidebarFolderContents(folders, allCharacters, folderId);
     });
-
+    
     updateToggleIcon();
     controlRow.appendChild(toggleBtn);
     controlRow.appendChild(breadcrumbDiv); // Breadcrumb goes to the right of icon
@@ -662,5 +683,3 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         }
     });
 }
-
-
