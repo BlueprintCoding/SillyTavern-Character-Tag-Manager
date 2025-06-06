@@ -265,7 +265,7 @@ async function renderFoldersTree() {
     if (root) {
 
         const dropToRoot = document.createElement('div');
-        dropToRoot.className = 'stcm-drop-to-root-zone';
+        dropToRoot.className = 'stcm-drop-to-root-zone dz-hidden';
         dropToRoot.textContent = 'Drop here to move folder to root level';
         dropToRoot.style.padding = '8px';
         dropToRoot.style.marginBottom = '10px';
@@ -363,11 +363,19 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         e.dataTransfer.effectAllowed = 'move';
     
         e.stopPropagation();
+
+            // Show drop-to-root zone
+        const dropZone = document.querySelector('.stcm-drop-to-root-zone');
+        if (dropZone) dropZone.classList.remove('dz-hidden');
     
         // Cleanup ghost after drag
         setTimeout(() => dragGhost.remove(), 0);
     });
     
+    row.addEventListener('dragend', () => {
+        const dropZone = document.querySelector('.stcm-drop-to-root-zone');
+        if (dropZone) dropZone.classList.add('dz-hidden');
+    });
 
     row.prepend(dragHandle);
 
