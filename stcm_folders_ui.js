@@ -61,13 +61,15 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
         if (!term) {
-            stcmIsShowingSearchResults = false; // ← Reset flag
+            stcmIsShowingSearchResults = false;
+            resumeFolderObserver(); // ← RE-ENABLE observer
             renderSidebarFolderContents(folders, allCharacters);
         } else {
+            stcmIsShowingSearchResults = true;
+            suspendFolderObserver(); // ← SUSPEND observer
             renderSidebarFolderSearchResults(folders, allCharacters, term);
         }
     }, 150));
-    
 }
 
 function renderSidebarFolderSearchResults(folders, allCharacters, searchTerm) {
@@ -582,28 +584,33 @@ export function renderSidebarCharacterCard(char) {
     return div;
 }
 
+let stcmObserver = null;
+let stcmObserverSuspended = false;
+let lastInjectedAt = 0;
 
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
-    let lastInjectedAt = 0;
 
-    // Avoid reinjecting too rapidly (debounce for performance)
     const debouncedInject = debounce(async () => {
-        if (stcmIsShowingSearchResults) return; // ← ADD THIS LINE
-    
+        if (stcmObserverSuspended) return;
+
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
         lastInjectedAt = Date.now();
     }, 120);
 
-    const observer = new MutationObserver(mutations => {
-        // Only react if child list changed (character block usually full-rebuilds)
-        debouncedInject();
-    });
+    stcmObserver = new MutationObserver(() => debouncedInject());
+    stcmObserver.observe(container, { childList: true, subtree: false });
+}
 
-    observer.observe(container, { childList: true, subtree: false });
+export function suspendFolderObserver() {
+    stcmObserverSuspended = true;
+}
+
+export function resumeFolderObserver() {
+    stcmObserverSuspended = false;
 }
 
 
