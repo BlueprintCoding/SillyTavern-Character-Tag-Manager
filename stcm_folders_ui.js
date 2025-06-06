@@ -579,9 +579,6 @@ export function watchSidebarFolderInjection() {
 
     const debouncedInject = debounce(async () => {
         const input = document.getElementById('character_search_bar');
-        const isSearching = input && input.value.trim().length > 0;
-
-        if (stcmObserverSuspended || isSearching) return;
 
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
