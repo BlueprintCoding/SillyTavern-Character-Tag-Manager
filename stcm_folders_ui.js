@@ -96,17 +96,21 @@ function renderSidebarFolderSearchResults(folders, allCharacters, searchTerm) {
         if (!Array.isArray(folder.characters)) continue;
 
         for (const charId of folder.characters) {
-            const char = allCharacters.find(c => c.avatar === charId);
+            // Normalize both sides to just lowercase filenames (no path)
+            const char = allCharacters.find(c => {
+                const normA = (c.avatar || '').split('/').pop().toLowerCase();
+                const normB = (charId || '').split('/').pop().toLowerCase();
+                return normA === normB;
+            });
             if (!char) continue;
-
-            const name = char.name?.toLowerCase() || '';
-            const description = char.description?.toLowerCase() || '';
-
+        
+            const name = (char.name || '').toLowerCase();
             if (name.includes(term)) {
                 const tagsForChar = getTagsForChar(char.avatar, tagsById);
                 matchedCharacters.push({ ...char, tags: tagsForChar });
             }
         }
+        
     }
 
     const header = document.createElement('div');
