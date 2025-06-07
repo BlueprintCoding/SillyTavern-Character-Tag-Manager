@@ -551,12 +551,15 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
     line.addEventListener('dragover', e => {
         e.preventDefault();
         line.classList.add('stcm-drop-line-active', 'insert-between');
+        line.style.background = parent.color && parent.color !== "#" ? parent.color : "#3bb1ff";
     });
     line.addEventListener('dragleave', e => {
         line.classList.remove('stcm-drop-line-active', 'insert-between');
+        line.style.background = "";
     });
     line.addEventListener('drop', async e => {
         line.classList.remove('stcm-drop-line-active', 'insert-between');
+        line.style.background = "";
         const draggedId = e.dataTransfer.getData('text/plain');
         if (!draggedId) return;
         // Usual: move and reorder as sibling in parent.children[insertAt]
