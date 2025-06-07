@@ -277,6 +277,16 @@ refreshFoldersTree();
 
                     // Now render fresh from latest data
                     accordionRenderers[targetId]();
+
+                        // [PATCH] Force-refresh assignTagSearchInput and tag chips for Characters section
+                        if (targetId === 'charactersSection') {
+                            const assignTagSearchInput = document.getElementById('assignTagSearchInput');
+                            if (assignTagSearchInput) {
+                                assignTagSearchInput.value = '';
+                                // Trigger input event so the tag chips refresh
+                                assignTagSearchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                        }
                 }
             });
         });
