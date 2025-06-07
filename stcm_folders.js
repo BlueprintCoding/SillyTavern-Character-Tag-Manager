@@ -16,40 +16,66 @@ import {
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
 
-export async function loadFolders() {
+export async function loadFolders(options = {}) {
     const fileUrl = localStorage.getItem('stcm_folders_url');
     let folders;
+    let errorMsg = null;
 
-    try {
-        if (fileUrl) {
-            // Always get latest from server/attachment
-            const content = await getFileAttachment(fileUrl);
-            folders = JSON.parse(content);
-            if (!Array.isArray(folders)) throw new Error("Corrupt folder data");
-
-            folders.forEach(f => {
-                if (!f.color) f.color = "#8b2ae6";
-                if (typeof f.private !== "boolean") f.private = false;
-            });
-
-            return folders;
-        }
-    } catch (e) {
-        console.warn("Failed to load folders from file:", e);
+    // Helper for validating the folder array
+    function isValidFolderArray(data) {
+        return Array.isArray(data) && data.every(f => f && typeof f.id === "string" && typeof f.name === "string");
     }
 
-    // Fallback to localStorage cache
+    // Try server file with up to 2 attempts
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        if (fileUrl) {
+            try {
+                const content = await getFileAttachment(fileUrl);
+                folders = JSON.parse(content);
+
+                if (!isValidFolderArray(folders)) throw new Error("Corrupt folder data");
+
+                // Fix legacy/partial data
+                folders.forEach(f => {
+                    if (!f.color) f.color = "#8b2ae6";
+                    if (typeof f.private !== "boolean") f.private = false;
+                });
+
+                // Save valid server copy to cache
+                localStorage.setItem('stcm_folders_cache', JSON.stringify(folders));
+                return folders;
+            } catch (e) {
+                errorMsg = `Attempt ${attempt}: Failed to load folders from file: ${e?.message || e}`;
+                console.warn(errorMsg);
+                if (attempt === 1) await new Promise(res => setTimeout(res, 500)); // 0.5s pause before retry
+            }
+        }
+    }
+
+    // Try localStorage cache
     const cached = localStorage.getItem('stcm_folders_cache');
     if (cached) {
         try {
             folders = JSON.parse(cached);
+            if (!isValidFolderArray(folders)) throw new Error("Corrupt cache data");
             return folders;
         } catch (e) {
-            console.warn("Failed to parse folder cache:", e);
+            errorMsg = "Failed to parse folder cache: " + (e?.message || e);
+            console.warn(errorMsg);
         }
     }
 
-    // Final fallback: create default
+    // Show error to user if all fail (customize to your UI)
+    if (errorMsg && !options.silent) {
+        // Use toastr, popup, or a modal
+        if (typeof toastr !== "undefined") {
+            toastr.error("Could not load folders: " + errorMsg + "<br>Default folder structure loaded.");
+        } else {
+            alert("Could not load folders: " + errorMsg + "\nDefault folder structure loaded.");
+        }
+    }
+
+    // Fallback: create and persist default
     folders = [{
         id: "root",
         name: "Root",
@@ -62,6 +88,7 @@ export async function loadFolders() {
     await saveFolders(folders);
     return folders;
 }
+
 
 export async function saveFolders(foldersToSave) {
     const json = JSON.stringify(foldersToSave, null, 2);
