@@ -708,7 +708,7 @@
     padding: 6px 10px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0px;
 }
 
 .folder-option:hover {

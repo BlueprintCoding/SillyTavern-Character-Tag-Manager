@@ -215,16 +215,33 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
         addBtn.className = 'stcm_menu_button tiny interactable';
         addBtn.innerHTML = '<i class="fa-solid fa-folder-plus"></i>';
         addBtn.title = 'Add Subfolder';
-        addBtn.addEventListener('click', async e => {
+
+        addBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            const subName = prompt('Enter sub-folder name:').trim();
-            if (!subName) return;
-            await stcmFolders.addFolder(subName, folder.id);
-            injectSidebarFolders(await stcmFolders.loadFolders(), characters);
-            onTreeChanged?.();
+
+            const subName = await promptInput({
+                label  : 'Enter sub-folder name:',
+                title  : 'New Sub-Folder',
+                ok     : 'Create',
+                cancel : 'Cancel',
+                initial: ''
+            });
+
+            if (!subName || !subName.trim()) return;
+
+            try {
+                await stcmFolders.addFolder(subName.trim(), folder.id);
+                injectSidebarFolders(await stcmFolders.loadFolders(), characters);
+                onTreeChanged?.();
+                toastr.success(`Folder “${subName.trim()}” created!`);
+            } catch (err) {
+                toastr.error(err.message || 'Failed to create folder');
+            }
         });
+
         row.appendChild(addBtn);
     }
+
 
     // char-count / manage chars button
     const charCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
