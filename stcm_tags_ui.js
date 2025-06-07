@@ -614,7 +614,7 @@ export function attachTagSectionListeners(modalRoot) {
 // ---------------------------------------------------------------------------
 // assign-tag chips row logic (shared with Characters section)
 // ---------------------------------------------------------------------------
-function populateAssignTagSelect() {
+export function populateAssignTagSelect() {
     const listDiv   = document.getElementById('assignTagList');
     const searchVal = (document.getElementById('assignTagSearchInput')?.value || '').toLowerCase();
     if (!listDiv) return;
