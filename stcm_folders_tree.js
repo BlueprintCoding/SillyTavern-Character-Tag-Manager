@@ -134,7 +134,9 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
     iconBg.innerHTML = `<span class="fa-solid ${folder.icon || 'fa-folder'} fa-fw stcm-folder-icon" style="font-size:1.2em;"></span>`;
     iconBg.addEventListener('click', e => {
         e.stopPropagation();
-        showIconPicker(folder, node, () => onTreeChanged?.());
+        showIconPicker(folder, node, async (folders) => {
+            if (onTreeChanged) await onTreeChanged(folders);
+        });
     });
     row.appendChild(iconBg);
 
@@ -147,7 +149,9 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
     nameSpan.title = 'Click to rename';
     nameSpan.addEventListener('click', e => {
         e.stopPropagation();
-        makeFolderNameEditable(nameSpan, folder, () => onTreeChanged?.());
+        makeFolderNameEditable(nameSpan, folder, async (folders) => {
+            if (onTreeChanged) await onTreeChanged(folders);
+        });
     });
     row.appendChild(nameSpan);
 
@@ -158,7 +162,9 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
     editBtn.title = 'Rename Folder';
     editBtn.addEventListener('click', e => {
         e.stopPropagation();
-        makeFolderNameEditable(nameSpan, folder, () => onTreeChanged?.());
+        makeFolderNameEditable(nameSpan, folder, async (folders) => {
+            if (onTreeChanged) await onTreeChanged(folders);
+        });
     });
     row.appendChild(editBtn);
 
@@ -169,8 +175,11 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
     colorBtn.title = 'Change Folder Color';
     colorBtn.addEventListener('click', e => {
         e.stopPropagation();
-        showFolderColorPicker(folder, () => onTreeChanged?.());
+        showFolderColorPicker(folder, async (folders) => {
+            if (onTreeChanged) await onTreeChanged(folders);
+        });
     });
+    
     row.appendChild(colorBtn);
 
     // privacy dropdown
@@ -183,9 +192,8 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
     `;
     typeSelect.addEventListener('change', async e => {
         const isPriv = e.target.value === 'private';
-        await stcmFolders.setFolderPrivacy(folder.id, isPriv);
-        injectSidebarFolders(await stcmFolders.loadFolders(), characters);
-        onTreeChanged?.();
+        const folders = await stcmFolders.setFolderPrivacy(folder.id, isPriv);
+        if (onTreeChanged) await onTreeChanged(folders);
     });
     row.appendChild(typeSelect);
 
@@ -197,7 +205,9 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
         delBtn.title = 'Delete Folder';
         delBtn.addEventListener('click', e => {
             e.stopPropagation();
-            confirmDeleteFolder(folder, () => onTreeChanged?.());
+            confirmDeleteFolder(folder, async (folders) => {
+                if (onTreeChanged) await onTreeChanged(folders);
+            });
         });
         row.appendChild(delBtn);
     }
@@ -209,7 +219,9 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
     moveBtn.title     = 'Change Parent Folder';
     moveBtn.addEventListener('click', e => {
         e.stopPropagation();
-        showChangeParentPopup(folder, allFolders, () => onTreeChanged?.());
+        showChangeParentPopup(folder, allFolders, async (folders) => {
+            if (onTreeChanged) await onTreeChanged(folders);
+        });
     });
     row.appendChild(moveBtn);
 
@@ -234,8 +246,8 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
             if (!subName || !subName.trim()) return;
 
             try {
-                await stcmFolders.addFolder(subName.trim(), folder.id);
-                await refreshFolderUI(document.getElementById('foldersTreeContainer'));
+                const { folders } = await stcmFolders.addFolder(subName.trim(), folder.id);
+                await refreshFolderUI(treeContainer, folders);  
                 toastr.success(`Folder “${subName.trim()}” created!`);
             } catch (err) {
                 toastr.error(err.message || 'Failed to create folder');
@@ -309,7 +321,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
             const draggedId = e.dataTransfer.getData('text/plain');
             if (!draggedId || draggedId === folder.id) return;
 
-            const folders = await stcmFolders.loadFolders();
+            let folders = await stcmFolders.loadFolders();
             const dragged = folders.find(f => f.id === draggedId);
             if (!dragged) return;
 
@@ -367,27 +379,27 @@ function createDropLine(parent, allFolders, insertAt, onTreeChanged, depth = 0) 
         line.style.background = '';
         const draggedId = e.dataTransfer.getData('text/plain');
         if (!draggedId) return;
-
+    
         let folders = await stcmFolders.loadFolders();
         let dragged  = folders.find(f => f.id === draggedId);
         if (!dragged) return;
-
+    
         if (dragged.parentId !== parent.id) {
-            await stcmFolders.moveFolder(draggedId, parent.id);
-            folders = await stcmFolders.loadFolders();
+            folders = await stcmFolders.moveFolder(draggedId, parent.id);
             dragged  = folders.find(f => f.id === draggedId);
         }
-
+    
         // reorder siblings
         const siblings = folders
             .find(f => f.id === parent.id)
             .children.filter(id => id !== draggedId);
         siblings.splice(insertAt, 0, draggedId);
-        await reorderChildren(parent.id, siblings);
-
-        injectSidebarFolders(await stcmFolders.loadFolders(), characters);
-        onTreeChanged?.();
+        folders = await reorderChildren(parent.id, siblings);
+    
+        injectSidebarFolders(folders, characters);
+        if (onTreeChanged) await onTreeChanged(folders);
     });
+    
 
     return line;
 }
@@ -453,16 +465,17 @@ export function showFolderCharactersSection(folder, folders) {
             toastr.warning("No characters selected.");
             return;
         }
-        await stcmFolders.assignCharactersToFolder(folder, Array.from(assignSelection));
+        const folders = await stcmFolders.assignCharactersToFolder(folder, Array.from(assignSelection));
         for (const charId of assignSelection) {
             if (!folder.characters.includes(charId)) folder.characters.push(charId);
         }
         renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection); 
         assignSelection.clear();
         renderAssignCharList();
-        stcmFolders.updateFolderCharacterCount (folder);
+        stcmFolders.updateFolderCharacterCount(folder);
         const sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(sidebarFolders, characters);
+        if (onTreeChanged) await onTreeChanged(folders);
     });
     sortFilterRow.appendChild(assignBtn);
 
@@ -753,7 +766,9 @@ export async function attachFolderSectionListeners(modalRoot) {
     if (!treeContainer) return;
 
     // initial paint
-    await renderFoldersTree(treeContainer, { onTreeChanged: () => renderFoldersTree(treeContainer) });
+    await renderFoldersTree(treeContainer, {
+        onTreeChanged: (folders) => refreshFolderUI(treeContainer, folders)
+    });
 
     // “New Folder” button
     if (createFolderBtn) {
@@ -768,8 +783,8 @@ export async function attachFolderSectionListeners(modalRoot) {
             if (!name || !name.trim()) return;
 
             try {
-                await stcmFolders.addFolder(name.trim(), 'root');
-                await refreshFolderUI(treeContainer);
+                const { folders } = await stcmFolders.addFolder(name.trim(), 'root');
+                await refreshFolderUI(treeContainer, folders);
                 toastr.success(`Folder “${name.trim()}” created!`);
             } catch (err) {
                 toastr.error(err.message || 'Failed to create folder');
@@ -848,15 +863,18 @@ export function renderAssignedChipsRow(folder, section, renderAssignCharList, as
     }
 }
 
-async function refreshFolderUI(treeContainer) {
-    // always reload the canonical folder array once
-    STCM.sidebarFolders = await stcmFolders.loadFolders();
+async function refreshFolderUI(treeContainer, foldersArg) {
+    // Use provided folders, or reload if not given
+    let folders = foldersArg;
+    if (!folders) folders = await stcmFolders.loadFolders();
+
+    STCM.sidebarFolders = folders;
 
     // tree (if you’re looking at it)
     if (treeContainer) {
-        await renderFoldersTree(treeContainer);
+        await renderFoldersTree(treeContainer, { onTreeChanged: (newFolders) => refreshFolderUI(treeContainer, newFolders) });
     }
 
     // sidebar accordion
-    injectSidebarFolders(STCM.sidebarFolders, characters);
+    injectSidebarFolders(folders, characters);
 }

@@ -534,10 +534,9 @@ export function showFolderColorPicker(folder, rerender) {
         if (result !== POPUP_RESULT.AFFIRMATIVE) return;
         const colorInput = container.querySelector('.stcm-folder-color-input');
         const color = colorInput.value || '#8b2ae6';
-        await stcmFolders.setFolderColor(folder.id, color); // <--- This should now update and save!
-        
+        const folders = await stcmFolders.setFolderColor(folder.id, color);
         await updateSidebar(true);
-        rerender();
+        rerender && rerender(folders);
     });
 }
 
@@ -627,10 +626,13 @@ export function makeFolderNameEditable(span, folder, rerender) {
 
         const val = input.value.trim();
         if (val && val !== folder.name) {
-            await stcmFolders.renameFolder(folder.id, val);
+            const folders = await stcmFolders.renameFolder(folder.id, val);
+            await updateSidebar(true);
+            rerender && rerender(folders);
+        } else {
+            await updateSidebar(true);
+            rerender && rerender();
         }
-        await updateSidebar(true);
-        rerender();
     };
 
     input.addEventListener('blur', save);
@@ -742,10 +744,9 @@ export function showIconPicker(folder, parentNode, rerender) {
         btn.style.border = 'none';
         btn.style.cursor = 'pointer';
         btn.addEventListener('click', async () => {
-            await stcmFolders.setFolderIcon(folder.id, ico);
-            
+            const folders = await stcmFolders.setFolderIcon(folder.id, ico);
             await updateSidebar(true);
-            rerender();
+            rerender && rerender(folders);
             popup.remove();
         });
         grid.appendChild(btn);
@@ -794,9 +795,9 @@ export function showIconPicker(folder, parentNode, rerender) {
         }
     
         try {
-            await stcmFolders.setFolderIcon(folder.id, iconClass);
+            const folders = await stcmFolders.setFolderIcon(folder.id, iconClass);
             await updateSidebar(true);
-            rerender();
+            rerender && rerender(folders);
             popup.remove();
         } catch (err) {
             errorDiv.textContent = 'Failed to apply icon: ' + (err.message || err);
@@ -870,9 +871,9 @@ export function confirmDeleteFolder (folder, rerender) {
                 : 'cascade';
             const cascade  = (mode === 'cascade');
 
-            await stcmFolders.deleteFolder(folder.id, cascade);
+            const folders = await stcmFolders.deleteFolder(folder.id, cascade);
             await updateSidebar(true);
-            rerender();
+            rerender && rerender(folders);
             toastr.success(
                 cascade
                     ? 'Folder and all sub-folders deleted'
@@ -983,9 +984,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         const newParentId = select.value;
         if (newParentId === folder.parentId) return; // No change
         try {
-            await stcmFolders.moveFolder(folder.id, newParentId);
-            // Always reload fresh folders before updating UI!
-            const folders = await stcmFolders.loadFolders();
+            const folders = await stcmFolders.moveFolder(folder.id, newParentId);
             await updateSidebar(true);
             rerender && rerender(folders);
         } catch (e) {
@@ -995,6 +994,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
     });
     
 }
+
 export async function reorderChildren(parentId, orderedChildIds) {
     const folders = await stcmFolders.loadFolders();
     const parent = folders.find(f => f.id === parentId);
@@ -1007,5 +1007,5 @@ export async function reorderChildren(parentId, orderedChildIds) {
     }
 
     parent.children = orderedChildIds;
-    await stcmFolders.saveFolders(folders); // persist new order
+    return await stcmFolders.saveFolders(folders); // persist and return new array
 }

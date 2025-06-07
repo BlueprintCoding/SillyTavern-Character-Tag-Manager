@@ -61,6 +61,8 @@ export async function loadFolders() {
 
 export async function saveFolders(foldersToSave) {
     await writeExtFolders(foldersToSave);
+    // Now reload from disk to ensure up-to-date
+    return await loadFolders();
 }
 
 export function getCharacterAssignedFolder(charId, folders) {
@@ -86,7 +88,6 @@ export async function assignCharactersToFolder(folderOrId, charIds) {
     const target  = getFolder(id, folders);
     if (!target) throw new Error('Folder not found');
 
-    // remove from other folders & add to target
     for (const charId of charIds) {
         folders.forEach(f => {
             if (f.characters?.includes(charId)) {
@@ -95,7 +96,7 @@ export async function assignCharactersToFolder(folderOrId, charIds) {
         });
         if (!target.characters.includes(charId)) target.characters.push(charId);
     }
-    await saveFolders(folders);
+    return await saveFolders(folders);
 }
 
 export async function removeCharacterFromFolder(folderOrId, charId) {
@@ -104,9 +105,11 @@ export async function removeCharacterFromFolder(folderOrId, charId) {
     const f       = getFolder(id, folders);
     if (f) {
         f.characters = f.characters.filter(c => c !== charId);
-        await saveFolders(folders);
+        return await saveFolders(folders);
     }
+    return folders; // unchanged
 }
+
 
 // Utility to get folder by ID
 export function getFolder(id, folders) {
@@ -133,9 +136,10 @@ export async function addFolder(name, parentId = 'root', color = '#8b2ae6') {
         private: false
     });
 
-    await saveFolders(folders);
-    return id;
+    return { id, folders: await saveFolders(folders) }; 
 }
+
+
 
 // Move a folder to a new parent (careful with cycles/depth)
 export async function moveFolder(folderId, newParentId) {
@@ -144,7 +148,7 @@ export async function moveFolder(folderId, newParentId) {
     const toMove  = getFolder(folderId, folders);
     const newPar  = getFolder(newParentId, folders);
     const oldPar  = getFolder(toMove?.parentId, folders);
-    if (!toMove || !newPar) return;
+    if (!toMove || !newPar) return folders;
     if (getFolderDepth(newParentId, folders) >= 5) {
         throw new Error('Folder depth limit');
     }
@@ -152,7 +156,7 @@ export async function moveFolder(folderId, newParentId) {
     if (oldPar) oldPar.children = oldPar.children.filter(cid => cid !== folderId);
     newPar.children.push(folderId);
     toMove.parentId = newParentId;
-    await saveFolders(folders);
+    return await saveFolders(folders);
 }
 
 
@@ -171,8 +175,9 @@ export async function renameFolder(id, newName) {
     const f = getFolder(id, folders);
     if (f && newName.trim()) {
         f.name = newName.trim();
-        await saveFolders(folders);
+        return await saveFolders(folders);
     }
+    return folders;
 }
 
 export async function setFolderIcon(id, icon) {
@@ -180,8 +185,9 @@ export async function setFolderIcon(id, icon) {
     const f = getFolder(id, folders);
     if (f) {
         f.icon = icon;
-        await saveFolders(folders);
+        return await saveFolders(folders);
     }
+    return folders;
 }
 
 export async function setFolderColor(id, color) {
@@ -189,8 +195,9 @@ export async function setFolderColor(id, color) {
     const f = getFolder(id, folders);
     if (f) {
         f.color = color;
-        await saveFolders(folders);
+        return await saveFolders(folders);
     }
+    return folders;
 }
 
 export async function setFolderPrivacy(id, isPrivate) {
@@ -198,21 +205,22 @@ export async function setFolderPrivacy(id, isPrivate) {
     const f = getFolder(id, folders);
     if (f) {
         f.private = !!isPrivate;
-        await saveFolders(folders);
+        return await saveFolders(folders);
     }
+    return folders;
 }
+
 
 // deleteFolder(id[, cascade=true])
 // • cascade = true  → delete this folder AND all descendants
 // • cascade = false → move all child-folders to Root first, then delete only this folder
 export async function deleteFolder (id, cascade = true) {
-    if (id === 'root') return;                    // never remove Root
+    if (id === 'root') return await loadFolders();
 
     const folders = await loadFolders();
     const self    = getFolder(id, folders);
-    if (!self) return;
+    if (!self) return folders;
 
-    // 1. if NOT cascading, move children to Root (and update their parentId)
     if (!cascade && Array.isArray(self.children) && self.children.length) {
         const root = getFolder('root', folders);
         self.children.forEach(childId => {
@@ -224,25 +232,22 @@ export async function deleteFolder (id, cascade = true) {
         });
     }
 
-    // 2. remove this folder (and optionally its subtree)
     function drop(fid) {
         const idx = folders.findIndex(f => f.id === fid);
         if (idx !== -1) {
             const [f] = folders.splice(idx, 1);
-            if (cascade) f.children?.forEach(drop);   // recursive only if cascading
+            if (cascade) f.children?.forEach(drop);
         }
     }
     drop(id);
 
-    // 3. scrub references from all remaining parents
     folders.forEach(f => f.children = f.children?.filter(cid => cid !== id));
 
-    await saveFolders(folders);
+    return await saveFolders(folders);
 }
 
-
 /* ---------------------------------------------------------------- */
-/*  Tag-to-Folder conversion (logic identical, only persistence fix)*/
+/*  Tag-to-Folder conversion                                        */
 /* ---------------------------------------------------------------- */
 
 export async function convertTagToRealFolder(tag) {
