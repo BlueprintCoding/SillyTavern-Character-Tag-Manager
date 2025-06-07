@@ -797,6 +797,33 @@ body.stcm-dragging-folder .stcm-drop-line.stcm-drop-line-active.insert-between {
     box-shadow: 0 0 0 2px #3bb1ff, 0 2px 12px 1px #3bb1ff66;
 }
 
+.stcm-drop-line-active {
+    background: var(--ac-style-color-accent, #6ec0ff) !important;
+}
+
+.stcm-folder-drag-handle {
+    cursor: grab;
+    color: var(--ac-style-color-dim-text, #888);
+}
+
+.stcm_folder_row.stcm-drop-above::before,
+.stcm_folder_row.stcm-drop-below::after {
+    content: "";
+    display: block;
+    position: absolute;
+    left: 0; right: 0;
+    height: 3px;
+    background: var(--ac-style-color-accent, #33f);
+    border-radius: 1.5px;
+    z-index: 2;
+}
+.stcm_folder_row.stcm-drop-above::before { top: 0; }
+.stcm_folder_row.stcm-drop-below::after { bottom: 0; }
+.stcm_folder_row.stcm-drop-into { box-shadow: 0 0 0 2px var(--ac-style-color-accent, #33f) inset; }
+.stcm_folder_row { position: relative; }
+
+
+
 
 .stcm_folder_children {
     margin-left: 0; /* margin-left applied on .stcm_folder_node already */
