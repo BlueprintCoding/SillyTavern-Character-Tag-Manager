@@ -995,6 +995,20 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
     
 }
 
+function getFolderDepth(folderId, folders) {
+    let depth = 0;
+    let current = folders.find(f => f.id === folderId);
+    while (current && current.id !== "root") {
+        const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(current.id));
+        if (!parent) break;
+        depth++;
+        current = parent;
+    }
+    return depth;
+}
+
+
+
 export async function reorderChildren(parentId, orderedChildIds) {
     const folders = await stcmFolders.loadFolders();
     const parent = folders.find(f => f.id === parentId);
