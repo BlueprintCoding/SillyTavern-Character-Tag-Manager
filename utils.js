@@ -1,26 +1,20 @@
 // utils.js
-import { uploadFileAttachment, getFileAttachment,  } from '../../../chats.js';
-import { injectTagManagerControlButton } from "./index.js";
 import {
+    getContext,
+    callGenericPopup,
     POPUP_RESULT,
     POPUP_TYPE,
-    callGenericPopup
-} from "../../../popup.js";
+} from "../../extensions.js";
 
-import {
-    characters
-} from "../../../../script.js";
-import {
-     groups
- } from "../../../../scripts/group-chats.js";
-import {
-    tag_map,
-} from "../../../tags.js";
+let context = null;
 
-
+function ensureContext() {
+    if (!context) {
+        context = getContext();
+    }
+}
 
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
-
 
 function debounce(fn, delay = 200) {
     let timer;
@@ -32,15 +26,12 @@ function debounce(fn, delay = 200) {
 
 let persistDebounceTimer;
 function debouncePersist() {
-    return new Promise(resolve => {
-        clearTimeout(persistDebounceTimer);
-        persistDebounceTimer = setTimeout(async () => {
-            await persistNotesToFile();
-            resolve();
-        }, 500);
-    });
+    clearTimeout(persistDebounceTimer);
+    persistDebounceTimer = setTimeout(() => {
+        ensureContext();
+        context.saveSettingsDebounced();
+    }, 500);
 }
-
 
 function getFreeName(base, existingNames) {
     const lowerSet = new Set(existingNames.map(n => n.toLowerCase()));
@@ -60,13 +51,9 @@ function isNullColor(color) {
 
 function escapeHtml(text) {
     if (!text) return '';
-    return text.replace(/[&<>"']/g, (m) => (
-        m === '&' ? '&amp;' :
-            m === '<' ? '&lt;' :
-                m === '>' ? '&gt;' :
-                    m === '"' ? '&quot;' :
-                        m === "'" ? '&#39;' : m
-    ));
+    return text.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
 }
 
 function getCharacterNameById(id, charNameMap) {
@@ -79,16 +66,9 @@ function resetModalScrollPositions() {
         if (modal) modal.scrollTo({ top: 0 });
 
         const scrollables = modal?.querySelectorAll('.modalBody, .accordionContent, #characterListContainer');
-        scrollables?.forEach(el => {
-            el.scrollTop = 0;
-        });
+        scrollables?.forEach(el => el.scrollTop = 0);
 
-        //  force 2nd frame in case browser restores it AFTER first frame
-        requestAnimationFrame(() => {
-            scrollables?.forEach(el => {
-                el.scrollTop = 0;
-            });
-        });
+        requestAnimationFrame(() => scrollables?.forEach(el => el.scrollTop = 0));
     });
 }
 
@@ -97,12 +77,8 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
     let offsetX, offsetY;
 
     handle.style.cursor = 'move';
-
-    const getHeaderHeight = () => handle.offsetHeight || 50;
-
     handle.addEventListener('mousedown', (e) => {
         isDragging = true;
-        // modal.getBoundingClientRect() is more reliable than offsetLeft on fixed
         const rect = modal.getBoundingClientRect();
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
@@ -114,22 +90,10 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
 
     function onMove(e) {
         if (!isDragging) return;
-        let newLeft = e.clientX - offsetX;
-        let newTop = e.clientY - offsetY;
-
-        // Clamp left/top to 0, right, and keep header visible at bottom
-        const headerHeight = getHeaderHeight();
-        const width = modal.offsetWidth;
-        const height = modal.offsetHeight;
-
-        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - width));
-        newTop = Math.max(0, Math.min(newTop, window.innerHeight - headerHeight));
-
+        let newLeft = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - modal.offsetWidth));
+        let newTop = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - handle.offsetHeight));
         modal.style.left = `${newLeft}px`;
         modal.style.top = `${newTop}px`;
-        modal.style.right = '';
-        modal.style.bottom = '';
-        modal.style.transform = ''; // Remove any center transform
     }
 
     function onUp() {
@@ -143,7 +107,6 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 
-    // CLEANUP: remove event listeners when modal closes
     modal.addEventListener('DOMNodeRemoved', (ev) => {
         if (ev.target === modal) {
             document.removeEventListener('mousemove', onMove);
@@ -152,45 +115,26 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
     });
 }
 
-
-
-// After making modal draggable, also track size and position for saving
 const STORAGE_KEY = 'stcm_modal_pos_size';
 
 function saveModalPosSize(modalContent) {
     const rect = modalContent.getBoundingClientRect();
-
-    // Only save if width/height and position are meaningful
-    if (
-        rect.width < 100 || rect.height < 100 || // too small, not user-sized yet
-        (rect.left === 0 && rect.top === 0)     // opened at corner, likely initial
-    ) {
-        // Don't save the initial "reset" or "default" position/size!
-        return;
-    }
-
-    // console.log('[STCM] Saving modal position/size:', rect); // debug log
-    sessionStorage.setItem('stcm_modal_pos_size', JSON.stringify({
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
-    }));
+    if (rect.width < 100 || rect.height < 100 || (rect.left === 0 && rect.top === 0)) return;
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(rect));
 }
 
-
 function cleanTagMap() {
+    ensureContext();
     const validCharIds = new Set([
-        ...characters.map(c => c.avatar),
-        ...groups.map(g => g.id)
+        ...context.characters.map(c => c.avatar),
+        ...context.groups.map(g => g.id)
     ]);
-    for (const charId of Object.keys(tag_map)) {
+    for (const charId of Object.keys(context.tag_map)) {
         if (!validCharIds.has(charId)) {
-            delete tag_map[charId];
+            delete context.tag_map[charId];
         }
     }
 }
-
 
 function buildTagMap(tags) {
     return new Map(tags.map(tag => [tag.id, tag]));
@@ -200,95 +144,33 @@ function buildCharNameMap(characters) {
     return new Map(characters.map(char => [char.avatar, char.name]));
 }
 
-
 function getNotes() {
-    try {
-        const data = JSON.parse(localStorage.getItem('stcm_notes_cache') || '{}');
-        return {
-            charNotes: data.charNotes || {},
-            tagNotes: data.tagNotes || {},
-        };
-    } catch {
-        return { charNotes: {}, tagNotes: {}};
-    }
+    ensureContext();
+    // create the bucket if it isn’t there
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    return context.extensionSettings.stcm.notes ?? { charNotes: {}, tagNotes: {} };
 }
-
 
 function saveNotes(notes) {
-    localStorage.setItem('stcm_notes_cache', JSON.stringify({
-        charNotes: notes.charNotes || {},
-        tagNotes: notes.tagNotes || {}
-    }));
+    ensureContext();
+    // create the bucket if it isn’t there
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    context.extensionSettings.stcm.notes = notes;
+    context.saveSettingsDebounced();
 }
 
-
-async function persistNotesToFile() {
-    const raw = getNotes();
-    const notes = {
-        charNotes: Object.fromEntries(Object.entries(raw.charNotes || {}).filter(([_, v]) => v.trim() !== '')),
-        tagNotes: Object.fromEntries(Object.entries(raw.tagNotes || {}).filter(([_, v]) => v.trim() !== '')),
-    };
-
-    const json = JSON.stringify(notes, null, 2);
-    const base64 = window.btoa(unescape(encodeURIComponent(json)));
-
-    const fileUrl = await uploadFileAttachment('stcm-notes.json', base64);
-    if (fileUrl) {
-        localStorage.setItem('stcm_notes_url', fileUrl);
-        localStorage.setItem('stcm_notes_cache', JSON.stringify(notes));
-    }
-}
-
-
-async function restoreNotesFromFile() {
-    const fileUrl = localStorage.getItem('stcm_notes_url');
-
-    if (!fileUrl) {
-        console.info('[STCM] No notes file URL found. First-time setup.');
-        await persistNotesToFile(); // Create blank file
-        return;
-    }
-
-    try {
-        const content = await getFileAttachment(fileUrl);
-        const parsed = JSON.parse(content);
-
-        localStorage.setItem('stcm_notes_cache', JSON.stringify(parsed));
-    } catch (e) {
-        console.log('[STCM] Notes file missing or corrupted. Reinitializing blank notes.', e);
-        saveNotes({ charNotes: {}, tagNotes: {}});
-        await persistNotesToFile(); // Overwrite with fresh blank file
-    }
-}
-
-
-/**
- * Watches the tag filter bar row for mutations and always reinjects the private folder toggle if needed.
- */
-function watchTagFilterBar() {
+function watchTagFilterBar(injectTagManagerControlButton) {
     const tagRow = document.querySelector('.tags.rm_tag_filter');
     if (!tagRow) return;
+    if (tagFilterBarObserver) tagFilterBarObserver.disconnect();
+    injectTagManagerControlButton();
 
-    // Disconnect previous observer
-    if (tagFilterBarObserver) {
-        tagFilterBarObserver.disconnect();
-        tagFilterBarObserver = null;
-    }
-
-    // Always inject both icons (if missing)
-    injectTagManagerControlButton(); // injects Character/Tag Manager button
-
-    // Observe for changes and re-inject
-    tagFilterBarObserver = new MutationObserver(() => {
-        injectTagManagerControlButton();
-    });
-    tagFilterBarObserver.observe(tagRow, { childList: true, subtree: false });
-
+    tagFilterBarObserver = new MutationObserver(injectTagManagerControlButton);
+    tagFilterBarObserver.observe(tagRow, { childList: true });
 }
 
-
 async function promptInput({ label, title = 'Input', ok = 'OK', cancel = 'Cancel', initial = '' }) {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
         const input = document.createElement('input');
         input.type = 'text';
         input.value = initial;
@@ -296,131 +178,58 @@ async function promptInput({ label, title = 'Input', ok = 'OK', cancel = 'Cancel
         input.style.width = '100%';
 
         const wrapper = document.createElement('div');
-        wrapper.appendChild(document.createTextNode(label));
-        wrapper.appendChild(document.createElement('br'));
-        wrapper.appendChild(input);
+        wrapper.textContent = label;
+        wrapper.append(document.createElement('br'), input);
 
         callGenericPopup(wrapper, POPUP_TYPE.CONFIRM, title, {
             okButton: ok,
             cancelButton: cancel
-        }).then((result) => {
-            if (result === POPUP_RESULT.AFFIRMATIVE) {
-                resolve(input.value.trim());
-            } else {
-                resolve(null);
-            }
-        });
+        }).then(result => resolve(result === POPUP_RESULT.AFFIRMATIVE ? input.value.trim() : null));
+
         setTimeout(() => input.focus(), 50);
     });
 }
 
 function getFolderTypeForUI(tag, notes) {
-    if (tag.folder_type === "CLOSED" && notes?.tagPrivate?.[tag.id]) return "PRIVATE";
-    return tag.folder_type || "NONE";
+    return (tag.folder_type === "CLOSED" && notes?.tagPrivate?.[tag.id]) ? "PRIVATE" : tag.folder_type || "NONE";
 }
 
-// Search Functions for Characters
 function parseSearchGroups(input) {
-    return input
-        .split(',')
-        .map(group => group.trim())
-        .filter(Boolean)
-        .map(group => group.match(/(?:[^\s"]+|"[^"]*")+/g) || []);
+    return input.split(',').map(g => g.match(/(?:[^\s"]+|"[^"]*")+/g) || []);
 }
 
 function parseSearchTerm(term) {
-    let positive = true;
-    term = term.trim();
-    if (!term) return null;
-    if (term.startsWith('-')) {
-        positive = false;
-        term = term.slice(1).trim();
-    }
+    let positive = !term.startsWith('-');
+    term = term.replace(/^-/, '').trim();
     const m = term.match(/^([ta]):(.+)$/i);
-    if (m) {
-        return { field: m[1].toLowerCase(), value: m[2].toLowerCase(), positive };
-    }
-    return { field: '', value: term.toLowerCase(), positive };
+    return m ? { field: m[1].toLowerCase(), value: m[2].toLowerCase(), positive } : { field: '', value: term, positive };
 }
 
 async function hashPin(pin) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(pin);
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-    // Convert buffer to hex string
-    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const data = new TextEncoder().encode(pin);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 function getStoredPinHash() {
-    try {
-        const data = JSON.parse(localStorage.getItem('stcm_pin_cache') || '{}');
-        return data.pinHash || "";
-    } catch {
-        return "";
-    }
+    ensureContext();
+    // create the bucket if it isn’t there
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    return context.extensionSettings.stcm.pinHash ?? "";
 }
 
 function saveStoredPinHash(hash) {
-    const data = { pinHash: hash };
-    localStorage.setItem('stcm_pin_cache', JSON.stringify(data));
+    ensureContext();
+    // create the bucket if it isn’t there
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    context.extensionSettings.stcm.pinHash = hash;
+    context.saveSettingsDebounced();
 }
 
-async function persistPinToFile() {
-    const pinHash = getStoredPinHash();
-    const data = { pinHash };
-    const json = JSON.stringify(data, null, 2);
-    const base64 = window.btoa(unescape(encodeURIComponent(json)));
-    const fileUrl = await uploadFileAttachment('stcm-folder-pin.json', base64);
-    if (fileUrl) {
-        localStorage.setItem('stcm_pin_url', fileUrl);
-    }
-}
-
-async function restorePinFromFile() {
-    const fileUrl = localStorage.getItem('stcm_pin_url');
-    if (!fileUrl) {
-        await persistPinToFile(); // Write blank one
-        return;
-    }
-
-    try {
-        const content = await getFileAttachment(fileUrl);
-        const parsed = JSON.parse(content);
-        localStorage.setItem('stcm_pin_cache', JSON.stringify(parsed));
-    } catch (e) {
-        console.warn('[STCM] Failed to load PIN file, reinitializing.');
-        saveStoredPinHash("");
-        await persistPinToFile();
-    }
-}
-
-
-
-export { 
-debounce, 
-debouncePersist, 
-getFreeName, 
-isNullColor, 
-escapeHtml, 
-getCharacterNameById, 
-resetModalScrollPositions, 
-makeModalDraggable, 
-saveModalPosSize,
-cleanTagMap,
-buildTagMap, 
-buildCharNameMap, 
-getNotes, 
-saveNotes, 
-persistNotesToFile, 
-restoreNotesFromFile, 
-watchTagFilterBar,
-promptInput,
-getFolderTypeForUI,
-parseSearchGroups,
-parseSearchTerm,
-hashPin,
-getStoredPinHash,
-saveStoredPinHash,
-persistPinToFile,
-restorePinFromFile,
+export {
+    debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
+    resetModalScrollPositions, makeModalDraggable, saveModalPosSize, cleanTagMap, buildTagMap,
+    buildCharNameMap, getNotes, saveNotes,
+    watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 
+    hashPin, getStoredPinHash, saveStoredPinHash,
 };
