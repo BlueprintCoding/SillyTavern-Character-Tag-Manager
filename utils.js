@@ -2,9 +2,9 @@
 import {
     getContext,
     callGenericPopup,
-    POPUP_TYPE,
 } from "../../../extensions.js";
 import { 
+    POPUP_TYPE,
     POPUP_RESULT 
 } from '../../../popup.js';
 
