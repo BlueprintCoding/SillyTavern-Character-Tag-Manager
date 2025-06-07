@@ -67,7 +67,7 @@ export async function loadFolders(options = {}) {
     cacheObj = cached ? parseCache(cached) : null;
     if (cacheObj && isValidFolderArray(cacheObj.folders)) {
         if (fileLoadFailed) {
-            const shouldRestore = await promptRestoreFromCache(cacheObj.saved_at);
+            const shouldRestore = await promptRestoreFromCache(cacheObj.saved_at, cacheObj.folders);
             if (shouldRestore) {
                 await saveFolders(cacheObj.folders);
                 return cacheObj.folders;
@@ -128,12 +128,29 @@ export async function saveFolders(foldersToSave) {
     }
 }
 
-async function promptRestoreFromCache(savedAt) {
+async function promptRestoreFromCache(savedAt, foldersPreview = []) {
     // Format date as YYYY-MM-DD HH:MM
     const date = savedAt
         ? new Date(savedAt).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
         : 'unknown';
     const username = getCurrentUserHandle();
+
+    // Render preview as a table or a simple tree/list
+    let previewHtml = "";
+    if (Array.isArray(foldersPreview) && foldersPreview.length) {
+        previewHtml = "<ul class='stcm-folder-preview-list'>";
+        for (const folder of foldersPreview) {
+            previewHtml += `<li>
+                <span class="stcm-folder-preview-foldername">${escapeHtml(folder.name)}</span>
+                <span class="stcm-folder-preview-id">ID: ${escapeHtml(folder.id)}</span>
+                ${folder.characters?.length ? `<span class="stcm-folder-preview-count">${folder.characters.length} chars</span>` : ""}
+                ${folder.children && folder.children.length ? `<span class="stcm-folder-preview-sub">${folder.children.length} subfolders</span>` : ""}
+            </li>`;
+        }
+        previewHtml += "</ul>";
+    } else {
+        previewHtml = `<em>(Cache contains no folders?)</em>`;
+    }
 
     // Build the HTML for the popup
     const html = document.createElement('div');
@@ -145,11 +162,12 @@ async function promptRestoreFromCache(savedAt) {
         </p>
         <p>
             We have a cached version from <b>${date}</b>.<br>
-            Would you like to restore from that cached version?
+            <b>Preview of folders to be restored:</b>
+            ${previewHtml}
         </p>
+        <p>Would you like to restore from that cached version?</p>
     `;
 
-    // Use your SillyTavern-style popup
     const result = await callGenericPopup(
         html,
         POPUP_TYPE.CONFIRM,
@@ -157,6 +175,7 @@ async function promptRestoreFromCache(savedAt) {
     );
     return result === POPUP_RESULT.AFFIRMATIVE;
 }
+
 
 
 
