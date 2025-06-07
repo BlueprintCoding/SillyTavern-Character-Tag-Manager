@@ -3,8 +3,6 @@ import { debouncePersist,
     buildTagMap,
     getNotes,
     saveNotes,
-    restoreNotesFromFile,
-    cleanTagMap,
     parseSearchGroups,
     parseSearchTerm
  } from './utils.js';
@@ -13,13 +11,8 @@ import { characters, selectCharacterById } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { renderCharacterTagData, callSaveandReload } from "./index.js";
-import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
 
-
-(async () => {
-    await restoreNotesFromFile();  // Only runs if not already cached
-    renderCharacterList();         // After loading notes
-})();
+    renderCharacterList();        
 
 function renderCharacterList() {
     const containerMain = document.getElementById('characterListContainer');
@@ -218,7 +211,6 @@ function renderCharacterList() {
         nameRow.appendChild(nameSpan);
 
         // Notes button
-        const notes = getNotes();
         const currentNote = notes.charNotes[entity.id] || '';
 
         const noteBtn = document.createElement('button');
