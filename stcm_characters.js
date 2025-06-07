@@ -10,7 +10,8 @@ import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
 import { characters, selectCharacterById } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
-import { renderCharacterTagData, callSaveandReload } from "./index.js";
+import { callSaveandReload } from "./index.js";
+import { renderTagSection } from "./stcm_tags_ui.js"
 
     renderCharacterList();        
 
@@ -296,7 +297,7 @@ function renderCharacterList() {
                 removeTagFromEntity(tag, entity.id);
                 callSaveandReload();
                 renderCharacterList();
-                renderCharacterTagData();
+                renderTagSection();
             });
 
             tagBox.appendChild(removeBtn);
@@ -354,7 +355,7 @@ function renderCharacterList() {
             toastr.error(`Character "${entity.name}" permanently deleted.`, 'Delete Successful');
             callSaveandReload();
             renderCharacterList();
-            renderCharacterTagData();
+            renderTagSection();
         });
 
         rightControls.appendChild(deleteIcon);
@@ -451,7 +452,7 @@ function toggleCharacterList(container, group) {
             // 🔄 Save and Refresh both sections
             callSaveandReload();
             renderCharacterList();
-            renderCharacterTagData(); // imported from index.js
+            renderTagSection(); 
         });
 
 
