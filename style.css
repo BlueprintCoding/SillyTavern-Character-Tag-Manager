@@ -780,14 +780,14 @@
 
 /* Drop line between folders */
 .stcm-drop-line {
-    height: 2px;                /* Small line when NOT dragging */
+    height: 1px;                /* Small line when NOT dragging */
     background: transparent;
     margin: 2px 0;
     transition: all 0.18s;
 }
 
 #characterTagManagerModal.stcm-dragging-folder .stcm-drop-line {
-    height: 12px;
+    height: 8px;
     background: #3bb1ff44;
     cursor: pointer;
 }
