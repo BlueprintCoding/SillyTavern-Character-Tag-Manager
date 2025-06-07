@@ -12,9 +12,10 @@ import { injectSidebarFolders, updateSidebar  } from "./stcm_folders_ui.js";
 import {
     characters
 } from "../../../../script.js";
-
+import { getCurrentUserHandle } from '../../../user.js';
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
+
 
 export async function loadFolders(options = {}) {
     const fileUrl = localStorage.getItem('stcm_folders_url');
@@ -124,14 +125,29 @@ async function promptRestoreFromCache(savedAt) {
     const date = savedAt
         ? new Date(savedAt).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
         : 'unknown';
-    return new Promise(resolve => {
-        // Replace this with your popup/modal for better UX
-        if (confirm(`File not found!\nPlease check "\\SillyTavern\\data\\{username}\\user\\files" for "stcm-folders.json".\nWe have a cached version from ${date}.\nRestore from cache?`)) {
-            resolve(true);
-        } else {
-            resolve(false);
-        }
-    });
+    const username = getCurrentUserHandle();
+
+    // Build the HTML for the popup
+    const html = document.createElement('div');
+    html.innerHTML = `
+        <h3>Folder File Not Found</h3>
+        <p>
+            <b>File missing:</b><br>
+            <code>\\SillyTavern\\data\\${username}\\user\\files\\stcm-folders.json</code>
+        </p>
+        <p>
+            We have a cached version from <b>${date}</b>.<br>
+            Would you like to restore from that cached version?
+        </p>
+    `;
+
+    // Use your SillyTavern-style popup
+    const result = await callGenericPopup(
+        html,
+        POPUP_TYPE.CONFIRM,
+        'Restore Folders from Cache?'
+    );
+    return result === POPUP_RESULT.AFFIRMATIVE;
 }
 
 
