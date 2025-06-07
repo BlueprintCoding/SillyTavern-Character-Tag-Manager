@@ -7,7 +7,7 @@ import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import { escapeHtml, flushExtSettings  } from "./utils.js";
 import { STCM, callSaveandReload } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
-import { injectSidebarFolders, updateSidebar  } from "./stcm_folders_ui.js";
+import { updateSidebar  } from "./stcm_folders_ui.js";
 import { renderTagSection } from "./stcm_tags_ui.js"
 
 const EXT_KEY = 'stcm_folders_v2'; // a single key in ext-settings that holds the folder array
@@ -202,24 +202,44 @@ export async function setFolderPrivacy(id, isPrivate) {
     }
 }
 
-export async function deleteFolder(id) {
-    const folders = await loadFolders();
-    if (id === 'root') return;
+// deleteFolder(id[, cascade=true])
+// • cascade = true  → delete this folder AND all descendants
+// • cascade = false → move all child-folders to Root first, then delete only this folder
+export async function deleteFolder (id, cascade = true) {
+    if (id === 'root') return;                    // never remove Root
 
-    // recursive delete
+    const folders = await loadFolders();
+    const self    = getFolder(id, folders);
+    if (!self) return;
+
+    // 1. if NOT cascading, move children to Root (and update their parentId)
+    if (!cascade && Array.isArray(self.children) && self.children.length) {
+        const root = getFolder('root', folders);
+        self.children.forEach(childId => {
+            const child = getFolder(childId, folders);
+            if (child) {
+                child.parentId = 'root';
+                root.children.push(childId);
+            }
+        });
+    }
+
+    // 2. remove this folder (and optionally its subtree)
     function drop(fid) {
         const idx = folders.findIndex(f => f.id === fid);
         if (idx !== -1) {
             const [f] = folders.splice(idx, 1);
-            f.children?.forEach(drop);
+            if (cascade) f.children?.forEach(drop);   // recursive only if cascading
         }
     }
     drop(id);
 
-    // scrub child refs from remaining folders
+    // 3. scrub references from all remaining parents
     folders.forEach(f => f.children = f.children?.filter(cid => cid !== id));
+
     await saveFolders(folders);
 }
+
 
 /* ---------------------------------------------------------------- */
 /*  Tag-to-Folder conversion (logic identical, only persistence fix)*/

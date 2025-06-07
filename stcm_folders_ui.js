@@ -839,22 +839,45 @@ export function showIconPicker(folder, parentNode, rerender) {
 }
 
 
-export function confirmDeleteFolder(folder, rerender) {
-    const isEmpty = !folder.children || folder.children.length === 0;
+export function confirmDeleteFolder (folder, rerender) {
+    const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
+
+    // ── build popup ──────────────────────────────────────────────────────
     const html = document.createElement('div');
     html.innerHTML = `
-        <h3>Delete Folder?</h3>
-        <p>Are you sure you want to delete <strong>${escapeHtml(folder.name)}</strong>?<br>
-        ${isEmpty ? '' : '<b>This folder is not empty and contains child folders or characters!</b>'}
-        <span style="color:#e57373;">This cannot be undone.</span>
-        </p>`;
-    callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Folder')
-        .then(async result => {
-            if (result !== POPUP_RESULT.AFFIRMATIVE) return;
-            await stcmFolders.deleteFolder(folder.id);
+        <h3>Delete Folder</h3>
+        <p>Delete <strong>${escapeHtml(folder.name)}</strong>?</p>
+        ${hasChildren ? `
+            <p>This folder contains <b>${folder.children.length}</b> sub-folder${folder.children.length > 1 ? 's' : ''}.</p>
+            <label style="display:block;margin:4px 0;">
+                <input type="radio" name="delMode" value="cascade" checked>
+                Delete this folder <b>and</b> all sub-folders
+            </label>
+            <label style="display:block;margin:4px 0;">
+                <input type="radio" name="delMode" value="move">
+                Delete this folder and <b>move</b> its sub-folders to Root
+            </label>
+        ` : ''}
+        <p style="color:#e57373;">This cannot be undone.</p>`;
 
+    // ── show popup ───────────────────────────────────────────────────────
+    callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Folder')
+        .then(async res => {
+            if (res !== POPUP_RESULT.AFFIRMATIVE) return;
+
+            const mode     = hasChildren
+                ? html.querySelector('input[name="delMode"]:checked').value
+                : 'cascade';
+            const cascade  = (mode === 'cascade');
+
+            await stcmFolders.deleteFolder(folder.id, cascade);
             await updateSidebar(true);
             rerender();
+            toastr.success(
+                cascade
+                    ? 'Folder and all sub-folders deleted'
+                    : 'Folder deleted – sub-folders moved to Root'
+            );
         });
 }
 
