@@ -404,13 +404,31 @@ export function promptCreateTag() {
     const container = document.createElement('div');
     container.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:1em;width:100%;">
-        <label>Name:<input type="text" class="menu_input newTagName" value="${defaultName}" style="width:100%;"></label>
-        <div class="tagPreview" style="align-self:start;padding:4px 8px;border-radius:4px;background:${defaultBg};color:${defaultFg};font-weight:bold;border:1px solid #999;">${defaultName}</div>
+        <label>Name:
+          <input type="text" class="menu_input newTagName"
+                 value="${defaultName}" style="width:100%;">
+        </label>
+    
+        <div class="tagPreview"
+             style="align-self:start;padding:4px 8px;border-radius:4px;
+                    background:${defaultBg};color:${defaultFg};
+                    font-weight:bold;border:1px solid #999;">
+          ${defaultName}
+        </div>
+    
         <div style="display:flex;gap:1em;">
-          <label style="flex:1;">Background:<br><toolcool-color-picker class="newTagBgPicker" color="${defaultBg}" style="width:100%;"></toolcool-color-picker></label>
-          <label style="flex:1;">Text:<br><toolcool-color-picker class="newTagFgPicker" color="${defaultFg}" style="width:100%;"></toolcool-color-picker></label>
+          <label style="flex:1;">Background:<br>
+            <toolcool-color-picker class="newTagBgPicker"
+                                   color="${defaultBg}" style="width:100%;"></toolcool-color-picker>
+          </label>
+    
+          <label style="flex:1;">Text:<br>
+            <toolcool-color-picker class="newTagFgPicker"
+                                   color="${defaultFg}" style="width:100%;"></toolcool-color-picker>
+          </label>
         </div>
       </div>`;
+    
 
     const preview  = container.querySelector('.tagPreview');
     const nameIn   = container.querySelector('.newTagName');
