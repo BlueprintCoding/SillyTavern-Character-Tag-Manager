@@ -290,8 +290,8 @@
 #assignTagSearchInput,
 #folderCharSearchInput,
 .newTagName {
-    background-color: rgba(255, 255, 255, 0.04);
-    color: #fff;
+    background-color: rgba(255, 255, 255, 0.04)!important;
+    color: #fff!important;
     margin-bottom: -3px;
 }
 
@@ -1156,7 +1156,7 @@ min-width: 130px;
     color: #fff;
 }
 
-.stcm_custom-add-tag-popup .newTagName {
+.stcm_custom-add-tag-popup {
     background-color: rgba(255, 255, 255, 0.04);
     color: #fff;
 }
@@ -1169,9 +1169,6 @@ min-width: 130px;
 }
 
 /* Private Folder Styling */
-.stcm-private-folder {
-
-}
 
 .stcm-hide { display: none !important; }
 

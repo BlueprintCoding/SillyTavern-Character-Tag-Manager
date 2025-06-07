@@ -25,14 +25,12 @@ function renderCharacterList() {
     container.className = 'stcm_scroll_300';
     wrapper.appendChild(container);
 
-        const tagMapById = buildTagMap(tags);
-
+    const tagMapById = buildTagMap(tags);
     const selectedTagIdsArr = Array.from(selectedTagIds);
     const selectedTagsDisplay = document.getElementById('selectedTagsDisplay');
     selectedTagsDisplay.innerHTML = '';
 
     if (selectedTagIdsArr.length > 0) {
-        const tagMapById = buildTagMap(tags);
         selectedTagIdsArr.forEach(tagId => {
             const tag = tagMapById.get(tagId);
             if (!tag) return;
@@ -292,8 +290,9 @@ function renderCharacterList() {
             removeBtn.addEventListener('click', () => {
                 removeTagFromEntity(tag, entity.id);
                 callSaveandReload();
-                renderCharacterList();
                 renderTagSection();
+                renderCharacterList();
+
             });
 
             tagBox.appendChild(removeBtn);
@@ -350,8 +349,9 @@ function renderCharacterList() {
 
             toastr.error(`Character "${entity.name}" permanently deleted.`, 'Delete Successful');
             callSaveandReload();
-            renderCharacterList();
             renderTagSection();
+            renderCharacterList();
+
         });
 
         rightControls.appendChild(deleteIcon);
@@ -447,8 +447,9 @@ function toggleCharacterList(container, group) {
 
             // 🔄 Save and Refresh both sections
             callSaveandReload();
-            renderCharacterList();
             renderTagSection(); 
+            renderCharacterList();
+
         });
 
 

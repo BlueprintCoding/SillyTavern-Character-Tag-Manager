@@ -290,8 +290,8 @@ export async function convertTagToRealFolder(tag) {
         if (idx !== -1) tags.splice(idx, 1);
 
         await callSaveandReload();
-        renderCharacterList();
         renderTagSection();
+        renderCharacterList();
         toastr.success(`Deleted tag "${tag.name}"`);
     }
 }
