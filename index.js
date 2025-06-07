@@ -1,7 +1,8 @@
 // index.js - Folder rework
 import { 
 debounce, 
-debouncePersist, 
+debouncePersist,
+flushExtSettings, 
 getFreeName, 
 isNullColor, 
 escapeHtml, 
@@ -401,6 +402,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         const isPrivate = e.target.value === 'private';
         await stcmFolders.setFolderPrivacy(folder.id, isPrivate);
         STCM.sidebarFolders = await stcmFolders.loadFolders();
+        flushExtSettings(); 
         injectSidebarFolders(STCM.sidebarFolders, characters);
         renderFoldersTree();
     });
@@ -992,7 +994,7 @@ function showFolderCharactersSection(folder, folders) {
             // Tag chips (as before)
             const tagListWrapper = document.createElement('div');
             tagListWrapper.className = 'assignedTagsWrapper';
-            cleanTagMap();
+            cleanTagMap(tag_map, characters, groups);
             const tagMapById = buildTagMap(tags);
             const assignedTags = tag_map[char.avatar] || [];
             assignedTags.forEach(tagId => {
@@ -1068,7 +1070,7 @@ if (selectAllCheckbox) {
             button.addEventListener('click', () => {
                 const targetId = button.dataset.target;
                 const section = document.getElementById(targetId);
-                cleanTagMap();
+                cleanTagMap(tag_map, characters, groups);
 
                 // -- Close all other sections and reset toggles --
                 overlay.querySelectorAll('.accordionContent').forEach(content => {
@@ -1433,7 +1435,7 @@ if (selectAllCheckbox) {
     });
     
     document.getElementById('cancelBulkDeleteChars').addEventListener('click', () => {
-        stcmCharState.isBulkDeleteCharMode = true;
+        stcmCharState.isBulkDeleteCharMode = false;
         stcmCharState.selectedCharacterIds.clear();
         document.getElementById('startBulkDeleteChars').style.display = '';
         document.getElementById('cancelBulkDeleteChars').style.display = 'none';
@@ -2101,7 +2103,7 @@ function renderCharacterTagData() {
             opt.addEventListener('click', () => {
                     group.tag.folder_type = ft.value;
                 saveNotes(notes);
-                debouncePersist();
+                flushExtSettings()
                 folderSelected.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
                 folderSelected.title = ft.tooltip;
                 folderOptionsList.style.display = 'none';
@@ -2190,11 +2192,11 @@ function renderCharacterTagData() {
         const saveNoteBtn = document.createElement('button');
         saveNoteBtn.className = 'stcm_menu_button stcm_save_note_btn small';
         saveNoteBtn.textContent = 'Save Note';
-        saveNoteBtn.addEventListener('click', async () => {
+        saveNoteBtn.addEventListener('click', () => {
             const notes = getNotes();
             notes.tagNotes[tagId] = noteArea.value.trim();
             saveNotes(notes);
-            debouncePersist();
+            flushExtSettings();  
             toastr.success(`Saved note for tag "${group.tag.name}"`);
         });
 
@@ -2430,7 +2432,7 @@ function openColorEditModal(tag) {
         if (result !== POPUP_RESULT.AFFIRMATIVE) return;
         tag.color = currBg;
         tag.color2 = currFg;
-        await callSaveandReload();
+        flushExtSettings();
         renderCharacterList();
         renderCharacterTagData();
     });
@@ -2472,7 +2474,7 @@ function confirmDeleteTag(tag) {
 }
 
 async function callSaveandReload() {
-    cleanTagMap();
+    cleanTagMap(tag_map, characters, groups);
     saveSettingsDebounced();
     await getCharacters();
     await printCharactersDebounced();
@@ -2635,7 +2637,7 @@ async function handleNotesImport(importData) {
     // If there are conflicts, show conflict dialog and wait for user to resolve, then refresh UI
     if (conflicts.length) {
         await showNotesConflictDialog(conflicts, newNotes, importData);
-        await debouncePersist();
+        flushExtSettings();
         renderCharacterList();
         renderCharacterTagData();
     } else {
@@ -2643,7 +2645,7 @@ async function handleNotesImport(importData) {
         Object.assign(tagNotes, newNotes.tagNotes);
         Object.assign(charNotes, newNotes.charNotes);
         saveNotes({ ...notes, tagNotes, charNotes }); 
-        await debouncePersist();
+        flushExtSettings();
         renderCharacterList();
         renderCharacterTagData();
         toastr.success('Notes imported successfully!');
@@ -2765,7 +2767,7 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     Object.assign(charNotes, newNotes.charNotes);
 
     saveNotes({ ...notes, tagNotes, charNotes });
-    await debouncePersist();
+    flushExtSettings();
     renderCharacterList();
     renderCharacterTagData();
     toastr.success('Selected notes imported!');
