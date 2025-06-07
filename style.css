@@ -65,14 +65,12 @@
 }
 
 #characterTagManagerContent {
-    scrollbar-width: thin;
     min-height: 350px;
 }
 
 /* === Accordions & Sections === */
 .stcm_accordians {
-    overflow: scroll;
-    scrollbar-width: thin;
+    overflow-y: scroll;
 }
 
 .stcm_accordion_section {
@@ -106,7 +104,6 @@
     overflow-y: visible;
     max-height: unset;
     flex: unset;
-    scrollbar-width: thin;
 }
 
 .accordionContent.open {
@@ -322,7 +319,6 @@
     overflow-y: auto;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    scrollbar-width: thin;
 }
 
 .charList li:nth-child(odd) {
@@ -553,7 +549,6 @@
 }
 
 #assignTagSelect {
-    scrollbar-width: thin;
     appearance: none !important;
     background: none !important;
     -webkit-tap-highlight-color: transparent;
@@ -1281,3 +1276,32 @@ dialog.popup #stcm-popup-pin-input:focus {
         margin-top: 5px;
     }
 }
+
+/* Scroll bar styling */
+#characterTagManagerModal, 
+#characterTagManagerModal * {
+  scrollbar-width: thin;
+  scrollbar-color: #666 #181818; /* thumb, track */
+}
+
+
+#characterTagManagerModal ::-webkit-scrollbar {
+    width: 12px;
+    background: #181818;
+  }
+  
+  #characterTagManagerModal ::-webkit-scrollbar-thumb {
+    background: #666;
+    border-radius: 8px;
+    min-height: 24px;
+    border: 2.5px solid #232323;
+  }
+  
+  #characterTagManagerModal ::-webkit-scrollbar-thumb:hover {
+    background: #888;
+  }
+  
+  #characterTagManagerModal ::-webkit-scrollbar-corner {
+    background: #181818;
+  }
+  

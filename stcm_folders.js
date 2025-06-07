@@ -16,14 +16,20 @@ import { getCurrentUserHandle } from '../../../user.js';
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
 
-
 export async function loadFolders(options = {}) {
     const fileUrl = localStorage.getItem('stcm_folders_url');
     let folders, cacheObj, errorMsg = null;
+    let fileLoadFailed = false;
 
     // Helper for validating the folder array
     function isValidFolderArray(data) {
         return Array.isArray(data) && data.every(f => f && typeof f.id === "string" && typeof f.name === "string");
+    }
+
+    // Helper to detect 404/Not Found errors
+    function isNotFoundError(err) {
+        const str = err?.message || String(err || '');
+        return /not[\s-]?found|404/i.test(str);
     }
 
     // Try server file with up to 2 attempts
@@ -47,8 +53,10 @@ export async function loadFolders(options = {}) {
                 localStorage.setItem('stcm_folders_cache', JSON.stringify(cacheObj));
                 return folders;
             } catch (e) {
-                errorMsg = `Attempt ${attempt}: Failed to load folders from file: ${e?.message || e}`;
-                console.warn(errorMsg);
+                fileLoadFailed = true;
+                // Log whole error object, never assume it's a string
+                console.warn("Error loading folders from file:", e, typeof e, e?.message);
+                errorMsg = `Attempt ${attempt}: Failed to load folders from file: ${e?.message || String(e)}`;
                 if (attempt === 1) await new Promise(res => setTimeout(res, 500));
             }
         }
@@ -58,12 +66,13 @@ export async function loadFolders(options = {}) {
     const cached = localStorage.getItem('stcm_folders_cache');
     cacheObj = cached ? parseCache(cached) : null;
     if (cacheObj && isValidFolderArray(cacheObj.folders)) {
-        // If the file was not found (e.g. 404), prompt user to restore from cache
-        if (errorMsg?.toLowerCase().includes('not found')) {
+        // If any file load error, prompt user to restore from cache
+        if (fileLoadFailed) {
             const shouldRestore = await promptRestoreFromCache(cacheObj.saved_at);
             if (shouldRestore) return cacheObj.folders;
-            // If not, proceed to default
+            // If user says no, continue to fallback default
         } else {
+            // If cache is fine and no server error, just use cache
             return cacheObj.folders;
         }
     }
@@ -91,7 +100,6 @@ export async function loadFolders(options = {}) {
     return folders;
 }
 
-// Helper outside of loadFolders
 function parseCache(raw) {
     try {
         const obj = JSON.parse(raw);
@@ -100,6 +108,7 @@ function parseCache(raw) {
     } catch {}
     return null;
 }
+
 
 
 
