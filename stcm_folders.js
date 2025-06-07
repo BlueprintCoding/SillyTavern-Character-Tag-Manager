@@ -8,7 +8,7 @@ import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import { escapeHtml } from "./utils.js";
 import { STCM, callSaveandReload, renderCharacterTagData } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
-import { injectSidebarFolders } from "./stcm_folders_ui.js";
+import { injectSidebarFolders, updateSidebar  } from "./stcm_folders_ui.js";
 import {
     characters
 } from "../../../../script.js";
@@ -177,17 +177,17 @@ export async function setFolderColor(id, color) {
 
 
 // Move a character to a folder (removes from any previous folder)
-export async function moveCharacterToFolder(charId, folderId) {
-    // Remove from all folders
-    for (const folder of folders) {
-        folder.children = folder.children.filter(child => child !== "char:" + charId);
-    }
-    // Add to new folder
-    const folder = getFolder(folderId);
-    if (!folder || getFolderDepth(folderId) >= 5) throw new Error("Folder depth limit exceeded.");
-    folder.children.push("char:" + charId);
-    await saveFolders(folders); 
-}
+// export async function moveCharacterToFolder(charId, folderId) {
+//     // Remove from all folders
+//     for (const folder of folders) {
+//         folder.children = folder.children.filter(child => child !== "char:" + charId);
+//     }
+//     // Add to new folder
+//     const folder = getFolder(folderId);
+//     if (!folder || getFolderDepth(folderId) >= 5) throw new Error("Folder depth limit exceeded.");
+//     folder.children.push("char:" + charId);
+//     await saveFolders(folders); 
+// }
 
 // Move a folder to a new parent (careful with cycles/depth)
 export async function moveFolder(folderId, newParentId) {
@@ -275,8 +275,7 @@ export async function convertTagToRealFolder(tag) {
 
         toastr.success(`Converted "${tag.name}" into real folder with ${assignedChars.length} characters`);
 
-        STCM.sidebarFolders = await loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
+        await updateSidebar(true);
 
         // 📌 Switch UI to Folders accordion
         const overlay = document.getElementById('characterTagManagerModal');

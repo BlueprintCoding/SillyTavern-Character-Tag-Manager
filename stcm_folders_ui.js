@@ -30,6 +30,24 @@ import {
 
 let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
+let sidebarUpdateInProgress = false;
+
+export async function updateSidebar(forceReload = false) {
+    if (sidebarUpdateInProgress) return;
+    sidebarUpdateInProgress = true;
+
+    try {
+        if (forceReload || !STCM.sidebarFolders?.length) {
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+        }
+        injectSidebarFolders(STCM.sidebarFolders, characters);
+        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+    } catch (e) {
+        console.error("Sidebar update failed:", e);
+    } finally {
+        sidebarUpdateInProgress = false;
+    }
+}
 
 
 export function injectSidebarFolders(folders, allCharacters) {
@@ -518,8 +536,7 @@ export function showFolderColorPicker(folder, rerender) {
         const color = colorInput.value || '#8b2ae6';
         await stcmFolders.setFolderColor(folder.id, color); // <--- This should now update and save!
         
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
+        await updateSidebar(true);
         rerender();
     });
 }
@@ -573,21 +590,24 @@ export function renderSidebarCharacterCard(char) {
 
 let stcmObserver = null;
 let lastInjectedAt = 0;
+let lastSidebarInjection = 0;
+const SIDEBAR_INJECTION_THROTTLE_MS = 500;
+
 
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
 
     const debouncedInject = debounce(async () => {
-        const input = document.getElementById('character_search_bar');
+        const now = Date.now();
+        if (now - lastSidebarInjection < SIDEBAR_INJECTION_THROTTLE_MS) return;
 
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
-        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
-        lastInjectedAt = Date.now();
-    }, 120);
+        lastSidebarInjection = now;
+        await updateSidebar(true);
+    }, 150);
 
-    stcmObserver = new MutationObserver(() => debouncedInject());
+    if (stcmObserver) stcmObserver.disconnect();
+    stcmObserver = new MutationObserver(debouncedInject);
     stcmObserver.observe(container, { childList: true, subtree: false });
 }
 
@@ -599,27 +619,31 @@ export function makeFolderNameEditable(span, folder, rerender) {
     input.className = 'stcm-folder-name-input menu_input';
     input.style.width = Math.max(80, span.offsetWidth + 20) + 'px';
 
+    let alreadySaved = false;
+
     const save = async () => {
+        if (alreadySaved) return;
+        alreadySaved = true;
+
         const val = input.value.trim();
         if (val && val !== folder.name) {
             await stcmFolders.renameFolder(folder.id, val);
-            
-            STCM.sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(STCM.sidebarFolders, characters);
-            rerender();
-        } else {
-            rerender();
         }
+        await updateSidebar(true);
+        rerender();
     };
+
     input.addEventListener('blur', save);
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); save(); }
-        if (e.key === 'Escape') rerender();
+        if (e.key === 'Escape') { alreadySaved = true; rerender(); }
     });
+
     span.replaceWith(input);
     input.focus();
     input.select();
 }
+
 
 export function showIconPicker(folder, parentNode, rerender) {
     const icons = [
@@ -720,8 +744,7 @@ export function showIconPicker(folder, parentNode, rerender) {
         btn.addEventListener('click', async () => {
             await stcmFolders.setFolderIcon(folder.id, ico);
             
-            STCM.sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(STCM.sidebarFolders, characters);
+            await updateSidebar(true);
             rerender();
             popup.remove();
         });
@@ -772,8 +795,7 @@ export function showIconPicker(folder, parentNode, rerender) {
     
         try {
             await stcmFolders.setFolderIcon(folder.id, iconClass);
-            STCM.sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(STCM.sidebarFolders, characters);
+            await updateSidebar(true);
             rerender();
             popup.remove();
         } catch (err) {
@@ -830,10 +852,8 @@ export function confirmDeleteFolder(folder, rerender) {
         .then(async result => {
             if (result !== POPUP_RESULT.AFFIRMATIVE) return;
             await stcmFolders.deleteFolder(folder.id);
-            // await renderFoldersTree();
-            STCM.sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(STCM.sidebarFolders, characters);
 
+            await updateSidebar(true);
             rerender();
         });
 }
@@ -951,9 +971,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         if (newParentId === folder.parentId) return; // No change
         try {
             await stcmFolders.moveFolder(folder.id, newParentId);
-            
-            STCM.sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(STCM.sidebarFolders, characters);
+            await updateSidebar(true);
             rerender();
         } catch (e) {
             const errDiv = container.querySelector('#stcmMoveFolderError');
