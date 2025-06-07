@@ -310,6 +310,25 @@ refreshFoldersTree();
         debounce(() => renderCharacterList())
     );
 
+     // Dropdown toggle for Import/Export
+     const toggleIE = document.getElementById('toggleImportExport');
+     const ieMenu = document.getElementById('importExportMenu');
+ 
+     toggleIE.addEventListener('click', (e) => {
+         e.stopPropagation();
+         ieMenu.style.display = ieMenu.style.display === 'none' ? 'block' : 'none';
+         // Optional: close on outside click
+         if (ieMenu.style.display === 'block') {
+             document.addEventListener('mousedown', closeIeMenu, { once: true });
+         }
+     });
+ 
+     function closeIeMenu(ev) {
+         if (!ieMenu.contains(ev.target) && ev.target !== toggleIE) {
+             ieMenu.style.display = 'none';
+         }
+     }
+ 
 
     document.getElementById('backupTagsBtn').addEventListener('click', () => {
         const json = JSON.stringify({ tags, tag_map }, null, 2);
