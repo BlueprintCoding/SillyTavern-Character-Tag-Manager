@@ -17,9 +17,6 @@ import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
     if (!wrapper) return;
-    
-    const input = document.getElementById('charSearchInput');
-    if (input) input.value = '';
 
     // Remove all old content
     wrapper.innerHTML = '';
