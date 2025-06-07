@@ -494,12 +494,18 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     row.addEventListener('dragover', e => {
         e.preventDefault();
         row.classList.add('stcm-folder-row-drop-target');
+        row.style.background = folder.color && folder.color !== "#" ? folder.color : "#d3ffdc";
+        row.style.boxShadow = "0 0 0 2px " + (folder.color && folder.color !== "#" ? folder.color : "#4fc566") + ", 0 2px 12px 1px #4fc56655";
     });
     row.addEventListener('dragleave', e => {
         row.classList.remove('stcm-folder-row-drop-target');
+        row.style.background = ""; // Remove custom style
+        row.style.boxShadow = "";
     });
     row.addEventListener('drop', async e => {
         row.classList.remove('stcm-folder-row-drop-target');
+        row.style.background = "";
+        row.style.boxShadow = "";
         const draggedId = e.dataTransfer.getData('text/plain');
         if (!draggedId || draggedId === folder.id) return;
     

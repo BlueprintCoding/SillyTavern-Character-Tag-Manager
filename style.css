@@ -786,6 +786,12 @@
     transition: all 0.18s;
 }
 
+.stcm-folder-row-drop-target {
+    /* Keep for border radius, transitions, etc., but let JS set bg */
+    border-radius: 4px;
+    transition: background 0.18s, box-shadow 0.18s;
+}
+
 #characterTagManagerModal.stcm-dragging-folder .stcm-drop-line {
     height: 8px;
     background: #3bb1ff44;
