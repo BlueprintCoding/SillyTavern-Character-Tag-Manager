@@ -744,6 +744,39 @@ if (selectAllCheckbox) {
 }
 
 
+export async function attachFolderSectionListeners(modalRoot) {
+    const treeContainer   = modalRoot.querySelector('#foldersTreeContainer');
+    const createFolderBtn = modalRoot.querySelector('#createNewFolderBtn');
+
+    if (!treeContainer) return;
+
+    // initial paint
+    await renderFoldersTree(treeContainer, { onTreeChanged: () => renderFoldersTree(treeContainer) });
+
+    // “New Folder” button
+    if (createFolderBtn) {
+        createFolderBtn.addEventListener('click', async () => {
+            const name = await promptInput({
+                label  : 'Enter folder name:',
+                title  : 'New Folder',
+                ok     : 'Create',
+                cancel : 'Cancel',
+                initial: ''
+            });
+            if (!name || !name.trim()) return;
+
+            try {
+                await stcmFolders.addFolder(name.trim(), 'root');
+                await renderFoldersTree(treeContainer);
+                toastr.success(`Folder “${name.trim()}” created!`);
+            } catch (err) {
+                toastr.error(err.message || 'Failed to create folder');
+            }
+        });
+    }
+}
+
+
 export function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
     let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
     if (chipsRow) {

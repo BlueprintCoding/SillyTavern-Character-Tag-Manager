@@ -21,7 +21,7 @@ import {
     injectSidebarFolders,
 } from './stcm_folders_ui.js';
 
-import { renderFoldersTree } from './stcm_folders_tree.js';
+import { renderFoldersTree, attachFolderSectionListeners } from './stcm_folders_tree.js';
 
 import {
     tags,
@@ -214,6 +214,7 @@ function openCharacterTagManagerModal() {
     document.body.appendChild(overlay);
     resetModalScrollPositions();
     attachTagSectionListeners(overlay); 
+    attachFolderSectionListeners(overlay);
 
     // Folders: add create handler and render initial tree
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');
