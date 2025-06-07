@@ -925,16 +925,6 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
     // 3. Only allow destination if it will not violate max depth
     const MAX_DEPTH = 5; // whatever your limit is
 
-    function getFolderDepth(folderId) {
-        let depth = 0;
-        let curr = allFolders.find(f => f.id === folderId);
-        while (curr && curr.parentId) {
-            curr = allFolders.find(f => f.id === curr.parentId);
-            depth++;
-        }
-        return depth;
-    }
-
     const validFolders = allFolders.filter(f => {
         if (descendants.includes(f.id)) return false; // can't move into self or descendants
         const destDepth = getFolderDepth(f.id);
