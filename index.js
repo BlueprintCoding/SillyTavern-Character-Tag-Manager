@@ -536,7 +536,7 @@ return node;
 function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth = 0) {
     const line = document.createElement('div');
     line.className = 'stcm-drop-line';
-    line.style.height = '0px';
+    line.style.height = '1px';
     line.style.marginLeft = ((depth + 1) * 24) + 'px';
     line.style.background = 'transparent';
     line.dataset.parentId = parent.id;
