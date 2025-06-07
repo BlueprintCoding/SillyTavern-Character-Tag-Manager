@@ -551,31 +551,26 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
     line.addEventListener('dragover', e => {
         e.preventDefault();
         line.classList.add('stcm-drop-line-active', 'insert-between');
-        
-        // Find the folder *after* this drop-line (the one that will be BELOW it)
-        let targetColor = "#3bb1ff"; // fallback color
+    
+        let targetColor = "#3bb1ff"; // fallback
         if (parent.children && parent.children.length > insertAt) {
             const childIdBelow = parent.children[insertAt];
             const folderBelow = allFolders.find(f => f.id === childIdBelow);
-            if (folderBelow && folderBelow.color && folderBelow.color !== "#") {
+            if (folderBelow && folderBelow.color && folderBelow.color !== "#")
                 targetColor = folderBelow.color;
-            }
         } else if (parent.color && parent.color !== "#") {
-            // If it's the last drop-line, use the parent folder's color
             targetColor = parent.color;
         }
-        // Use a slight transparency for aesthetics
-        line.style.background = hexToRgba(targetColor, 0.85);
+        // Use !important so it beats the CSS selector
+        line.style.setProperty('background', hexToRgba(targetColor, 0.9), 'important');
     });
-
     line.addEventListener('dragleave', e => {
         line.classList.remove('stcm-drop-line-active', 'insert-between');
-        line.style.background = "";
+        line.style.removeProperty('background');
     });
-
     line.addEventListener('drop', async e => {
         line.classList.remove('stcm-drop-line-active', 'insert-between');
-        line.style.background = "";
+        line.style.removeProperty('background');
         const draggedId = e.dataTransfer.getData('text/plain');
         if (!draggedId) return;
         // Usual: move and reorder as sibling in parent.children[insertAt]
