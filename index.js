@@ -218,22 +218,6 @@ function openCharacterTagManagerModal() {
 
     // Folders: add create handler and render initial tree
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');
-const createFolderBtn = document.getElementById('createNewFolderBtn');
-
-if (createFolderBtn) {
-    createFolderBtn.addEventListener('click', async () => {
-        const name = await promptInput({ label: 'Enter folder name:', title: 'New Folder', ok: 'Create', cancel: 'Cancel', initial: '' });
-        if (!name || !name.trim()) return;
-        try {
-            // Add to root for now; you’ll add "add-to-any-folder" soon
-            await stcmFolders.addFolder(name.trim(), "root");
-            await refreshFoldersTree();
-            toastr.success(`Folder "${name.trim()}" created!`);
-        } catch (e) {
-            toastr.error(e.message || 'Failed to create folder');
-        }
-    });
-}
 
 /** redraw the tree and keep sidebar in-sync */
 async function refreshFoldersTree() {
