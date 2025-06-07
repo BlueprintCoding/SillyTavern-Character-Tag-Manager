@@ -498,64 +498,44 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
     line.dataset.parentId = parent.id;
     line.dataset.insertAt = insertAt;
 
-    line.addEventListener('dragover', e => {
+    row.addEventListener('dragover', e => {
         e.preventDefault();
-        line.classList.add('stcm-drop-line-active');
+        row.classList.add('stcm-folder-row-drop-target');
     });
-    line.addEventListener('dragleave', e => {
-        line.classList.remove('stcm-drop-line-active');
+    row.addEventListener('dragleave', e => {
+        row.classList.remove('stcm-folder-row-drop-target');
     });
-    line.addEventListener('drop', async e => {
-        e.preventDefault();
-        line.classList.remove('stcm-drop-line-active');
+    row.addEventListener('drop', async e => {
+        row.classList.remove('stcm-folder-row-drop-target');
         const draggedId = e.dataTransfer.getData('text/plain');
-        if (!draggedId) return;
+        if (!draggedId || draggedId === folder.id) return;
     
-        // Prevent dropping a folder into itself or its own descendants
-        if (draggedId === parent.id) return;
         const folders = await stcmFolders.loadFolders();
         const dragged = folders.find(f => f.id === draggedId);
         if (!dragged) return;
     
-        // Block dropping a parent into its child (or any descendant)
+        // Prevent illegal moves as before...
         const allDescendants = getAllDescendantFolderIds(draggedId, folders);
-        if (allDescendants.includes(parent.id)) return;
+        if (allDescendants.includes(folder.id)) return;
     
-        // Block moving root (or any protected folder)
-        if (dragged.id === 'root') return;
-    
-        // Only move if parent is not the current parent
-        if (dragged.parentId !== parent.id) {
-            await stcmFolders.moveFolder(draggedId, parent.id);
+        if (dragged.parentId !== folder.id) {
+            await stcmFolders.moveFolder(draggedId, folder.id);
         }
     
-        // Now reorder *within* parent's children (always! even if just moved in)
-        let currentParent = folders.find(f => f.id === parent.id);
-        let siblings = [...currentParent.children].filter(id => id !== draggedId);
-        siblings.splice(insertAt, 0, draggedId);
-    
-        await reorderChildren(parent.id, siblings);
+        // Add to end of children
+        let currentFolder = folders.find(f => f.id === folder.id);
+        let siblings = [...currentFolder.children].filter(id => id !== draggedId);
+        siblings.push(draggedId);
+        await reorderChildren(folder.id, siblings);
     
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
         renderFoldersTree();
     });
     
+    
     return line;
 }
-
-
-function validateDropTarget(dragged, target, folders) {
-    const descendants = getAllDescendantFolderIds(dragged.id, folders);
-    if (descendants.includes(target.id)) return false;
-
-    const subtreeDepth = getMaxFolderSubtreeDepth(dragged.id, folders);
-    const targetDepth = getFolderChain(target.id, folders).length;
-    const maxDepth = 5;
-
-    return (targetDepth + subtreeDepth) < maxDepth;
-}
-
 
 
 function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {

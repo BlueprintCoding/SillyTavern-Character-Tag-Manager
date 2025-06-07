@@ -778,15 +778,32 @@
     background-color: rgba(120, 160, 255, 0.1);
 }
 
+/* Drop line between folders */
 .stcm-drop-line {
+    height: 10px !important;
+    margin: 2px 0 2px 0;
+    border-radius: 4px;
     background: transparent;
-    transition: background 0.15s;
-    min-height: 4px;
-    height: 4px;
-    margin-top: -2px;
-    margin-bottom: -2px;
-    border-radius: 2px;
+    transition: background 0.18s, box-shadow 0.18s;
+    min-width: 120px;
+    cursor: pointer;
+    position: relative;
 }
+
+/* Insert between: Blue */
+.stcm-drop-line-active.insert-between {
+    background: linear-gradient(90deg, #3bb1ff 60%, #bee7ff 100%);
+    box-shadow: 0 0 0 2px #3bb1ff, 0 2px 12px 1px #3bb1ff66;
+}
+
+/* Make child: Green (applies to folder row, not drop-line) */
+.stcm-folder-row-drop-target {
+    outline: 2px solid #4fc566 !important;
+    background: linear-gradient(90deg, #d3ffdc 40%, #b6ffcc 100%);
+    box-shadow: 0 0 0 2px #4fc566, 0 2px 12px 1px #4fc56655;
+    z-index: 2;
+}
+
 .stcm-drop-line-active {
     background: var(--ac-style-color-accent, #6ec0ff) !important;
 }
