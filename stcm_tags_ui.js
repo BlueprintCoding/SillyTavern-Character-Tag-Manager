@@ -603,13 +603,23 @@ export function attachTagSectionListeners(modalRoot) {
         ?.addEventListener('click', promptCreateTag);
 
     // merge / bulk-delete buttons -----------------------------
-    modalRoot.querySelector('#startMergeTags')
-        ?.addEventListener('click', () => { isMergeMode = !isMergeMode;
-            selectedMergeTags.clear(); selectedPrimaryTagId = null;
-            modalRoot.querySelector('#cancelMergeTags').style.display = isMergeMode ? '' : 'none';
-            modalRoot.querySelector('#startMergeTags').textContent = isMergeMode ? 'Merge Now' : 'Merge Tags';
+
+    const mergeBtn = modalRoot.querySelector('#startMergeTags');
+    mergeBtn?.addEventListener('click', async () => {
+        if (!isMergeMode) {
+            // first click → enter merge mode
+            isMergeMode = true;
+            selectedMergeTags.clear();
+            selectedPrimaryTagId = null;
+            mergeBtn.textContent = 'Merge Now';
+            modalRoot.querySelector('#cancelMergeTags').style.display = '';
             renderTagSection();
-        });
+        } else {
+            // second click → do the merge
+            await performMerge(modalRoot);
+        }
+    });
+
 
     modalRoot.querySelector('#cancelMergeTags')
         ?.addEventListener('click', () => { isMergeMode = false;
@@ -747,71 +757,60 @@ export async function assignSelectedTagsTo(selectedCharIds) {
     return true;
 }
 
-// --- stcm_tags_ui.js -----------------------------------------------
-
-// put this near the top-level helpers (same scope as tags, tag_map, etc.)
-async function performMerge() {
+// === helper ===
+async function performMerge(modalRoot) {
     const primaryId = selectedPrimaryTagId;
     const mergeIds  = [...selectedMergeTags];
 
     if (!primaryId || mergeIds.length === 0) {
-        toastr.warning('Select one primary and at least one tag to merge.', 'Merge Tags');
+        toastr.warning('Select one primary and at least one tag to merge.','Merge Tags');
         return;
     }
     if (mergeIds.includes(primaryId)) {
-        toastr.error('Primary tag cannot also be marked for merge.', 'Merge Tags');
+        toastr.error('Primary tag cannot also be marked for merge.','Merge Tags');
         return;
     }
 
-    // build confirm dialog (same markup you had before)
-    /* … use buildTagMap / POPUP … */
+    // --- confirmation popup -------------------------------------------------
+    const tagNames = tags.reduce((m,t)=> (m[t.id]=t.name,m), {});
+    const html = document.createElement('div');
+    html.innerHTML = `
+        <h3>Merge Tags</h3>
+        <p>Primary: <strong>${escapeHtml(tagNames[primaryId])}</strong></p>
+        <p>Merging:</p>
+        <ul style="margin-left:1.2em">${mergeIds.map(id=>`<li>${escapeHtml(tagNames[id])}</li>`).join('')}</ul>
+        <p style="color:#e57373">This cannot be undone.</p>`;
+    const res = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Merge tags?');
+    if (res !== POPUP_RESULT.AFFIRMATIVE) return;   // user cancelled
 
-    if (userCancelled) return;
-
-    // 1. rewrite tag_map
-    Object.entries(tag_map).forEach(([charId, tagIds]) => {
-        if (!Array.isArray(tagIds)) return;
+    // --- 1) rewrite tag_map -----------------------------------------------
+    Object.values(tag_map).forEach(arr => {
+        if (!Array.isArray(arr)) return;
         let changed = false;
-        mergeIds.forEach(tid => {
-            const idx = tagIds.indexOf(tid);
-            if (idx !== -1) { tagIds.splice(idx, 1); changed = true; }
+        mergeIds.forEach(id => {
+            const idx = arr.indexOf(id);
+            if (idx !== -1) { arr.splice(idx,1); changed = true; }
         });
-        if (changed && !tagIds.includes(primaryId)) tagIds.push(primaryId);
+        if (changed && !arr.includes(primaryId)) arr.push(primaryId);
     });
 
-    // 2. remove merged tags from master list
+    // --- 2) remove merged tags from master list ---------------------------
     mergeIds.forEach(id => {
-        const i = tags.findIndex(t => t.id === id);
-        if (i !== -1) tags.splice(i, 1);
+        const i = tags.findIndex(t=>t.id===id);
+        if (i!==-1) tags.splice(i,1);
     });
 
-    toastr.success(`Merged ${mergeIds.length} tag(s).`);
+    toastr.success(`Merged ${mergeIds.length} tag${mergeIds.length>1?'s':''}.`);
 
-    // 3. reset UI + persist
+    // --- 3) reset UI & persist --------------------------------------------
     isMergeMode = false;
     selectedMergeTags.clear();
     selectedPrimaryTagId = null;
     modalRoot.querySelector('#startMergeTags').textContent = 'Merge Tags';
     modalRoot.querySelector('#cancelMergeTags').style.display = 'none';
-    callSaveAndReload();
+
+    await callSaveAndReload();
     renderTagSection();
     renderCharacterList();
 }
 
-// -------------------------------------------------------------------
-// inside attachTagSectionListeners → click handler for #startMergeTags
-modalRoot.querySelector('#startMergeTags')
-  ?.addEventListener('click', async () => {
-      if (!isMergeMode) {
-          // -- first click: enter merge mode --
-          isMergeMode = true;
-          selectedMergeTags.clear();
-          selectedPrimaryTagId = null;
-          this.textContent = 'Merge Now';
-          modalRoot.querySelector('#cancelMergeTags').style.display = '';
-          renderTagSection();
-      } else {
-          // -- second click: perform merge --
-          await performMerge();
-      }
-});

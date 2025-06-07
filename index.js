@@ -2,20 +2,15 @@
 import { 
 debounce, 
 flushExtSettings, 
-getFreeName, 
 isNullColor, 
 escapeHtml, 
-getCharacterNameById, 
 resetModalScrollPositions, 
 makeModalDraggable, 
 saveModalPosSize,
 clampModalSize,
 getNotes, 
 saveNotes, 
-buildCharNameMap, 
 cleanTagMap,
-buildTagMap, 
-getFolderTypeForUI, 
 promptInput,
 } from './utils.js';
 
@@ -38,8 +33,6 @@ import {
     attachTagSectionListeners,
     populateAssignTagSelect,
     selectedTagIds,
-    isBulkDeleteMode,
-    selectedBulkDeleteTags
   } from './stcm_tags_ui.js';
 
 import {
@@ -57,11 +50,8 @@ import {
     callGenericPopup
 } from "../../../popup.js"
 
-import { accountStorage } from '../../../util/AccountStorage.js';
-
 import {
     renderCharacterList,
-    toggleCharacterList,
     stcmCharState 
 } from "./stcm_characters.js";
 
@@ -69,9 +59,6 @@ import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecen
 
 
 const { eventSource, event_types } = SillyTavern.getContext();
-let isMergeMode = false;
-const selectedMergeTags = new Set();      //  Global merge checkbox selection
-let selectedPrimaryTagId = null;          // Global merge radio selection
 
 function openCharacterTagManagerModal() {
     if (document.getElementById('characterTagManagerModal')) return;
@@ -382,139 +369,11 @@ refreshFoldersTree();
     });
 
 
-
     document.getElementById('assignTagSearchInput').addEventListener(
         'input',
         debounce(() => populateAssignTagSelect())
     );
 
-    document.getElementById('startBulkDeleteTags').addEventListener('click', () => {
-        isBulkDeleteMode = true;
-        selectedBulkDeleteTags.clear();
-        document.getElementById('startBulkDeleteTags').style.display = 'none';
-        document.getElementById('cancelBulkDeleteTags').style.display = '';
-        document.getElementById('confirmBulkDeleteTags').style.display = '';
-        renderTagSection();
-    });
-
-    document.getElementById('cancelBulkDeleteTags').addEventListener('click', () => {
-        isBulkDeleteMode = false;
-        selectedBulkDeleteTags.clear();
-        document.getElementById('startBulkDeleteTags').style.display = '';
-        document.getElementById('cancelBulkDeleteTags').style.display = 'none';
-        document.getElementById('confirmBulkDeleteTags').style.display = 'none';
-        renderTagSection();
-    });
-
-
-
-    document.getElementById('cancelMergeTags').addEventListener('click', () => {
-        isMergeMode = false;
-        selectedMergeTags.clear();
-        selectedPrimaryTagId = null;
-
-        document.getElementById('startMergeTags').textContent = 'Merge Tags';
-        document.getElementById('cancelMergeTags').style.display = 'none';
-
-        document.querySelectorAll('.mergeCheckbox, input[name="mergePrimary"]').forEach(el => {
-            el.checked = false;
-        });
-
-        renderTagSection();
-    });
-
-
-    document.getElementById('startMergeTags').addEventListener('click', async () => {
-        if (!isMergeMode) {
-            isMergeMode = true;
-            const mergeBtn = document.getElementById('startMergeTags');
-            mergeBtn.textContent = 'Merge Now';
-            mergeBtn.classList.add('merge-active');
-            document.getElementById('cancelMergeTags').style.display = '';
-            renderTagSection();
-        } else {
-            const primaryId = selectedPrimaryTagId;
-            const mergeIds = Array.from(selectedMergeTags);
-
-            if (!primaryId || mergeIds.length === 0) {
-                toastr.warning('Select one primary and at least one tag to merge.', 'Merge Tags');
-                return;
-            }
-
-            if (mergeIds.includes(primaryId)) {
-                toastr.error('Primary tag cannot also be marked for merge.', 'Merge Tags');
-                return;
-            }
-
-            const primaryTag = tags.find(t => t.id === primaryId);
-
-            // Build confirmation message with character counts
-            const tagMapById = buildTagMap(tags);
-            const mergeDetails = mergeIds.map(tagId => {
-                const tag = tagMapById.get(tagId);
-                const count = Object.values(tag_map).filter(tagList => Array.isArray(tagList) && tagList.includes(tagId)).length;
-                return `• ${tag?.name || '(Unknown Tag)'} (${count} character${count !== 1 ? 's' : ''})`;
-            }).join('\n');
-
-            const html = document.createElement('div');
-            html.innerHTML = `
-                <h3>Confirm Merge</h3>
-                <p>You are about to merge the following tags into <strong>${primaryTag.name}</strong>:</p>
-                <pre class="stcm_popup_pre">${mergeDetails}</pre>
-                <p>This action cannot be undone. Do you want to proceed?</p>
-            `;
-
-            const proceed = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Merge Tags');
-            if (proceed !== POPUP_RESULT.AFFIRMATIVE) {
-                toastr.info('Merge cancelled.', 'Merge Tags');
-                return;
-            }
-
-            // Perform merge
-            Object.entries(tag_map).forEach(([charId, tagIds]) => {
-                if (!Array.isArray(tagIds)) return;
-
-                let changed = false;
-                mergeIds.forEach(tagId => {
-                    const idx = tagIds.indexOf(tagId);
-                    if (idx !== -1) {
-                        tagIds.splice(idx, 1);
-                        changed = true;
-                    }
-                });
-
-                if (changed && !tagIds.includes(primaryId)) {
-                    tagIds.push(primaryId);
-                }
-            });
-
-            // Remove merged tags from the master list
-            for (const id of mergeIds) {
-                const index = tags.findIndex(t => t.id === id);
-                if (index !== -1) tags.splice(index, 1);
-            }
-
-
-            toastr.success(`Merged ${mergeIds.length} tag(s) into "${primaryTag.name}".`, 'Merge Successful');
-
-            // Reset state
-            isMergeMode = false;
-            selectedMergeTags.clear();
-            selectedPrimaryTagId = null;
-            const mergeBtn = document.getElementById('startMergeTags');
-            mergeBtn.textContent = 'Merge Tags';
-            mergeBtn.classList.remove('merge-active');
-            document.getElementById('cancelMergeTags').style.display = 'none';
-            // Uncheck all merge inputs
-            document.querySelectorAll('.mergeCheckbox, input[name="mergePrimary"]').forEach(el => {
-                el.checked = false;
-            });
-
-            callSaveandReload();
-            renderCharacterList();
-            renderTagSection();
-        }
-    });
 
     document.getElementById('assignTagsButton').addEventListener('click', () => {
         const selectedCharIds = Array.from(stcmCharState.selectedCharacterIds);
