@@ -4,7 +4,7 @@ import {
     callGenericPopup,
     POPUP_RESULT,
     POPUP_TYPE,
-} from "../../extensions.js";
+} from "../../../extensions.js";
 
 let context = null;
 
