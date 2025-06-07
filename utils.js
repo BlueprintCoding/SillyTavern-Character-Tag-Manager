@@ -130,7 +130,7 @@ function saveModalPosSize(modalContent) {
 }
 
 // utils.js 
-export function cleanTagMap(tag_map, characters = [], groups = []) {
+function cleanTagMap(tag_map, characters = [], groups = []) {
     // Build a list of every still-valid character / group id
     const validIds = new Set([
         ...characters.map(c => c.avatar),
