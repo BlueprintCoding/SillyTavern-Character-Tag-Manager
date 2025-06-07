@@ -547,29 +547,32 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
     line.dataset.parentId = parent.id;
     line.dataset.insertAt = insertAt;
 
-    // Only for "insert between"
+    // --- Dynamic coloring on dragover ---
     line.addEventListener('dragover', e => {
         e.preventDefault();
         line.classList.add('stcm-drop-line-active', 'insert-between');
-        // Find the folder *after* the drop-line, or use parent color if at end
-        const nextChildId = parent.children && parent.children[insertAt];
-        let targetColor = "#3bb1ff";
-        if (nextChildId) {
-            const targetFolder = allFolders.find(f => f.id === nextChildId);
-            if (targetFolder && targetFolder.color && targetFolder.color !== "#") {
-                targetColor = targetFolder.color;
+        
+        // Find the folder *after* this drop-line (the one that will be BELOW it)
+        let targetColor = "#3bb1ff"; // fallback color
+        if (parent.children && parent.children.length > insertAt) {
+            const childIdBelow = parent.children[insertAt];
+            const folderBelow = allFolders.find(f => f.id === childIdBelow);
+            if (folderBelow && folderBelow.color && folderBelow.color !== "#") {
+                targetColor = folderBelow.color;
             }
         } else if (parent.color && parent.color !== "#") {
-            // Last drop-line, no child: use parent folder color as fallback
+            // If it's the last drop-line, use the parent folder's color
             targetColor = parent.color;
         }
-        line.style.background = targetColor;
+        // Use a slight transparency for aesthetics
+        line.style.background = hexToRgba(targetColor, 0.85);
     });
 
     line.addEventListener('dragleave', e => {
         line.classList.remove('stcm-drop-line-active', 'insert-between');
         line.style.background = "";
     });
+
     line.addEventListener('drop', async e => {
         line.classList.remove('stcm-drop-line-active', 'insert-between');
         line.style.background = "";
@@ -596,6 +599,20 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
     return line;
 }
 
+
+// Helper: Hex to RGBA (supports #rgb, #rrggbb, or rgb/rgba)
+function hexToRgba(hex, alpha) {
+    if (hex.startsWith('rgb')) {
+        return hex.replace(')', `, ${alpha})`);
+    }
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+}
 
 
 function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
