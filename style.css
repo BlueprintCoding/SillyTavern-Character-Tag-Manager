@@ -892,6 +892,7 @@ margin-right: 0!important;
     border-radius: 4px;
     padding: 2px 6px;
     font-size: 0.9em;
+    margin-bottom: 0px;
 }
 
 .stcm_folder_private .stcm_folder_main {
@@ -1278,7 +1279,7 @@ dialog.popup #stcm-popup-pin-input:focus {
 }
 
 /* Restore from Cache Folder Preview */
-
+/* Preview tree banded rows and indentation */
 .stcm-folder-preview-list {
     max-height: 220px;
     overflow-y: auto;
@@ -1288,53 +1289,52 @@ dialog.popup #stcm-popup-pin-input:focus {
     border: 1px solid var(--ac-style-color-border, #3b3b44);
     border-radius: 7px;
     background: var(--ac-style-color-module, #1a1923);
-  }
-  
-  .stcm-folder-preview-list li {
+}
+
+.stcm-folder-preview-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 7px 13px;
-    border-bottom: 1px solid var(--ac-style-color-border, #28282d);
+    padding: 7px 13px 7px 0;
     font-size: 1em;
-  }
-  
-  .stcm-folder-preview-list li:last-child {
-    border-bottom: none;
-  }
-  
-  .stcm-folder-preview-foldername {
+    border-radius: 6px;
+    /* Alternating row colors for banding */
+}
+.stcm-folder-preview-row:nth-child(even) {
+    background: rgba(255,255,255,0.03);
+}
+.stcm-folder-preview-row:nth-child(odd) {
+    background: rgba(255,255,255,0.07);
+}
+
+.stcm-folder-preview-depth-0 { margin-left: 0; }
+.stcm-folder-preview-depth-1 { margin-left: 1.7em; }
+.stcm-folder-preview-depth-2 { margin-left: 3.4em; }
+.stcm-folder-preview-depth-3 { margin-left: 5.1em; }
+.stcm-folder-preview-depth-4 { margin-left: 6.8em; }
+/* Add more as needed */
+
+.stcm-folder-preview-foldername {
     font-weight: bold;
     color: var(--ac-style-color-accent, #8b2ae6);
-    flex: 1 1 auto;
+    margin-right: 10px;
     white-space: nowrap;
-    overflow: hidden;
     text-overflow: ellipsis;
-  }
-  
-  .stcm-folder-preview-id {
-    font-size: 0.85em;
-    color: var(--ac-style-color-text-dim, #b3b3c2);
-    opacity: 0.7;
-    margin-left: 8px;
-  }
-  
-  .stcm-folder-preview-count {
-    font-size: 0.92em;
+    overflow: hidden;
+    flex-shrink: 1;
+    max-width: 65vw;
+}
+
+.stcm-folder-preview-count {
+    font-size: 0.91em;
     background: #222;
     color: #b5efb5;
     border-radius: 8px;
     padding: 1px 7px;
-    margin-left: 4px;
+    margin-left: 6px;
     opacity: 0.9;
-  }
-  
-  .stcm-folder-preview-sub {
-    font-size: 0.85em;
-    color: #bbb;
-    margin-left: 7px;
-    opacity: 0.6;
-  }
+    font-weight: 500;
+}
+
   
 
 /* Scroll bar styling */

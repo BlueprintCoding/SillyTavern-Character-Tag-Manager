@@ -138,19 +138,23 @@ async function promptRestoreFromCache(savedAt, foldersPreview = []) {
     // Render preview as a table or a simple tree/list
     let previewHtml = "";
     if (Array.isArray(foldersPreview) && foldersPreview.length) {
-        previewHtml = "<ul class='stcm-folder-preview-list'>";
-        for (const folder of foldersPreview) {
-            previewHtml += `<li>
-                <span class="stcm-folder-preview-foldername">${escapeHtml(folder.name)}</span>
-                <span class="stcm-folder-preview-id">ID: ${escapeHtml(folder.id)}</span>
-                ${folder.characters?.length ? `<span class="stcm-folder-preview-count">${folder.characters.length} chars</span>` : ""}
-                ${folder.children && folder.children.length ? `<span class="stcm-folder-preview-sub">${folder.children.length} subfolders</span>` : ""}
-            </li>`;
+        function renderTree(parentId = null, depth = 0) {
+            let html = "";
+            const children = foldersPreview.filter(f => (f.parentId ?? null) === parentId);
+            for (const folder of children) {
+                html += `<li class="stcm-folder-preview-row stcm-folder-preview-depth-${depth}">
+                    <span class="stcm-folder-preview-foldername">${escapeHtml(folder.name)}</span>
+                    ${folder.characters?.length ? `<span class="stcm-folder-preview-count">${folder.characters.length} chars</span>` : ""}
+                </li>`;
+                html += renderTree(folder.id, depth + 1);
+            }
+            return html;
         }
-        previewHtml += "</ul>";
+        previewHtml = `<ul class="stcm-folder-preview-list">${renderTree()}</ul>`;
     } else {
         previewHtml = `<em>(Cache contains no folders?)</em>`;
     }
+    
 
     // Build the HTML for the popup
     const html = document.createElement('div');
