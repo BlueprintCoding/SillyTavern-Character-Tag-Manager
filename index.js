@@ -10,6 +10,7 @@ getCharacterNameById,
 resetModalScrollPositions, 
 makeModalDraggable, 
 saveModalPosSize,
+clampModalSize,
 getNotes, 
 saveNotes, 
 buildCharNameMap, 
@@ -18,7 +19,8 @@ buildTagMap,
 getFolderTypeForUI, 
 promptInput,
 parseSearchGroups,
-parseSearchTerm
+parseSearchTerm,
+hexToRgba
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
@@ -249,6 +251,8 @@ if (createFolderBtn) {
             // Add to root for now; you’ll add "add-to-any-folder" soon
             await stcmFolders.addFolder(name.trim(), "root");
             await renderFoldersTree();
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
             toastr.success(`Folder "${name.trim()}" created!`);
         } catch (e) {
             toastr.error(e.message || 'Failed to create folder');
@@ -323,9 +327,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         overlay.classList.remove('stcm-dragging-folder');
     });
     
-
     row.prepend(dragHandle);
-
 
     // Icon, name, buttons (append to row)
     const iconBg = document.createElement('div');
@@ -599,21 +601,6 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
     });
 
     return line;
-}
-
-
-// Helper: Hex to RGBA (supports #rgb, #rrggbb, or rgb/rgba)
-function hexToRgba(hex, alpha) {
-    if (hex.startsWith('rgb')) {
-        return hex.replace(')', `, ${alpha})`);
-    }
-    let c = hex.replace('#', '');
-    if (c.length === 3) c = c.split('').map(x => x + x).join('');
-    const num = parseInt(c, 16);
-    const r = (num >> 16) & 255;
-    const g = (num >> 8) & 255;
-    const b = num & 255;
-    return `rgba(${r},${g},${b},${alpha})`;
 }
 
 
@@ -1025,8 +1012,6 @@ if (selectAllCheckbox) {
         
     }
 
-
-
     // Attach event listeners
     sortFilterRow.querySelector('#folderCharSortMode').addEventListener('change', (e) => {
         folderCharSortMode = e.target.value;
@@ -1041,8 +1026,6 @@ if (selectAllCheckbox) {
     renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
     renderAssignCharList();
 }
-
-
 
 // END CUSTOM FOLDERS
 
@@ -1646,68 +1629,24 @@ if (selectAllCheckbox) {
     if ('ResizeObserver' in window) {
         let initialized = false;
         let resizeEndTimer = null;
+        
+    // inside onResizeEnd()
+    const onResizeEnd = () => {
+        clampModalSize(modalContent);
+        const rect = modalContent.getBoundingClientRect();
+        if (rect.width > 100 && rect.height > 100) {
+            saveModalPosSize(modalContent);
+        }
+    };
     
-        const clampModalSize = () => {
-            // Enforce modal max size based on viewport, with a margin
-            const margin = 20;
-            const maxWidth = window.innerWidth - margin;
-            const maxHeight = window.innerHeight - margin;
-            let changed = false;
-    
-            // Clamp width/height
-            if (modalContent.offsetWidth > maxWidth) {
-                modalContent.style.width = maxWidth + "px";
-                changed = true;
-            }
-            if (modalContent.offsetHeight > maxHeight) {
-                modalContent.style.height = maxHeight + "px";
-                changed = true;
-            }
-    
-            // Clamp left/top so modal cannot move off the right/bottom edges
-            const rect = modalContent.getBoundingClientRect();
-            let newLeft = rect.left, newTop = rect.top;
-    
-            if (rect.right > window.innerWidth) {
-                newLeft = Math.max(0, window.innerWidth - rect.width);
-                modalContent.style.left = newLeft + "px";
-                changed = true;
-            }
-            if (rect.bottom > window.innerHeight) {
-                newTop = Math.max(0, window.innerHeight - rect.height);
-                modalContent.style.top = newTop + "px";
-                changed = true;
-            }
-    
-            // Optionally clamp left/top so the header can't go fully offscreen
-            if (rect.left < 0) {
-                modalContent.style.left = "0px";
-                changed = true;
-            }
-            if (rect.top < 0) {
-                modalContent.style.top = "0px";
-                changed = true;
-            }
-    
-            return changed;
-        };
-    
-        const onResizeEnd = () => {
-            // Clamp to safe size and position
-            clampModalSize();
-            // Only save if size is meaningful (avoid 0x0)
-            const rect = modalContent.getBoundingClientRect();
-            if (rect.width > 100 && rect.height > 100) {
-                saveModalPosSize(modalContent);
-            }
-        };
-    
-        // Also update maxWidth/maxHeight on window resize
-        window.addEventListener("resize", () => {
-            modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
-            modalContent.style.maxHeight = (window.innerHeight - 40) + "px";
-            clampModalSize();
-        });
+
+    // inside the window resize listener
+    window.addEventListener('resize', () => {
+        modalContent.style.maxWidth  = `${window.innerWidth - 40}px`;
+        modalContent.style.maxHeight = `${window.innerHeight - 40}px`;
+        clampModalSize(modalContent);          // <— and here
+    });
+
     
         // Set these at open, too!
         modalContent.style.maxWidth = (window.innerWidth - 40) + "px";

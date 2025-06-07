@@ -141,7 +141,51 @@ function saveModalPosSize(modalContent) {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(rect));
 }
 
-// utils.js 
+/**
+ * Clamp a draggable / resizable modal so it never leaves the viewport.
+ * @param {HTMLElement} modalEl – the element you want to constrain
+ * @param {number} [margin=20] – free space to keep between the modal and window edges
+ * @returns {boolean} true if any dimension or position was changed
+ */
+function clampModalSize(modalEl, margin = 20) {
+    const maxWidth  = window.innerWidth  - margin;
+    const maxHeight = window.innerHeight - margin;
+    let changed = false;
+  
+    // -------- Size --------
+    if (modalEl.offsetWidth > maxWidth) {
+      modalEl.style.width = `${maxWidth}px`;
+      changed = true;
+    }
+    if (modalEl.offsetHeight > maxHeight) {
+      modalEl.style.height = `${maxHeight}px`;
+      changed = true;
+    }
+  
+    // -------- Position --------
+    const rect = modalEl.getBoundingClientRect();
+    // Right / bottom edges
+    if (rect.right > window.innerWidth) {
+      modalEl.style.left = `${Math.max(0, window.innerWidth - rect.width)}px`;
+      changed = true;
+    }
+    if (rect.bottom > window.innerHeight) {
+      modalEl.style.top = `${Math.max(0, window.innerHeight - rect.height)}px`;
+      changed = true;
+    }
+    // Left / top edges (don’t let header fly off-screen)
+    if (rect.left < 0) {
+      modalEl.style.left = '0px';
+      changed = true;
+    }
+    if (rect.top < 0) {
+      modalEl.style.top = '0px';
+      changed = true;
+    }
+  
+    return changed;
+  }
+
 function cleanTagMap(tag_map, characters = [], groups = []) {
     // Build a list of every still-valid character / group id
     const validIds = new Set([
@@ -247,10 +291,26 @@ function saveStoredPinHash(hash) {
     context.saveSettingsDebounced();
 }
 
+
+// Helper: Hex to RGBA (supports #rgb, #rrggbb, or rgb/rgba)
+function hexToRgba(hex, alpha) {
+    if (hex.startsWith('rgb')) {
+        return hex.replace(')', `, ${alpha})`);
+    }
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export {
     debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
-    resetModalScrollPositions, makeModalDraggable, saveModalPosSize, cleanTagMap, buildTagMap,
+    resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize,
+    cleanTagMap, buildTagMap,
     buildCharNameMap, getNotes, saveNotes,
     watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 
-    hashPin, getStoredPinHash, saveStoredPinHash,
+    hashPin, getStoredPinHash, saveStoredPinHash, hexToRgba
 };
