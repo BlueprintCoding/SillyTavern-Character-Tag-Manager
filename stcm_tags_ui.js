@@ -441,6 +441,7 @@ export function promptCreateTag() {
         });
         callSaveandReload();
         renderTagSection();
+        renderCharacterList();  
         toastr.success('Tag created');
     });
 }
