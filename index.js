@@ -329,6 +329,25 @@ refreshFoldersTree();
          }
      }
  
+     
+    document.getElementById('exportNotesBtn').addEventListener('click', exportTagCharacterNotes);
+
+    document.getElementById('importNotesBtn').addEventListener('click', () => {
+        document.getElementById('importNotesInput').click();
+    });
+
+    document.getElementById('importNotesInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const content = await file.text();
+        try {
+            const importData = JSON.parse(content);
+            handleNotesImport(importData);
+        } catch {
+            toastr.error('Invalid notes backup file');
+        }
+        e.target.value = ''; // reset input
+    });
 
     document.getElementById('backupTagsBtn').addEventListener('click', () => {
         const json = JSON.stringify({ tags, tag_map }, null, 2);
