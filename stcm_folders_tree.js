@@ -67,7 +67,7 @@ export async function renderFoldersTree(containerEl, { onTreeChanged } = {}) {
         const child = folders.find(f => f.id === childId);
         if (child) {
             containerEl.appendChild(
-                renderFolderNode(child, folders, 0, onTreeChanged)
+                renderFolderNode(child, folders, 0, onTreeChanged, containerEl)
             );
         }
     });
@@ -80,7 +80,7 @@ STCM_TREE.renderFoldersTree = renderFoldersTree;   // (optional export)
 // Internals
 // ---------------------------------------------------------------------------
 
-function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
+function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContainer) {
     const node = document.createElement('div');
     node.className = `stcm_folder_node stcm_depth_${depth}`;
     node.style.marginBottom = '0px';
@@ -289,7 +289,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
             if (!child) return;
 
             childrenContainer.appendChild(
-                renderFolderNode(child, allFolders, depth + 1, onTreeChanged)
+                renderFolderNode(child, allFolders, depth + 1, onTreeChanged, treeContainer)
             );
             // drop-line after this child
             childrenContainer.appendChild(
