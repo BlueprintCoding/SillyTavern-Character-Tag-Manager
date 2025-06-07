@@ -35,6 +35,10 @@ function debouncePersist() {
     }, 500);
 }
 
+function flushExtSettings() {
+    debouncePersist();
+}
+
 function getFreeName(base, existingNames) {
     const lowerSet = new Set(existingNames.map(n => n.toLowerCase()));
     let index = 1;
@@ -229,7 +233,7 @@ function saveStoredPinHash(hash) {
 }
 
 export {
-    debounce, debouncePersist, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
+    debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
     resetModalScrollPositions, makeModalDraggable, saveModalPosSize, cleanTagMap, buildTagMap,
     buildCharNameMap, getNotes, saveNotes,
     watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 
