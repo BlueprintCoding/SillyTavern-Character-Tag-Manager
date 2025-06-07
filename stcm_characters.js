@@ -13,6 +13,7 @@ import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { callSaveandReload } from "./index.js";
 import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 
+
 function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
     if (!wrapper) return;
@@ -22,11 +23,6 @@ function renderCharacterList() {
     const container = document.createElement('div');
     container.id = 'characterListContainer';
     container.className = 'stcm_scroll_300';
-    wrapper.appendChild(container);
-
-    // Always re-create the container!
-    container.id = 'characterListContainer';
-    container.className = 'stcm_scroll_300'; // if needed
     wrapper.appendChild(container);
 
         const tagMapById = buildTagMap(tags);
