@@ -441,8 +441,8 @@ export function showFolderCharactersSection(folder, folders) {
         assignSelection.clear();
         renderAssignCharList();
         stcmFolders.updateFolderCharacterCount (folder);
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
+        const sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(sidebarFolders, characters);
     });
     sortFilterRow.appendChild(assignBtn);
 
@@ -611,8 +611,8 @@ export function showFolderCharactersSection(folder, folders) {
                     renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                     renderAssignCharList();
                     stcmFolders.updateFolderCharacterCount (folder);
-                    STCM.sidebarFolders = await stcmFolders.loadFolders();
-                    injectSidebarFolders(STCM.sidebarFolders, characters);
+                    const sidebarFolders = await stcmFolders.loadFolders();
+                    injectSidebarFolders(sidebarFolders, characters);
                 });
                 left.appendChild(reassignBtn);
         
@@ -668,8 +668,8 @@ export function showFolderCharactersSection(folder, folders) {
                 renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                 renderAssignCharList();
                 stcmFolders.updateFolderCharacterCount (folder);
-                STCM.sidebarFolders = await stcmFolders.loadFolders();
-                injectSidebarFolders(STCM.sidebarFolders, characters);
+                const sidebarFolders = await stcmFolders.loadFolders();
+                injectSidebarFolders(sidebarFolders, characters);
             });
         
             left.appendChild(assignOneBtn);
@@ -778,8 +778,8 @@ export function renderAssignedChipsRow(folder, section, renderAssignCharList, as
             renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
             renderAssignCharList();
             stcmFolders.updateFolderCharacterCount (folder);
-            STCM.sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(STCM.sidebarFolders, characters);
+            const sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(sidebarFolders, characters);
         });
 
         chip.appendChild(remove);
