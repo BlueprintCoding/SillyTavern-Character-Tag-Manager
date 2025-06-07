@@ -28,17 +28,9 @@ import * as stcmFolders from './stcm_folders.js';
 import {
     watchSidebarFolderInjection,
     injectSidebarFolders,
-    showFolderColorPicker,
-    makeFolderNameEditable,
-    showIconPicker,
-    confirmDeleteFolder,
-    showChangeParentPopup,
-    reorderChildren,
-    getAllDescendantFolderIds,
-    getMaxFolderSubtreeDepth,
-    getFolderChain
 } from './stcm_folders_ui.js';
 
+import { renderFoldersTree } from './stcm_folders_tree.js';
 
 import {
     tags,
@@ -234,10 +226,6 @@ function openCharacterTagManagerModal() {
 
     document.body.appendChild(overlay);
     resetModalScrollPositions();
-    setTimeout(() => {
-        renderFoldersTree().catch(console.error);
-    }, 0);
-    
 
     // Folders: add create handler and render initial tree
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');
@@ -250,9 +238,7 @@ if (createFolderBtn) {
         try {
             // Add to root for now; you’ll add "add-to-any-folder" soon
             await stcmFolders.addFolder(name.trim(), "root");
-            await renderFoldersTree();
-            STCM.sidebarFolders = await stcmFolders.loadFolders();
-            injectSidebarFolders(STCM.sidebarFolders, characters);
+            await refreshFoldersTree();
             toastr.success(`Folder "${name.trim()}" created!`);
         } catch (e) {
             toastr.error(e.message || 'Failed to create folder');
@@ -260,349 +246,14 @@ if (createFolderBtn) {
     });
 }
 
-// Call on open to render the folder tree
-async function renderFoldersTree() {
-    foldersTreeContainer.innerHTML = '<div class="loading">Loading folders...</div>';
-    const folders = await stcmFolders.loadFolders();
-    foldersTreeContainer.innerHTML = '';
-    if (!foldersTreeContainer) return;
-    const root = folders.find(f => f.id === 'root');
-    if (root) {
-        root.children.forEach(childId => {
-            const child = folders.find(f => f.id === childId);
-            if (child) {
-                foldersTreeContainer.appendChild(
-                    renderFolderNode(child, folders, 0, renderFoldersTree)
-                );
-            }
-        });
-    }
+/** redraw the tree and keep sidebar in-sync */
+async function refreshFoldersTree() {
+    await renderFoldersTree(foldersTreeContainer, { onTreeChanged: refreshFoldersTree });
+    STCM.sidebarFolders = await stcmFolders.loadFolders();
+    injectSidebarFolders(STCM.sidebarFolders, characters);
 }
-STCM.renderFoldersTree = renderFoldersTree;
-
-
-function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
-    // OUTER NODE (block, indented)
-    const node = document.createElement('div');
-    node.className = 'stcm_folder_node';
-    node.classList.add(`stcm_depth_${depth}`);
-    node.style.marginBottom = '0px';
-
-
-    // FOLDER ROW (flex)
-    const row = document.createElement('div');
-    row.className = 'stcm_folder_row';
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '7px';
-    row.style.marginLeft = `${depth * 24}px`; 
-
-    const dragHandle = document.createElement('div');
-    dragHandle.className = 'stcm-folder-drag-handle';
-    dragHandle.innerHTML = '<i class="fa-solid fa-bars"></i>';
-    dragHandle.draggable = true;
-    dragHandle.style.cursor = 'grab';
-
-    dragHandle.addEventListener('dragstart', (e) => {
-        const dragGhost = row.cloneNode(true);
-        const overlay = document.getElementById('characterTagManagerModal');
-        
-        dragGhost.style.position = 'absolute';
-        dragGhost.style.top = '-9999px'; // off-screen
-        dragGhost.style.pointerEvents = 'none';
-        document.body.appendChild(dragGhost);
-    
-        e.dataTransfer.setDragImage(dragGhost, 0, 0);
-        e.dataTransfer.setData('text/plain', folder.id);
-        e.dataTransfer.effectAllowed = 'move';
-    
-        e.stopPropagation();
-        overlay.classList.add('stcm-dragging-folder');
-    
-        // Cleanup ghost after drag
-        setTimeout(() => dragGhost.remove(), 0);
-    });
-
-    dragHandle.addEventListener('dragend', (e) => {
-        overlay.classList.remove('stcm-dragging-folder');
-    });
-    
-    row.prepend(dragHandle);
-
-    // Icon, name, buttons (append to row)
-    const iconBg = document.createElement('div');
-    iconBg.className = 'avatar flex alignitemscenter textAlignCenter stcm-folder-avatar';
-    iconBg.style.backgroundColor = folder.color || '#8b2ae6';
-    iconBg.title = 'Change Folder Icon';
-
-    const iconEl = document.createElement('span');
-    iconEl.className = `fa-solid ${folder.icon || 'fa-folder'} fa-fw stcm-folder-icon`;
-    iconEl.style.fontSize = '1.2em';
-
-    iconBg.appendChild(iconEl);
-    iconBg.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showIconPicker(folder, node, renderFoldersTree);
-    });
-    row.appendChild(iconBg);
-
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = folder.name;
-    nameSpan.className = 'stcm-folder-label';
-    nameSpan.style.fontWeight = depth === 0 ? 'bold' : 'normal';
-    nameSpan.style.cursor = 'pointer';
-    nameSpan.title = 'Click to rename';
-    nameSpan.addEventListener('click', (e) => {
-        e.stopPropagation();
-        makeFolderNameEditable(nameSpan, folder, renderFoldersTree);
-    });
-    row.appendChild(nameSpan);
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'stcm-folder-edit-btn stcm_menu_button tiny interactable';
-    editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
-    editBtn.title = 'Rename Folder';
-    editBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        makeFolderNameEditable(nameSpan, folder, renderFoldersTree);
-    });
-    row.appendChild(editBtn);
-
-    const colorBtn = document.createElement('button');
-    colorBtn.className = 'stcm-folder-color-btn stcm_menu_button tiny interactable';
-    colorBtn.innerHTML = '<i class="fa-solid fa-palette"></i>';
-    colorBtn.title = 'Change Folder Color';
-
-    colorBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        showFolderColorPicker(folder, renderFoldersTree);
-    });
-
-    row.appendChild(colorBtn);
-
-    // Folder Type Dropdown
-    const typeSelect = document.createElement('select');
-    typeSelect.className = 'stcm_folder_type_select tiny';
-    typeSelect.title = 'Set Folder Type: Public or Private';
-
-    // Option: Public
-    const optPublic = document.createElement('option');
-    optPublic.value = 'public';
-    optPublic.textContent = '👁️ Public';
-    if (!folder.private) optPublic.selected = true;
-    typeSelect.appendChild(optPublic);
-
-    // Option: Private
-    const optPrivate = document.createElement('option');
-    optPrivate.value = 'private';
-    optPrivate.textContent = '🔒 Private';
-    if (folder.private) optPrivate.selected = true;
-    typeSelect.appendChild(optPrivate);
-
-    // Change handler
-    typeSelect.addEventListener('change', async (e) => {
-        const isPrivate = e.target.value === 'private';
-        await stcmFolders.setFolderPrivacy(folder.id, isPrivate);
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        flushExtSettings(); 
-        injectSidebarFolders(STCM.sidebarFolders, characters);
-        renderFoldersTree();
-    });
-
-    row.appendChild(typeSelect);
-
-
-    if (folder.id !== 'root') {
-        const delBtn = document.createElement('button');
-        delBtn.className = 'stcm-folder-delete-btn stcm_menu_button tiny red interactable';
-        delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-        delBtn.title = 'Delete Folder';
-        delBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            confirmDeleteFolder(folder, renderFoldersTree);
-        });
-        row.appendChild(delBtn);
-    }
-
-        // === Change Parent Button ===
-        const moveBtn = document.createElement('button');
-        moveBtn.className = 'stcm-folder-move-btn stcm_menu_button tiny interactable';
-        moveBtn.innerHTML = '<i class="fa-solid fa-share"></i>'; // Or any icon you like
-        moveBtn.title = 'Change Parent Folder';
-        moveBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            showChangeParentPopup(folder, allFolders, renderFoldersTree);
-        });
-        row.appendChild(moveBtn);
-
-    if (depth < 4) {
-        const addBtn = document.createElement('button');
-        addBtn.className = 'stcm_menu_button tiny interactable';
-        addBtn.innerHTML = '<i class="fa-solid fa-folder-plus"></i>';
-        addBtn.title = 'Add Subfolder';
-        addBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const subName = await promptInput({ label: 'Enter sub-folder name:', title: 'New Sub-Folder', ok: 'Create', cancel: 'Cancel', initial: '' });
-            if (!subName || !subName.trim()) return;
-            try {
-                await stcmFolders.addFolder(subName.trim(), folder.id);
-                await renderFoldersTree();
-                STCM.sidebarFolders = await stcmFolders.loadFolders();
-                injectSidebarFolders(STCM.sidebarFolders, characters);
-            } catch (e) {
-                toastr.error(e.message || 'Failed to create subfolder');
-            }
-        });
-        row.appendChild(addBtn);
-    }
-
-    const charCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
-    const charBtn = document.createElement('button');
-    charBtn.className = 'stcm_menu_button tiny stcm_folder_chars_btn interactable';
-    charBtn.innerHTML = `<i class="fa-solid fa-users"></i> Characters (<span class="folderCharCount" data-folder-id="${folder.id}">${charCount}</span>)`;
-    charBtn.title = 'Manage Characters in this Folder';
-    charBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showFolderCharactersSection(folder, allFolders);
-    });
-    row.appendChild(charBtn);
-    
-
-    // Append the folder row to the node
-    node.appendChild(row);
-
-  // CHILDREN (vertical, as own block)
-  if (Array.isArray(folder.children)) {
-    const childrenContainer = document.createElement('div');
-    childrenContainer.className = 'stcm_folder_children';
-    childrenContainer.style.display = 'block';
-
-    // Drop-line before first child (or the only one if empty)
-    childrenContainer.appendChild(
-        createDropLine(folder, allFolders, 0, renderFoldersTree, depth)
-    );
-
-    folder.children.forEach((childId, idx) => {
-        const child = allFolders.find(f => f.id === childId);
-        if (child) {
-            const childNode = renderFolderNode(child, allFolders, depth + 1, renderFoldersTree);
-            childrenContainer.appendChild(childNode);
-            // Drop-line after this child
-            childrenContainer.appendChild(
-                createDropLine(folder, allFolders, idx + 1, renderFoldersTree, depth)
-            );
-        }
-    });
-
-    
-    row.addEventListener('dragover', e => {
-        e.preventDefault();
-        row.classList.add('stcm-folder-row-drop-target');
-        row.style.background = folder.color && folder.color !== "#" ? folder.color : "#d3ffdc";
-        row.style.boxShadow = "0 0 0 2px " + (folder.color && folder.color !== "#" ? folder.color : "#4fc566") + ", 0 2px 12px 1px #4fc56655";
-    });
-    row.addEventListener('dragleave', e => {
-        row.classList.remove('stcm-folder-row-drop-target');
-        row.style.background = ""; // Remove custom style
-        row.style.boxShadow = "";
-    });
-    row.addEventListener('drop', async e => {
-        row.classList.remove('stcm-folder-row-drop-target');
-        row.style.background = "";
-        row.style.boxShadow = "";
-        const draggedId = e.dataTransfer.getData('text/plain');
-        if (!draggedId || draggedId === folder.id) return;
-    
-        const folders = await stcmFolders.loadFolders();
-        const dragged = folders.find(f => f.id === draggedId);
-        if (!dragged) return;
-    
-        // Prevent cycles
-        const allDescendants = getAllDescendantFolderIds(draggedId, folders);
-        if (allDescendants.includes(folder.id)) return;
-    
-        if (dragged.parentId !== folder.id) {
-            await stcmFolders.moveFolder(draggedId, folder.id);
-        }
-    
-        // Add to end of children
-        let currentFolder = folders.find(f => f.id === folder.id);
-        let siblings = [...currentFolder.children].filter(id => id !== draggedId);
-        siblings.push(draggedId);
-        await reorderChildren(folder.id, siblings);
-    
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
-        renderFoldersTree();
-    });
-    
-
-    node.appendChild(childrenContainer);
-}
-
-return node;
-}
-
-function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth = 0) {
-    const line = document.createElement('div');
-    line.className = 'stcm-drop-line';
-    line.style.marginLeft = ((depth + 1) * 24) + 'px';
-    line.style.background = 'transparent';
-    line.dataset.parentId = parent.id;
-    line.dataset.insertAt = insertAt;
-
-    // --- Dynamic coloring on dragover ---
-    line.addEventListener('dragover', e => {
-        e.preventDefault();
-        line.classList.add('stcm-drop-line-active', 'insert-between');
-        
-        // Find the folder *after* this drop-line (the one that will be BELOW it)
-        let targetColor = "#3bb1ff"; // fallback color
-        if (parent.children && parent.children.length > insertAt) {
-            const childIdBelow = parent.children[insertAt];
-            const folderBelow = allFolders.find(f => f.id === childIdBelow);
-            if (folderBelow && folderBelow.color && folderBelow.color !== "#") {
-                targetColor = folderBelow.color;
-            }
-        } else if (parent.color && parent.color !== "#") {
-            // If it's the last drop-line, use the parent folder's color
-            targetColor = parent.color;
-        }
-        // Use a slight transparency for aesthetics
-        line.style.background = hexToRgba(targetColor, 0.85);
-    });
-
-    line.addEventListener('dragleave', e => {
-        line.classList.remove('stcm-drop-line-active', 'insert-between');
-        line.style.background = "";
-    });
-
-    line.addEventListener('drop', async e => {
-        line.classList.remove('stcm-drop-line-active', 'insert-between');
-        line.style.background = "";
-        const draggedId = e.dataTransfer.getData('text/plain');
-        if (!draggedId) return;
-        // Usual: move and reorder as sibling in parent.children[insertAt]
-        let folders = await stcmFolders.loadFolders();
-        let dragged = folders.find(f => f.id === draggedId);
-        if (!dragged) return;
-        if (dragged.parentId !== parent.id) {
-            await stcmFolders.moveFolder(draggedId, parent.id);
-            folders = await stcmFolders.loadFolders();
-            dragged = folders.find(f => f.id === draggedId);
-        }
-        let currentParent = folders.find(f => f.id === parent.id);
-        let siblings = [...currentParent.children].filter(id => id !== draggedId);
-        siblings.splice(insertAt, 0, draggedId);
-        await reorderChildren(parent.id, siblings);
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
-        renderFoldersTree();
-    });
-
-    return line;
-}
-
+refreshFoldersTree();
+STCM.renderFoldersTree = refreshFoldersTree;
 
 function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
     let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
@@ -1044,7 +695,7 @@ if (selectAllCheckbox) {
         // 1. Map each section to its render function
         const accordionRenderers = {
             tagsSection: renderCharacterTagData,
-            foldersSection: renderFoldersTree,
+            foldersSection: refreshFoldersTree,
             charactersSection: renderCharacterList
         };
 
@@ -2715,5 +2366,4 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
 export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton};
 export const STCM = {
     sidebarFolders: [],
-    renderFoldersTree: null, // placeholder for assignment later
 };
