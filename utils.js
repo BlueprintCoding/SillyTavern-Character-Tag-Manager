@@ -83,42 +83,54 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
     let offsetX, offsetY;
 
     handle.style.cursor = 'move';
+
     handle.addEventListener('mousedown', (e) => {
         isDragging = true;
         const rect = modal.getBoundingClientRect();
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
+
         modal.style.position = 'fixed';
-        modal.style.zIndex = 10000;
-        modal.style.margin = 0;
+        modal.style.zIndex   = 10000;
+        modal.style.margin   = 0;
         document.body.style.userSelect = 'none';
     });
 
     function onMove(e) {
         if (!isDragging) return;
-        let newLeft = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - modal.offsetWidth));
-        let newTop = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - handle.offsetHeight));
+        const newLeft = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth  - modal.offsetWidth));
+        const newTop  = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - handle.offsetHeight));
         modal.style.left = `${newLeft}px`;
-        modal.style.top = `${newTop}px`;
+        modal.style.top  = `${newTop}px`;
     }
 
     function onUp() {
-        if (isDragging) {
-            isDragging = false;
-            document.body.style.userSelect = '';
-            if (onDragEnd) onDragEnd();
-        }
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.userSelect = '';
+        if (onDragEnd) onDragEnd();
     }
 
+    // global mouse handlers
     document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('mouseup',   onUp);
 
-    modal.addEventListener('DOMNodeRemoved', (ev) => {
-        if (ev.target === modal) {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
+    /* ---------- clean-up when the modal is removed ---------- */
+    const cleanupObserver = new MutationObserver((records, observer) => {
+        for (const { removedNodes } of records) {
+            for (const node of removedNodes) {
+                if (node === modal) {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup',   onUp);
+                    observer.disconnect();
+                    return;
+                }
+            }
         }
     });
+
+    // watch the modal’s parent (fallback to <body>)
+    cleanupObserver.observe(modal.parentNode || document.body, { childList: true });
 }
 
 const STORAGE_KEY = 'stcm_modal_pos_size';
