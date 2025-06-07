@@ -462,44 +462,61 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 
     node.addEventListener('dragover', (e) => {
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+        const rect = row.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const height = rect.height;
+        let position = "into";
     
-        // Highlight the drop row
-        row.classList.add('stcm-drop-hover');
+        // Show visual feedback (insert line) depending on mouse position
+        if (y < height * 0.25) {
+            position = "above";
+            node.classList.add("stcm-drop-above");
+            node.classList.remove("stcm-drop-below", "stcm-drop-into");
+        } else if (y > height * 0.75) {
+            position = "below";
+            node.classList.add("stcm-drop-below");
+            node.classList.remove("stcm-drop-above", "stcm-drop-into");
+        } else {
+            position = "into";
+            node.classList.add("stcm-drop-into");
+            node.classList.remove("stcm-drop-above", "stcm-drop-below");
+        }
+        node.dataset.dropPosition = position;
     });
-
+    
     node.addEventListener('dragleave', () => {
-        row.classList.remove('stcm-drop-hover');
+        node.classList.remove("stcm-drop-above", "stcm-drop-below", "stcm-drop-into");
+        delete node.dataset.dropPosition;
     });
-
+    
     node.addEventListener('drop', async (e) => {
         e.preventDefault();
-        row.classList.remove('stcm-drop-hover');
-        node.classList.remove('stcm-drop-target');
+        node.classList.remove("stcm-drop-above", "stcm-drop-below", "stcm-drop-into");
         const draggedId = e.dataTransfer.getData('text/plain');
         if (draggedId === folder.id) return;
-    
         const dragged = allFolders.find(f => f.id === draggedId);
         if (!dragged) return;
     
-        const sameParent = folder.parentId && dragged.parentId === folder.parentId;
+        const dropPosition = node.dataset.dropPosition || "into";
+        delete node.dataset.dropPosition;
     
-        if (sameParent) {
+        if (dropPosition === "above" || dropPosition === "below") {
+            // Insert dragged folder as a sibling (above or below this folder)
             const parent = allFolders.find(f => f.id === folder.parentId);
             if (!parent || !Array.isArray(parent.children)) return;
-    
-            const siblings = [...parent.children];
-            const fromIndex = siblings.indexOf(dragged.id);
-            const toIndex = siblings.indexOf(folder.id);
-    
-            if (fromIndex === -1 || toIndex === -1) return;
-    
-            siblings.splice(fromIndex, 1);
-            siblings.splice(toIndex, 0, dragged.id);
-    
+            let siblings = [...parent.children];
+            const fromIdx = siblings.indexOf(dragged.id);
+            const targetIdx = siblings.indexOf(folder.id);
+            if (fromIdx === -1 || targetIdx === -1) return;
+            // Remove from old position
+            siblings.splice(fromIdx, 1);
+            // Insert at the correct place
+            let insertAt = dropPosition === "above" ? targetIdx : targetIdx + 1;
+            if (insertAt > siblings.length) insertAt = siblings.length;
+            siblings.splice(insertAt, 0, dragged.id);
             await reorderChildren(parent.id, siblings);
-        } else {
-            // Validate and move if not same parent
+        } else if (dropPosition === "into") {
+            // Validate and move as child
             const canDrop = validateDropTarget(dragged, folder, allFolders);
             if (!canDrop) {
                 toastr.warning("Invalid move.");
@@ -507,15 +524,12 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
             }
             await stcmFolders.moveFolder(dragged.id, folder.id);
         }
-    
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
         renderFoldersTree();
     });
     
     
-
-
   // CHILDREN (vertical, as own block)
   if (Array.isArray(folder.children) && folder.children.length > 0) {
     const childrenContainer = document.createElement('div');

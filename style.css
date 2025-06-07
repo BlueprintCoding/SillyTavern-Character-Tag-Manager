@@ -782,6 +782,22 @@
     cursor: grab;
     color: var(--ac-style-color-dim-text, #888);
 }
+
+.stcm-drop-above::before,
+.stcm-drop-below::after {
+    content: "";
+    display: block;
+    position: absolute;
+    left: 0; right: 0;
+    height: 3px;
+    background: var(--ac-style-color-accent, #33f);
+    border-radius: 1.5px;
+    z-index: 2;
+}
+.stcm-drop-above::before { top: 0; }
+.stcm-drop-below::after { bottom: 0; }
+.stcm-drop-into { box-shadow: 0 0 0 2px var(--ac-style-color-accent, #33f) inset; }
+.stcm_folder_row { position: relative; }
 /* 
 .dz-hidden {
     display: none !important;
