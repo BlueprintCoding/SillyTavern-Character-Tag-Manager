@@ -1260,80 +1260,76 @@ dialog.popup #stcm-popup-pin-input:focus {
 }
 
 
-
-/* === Responsive / Media Queries === */
-@media (max-width: 700px) {
-    .tagGroupHeader {
-        grid-template-columns: 1fr;
-        gap: 6px;
-    }
-
-    .mergeOptions {
-        justify-content: flex-start;
-    }
-
-    .stcm_menu_button {
-        width: 100%;
-        margin-top: 5px;
-    }
-}
-
 /* Restore from Cache Folder Preview */
-/* Preview tree banded rows and indentation */
 .stcm-folder-preview-list {
-    max-height: 220px;
+    max-height: 250px;
     overflow-y: auto;
     margin: 10px 0 0 0;
     padding-left: 0;
     list-style: none;
     border: 1px solid var(--ac-style-color-border, #3b3b44);
-    border-radius: 7px;
-    background: var(--ac-style-color-module, #1a1923);
-}
-
-.stcm-folder-preview-row {
+    border-radius: 8px;
+    background: var(--ac-style-color-module, #23232b);
+  }
+  
+  .stcm-folder-preview-row {
     display: flex;
     align-items: center;
-    padding: 7px 13px 7px 0;
+    gap: 12px;
+    padding: 7px 10px 7px 0;
+    border-radius: 7px;
     font-size: 1em;
-    border-radius: 6px;
-    /* Alternating row colors for banding */
-}
-.stcm-folder-preview-row:nth-child(even) {
-    background: rgba(255,255,255,0.03);
-}
-.stcm-folder-preview-row:nth-child(odd) {
+    margin-bottom: 1px;
+  }
+  
+  .stcm-folder-preview-row:nth-child(odd) {
     background: rgba(255,255,255,0.07);
-}
-
-.stcm-folder-preview-depth-0 { margin-left: 0; }
-.stcm-folder-preview-depth-1 { margin-left: 1.7em; }
-.stcm-folder-preview-depth-2 { margin-left: 3.4em; }
-.stcm-folder-preview-depth-3 { margin-left: 5.1em; }
-.stcm-folder-preview-depth-4 { margin-left: 6.8em; }
-/* Add more as needed */
-
-.stcm-folder-preview-foldername {
+  }
+  .stcm-folder-preview-row:nth-child(even) {
+    background: rgba(255,255,255,0.02);
+  }
+  
+  .stcm-folder-preview-depth-0 { margin-left: 0; }
+  .stcm-folder-preview-depth-1 { margin-left: 28px; }
+  .stcm-folder-preview-depth-2 { margin-left: 56px; }
+  .stcm-folder-preview-depth-3 { margin-left: 84px; }
+  .stcm-folder-preview-depth-4 { margin-left: 112px; }
+  /* Add more if needed */
+  
+  .stcm-folder-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3em;
+    color: #fff;
+    min-width: 30px;
+    margin-right: 4px;
+  }
+  
+  .stcm-folder-preview-foldername {
     font-weight: bold;
     color: var(--ac-style-color-accent, #8b2ae6);
-    margin-right: 10px;
+    margin-right: 8px;
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
     flex-shrink: 1;
-    max-width: 65vw;
-}
-
-.stcm-folder-preview-count {
+  }
+  
+  .stcm-folder-preview-count {
     font-size: 0.91em;
     background: #222;
     color: #b5efb5;
     border-radius: 8px;
     padding: 1px 7px;
     margin-left: 6px;
-    opacity: 0.9;
+    opacity: 0.95;
     font-weight: 500;
-}
+  }
+  
 
   
 
@@ -1365,3 +1361,19 @@ dialog.popup #stcm-popup-pin-input:focus {
     background: #181818;
   }
   
+/* === Responsive / Media Queries === */
+@media (max-width: 700px) {
+    .tagGroupHeader {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .mergeOptions {
+        justify-content: flex-start;
+    }
+
+    .stcm_menu_button {
+        width: 100%;
+        margin-top: 5px;
+    }
+}

@@ -142,9 +142,15 @@ async function promptRestoreFromCache(savedAt, foldersPreview = []) {
             let html = "";
             const children = foldersPreview.filter(f => (f.parentId ?? null) === parentId);
             for (const folder of children) {
+                // Use folder.icon and folder.color if set, or fallback
+                const color = folder.color || "#8b2ae6";
+                const icon = folder.icon || "fa-folder"; // default icon
                 html += `<li class="stcm-folder-preview-row stcm-folder-preview-depth-${depth}">
+                    <span class="avatar stcm-folder-avatar" style="background-color: ${color};">
+                        <span class="fa-solid ${icon} stcm-folder-icon"></span>
+                    </span>
                     <span class="stcm-folder-preview-foldername">${escapeHtml(folder.name)}</span>
-                    ${folder.characters?.length ? `<span class="stcm-folder-preview-count">${folder.characters.length} chars</span>` : ""}
+                    <span class="stcm-folder-preview-count">${folder.characters?.length || 0}</span>
                 </li>`;
                 html += renderTree(folder.id, depth + 1);
             }
