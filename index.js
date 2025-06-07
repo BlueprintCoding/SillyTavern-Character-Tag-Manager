@@ -553,21 +553,81 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     
     
   // CHILDREN (vertical, as own block)
-  if (Array.isArray(folder.children) && folder.children.length > 0) {
+  if (Array.isArray(folder.children)) {
     const childrenContainer = document.createElement('div');
     childrenContainer.className = 'stcm_folder_children';
     childrenContainer.style.display = 'block';
-    folder.children.forEach(childId => {
+
+    // Drop-line before first child (or the only one if empty)
+    childrenContainer.appendChild(
+        createDropLine(folder, allFolders, 0, renderFoldersTree, depth)
+    );
+
+    folder.children.forEach((childId, idx) => {
         const child = allFolders.find(f => f.id === childId);
         if (child) {
             const childNode = renderFolderNode(child, allFolders, depth + 1, renderFoldersTree);
             childrenContainer.appendChild(childNode);
+            // Drop-line after this child
+            childrenContainer.appendChild(
+                createDropLine(folder, allFolders, idx + 1, renderFoldersTree, depth)
+            );
         }
     });
+
     node.appendChild(childrenContainer);
 }
+
 return node;
 }
+
+function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth = 0) {
+    const line = document.createElement('div');
+    line.className = 'stcm-drop-line';
+    line.style.height = '4px';
+    line.style.marginLeft = ((depth + 1) * 24) + 'px'; // indent to match child nodes
+    line.style.background = 'transparent';
+    line.dataset.parentId = parent.id;
+    line.dataset.insertAt = insertAt;
+
+    line.addEventListener('dragover', e => {
+        e.preventDefault();
+        line.classList.add('stcm-drop-line-active');
+    });
+    line.addEventListener('dragleave', e => {
+        line.classList.remove('stcm-drop-line-active');
+    });
+    line.addEventListener('drop', async e => {
+        e.preventDefault();
+        line.classList.remove('stcm-drop-line-active');
+        const draggedId = e.dataTransfer.getData('text/plain');
+        if (!draggedId) return;
+
+        let folders = await stcmFolders.loadFolders();
+        let dragged = folders.find(f => f.id === draggedId);
+
+        // If not already a child of parent, move it first
+        if (dragged.parentId !== parent.id) {
+            await stcmFolders.moveFolder(draggedId, parent.id);
+            folders = await stcmFolders.loadFolders();
+            dragged = folders.find(f => f.id === draggedId);
+        }
+
+        // Now reorder
+        let currentParent = folders.find(f => f.id === parent.id);
+        let siblings = [...currentParent.children];
+        siblings = siblings.filter(id => id !== draggedId);
+        siblings.splice(insertAt, 0, draggedId);
+
+        await reorderChildren(parent.id, siblings);
+
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
+        renderFoldersTree();
+    });
+    return line;
+}
+
 
 function validateDropTarget(dragged, target, folders) {
     const descendants = getAllDescendantFolderIds(dragged.id, folders);

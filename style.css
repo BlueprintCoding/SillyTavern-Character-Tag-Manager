@@ -778,6 +778,19 @@
     background-color: rgba(120, 160, 255, 0.1);
 }
 
+.stcm-drop-line {
+    background: transparent;
+    transition: background 0.15s;
+    min-height: 4px;
+    height: 4px;
+    margin-top: -2px;
+    margin-bottom: -2px;
+    border-radius: 2px;
+}
+.stcm-drop-line-active {
+    background: var(--ac-style-color-accent, #6ec0ff) !important;
+}
+
 .stcm-folder-drag-handle {
     cursor: grab;
     color: var(--ac-style-color-dim-text, #888);
