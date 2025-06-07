@@ -235,14 +235,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
 
             try {
                 await stcmFolders.addFolder(subName.trim(), folder.id);
-                injectSidebarFolders(await stcmFolders.loadFolders(), characters);
-                await updateSidebar(true);
-                renderSidebarFolderContents(
-                        STCM.sidebarFolders,          // freshly-loaded list
-                        characters,
-                        folder.id                     // stay in this folder
-                    );
-                onTreeChanged?.();
+                await refreshFolderUI(document.getElementById('foldersTreeContainer'));
                 toastr.success(`Folder “${subName.trim()}” created!`);
             } catch (err) {
                 toastr.error(err.message || 'Failed to create folder');
@@ -776,7 +769,7 @@ export async function attachFolderSectionListeners(modalRoot) {
 
             try {
                 await stcmFolders.addFolder(name.trim(), 'root');
-                await renderFoldersTree(treeContainer);
+                await refreshFolderUI(treeContainer);
                 toastr.success(`Folder “${name.trim()}” created!`);
             } catch (err) {
                 toastr.error(err.message || 'Failed to create folder');
@@ -853,4 +846,17 @@ export function renderAssignedChipsRow(folder, section, renderAssignCharList, as
     } else {
         section.appendChild(chipsRow);
     }
+}
+
+async function refreshFolderUI(treeContainer) {
+    // always reload the canonical folder array once
+    STCM.sidebarFolders = await stcmFolders.loadFolders();
+
+    // tree (if you’re looking at it)
+    if (treeContainer) {
+        await renderFoldersTree(treeContainer);
+    }
+
+    // sidebar accordion
+    injectSidebarFolders(STCM.sidebarFolders, characters);
 }
