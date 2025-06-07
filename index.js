@@ -460,98 +460,6 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     // Append the folder row to the node
     node.appendChild(row);
 
-    node.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const rect = row.getBoundingClientRect();
-        const y = e.clientY - rect.top;
-        const height = rect.height;
-        let position = "into";
-    
-        // Show visual feedback (insert line) depending on mouse position
-        if (y < height * 0.25) {
-            position = "above";
-            node.classList.add("stcm-drop-above");
-            node.classList.remove("stcm-drop-below", "stcm-drop-into");
-        } else if (y > height * 0.75) {
-            position = "below";
-            node.classList.add("stcm-drop-below");
-            node.classList.remove("stcm-drop-above", "stcm-drop-into");
-        } else {
-            position = "into";
-            node.classList.add("stcm-drop-into");
-            node.classList.remove("stcm-drop-above", "stcm-drop-below");
-        }
-        node.dataset.dropPosition = position;
-    });
-    
-    
-    node.addEventListener('dragleave', () => {
-        node.classList.remove("stcm-drop-above", "stcm-drop-below", "stcm-drop-into");
-        delete node.dataset.dropPosition;
-    });
-
-    node.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        row.classList.remove('stcm-drop-hover', 'stcm-drop-above', 'stcm-drop-below', 'stcm-drop-into');
-        node.classList.remove('stcm-drop-above', 'stcm-drop-below', 'stcm-drop-into');
-        const draggedId = e.dataTransfer.getData('text/plain');
-        if (draggedId === folder.id) return;
-    
-        const dragged = allFolders.find(f => f.id === draggedId);
-        if (!dragged) return;
-    
-        const dropPosition = node.dataset.dropPosition || "into";
-        delete node.dataset.dropPosition;
-    
-        if (dropPosition === "above" || dropPosition === "below") {
-            // Move as sibling
-            const parent = allFolders.find(f => f.id === folder.parentId);
-            if (!parent || !Array.isArray(parent.children)) return;
-            let siblings = [...parent.children];
-            const fromIdx = siblings.indexOf(dragged.id);
-            // Remove from previous parent, if different
-            if (fromIdx !== -1) siblings.splice(fromIdx, 1);
-    
-            // Insert at target position
-            const targetIdx = siblings.indexOf(folder.id);
-            let insertAt = dropPosition === "above" ? targetIdx : targetIdx + 1;
-            if (insertAt > siblings.length) insertAt = siblings.length;
-            siblings.splice(insertAt, 0, dragged.id);
-    
-            // Update parent for dragged if necessary
-            if (dragged.parentId !== parent.id) {
-                await stcmFolders.moveFolder(dragged.id, parent.id);
-                // Reload folders to get the up-to-date children array
-                const foldersAfterMove = await stcmFolders.loadFolders();
-                const parentAfterMove = foldersAfterMove.find(f => f.id === parent.id);
-                let siblings = [...parentAfterMove.children];
-                // Remove dragged.id if already present (should be at end), then insert at new spot
-                siblings = siblings.filter(id => id !== dragged.id);
-                siblings.splice(insertAt, 0, dragged.id);
-                await reorderChildren(parent.id, siblings);
-            } else {
-                // Same parent: just reorder
-                await reorderChildren(parent.id, siblings);
-            }
-
-    
-        } else if (dropPosition === "into") {
-            // Drop into this folder as a child
-            const canDrop = validateDropTarget(dragged, folder, allFolders);
-            if (!canDrop) {
-                toastr.warning("Invalid move.");
-                return;
-            }
-            await stcmFolders.moveFolder(dragged.id, folder.id);
-        }
-    
-        STCM.sidebarFolders = await stcmFolders.loadFolders();
-        injectSidebarFolders(STCM.sidebarFolders, characters);
-        renderFoldersTree();
-    });
-    
-    
-    
   // CHILDREN (vertical, as own block)
   if (Array.isArray(folder.children)) {
     const childrenContainer = document.createElement('div');
@@ -602,29 +510,37 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
         line.classList.remove('stcm-drop-line-active');
         const draggedId = e.dataTransfer.getData('text/plain');
         if (!draggedId) return;
-
-        let folders = await stcmFolders.loadFolders();
-        let dragged = folders.find(f => f.id === draggedId);
-
-        // If not already a child of parent, move it first
+    
+        // Prevent dropping a folder into itself or its own descendants
+        if (draggedId === parent.id) return;
+        const folders = await stcmFolders.loadFolders();
+        const dragged = folders.find(f => f.id === draggedId);
+        if (!dragged) return;
+    
+        // Block dropping a parent into its child (or any descendant)
+        const allDescendants = getAllDescendantFolderIds(draggedId, folders);
+        if (allDescendants.includes(parent.id)) return;
+    
+        // Block moving root (or any protected folder)
+        if (dragged.id === 'root') return;
+    
+        // Only move if parent is not the current parent
         if (dragged.parentId !== parent.id) {
             await stcmFolders.moveFolder(draggedId, parent.id);
-            folders = await stcmFolders.loadFolders();
-            dragged = folders.find(f => f.id === draggedId);
         }
-
-        // Now reorder
+    
+        // Now reorder *within* parent's children (always! even if just moved in)
         let currentParent = folders.find(f => f.id === parent.id);
-        let siblings = [...currentParent.children];
-        siblings = siblings.filter(id => id !== draggedId);
+        let siblings = [...currentParent.children].filter(id => id !== draggedId);
         siblings.splice(insertAt, 0, draggedId);
-
+    
         await reorderChildren(parent.id, siblings);
-
+    
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
         renderFoldersTree();
     });
+    
     return line;
 }
 
