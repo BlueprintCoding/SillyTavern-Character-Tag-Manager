@@ -22,10 +22,10 @@ function readExtFolders() {
     return Array.isArray(data) ? data : null;
 }
 
-function writeExtFolders(foldersArr) {
+async function writeExtFolders(foldersArr) {
     if (!ctx().extensionSettings) ctx().extensionSettings = {};
     ctx().extensionSettings[EXT_KEY] = foldersArr;
-    flushExtSettings(); // triggers persistent write
+    await flushExtSettings(); // triggers persistent write
 }
 
 export async function loadFolders() {
@@ -44,7 +44,7 @@ export async function loadFolders() {
             characters: [],
             private: false
         }];
-        writeExtFolders(folders);
+        await writeExtFolders(folders);
     }
 
     // 3. lightweight sanity-fixes (back-compat)
@@ -60,7 +60,7 @@ export async function loadFolders() {
 }
 
 export async function saveFolders(foldersToSave) {
-    writeExtFolders(foldersToSave);
+    await writeExtFolders(foldersToSave);
 }
 
 export function getCharacterAssignedFolder(charId, folders) {
