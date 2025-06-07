@@ -150,7 +150,7 @@ async function promptRestoreFromCache(savedAt, foldersPreview = []) {
                         <span class="fa-solid ${icon} stcm-folder-icon"></span>
                     </span>
                     <span class="stcm-folder-preview-foldername">${escapeHtml(folder.name)}</span>
-                    <span class="stcm-folder-preview-count">${folder.characters?.length || 0}</span>
+                    <span class="stcm-folder-preview-count">${folder.characters?.length || 0} characters</span>
                 </li>`;
                 html += renderTree(folder.id, depth + 1);
             }

@@ -1276,7 +1276,7 @@ dialog.popup #stcm-popup-pin-input:focus {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 7px 10px 7px 0;
+    padding: 0px;
     border-radius: 7px;
     font-size: 1em;
     margin-bottom: 1px;
@@ -1294,20 +1294,6 @@ dialog.popup #stcm-popup-pin-input:focus {
   .stcm-folder-preview-depth-2 { margin-left: 56px; }
   .stcm-folder-preview-depth-3 { margin-left: 84px; }
   .stcm-folder-preview-depth-4 { margin-left: 112px; }
-  /* Add more if needed */
-  
-  .stcm-folder-avatar-preview {
-    width: 30px;
-    height: 30px;
-    border-radius: 7px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2em;
-    color: #fff;
-    min-width: 30px;
-    margin-right: 4px;
-  }
   
   .stcm-folder-preview-foldername {
     font-weight: bold;
