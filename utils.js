@@ -5,6 +5,9 @@ import {
     POPUP_RESULT,
     POPUP_TYPE,
 } from "../../../extensions.js";
+import { 
+    POPUP_RESULT 
+} from '../../../popup.js';
 
 let context = null;
 
