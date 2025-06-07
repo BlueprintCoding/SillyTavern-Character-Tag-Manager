@@ -1,9 +1,9 @@
 // utils.js
 import {
     getContext,
-    callGenericPopup,
 } from "../../../extensions.js";
 import { 
+    callGenericPopup,
     POPUP_TYPE,
     POPUP_RESULT 
 } from '../../../popup.js';
