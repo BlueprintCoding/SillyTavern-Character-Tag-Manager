@@ -11,7 +11,7 @@ import { characters, selectCharacterById } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { callSaveandReload } from "./index.js";
-import { renderTagSection } from "./stcm_tags_ui.js"
+import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 
 function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
@@ -31,13 +31,13 @@ function renderCharacterList() {
 
         const tagMapById = buildTagMap(tags);
 
-    const selectedTagIds = Array.from(document.getElementById('assignTagSelect')?.selectedOptions || []).map(opt => opt.value);
+    const selectedTagIdsArr = Array.from(selectedTagIds);
     const selectedTagsDisplay = document.getElementById('selectedTagsDisplay');
     selectedTagsDisplay.innerHTML = '';
 
-    if (selectedTagIds.length > 0) {
+    if (selectedTagIdsArr.length > 0) {
         const tagMapById = buildTagMap(tags);
-        selectedTagIds.forEach(tagId => {
+        selectedTagIdsArr.forEach(tagId => {
             const tag = tagMapById.get(tagId);
             if (!tag) return;
 
@@ -49,7 +49,7 @@ function renderCharacterList() {
         });
     }
 
-    const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIds.length > 0;
+    const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIdsArr.length > 0;
 
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
 
