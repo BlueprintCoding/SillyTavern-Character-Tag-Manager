@@ -194,7 +194,7 @@ function renderSingleTag({ tag, charIds }) {
     const header = document.createElement('div');
     header.className = 'tagGroupHeader';
 
-    // prettier colour defaults
+    // prettier color defaults
     const rawBg = String(tag.color || '').trim();
     const rawFg = String(tag.color2 || '').trim();
     const bg = (rawBg && rawBg !== '#') ? rawBg : '#333';
@@ -208,7 +208,7 @@ function renderSingleTag({ tag, charIds }) {
             }
             <strong class="tagNameText stcm-color-swatch"
                     style="background:${bg};color:${fg};padding:2px 6px;border-radius:4px;cursor:pointer;"
-                    title="Click to edit colours">
+                    title="Click to edit colors">
                 ${escapeHtml(tag.name)} <i class="fa-solid fa-palette" style="margin-left:6px;"></i>
             </strong>
         </span>
@@ -270,7 +270,7 @@ function renderSingleTag({ tag, charIds }) {
     header.querySelectorAll('.editTagIcon').forEach(icon => {
         icon.addEventListener('click', () => startInlineRename(icon, tag.id));
     });
-    // colour picker
+    // color picker
     header.querySelector('.stcm-color-swatch')?.addEventListener('click', () =>
         openColorEditModal(tag)
     );
@@ -465,7 +465,7 @@ export function promptCreateTag() {
 }
 
 // ---------------------------------------------------------------------------
-// colour edit modal
+// color edit modal
 // ---------------------------------------------------------------------------
 function openColorEditModal(tag) {
     const styles = getComputedStyle(document.body);
@@ -495,7 +495,7 @@ function openColorEditModal(tag) {
         currFg = e.detail?.rgba || currFg; preview.style.color = currFg;
     });
 
-    callGenericPopup(container, POPUP_TYPE.CONFIRM, `Edit colours: ${escapeHtml(tag.name)}`, {
+    callGenericPopup(container, POPUP_TYPE.CONFIRM, `Edit colors: ${escapeHtml(tag.name)}`, {
         okButton: 'Save Colors',
         cancelButton: 'Cancel',
         customClass: 'stcm_custom-color-edit-popup'
