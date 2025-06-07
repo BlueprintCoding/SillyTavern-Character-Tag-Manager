@@ -129,15 +129,18 @@ function saveModalPosSize(modalContent) {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(rect));
 }
 
-function cleanTagMap() {
-    ensureContext();
-    const validCharIds = new Set([
-        ...context.characters.map(c => c.avatar),
-        ...context.groups.map(g => g.id)
+// utils.js 
+export function cleanTagMap(tag_map, characters = [], groups = []) {
+    // Build a list of every still-valid character / group id
+    const validIds = new Set([
+        ...characters.map(c => c.avatar),
+        ...groups.map(g => g.id),
     ]);
-    for (const charId of Object.keys(context.tag_map)) {
-        if (!validCharIds.has(charId)) {
-            delete context.tag_map[charId];
+
+    // Strip any orphaned ids out of the map
+    for (const charId of Object.keys(tag_map)) {
+        if (!validIds.has(charId)) {
+            delete tag_map[charId];
         }
     }
 }
