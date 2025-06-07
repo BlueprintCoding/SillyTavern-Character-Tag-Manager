@@ -484,6 +484,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         node.dataset.dropPosition = position;
     });
     
+    
     node.addEventListener('dragleave', () => {
         node.classList.remove("stcm-drop-above", "stcm-drop-below", "stcm-drop-into");
         delete node.dataset.dropPosition;
@@ -491,9 +492,11 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     
     node.addEventListener('drop', async (e) => {
         e.preventDefault();
-        node.classList.remove("stcm-drop-above", "stcm-drop-below", "stcm-drop-into");
+        row.classList.remove('stcm-drop-hover', 'stcm-drop-above', 'stcm-drop-below', 'stcm-drop-into');
+        node.classList.remove('stcm-drop-above', 'stcm-drop-below', 'stcm-drop-into');
         const draggedId = e.dataTransfer.getData('text/plain');
         if (draggedId === folder.id) return;
+    
         const dragged = allFolders.find(f => f.id === draggedId);
         if (!dragged) return;
     
@@ -501,22 +504,29 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         delete node.dataset.dropPosition;
     
         if (dropPosition === "above" || dropPosition === "below") {
-            // Insert dragged folder as a sibling (above or below this folder)
+            // Move as sibling
             const parent = allFolders.find(f => f.id === folder.parentId);
             if (!parent || !Array.isArray(parent.children)) return;
             let siblings = [...parent.children];
             const fromIdx = siblings.indexOf(dragged.id);
+            // Remove from previous parent, if different
+            if (fromIdx !== -1) siblings.splice(fromIdx, 1);
+    
+            // Insert at target position
             const targetIdx = siblings.indexOf(folder.id);
-            if (fromIdx === -1 || targetIdx === -1) return;
-            // Remove from old position
-            siblings.splice(fromIdx, 1);
-            // Insert at the correct place
             let insertAt = dropPosition === "above" ? targetIdx : targetIdx + 1;
             if (insertAt > siblings.length) insertAt = siblings.length;
             siblings.splice(insertAt, 0, dragged.id);
+    
+            // Update parent for dragged if necessary
+            if (dragged.parentId !== parent.id) {
+                await stcmFolders.moveFolder(dragged.id, parent.id);
+            }
+            // Always reorder even if parent didn't change
             await reorderChildren(parent.id, siblings);
+    
         } else if (dropPosition === "into") {
-            // Validate and move as child
+            // Drop into this folder as a child
             const canDrop = validateDropTarget(dragged, folder, allFolders);
             if (!canDrop) {
                 toastr.warning("Invalid move.");
@@ -524,10 +534,12 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
             }
             await stcmFolders.moveFolder(dragged.id, folder.id);
         }
+    
         STCM.sidebarFolders = await stcmFolders.loadFolders();
         injectSidebarFolders(STCM.sidebarFolders, characters);
         renderFoldersTree();
     });
+    
     
     
   // CHILDREN (vertical, as own block)
