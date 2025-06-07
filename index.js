@@ -551,8 +551,21 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
     line.addEventListener('dragover', e => {
         e.preventDefault();
         line.classList.add('stcm-drop-line-active', 'insert-between');
-        line.style.background = parent.color && parent.color !== "#" ? parent.color : "#3bb1ff";
+        // Find the folder *after* the drop-line, or use parent color if at end
+        const nextChildId = parent.children && parent.children[insertAt];
+        let targetColor = "#3bb1ff";
+        if (nextChildId) {
+            const targetFolder = allFolders.find(f => f.id === nextChildId);
+            if (targetFolder && targetFolder.color && targetFolder.color !== "#") {
+                targetColor = targetFolder.color;
+            }
+        } else if (parent.color && parent.color !== "#") {
+            // Last drop-line, no child: use parent folder color as fallback
+            targetColor = parent.color;
+        }
+        line.style.background = targetColor;
     });
+
     line.addEventListener('dragleave', e => {
         line.classList.remove('stcm-drop-line-active', 'insert-between');
         line.style.background = "";
