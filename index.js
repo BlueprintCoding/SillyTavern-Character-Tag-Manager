@@ -483,21 +483,6 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         }
     });
 
-    node.appendChild(childrenContainer);
-}
-
-return node;
-}
-
-function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth = 0) {
-    const line = document.createElement('div');
-    line.className = 'stcm-drop-line';
-    line.style.height = '4px';
-    line.style.marginLeft = ((depth + 1) * 24) + 'px'; // indent to match child nodes
-    line.style.background = 'transparent';
-    line.dataset.parentId = parent.id;
-    line.dataset.insertAt = insertAt;
-
     row.addEventListener('dragover', e => {
         e.preventDefault();
         row.classList.add('stcm-folder-row-drop-target');
@@ -514,7 +499,7 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
         const dragged = folders.find(f => f.id === draggedId);
         if (!dragged) return;
     
-        // Prevent illegal moves as before...
+        // Prevent cycles
         const allDescendants = getAllDescendantFolderIds(draggedId, folders);
         if (allDescendants.includes(folder.id)) return;
     
@@ -533,9 +518,55 @@ function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth =
         renderFoldersTree();
     });
     
-    
+
+    node.appendChild(childrenContainer);
+}
+
+return node;
+}
+
+function createDropLine(parent, allFolders, insertAt, renderFoldersTree, depth = 0) {
+    const line = document.createElement('div');
+    line.className = 'stcm-drop-line';
+    line.style.height = '10px';
+    line.style.marginLeft = ((depth + 1) * 24) + 'px';
+    line.style.background = 'transparent';
+    line.dataset.parentId = parent.id;
+    line.dataset.insertAt = insertAt;
+
+    // Only for "insert between"
+    line.addEventListener('dragover', e => {
+        e.preventDefault();
+        line.classList.add('stcm-drop-line-active', 'insert-between');
+    });
+    line.addEventListener('dragleave', e => {
+        line.classList.remove('stcm-drop-line-active', 'insert-between');
+    });
+    line.addEventListener('drop', async e => {
+        line.classList.remove('stcm-drop-line-active', 'insert-between');
+        const draggedId = e.dataTransfer.getData('text/plain');
+        if (!draggedId) return;
+        // Usual: move and reorder as sibling in parent.children[insertAt]
+        let folders = await stcmFolders.loadFolders();
+        let dragged = folders.find(f => f.id === draggedId);
+        if (!dragged) return;
+        if (dragged.parentId !== parent.id) {
+            await stcmFolders.moveFolder(draggedId, parent.id);
+            folders = await stcmFolders.loadFolders();
+            dragged = folders.find(f => f.id === draggedId);
+        }
+        let currentParent = folders.find(f => f.id === parent.id);
+        let siblings = [...currentParent.children].filter(id => id !== draggedId);
+        siblings.splice(insertAt, 0, draggedId);
+        await reorderChildren(parent.id, siblings);
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
+        renderFoldersTree();
+    });
+
     return line;
 }
+
 
 
 function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
