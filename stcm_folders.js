@@ -15,12 +15,14 @@ import {
 
 
 const FOLDER_FILE_NAME = "stcm-folders.json";
-let folders = [];
 
 export async function loadFolders() {
     const fileUrl = localStorage.getItem('stcm_folders_url');
+    let folders;
+
     try {
         if (fileUrl) {
+            // Always get latest from server/attachment
             const content = await getFileAttachment(fileUrl);
             folders = JSON.parse(content);
             if (!Array.isArray(folders)) throw new Error("Corrupt folder data");
@@ -33,10 +35,10 @@ export async function loadFolders() {
             return folders;
         }
     } catch (e) {
-        console.warn("Failed to load folders:", e);
+        console.warn("Failed to load folders from file:", e);
     }
 
-    // Fallback to cached or default
+    // Fallback to localStorage cache
     const cached = localStorage.getItem('stcm_folders_cache');
     if (cached) {
         try {
@@ -47,6 +49,7 @@ export async function loadFolders() {
         }
     }
 
+    // Final fallback: create default
     folders = [{
         id: "root",
         name: "Root",
@@ -60,10 +63,7 @@ export async function loadFolders() {
     return folders;
 }
 
-
-
-
-export async function saveFolders(foldersToSave = folders) {
+export async function saveFolders(foldersToSave) {
     const json = JSON.stringify(foldersToSave, null, 2);
     const base64 = window.btoa(unescape(encodeURIComponent(json)));
 
@@ -72,8 +72,6 @@ export async function saveFolders(foldersToSave = folders) {
         localStorage.setItem('stcm_folders_url', fileUrl);
         localStorage.setItem('stcm_folders_cache', JSON.stringify(foldersToSave));
     }
-
-    folders = foldersToSave;
 }
 
 
@@ -94,7 +92,7 @@ export function updateAllFolderCharacterCounts(folders) {
 }
 
 export async function setFolderPrivacy(id, isPrivate) {
-    await loadFolders();
+    let folders = await loadFolders();
     const folder = folders.find(f => f.id === id);
     if (folder) {
         folder.private = !!isPrivate;
@@ -102,16 +100,14 @@ export async function setFolderPrivacy(id, isPrivate) {
     }
 }
 
-
 export async function assignCharactersToFolder(folderOrId, charIds) {
-    // Accept either the folder object or its id
+    let folders = await loadFolders();
     let id = typeof folderOrId === 'object' ? folderOrId.id : folderOrId;
-    await loadFolders(); // Always reload to get up-to-date list
     const folder = folders.find(f => f.id === id);
     if (!folder) throw new Error('Folder not found');
     if (!Array.isArray(folder.characters)) folder.characters = [];
 
-    // Remove each charId from all other folders first
+    // Remove from all folders
     for (const charId of charIds) {
         for (const f of folders) {
             if (f !== folder && Array.isArray(f.characters)) {
@@ -119,7 +115,6 @@ export async function assignCharactersToFolder(folderOrId, charIds) {
                 if (idx !== -1) f.characters.splice(idx, 1);
             }
         }
-        // Then add to the target folder if not present
         if (!folder.characters.includes(charId)) {
             folder.characters.push(charId);
         }
@@ -127,11 +122,9 @@ export async function assignCharactersToFolder(folderOrId, charIds) {
     await saveFolders(folders); 
 }
 
-
 export async function removeCharacterFromFolder(folderOrId, charId) {
-    // Accept folder object or ID
+    let folders = await loadFolders();
     const folderId = typeof folderOrId === 'object' ? folderOrId.id : folderOrId;
-    await loadFolders(); // Always reload to get the latest folders
     const folder = folders.find(f => f.id === folderId);
     if (!folder || !Array.isArray(folder.characters)) return;
     folder.characters = folder.characters.filter(id => id !== charId);
@@ -139,18 +132,17 @@ export async function removeCharacterFromFolder(folderOrId, charId) {
 }
 
 
-
-
 // Utility to get folder by ID
-export function getFolder(id) {
+export function getFolder(id, folders) {
     return folders.find(f => f.id === id);
 }
 
 // Add a new folder
 export async function addFolder(name, parentId = "root", color = '#8b2ae6') {
+    let folders = await loadFolders();
     const id = crypto.randomUUID();
-    const parent = getFolder(parentId);
-    if (!parent || getFolderDepth(parentId) >= 5) throw new Error("Folder depth limit exceeded.");
+    const parent = getFolder(parentId, folders);
+    if (!parent || getFolderDepth(parentId, folders) >= 5) throw new Error("Folder depth limit exceeded.");
     parent.children.push(id);
     folders.push({ 
         id, 
@@ -166,12 +158,13 @@ export async function addFolder(name, parentId = "root", color = '#8b2ae6') {
     return id;
 }
 
+
 export async function setFolderColor(id, color) {
-    await loadFolders();
+    let folders = await loadFolders();
     const folder = folders.find(f => f.id === id);
     if (folder) {
         folder.color = color;
-        await saveFolders(folders);    // <- no arg, saves the global "folders"
+        await saveFolders(folders);
     }
 }
 
@@ -191,49 +184,49 @@ export async function setFolderColor(id, color) {
 
 // Move a folder to a new parent (careful with cycles/depth)
 export async function moveFolder(folderId, newParentId) {
+    let folders = await loadFolders();
     if (folderId === "root" || newParentId === folderId) throw new Error("Invalid move.");
-    // Remove from old parent
-    const oldFolder = getFolder(folderId);
+    const oldFolder = getFolder(folderId, folders);
     if (!oldFolder) return;
-    const oldParent = getFolder(oldFolder.parentId);
+    const oldParent = getFolder(oldFolder.parentId, folders);
     if (oldParent) oldParent.children = oldParent.children.filter(child => child !== folderId);
-    // Add to new parent
-    const newParent = getFolder(newParentId);
-    if (!newParent || getFolderDepth(newParentId) >= 5) throw new Error("Folder depth limit exceeded.");
+    const newParent = getFolder(newParentId, folders);
+    if (!newParent || getFolderDepth(newParentId, folders) >= 5) throw new Error("Folder depth limit exceeded.");
     newParent.children.push(folderId);
     oldFolder.parentId = newParentId;
     await saveFolders(folders); 
 }
 
-function getFolderDepth(folderId) {
+function getFolderDepth(folderId, folders) {
     let depth = 0;
-    let curr = getFolder(folderId);
+    let curr = getFolder(folderId, folders);
     while (curr && curr.parentId) {
-        curr = getFolder(curr.parentId);
+        curr = getFolder(curr.parentId, folders);
         depth++;
     }
     return depth;
 }
 
 export async function renameFolder(id, newName) {
-    const folders = await loadFolders();
+    let folders = await loadFolders();
     const folder = folders.find(f => f.id === id);
     if (folder && newName.trim()) {
         folder.name = newName.trim();
         await saveFolders(folders);
     }
 }
+
 export async function setFolderIcon(id, icon) {
-    const folders = await loadFolders();
+    let folders = await loadFolders();
     const folder = folders.find(f => f.id === id);
     if (folder) {
         folder.icon = icon;
         await saveFolders(folders);
     }
 }
+
 export async function deleteFolder(id) {
     let folders = await loadFolders();
-    // Remove recursively and from parents' children arrays
     function removeRecursive(fid) {
         const idx = folders.findIndex(f => f.id === fid);
         if (idx !== -1) {
@@ -242,7 +235,6 @@ export async function deleteFolder(id) {
             folders.splice(idx, 1);
         }
     }
-    // Remove id from any parent's children
     folders.forEach(f => f.children = f.children?.filter(cid => cid !== id));
     removeRecursive(id);
     await saveFolders(folders);
@@ -255,7 +247,7 @@ export async function convertTagToRealFolder(tag) {
     const folderColor = tag.color || '#8b2ae6';
 
     try {
-        const folders = await loadFolders();
+        let folders = await loadFolders();
         const existingFolder = folders.find(f => f.name.trim().toLowerCase() === folderName.toLowerCase());
 
         if (existingFolder) {
@@ -264,7 +256,8 @@ export async function convertTagToRealFolder(tag) {
         }
 
         const newFolderId = await addFolder(folderName, "root", folderColor);
-        const newFolder = getFolder(newFolderId); // ✅ fixed here
+        folders = await loadFolders();
+        const newFolder = getFolder(newFolderId, folders); // always pass folders!
         if (!newFolder) throw new Error("Failed to locate new folder");
 
         const assignedChars = Object.entries(tag_map)

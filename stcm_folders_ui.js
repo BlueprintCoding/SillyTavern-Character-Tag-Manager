@@ -971,13 +971,16 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         if (newParentId === folder.parentId) return; // No change
         try {
             await stcmFolders.moveFolder(folder.id, newParentId);
+            // Always reload fresh folders before updating UI!
+            const folders = await stcmFolders.loadFolders();
             await updateSidebar(true);
-            rerender();
+            rerender && rerender(folders);
         } catch (e) {
             const errDiv = container.querySelector('#stcmMoveFolderError');
             errDiv.textContent = e.message || "Failed to move folder.";
         }
     });
+    
 }
 export async function reorderChildren(parentId, orderedChildIds) {
     const folders = await stcmFolders.loadFolders();
