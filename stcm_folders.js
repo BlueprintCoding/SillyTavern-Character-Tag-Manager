@@ -18,8 +18,7 @@ const FOLDER_FILE_NAME = "stcm-folders.json";
 
 export async function loadFolders(options = {}) {
     const fileUrl = localStorage.getItem('stcm_folders_url');
-    let folders;
-    let errorMsg = null;
+    let folders, cacheObj, errorMsg = null;
 
     // Helper for validating the folder array
     function isValidFolderArray(data) {
@@ -32,42 +31,44 @@ export async function loadFolders(options = {}) {
             try {
                 const content = await getFileAttachment(fileUrl);
                 folders = JSON.parse(content);
-
                 if (!isValidFolderArray(folders)) throw new Error("Corrupt folder data");
-
                 // Fix legacy/partial data
                 folders.forEach(f => {
                     if (!f.color) f.color = "#8b2ae6";
                     if (typeof f.private !== "boolean") f.private = false;
                 });
-
-                // Save valid server copy to cache
-                localStorage.setItem('stcm_folders_cache', JSON.stringify(folders));
+                // Save valid server copy to cache (with timestamp)
+                const now = new Date();
+                const cacheObj = {
+                    saved_at: now.toISOString(),
+                    folders
+                };
+                localStorage.setItem('stcm_folders_cache', JSON.stringify(cacheObj));
                 return folders;
             } catch (e) {
                 errorMsg = `Attempt ${attempt}: Failed to load folders from file: ${e?.message || e}`;
                 console.warn(errorMsg);
-                if (attempt === 1) await new Promise(res => setTimeout(res, 500)); // 0.5s pause before retry
+                if (attempt === 1) await new Promise(res => setTimeout(res, 500));
             }
         }
     }
 
-    // Try localStorage cache
+    // Try localStorage cache (with timestamp)
     const cached = localStorage.getItem('stcm_folders_cache');
-    if (cached) {
-        try {
-            folders = JSON.parse(cached);
-            if (!isValidFolderArray(folders)) throw new Error("Corrupt cache data");
-            return folders;
-        } catch (e) {
-            errorMsg = "Failed to parse folder cache: " + (e?.message || e);
-            console.warn(errorMsg);
+    cacheObj = cached ? parseCache(cached) : null;
+    if (cacheObj && isValidFolderArray(cacheObj.folders)) {
+        // If the file was not found (e.g. 404), prompt user to restore from cache
+        if (errorMsg?.toLowerCase().includes('not found')) {
+            const shouldRestore = await promptRestoreFromCache(cacheObj.saved_at);
+            if (shouldRestore) return cacheObj.folders;
+            // If not, proceed to default
+        } else {
+            return cacheObj.folders;
         }
     }
 
     // Show error to user if all fail (customize to your UI)
     if (errorMsg && !options.silent) {
-        // Use toastr, popup, or a modal
         if (typeof toastr !== "undefined") {
             toastr.error("Could not load folders: " + errorMsg + "<br>Default folder structure loaded.");
         } else {
@@ -89,6 +90,17 @@ export async function loadFolders(options = {}) {
     return folders;
 }
 
+// Helper outside of loadFolders
+function parseCache(raw) {
+    try {
+        const obj = JSON.parse(raw);
+        if (Array.isArray(obj)) return { folders: obj, saved_at: null };
+        if (Array.isArray(obj.folders)) return { folders: obj.folders, saved_at: obj.saved_at };
+    } catch {}
+    return null;
+}
+
+
 
 export async function saveFolders(foldersToSave) {
     const json = JSON.stringify(foldersToSave, null, 2);
@@ -97,9 +109,31 @@ export async function saveFolders(foldersToSave) {
     const fileUrl = await uploadFileAttachment(FOLDER_FILE_NAME, base64);
     if (fileUrl) {
         localStorage.setItem('stcm_folders_url', fileUrl);
-        localStorage.setItem('stcm_folders_cache', JSON.stringify(foldersToSave));
+        // When saving cache:
+        const now = new Date();
+        const cacheObj = {
+            saved_at: now.toISOString(),
+            folders: foldersToSave
+        };
+        localStorage.setItem('stcm_folders_cache', JSON.stringify(cacheObj));
     }
 }
+
+async function promptRestoreFromCache(savedAt) {
+    // Format date as YYYY-MM-DD HH:MM
+    const date = savedAt
+        ? new Date(savedAt).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : 'unknown';
+    return new Promise(resolve => {
+        // Replace this with your popup/modal for better UX
+        if (confirm(`File not found!\nPlease check "\\SillyTavern\\data\\{username}\\user\\files" for "stcm-folders.json".\nWe have a cached version from ${date}.\nRestore from cache?`)) {
+            resolve(true);
+        } else {
+            resolve(false);
+        }
+    });
+}
+
 
 
 export function getCharacterAssignedFolder(charId, folders) {
