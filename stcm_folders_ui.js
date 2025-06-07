@@ -951,7 +951,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
 
     const validFolders = allFolders.filter(f => {
         if (descendants.includes(f.id)) return false; // can't move into self or descendants
-        const destDepth = getFolderDepth(f.id);
+        const destDepth = getFolderDepth(f.id, allFolders);
         // If destination is "root", depth = 0, so max possible new depth = subtreeDepth-1
         // So destDepth + subtreeDepth - 1 < MAX_DEPTH
         return (destDepth + subtreeDepth - 1) < MAX_DEPTH;
