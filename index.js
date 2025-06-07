@@ -299,10 +299,22 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     dragHandle.style.cursor = 'grab';
 
     dragHandle.addEventListener('dragstart', (e) => {
+        const dragGhost = row.cloneNode(true);
+        dragGhost.style.position = 'absolute';
+        dragGhost.style.top = '-9999px'; // off-screen
+        dragGhost.style.pointerEvents = 'none';
+        document.body.appendChild(dragGhost);
+    
+        e.dataTransfer.setDragImage(dragGhost, 0, 0);
         e.dataTransfer.setData('text/plain', folder.id);
         e.dataTransfer.effectAllowed = 'move';
+    
         e.stopPropagation();
+    
+        // Cleanup ghost after drag
+        setTimeout(() => dragGhost.remove(), 0);
     });
+    
 
     row.prepend(dragHandle);
 
@@ -451,17 +463,19 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     node.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        node.classList.add('stcm-drop-target');
-    });
     
+        // Highlight the drop row
+        row.classList.add('stcm-drop-hover');
+    });
+
     node.addEventListener('dragleave', () => {
-        node.classList.remove('stcm-drop-target');
+        row.classList.remove('stcm-drop-hover');
     });
-    
+
     node.addEventListener('drop', async (e) => {
         e.preventDefault();
+        row.classList.remove('stcm-drop-hover');
         node.classList.remove('stcm-drop-target');
-    
         const draggedId = e.dataTransfer.getData('text/plain');
         if (draggedId === folder.id) return;
     
