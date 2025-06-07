@@ -1,18 +1,21 @@
 // stcm_folders_tree.js
 //
 // Pure UI module that renders the folder tree used by the Character / Tag
-// Manager modal (and anywhere else you like).  It owns:
-//
 //   • renderFoldersTree(containerElement, { onTreeChanged? })
 //
-// The original behaviour is preserved 1-for-1, just relocated.
-//
-// ---------------------------------------------------------------------------
-// Imports – explicit so the module is self-contained
-// ---------------------------------------------------------------------------
+//// ---------------------------------------------------------------------------
 
+
+// utils
 import {
-    hexToRgba,
+    debounce,
+    escapeHtml,
+    buildTagMap,
+    parseSearchGroups,
+    parseSearchTerm,
+    cleanTagMap,
+    getNotes,
+    hexToRgba
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
@@ -29,6 +32,8 @@ import {
 } from './stcm_folders_ui.js';
 
 import { characters } from '../../../../script.js';
+import { tags, tag_map }        from "../../../tags.js";
+import { groups }               from "../../../../scripts/group-chats.js";
 
 // If you keep the global STCM object (as in index.js) you can re-use it here:
 export const STCM_TREE = { renderFoldersTree: null };
@@ -230,7 +235,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
     charBtn.addEventListener('click', e => {
         e.stopPropagation();
         // function is defined elsewhere (kept global in original code)
-        window.showFolderCharactersSection?.(folder, allFolders);
+        showFolderCharactersSection?.(folder, allFolders);
     });
     row.appendChild(charBtn);
 
@@ -365,4 +370,427 @@ function createDropLine(parent, allFolders, insertAt, onTreeChanged, depth = 0) 
     });
 
     return line;
+}
+
+export function showFolderCharactersSection(folder, folders) {
+    const section = document.getElementById('folderCharactersSection');
+    section.innerHTML = '';
+    section.style.position = 'relative';
+    section.style.display = 'block';
+
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'stcm_folder_chars_close_btn stcm_menu_button';
+    closeBtn.title = 'Close';
+    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    closeBtn.onclick = () => {
+        section.innerHTML = '';
+        section.style.display = 'none';
+    };
+    section.appendChild(closeBtn);
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'stcm_folder_chars_header';
+    header.innerHTML = `<h3>Folder: ${escapeHtml(folder.name)}</h3>`;
+    section.appendChild(header);
+
+    // Chips row, updated after assign/unassign
+    let assignSelection = new Set();
+    const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
+
+    // --- Character List Setup ---
+    let folderCharSortMode = 'alpha_asc';
+
+    const sortFilterRow = document.createElement('div');
+    sortFilterRow.className = 'stcm_sort_row stcm_folder_assign_sort_row';
+    sortFilterRow.style.alignItems = 'center';
+    sortFilterRow.style.gap = '10px';
+    sortFilterRow.innerHTML = `
+        <div class="folderCharSelectAll">
+        <label class="customCheckboxWrapper" title="Select all visible characters">
+        <input type="checkbox" id="selectAllVisibleAssignables" />
+        <span class="customCheckbox"></span> Select All
+        </label></div>
+        <span>SORT</span>
+        <select id="folderCharSortMode" class="stcm_menu_button interactable" style="min-width:110px;">
+            <option value="alpha_asc">A → Z</option>
+            <option value="alpha_desc">Z → A</option>
+            <option value="tag_count_desc">Most Tags</option>
+            <option value="tag_count_asc">Fewest Tags</option>
+            <option value="with_notes">With Notes</option>
+            <option value="without_notes">Without Notes</option>
+        </select>
+        <input type="text" id="folderCharSearchInput" class="menu_input stcm_fullwidth_input" 
+            placeholder="Search characters/groups..." style="min-width:140px;">
+    `;
+    // Assignment button
+    const assignBtn = document.createElement('button');
+    assignBtn.className = 'stcm_menu_button small assignCharsFolders';
+    assignBtn.textContent = 'Assign Selected';
+    assignBtn.addEventListener('click', async () => {
+        if (!assignSelection.size) {
+            toastr.warning("No characters selected.");
+            return;
+        }
+        await stcmFolders.assignCharactersToFolder(folder, Array.from(assignSelection));
+        for (const charId of assignSelection) {
+            if (!folder.characters.includes(charId)) folder.characters.push(charId);
+        }
+        renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection); 
+        assignSelection.clear();
+        renderAssignCharList();
+        stcmFolders.updateFolderCharacterCount (folder);
+        STCM.sidebarFolders = await stcmFolders.loadFolders();
+        injectSidebarFolders(STCM.sidebarFolders, characters);
+    });
+    sortFilterRow.appendChild(assignBtn);
+
+
+    section.appendChild(sortFilterRow);
+
+    // Search hint
+    const searchHint = document.createElement('span');
+    searchHint.className = "smallInstructions";
+    searchHint.style.display = 'block';
+    searchHint.style.marginTop = '2px';
+    searchHint.innerHTML = `Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms (- comes before modifiers like -T:Comedy)`;
+    section.appendChild(searchHint);
+
+    // Assignable character list
+    const charList = document.createElement('ul');
+    charList.className = 'charList stcm_folder_assign_charList';
+    section.appendChild(charList);
+
+    sortFilterRow.querySelector('#selectAllVisibleAssignables').addEventListener('change', (e) => {
+        const checked = e.target.checked;
+        const checkboxes = charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)');
+        checkboxes.forEach(cb => {
+            cb.checked = checked;
+            if (checked) assignSelection.add(cb.value);
+            else assignSelection.delete(cb.value);
+        });
+    });
+
+
+    
+    let folderCharSearchTerm = '';
+    setTimeout(() => {
+        const searchInput = document.getElementById('folderCharSearchInput');
+        if (searchInput) searchInput.value = '';
+        renderAssignCharList();
+    }, 0);
+
+   
+
+    // --- RENDER FUNCTION ---
+    function renderAssignCharList() {
+        charList.innerHTML = '';
+        // Advanced search: comma = OR, space = AND, minus = NOT
+        let unassignedCharacters = characters.filter(c => !folder.characters.includes(c.avatar));
+        let filtered = unassignedCharacters;
+    
+        const searchInput = document.getElementById('folderCharSearchInput');
+        const rawInput = (searchInput?.value || '').trim();
+        const tagMapById = buildTagMap(tags); // needed for tag lookups
+        const searchGroups = parseSearchGroups(rawInput);
+    
+        if (searchGroups.length > 0) {
+            filtered = unassignedCharacters.filter(char => {
+                const tagIds = tag_map[char.avatar] || [];
+                const tagNames = tagIds.map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
+                const allFields = Object.values(char).filter(v => typeof v === 'string').join(' ').toLowerCase();
+                const name = char.name.toLowerCase();
+    
+                for (const group of searchGroups) {
+                    let groupMatches = true;
+                    for (const termStr of group) {
+                        const term = parseSearchTerm(termStr);
+                        if (!term) continue;
+                        let match = false;
+    
+                        if (term.field === 'a') {
+                            match = allFields.includes(term.value);
+                        } else if (term.field === 't') {
+                            match = tagNames.some(tagName => tagName.includes(term.value));
+                        } else {
+                            match = name.includes(term.value);
+                        }
+    
+                        if (term.positive && !match) {
+                            groupMatches = false;
+                            break;
+                        }
+                        if (!term.positive && match) {
+                            groupMatches = false;
+                            break;
+                        }
+                    }
+                    if (groupMatches) return true; // OR group passed
+                }
+                return false;
+            });
+        }
+    
+        // Sort
+        switch (folderCharSortMode) {
+            case 'alpha_asc':
+                filtered.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            case 'alpha_desc':
+                filtered.sort((a, b) => b.name.localeCompare(a.name));
+                break;
+            case 'tag_count_desc':
+                filtered.sort((a, b) =>
+                    (tag_map[b.avatar]?.length || 0) - (tag_map[a.avatar]?.length || 0)
+                );
+                break;
+            case 'tag_count_asc':
+                filtered.sort((a, b) =>
+                    (tag_map[a.avatar]?.length || 0) - (tag_map[b.avatar]?.length || 0)
+                );
+                break;
+            case 'with_notes':
+                filtered = filtered.filter(c => (getNotes().charNotes || {})[c.avatar]);
+                break;
+            case 'without_notes':
+                filtered = filtered.filter(c => !(getNotes().charNotes || {})[c.avatar]);
+                break;
+        }
+
+        filtered.forEach(char => {
+            // Check if assigned to another folder
+            const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
+            const isAssignedHere = folder.characters.includes(char.avatar);
+            const isAssignedElsewhere = assignedFolder && !isAssignedHere;
+        
+            const li = document.createElement('li');
+            li.style.display = 'flex';
+            li.style.alignItems = 'center';
+            li.style.gap = '1em';
+        
+            const left = document.createElement('div');
+            left.style.display = 'flex';
+            left.style.alignItems = 'center';
+            left.style.gap = '8px';
+        
+            // Avatar + name
+            const img = document.createElement('img');
+            img.className = 'stcm_avatar_thumb';
+            img.src = char.avatar ? `/characters/${char.avatar}` : 'img/ai4.png';
+            img.alt = char.name;
+            img.onerror = () => img.src = 'img/ai4.png';
+            left.appendChild(img);
+        
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'charName';
+            nameSpan.textContent = char.name;
+            left.appendChild(nameSpan);
+        
+            if (isAssignedElsewhere) {
+                li.style.opacity = '0.6';
+                li.title = `Already assigned to "${assignedFolder.name}"`;
+        
+                // Text label
+                const assignedLabel = document.createElement('span');
+                assignedLabel.style.fontStyle = 'italic';
+                assignedLabel.style.color = '#ccc';
+                assignedLabel.textContent = `Already assigned to '${assignedFolder.name}'`;
+                left.appendChild(assignedLabel);
+        
+                // "Reassign here" button
+                const reassignBtn = document.createElement('button');
+                reassignBtn.className = 'stcm_menu_button tiny';
+                reassignBtn.textContent = 'Reassign here';
+                reassignBtn.title = `Remove from "${assignedFolder.name}" and assign here`;
+                reassignBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await stcmFolders.assignCharactersToFolder(folder, [char.avatar]);
+                    // Update local view
+                    if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
+                    renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
+                    renderAssignCharList();
+                    stcmFolders.updateFolderCharacterCount (folder);
+                    STCM.sidebarFolders = await stcmFolders.loadFolders();
+                    injectSidebarFolders(STCM.sidebarFolders, characters);
+                });
+                left.appendChild(reassignBtn);
+        
+                li.appendChild(left);
+                charList.appendChild(li);
+                return;
+            }
+        
+            // Otherwise: normal assign controls
+            // Checkbox
+            const label = document.createElement('label');
+            label.className = 'customCheckboxWrapper';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = char.avatar;
+            checkbox.className = 'folderAssignCharCheckbox';
+            checkbox.checked = assignSelection.has(char.avatar);
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    assignSelection.add(char.avatar); }
+                else {
+
+                 assignSelection.delete(char.avatar);
+            }
+
+                    // 🔄 Sync "Select All" if it exists
+                const selectAllCheckbox = document.getElementById('selectAllVisibleAssignables');
+                if (selectAllCheckbox) {
+                    const allVisible = [...charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)')];
+                    const allChecked = allVisible.length > 0 && allVisible.every(cb => cb.checked);
+                    selectAllCheckbox.checked = allChecked;
+                }
+            });
+
+
+            label.appendChild(checkbox);
+        
+            const checkmark = document.createElement('span');
+            checkmark.className = 'customCheckbox';
+            label.appendChild(checkmark);
+        
+            left.insertBefore(label, img);
+        
+            // Assign one button
+            const assignOneBtn = document.createElement('button');
+            assignOneBtn.className = 'stcm_menu_button tiny assignCharsFoldersSmall';
+            assignOneBtn.textContent = '+';
+            assignOneBtn.title = 'Assign this character';
+            assignOneBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await stcmFolders.assignCharactersToFolder(folder, [char.avatar]);
+                if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
+                renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
+                renderAssignCharList();
+                stcmFolders.updateFolderCharacterCount (folder);
+                STCM.sidebarFolders = await stcmFolders.loadFolders();
+                injectSidebarFolders(STCM.sidebarFolders, characters);
+            });
+        
+            left.appendChild(assignOneBtn);
+        
+            li.appendChild(left);
+        
+            // Tag chips (as before)
+            const tagListWrapper = document.createElement('div');
+            tagListWrapper.className = 'assignedTagsWrapper';
+            cleanTagMap(tag_map, characters, groups);
+            const tagMapById = buildTagMap(tags);
+            const assignedTags = tag_map[char.avatar] || [];
+            assignedTags.forEach(tagId => {
+                const tag = tagMapById.get(tagId);
+                if (!tag) return;
+                const tagBox = document.createElement('span');
+                tagBox.className = 'tagBox';
+                tagBox.textContent = tag.name;
+                const defaultBg = '#333';
+                const defaultFg = '#fff';
+                tagBox.style.backgroundColor = (tag.color && tag.color !== '#') ? tag.color : defaultBg;
+                tagBox.style.color = (tag.color2 && tag.color2 !== '#') ? tag.color2 : defaultFg;
+                tagListWrapper.appendChild(tagBox);
+            });
+            li.appendChild(tagListWrapper);
+        
+            charList.appendChild(li);
+        });
+
+                    // Sync "Select All" checkbox based on current view
+const selectAllCheckbox = document.getElementById('selectAllVisibleAssignables');
+if (selectAllCheckbox) {
+    const allVisible = [...charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)')];
+    const allChecked = allVisible.length > 0 && allVisible.every(cb => cb.checked);
+    selectAllCheckbox.checked = allChecked;
+}
+
+        
+    }
+
+    // Attach event listeners
+    sortFilterRow.querySelector('#folderCharSortMode').addEventListener('change', (e) => {
+        folderCharSortMode = e.target.value;
+        renderAssignCharList();
+    });
+    sortFilterRow.querySelector('#folderCharSearchInput').addEventListener('input', debounce((e) => {
+        folderCharSearchTerm = e.target.value;
+        renderAssignCharList();
+    }));
+
+
+    renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
+    renderAssignCharList();
+}
+
+
+export function renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection = new Set()) {
+    let chipsRow = section.querySelector('.stcm_folder_chars_chips_row');
+    if (chipsRow) {
+        chipsRow.innerHTML = '';
+        chipsRow.remove();
+    }
+
+        // Clean orphan IDs out of folder.characters in-place
+        if (Array.isArray(folder.characters)) {
+            // Find all characters that still exist
+            const validIds = folder.characters.filter(charId =>
+                characters.some(c => c.avatar === charId)
+            );
+            if (validIds.length !== folder.characters.length) {
+                folder.characters = validIds;
+                // Optional: persist this change if your folders are saved
+                stcmFolders.saveFolder && stcmFolders.saveFolder(folder);
+            }
+        }
+    
+        const assignedIds = Array.isArray(folder.characters) ? folder.characters : [];
+
+    chipsRow = document.createElement('div');
+    chipsRow.className = 'stcm_folder_chars_chips_row';
+
+    assignedIds.forEach(charId => {
+        const char = characters.find(c => c.avatar === charId);
+        if (!char) return;
+        const chip = document.createElement('span');
+        chip.className = 'stcm_char_chip';
+
+        const img = document.createElement('img');
+        img.src = char.avatar ? `/characters/${char.avatar}` : 'img/ai4.png';
+        img.alt = char.name;
+        img.className = 'stcm_char_chip_avatar';
+        img.onerror = () => img.src = 'img/ai4.png';
+
+        chip.appendChild(img);
+        chip.appendChild(document.createTextNode(' ' + char.name + ' '));
+
+        const remove = document.createElement('span');
+        remove.className = 'remove';
+        remove.title = "Remove";
+        remove.innerHTML = '&#10005;';
+        remove.addEventListener('click', async () => {
+            await stcmFolders.removeCharacterFromFolder(folder, charId);
+            const idx = folder.characters.indexOf(charId);
+            if (idx !== -1) folder.characters.splice(idx, 1);
+            assignSelection.delete(charId);
+            renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
+            renderAssignCharList();
+            stcmFolders.updateFolderCharacterCount (folder);
+            STCM.sidebarFolders = await stcmFolders.loadFolders();
+            injectSidebarFolders(STCM.sidebarFolders, characters);
+        });
+
+        chip.appendChild(remove);
+        chipsRow.appendChild(chip);
+    });
+
+    // Insert after close button and header
+    const insertIndex = 2;
+    if (section.children.length > insertIndex) {
+        section.insertBefore(chipsRow, section.children[insertIndex]);
+    } else {
+        section.appendChild(chipsRow);
+    }
 }
