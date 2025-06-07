@@ -489,7 +489,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         node.classList.remove("stcm-drop-above", "stcm-drop-below", "stcm-drop-into");
         delete node.dataset.dropPosition;
     });
-    
+
     node.addEventListener('drop', async (e) => {
         e.preventDefault();
         row.classList.remove('stcm-drop-hover', 'stcm-drop-above', 'stcm-drop-below', 'stcm-drop-into');
@@ -521,9 +521,19 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
             // Update parent for dragged if necessary
             if (dragged.parentId !== parent.id) {
                 await stcmFolders.moveFolder(dragged.id, parent.id);
+                // Reload folders to get the up-to-date children array
+                const foldersAfterMove = await stcmFolders.loadFolders();
+                const parentAfterMove = foldersAfterMove.find(f => f.id === parent.id);
+                let siblings = [...parentAfterMove.children];
+                // Remove dragged.id if already present (should be at end), then insert at new spot
+                siblings = siblings.filter(id => id !== dragged.id);
+                siblings.splice(insertAt, 0, dragged.id);
+                await reorderChildren(parent.id, siblings);
+            } else {
+                // Same parent: just reorder
+                await reorderChildren(parent.id, siblings);
             }
-            // Always reorder even if parent didn't change
-            await reorderChildren(parent.id, siblings);
+
     
         } else if (dropPosition === "into") {
             // Drop into this folder as a child
