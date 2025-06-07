@@ -278,8 +278,8 @@ function startInlineRename(icon, tagId) {
         if (t && newName && newName !== oldName) {
             t.name = newName;
             callSaveandReload();
-            renderCharacterList();
             renderTagSection();
+            renderCharacterList();
         } else {
             container.replaceChild(strong, input);
         }
@@ -332,6 +332,7 @@ function buildFolderTypeDropdown(tag) {
             list.style.display = 'none';
             callSaveandReload();
             renderTagSection();
+            renderCharacterList();
         };
         list.appendChild(opt);
     });
@@ -596,6 +597,7 @@ export function attachTagSectionListeners(modalRoot) {
             mergeBtn.textContent = 'Merge Now';
             modalRoot.querySelector('#cancelMergeTags').style.display = '';
             renderTagSection();
+            renderCharacterList();
         } else {
             // second click → do the merge
             await performMerge(modalRoot);

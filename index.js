@@ -336,8 +336,9 @@ refreshFoldersTree();
             Object.assign(tag_map, data.tag_map);
             toastr.success('Tags restored from file');
             callSaveandReload();
-            renderCharacterList();
             renderTagSection();
+            renderCharacterList();
+            
         } catch {
             toastr.error('Invalid tag backup file');
         }
@@ -472,22 +473,15 @@ refreshFoldersTree();
         document.getElementById('cancelBulkDeleteChars').style.display = 'none';
         document.getElementById('confirmBulkDeleteChars').style.display = 'none';
         await callSaveandReload();
-        renderCharacterList();
         renderTagSection();
+        renderCharacterList();
+        
     });
     
     
     
     renderTagSection();
     populateAssignTagSelect();
-    const wrapper = document.getElementById('characterListWrapper');
-    const container = document.createElement('div');
-    container.id = 'characterListContainer';
-    container.clsss = 'stcm_scroll_300';
-    container.style.paddingBottom = '1em';
-    wrapper.innerHTML = ''; // Clear any prior content
-    wrapper.appendChild(container);
-
     renderCharacterList();
 // MODAL Sizing, positioning, scroll, draggable  
     resetModalScrollPositions();
@@ -770,16 +764,16 @@ async function handleNotesImport(importData) {
     if (conflicts.length) {
         await showNotesConflictDialog(conflicts, newNotes, importData);
         flushExtSettings();
-        renderCharacterList();
         renderTagSection();
+        renderCharacterList();
     } else {
         // Apply new notes
         Object.assign(tagNotes, newNotes.tagNotes);
         Object.assign(charNotes, newNotes.charNotes);
         saveNotes({ ...notes, tagNotes, charNotes }); 
         flushExtSettings();
-        renderCharacterList();
         renderTagSection();
+        renderCharacterList();
         toastr.success('Notes imported successfully!');
     }
 }
@@ -895,8 +889,8 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
 
     saveNotes({ ...notes, tagNotes, charNotes });
     flushExtSettings();
-    renderCharacterList();
     renderTagSection();
+    renderCharacterList();
     toastr.success('Selected notes imported!');
 }
 
