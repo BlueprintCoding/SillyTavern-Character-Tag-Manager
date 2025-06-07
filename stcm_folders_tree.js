@@ -20,6 +20,7 @@ import {
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
+import { STCM } from './index.js';
 
 import {
     injectSidebarFolders,
@@ -30,6 +31,8 @@ import {
     showChangeParentPopup,
     reorderChildren,
     getAllDescendantFolderIds,
+    updateSidebar,
+    renderSidebarFolderContents 
 } from './stcm_folders_ui.js';
 
 import { characters } from '../../../../script.js';
@@ -233,6 +236,12 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
             try {
                 await stcmFolders.addFolder(subName.trim(), folder.id);
                 injectSidebarFolders(await stcmFolders.loadFolders(), characters);
+                await updateSidebar(true);
+                renderSidebarFolderContents(
+                        STCM.sidebarFolders,          // freshly-loaded list
+                        characters,
+                        folder.id                     // stay in this folder
+                    );
                 onTreeChanged?.();
                 toastr.success(`Folder “${subName.trim()}” created!`);
             } catch (err) {
