@@ -746,3 +746,72 @@ export async function assignSelectedTagsTo(selectedCharIds) {
     renderCharacterList();
     return true;
 }
+
+// --- stcm_tags_ui.js -----------------------------------------------
+
+// put this near the top-level helpers (same scope as tags, tag_map, etc.)
+async function performMerge() {
+    const primaryId = selectedPrimaryTagId;
+    const mergeIds  = [...selectedMergeTags];
+
+    if (!primaryId || mergeIds.length === 0) {
+        toastr.warning('Select one primary and at least one tag to merge.', 'Merge Tags');
+        return;
+    }
+    if (mergeIds.includes(primaryId)) {
+        toastr.error('Primary tag cannot also be marked for merge.', 'Merge Tags');
+        return;
+    }
+
+    // build confirm dialog (same markup you had before)
+    /* … use buildTagMap / POPUP … */
+
+    if (userCancelled) return;
+
+    // 1. rewrite tag_map
+    Object.entries(tag_map).forEach(([charId, tagIds]) => {
+        if (!Array.isArray(tagIds)) return;
+        let changed = false;
+        mergeIds.forEach(tid => {
+            const idx = tagIds.indexOf(tid);
+            if (idx !== -1) { tagIds.splice(idx, 1); changed = true; }
+        });
+        if (changed && !tagIds.includes(primaryId)) tagIds.push(primaryId);
+    });
+
+    // 2. remove merged tags from master list
+    mergeIds.forEach(id => {
+        const i = tags.findIndex(t => t.id === id);
+        if (i !== -1) tags.splice(i, 1);
+    });
+
+    toastr.success(`Merged ${mergeIds.length} tag(s).`);
+
+    // 3. reset UI + persist
+    isMergeMode = false;
+    selectedMergeTags.clear();
+    selectedPrimaryTagId = null;
+    modalRoot.querySelector('#startMergeTags').textContent = 'Merge Tags';
+    modalRoot.querySelector('#cancelMergeTags').style.display = 'none';
+    callSaveAndReload();
+    renderTagSection();
+    renderCharacterList();
+}
+
+// -------------------------------------------------------------------
+// inside attachTagSectionListeners → click handler for #startMergeTags
+modalRoot.querySelector('#startMergeTags')
+  ?.addEventListener('click', async () => {
+      if (!isMergeMode) {
+          // -- first click: enter merge mode --
+          isMergeMode = true;
+          selectedMergeTags.clear();
+          selectedPrimaryTagId = null;
+          this.textContent = 'Merge Now';
+          modalRoot.querySelector('#cancelMergeTags').style.display = '';
+          renderTagSection();
+      } else {
+          // -- second click: perform merge --
+          await performMerge();
+      }
+});
