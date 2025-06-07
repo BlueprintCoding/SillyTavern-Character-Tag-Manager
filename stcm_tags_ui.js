@@ -448,6 +448,7 @@ export function promptCreateTag() {
     callGenericPopup(container, POPUP_TYPE.CONFIRM, 'Create New Tag', {
         okButton: 'Create Tag',
         cancelButton: 'Cancel',
+        customClass: 'stcm_custom-add-tag-popup'
     }).then(res => {
         if (res !== POPUP_RESULT.AFFIRMATIVE) return;
         tags.push({
@@ -495,8 +496,9 @@ function openColorEditModal(tag) {
     });
 
     callGenericPopup(container, POPUP_TYPE.CONFIRM, `Edit colours: ${escapeHtml(tag.name)}`, {
-        okButton: 'Save Colours',
+        okButton: 'Save Colors',
         cancelButton: 'Cancel',
+        customClass: 'stcm_custom-color-edit-popup'
     }).then(res => {
         if (res !== POPUP_RESULT.AFFIRMATIVE) return;
         tag.color  = currBg;

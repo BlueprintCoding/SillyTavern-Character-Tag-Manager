@@ -1146,6 +1146,7 @@ min-width: 130px;
 .stcm_custom-color-edit-popup .popup-content {
     overflow: visible !important;
 }
+
 .tc-popup {
     z-index: 9999 !important;
 }
