@@ -797,10 +797,10 @@
     background: #3bb1ff44;
     cursor: pointer;
 }
-#characterTagManagerModal.stcm-dragging-folder .stcm-drop-line.stcm-drop-line-active.insert-between {
+/* #characterTagManagerModal.stcm-dragging-folder .stcm-drop-line.stcm-drop-line-active.insert-between {
     background: linear-gradient(90deg, #3bb1ff 60%, #bee7ff 100%);
     box-shadow: 0 0 0 2px #3bb1ff, 0 2px 12px 1px #3bb1ff66;
-}
+} */
 
 .stcm-drop-line-active {
     background: var(--ac-style-color-accent, #6ec0ff) !important;
