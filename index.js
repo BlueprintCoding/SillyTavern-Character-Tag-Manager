@@ -474,6 +474,8 @@ refreshFoldersTree();
         document.getElementById('confirmBulkDeleteChars').style.display = 'none';
         await callSaveandReload();
         renderTagSection();
+        const input = document.getElementById('charSearchInput');
+        if (input) input.value = '';
         renderCharacterList();
         
     });
@@ -482,6 +484,8 @@ refreshFoldersTree();
     
     renderTagSection();
     populateAssignTagSelect();
+    const input = document.getElementById('charSearchInput');
+    if (input) input.value = '';
     renderCharacterList();
 // MODAL Sizing, positioning, scroll, draggable  
     resetModalScrollPositions();
