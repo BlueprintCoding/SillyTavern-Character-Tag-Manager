@@ -509,6 +509,54 @@ function openColorEditModal(tag) {
     });
 }
 
+/**
+ * Adds .stcm_custom-color-edit-popup to any open popup that
+ * contains one of our ToolCool colour–pickers.  Makes the picker
+ * dropdown overflow visible so the user can interact with it.
+ */
+(function installColourPickerPopupObserver () {
+    // One observer for the whole doc is enough
+    const observer = new MutationObserver(mutations => {
+        for (const m of mutations) {
+            // Check every element that got *added*
+            m.addedNodes.forEach(n => {
+                if (!(n instanceof HTMLElement)) return;
+
+                // 1) if the added node **is** a popup-body, check it directly
+                // 2) otherwise, look inside it for any popup-bodies
+                const bodies = n.matches('dialog.popup[open] .popup-body')
+                    ? [n]
+                    : Array.from(n.querySelectorAll('dialog.popup[open] .popup-body'));
+
+                bodies.forEach(body => {
+                    // Add the class only once and only if a picker is present
+                    if (
+                        !body.classList.contains('stcm_custom-color-edit-popup') &&
+                        body.querySelector(
+                            '.newTagBgPicker, .newTagFgPicker, .editTagBgPicker, .editTagFgPicker'
+                        )
+                    ) {
+                        body.classList.add('stcm_custom-color-edit-popup');
+
+                        //
+                        // ✨ OPTIONAL CLEAN-UP ✨
+                        // When the dialog closes, remove the class again
+                        //
+                        body.closest('dialog.popup')?.addEventListener(
+                            'close',
+                            () => body.classList.remove('stcm_custom-color-edit-popup'),
+                            { once: true }
+                        );
+                    }
+                });
+            });
+        }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+})();
+
+
 // ---------------------------------------------------------------------------
 // tag deletion
 // ---------------------------------------------------------------------------
