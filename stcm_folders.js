@@ -5,9 +5,10 @@ import {
 } from "../../../tags.js";
 import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import { escapeHtml, flushExtSettings  } from "./utils.js";
-import { STCM, callSaveandReload, renderCharacterTagData } from "./index.js";
+import { STCM, callSaveandReload } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
 import { injectSidebarFolders, updateSidebar  } from "./stcm_folders_ui.js";
+import { renderTagSection } from "./stcm_tags_ui.js"
 
 const EXT_KEY = 'stcm_folders_v2'; // a single key in ext-settings that holds the folder array
 
@@ -265,7 +266,7 @@ export async function convertTagToRealFolder(tag) {
 
         await callSaveandReload();
         renderCharacterList();
-        renderCharacterTagData();
+        renderTagSection();
         toastr.success(`Deleted tag "${tag.name}"`);
     }
 }
