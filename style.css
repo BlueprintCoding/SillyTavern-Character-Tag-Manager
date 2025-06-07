@@ -772,7 +772,6 @@
     gap: 7px;
 }
 
-<<<<<<< HEAD
 /* Drag ghost is handled by the browser using cloneNode */
 .stcm-drop-hover {
     outline: 2px dashed var(--ac-style-color-accent, #6ec0ff);
@@ -789,8 +788,6 @@
 } */
 
 
-=======
->>>>>>> parent of 8cd0a79 (drag css)
 .stcm_folder_children {
     margin-left: 0; /* margin-left applied on .stcm_folder_node already */
     display: block;
