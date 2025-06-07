@@ -786,13 +786,12 @@
     transition: all 0.18s;
 }
 
-body.stcm-dragging-folder .stcm-drop-line {
-    height: 12px;              /* Expand only while dragging */
-    background: #3bb1ff44;     /* Faint blue, or whatever you like */
+#characterTagManagerModal.stcm-dragging-folder .stcm-drop-line {
+    height: 12px;
+    background: #3bb1ff44;
     cursor: pointer;
 }
-
-body.stcm-dragging-folder .stcm-drop-line.stcm-drop-line-active.insert-between {
+#characterTagManagerModal.stcm-dragging-folder .stcm-drop-line.stcm-drop-line-active.insert-between {
     background: linear-gradient(90deg, #3bb1ff 60%, #bee7ff 100%);
     box-shadow: 0 0 0 2px #3bb1ff, 0 2px 12px 1px #3bb1ff66;
 }
@@ -821,8 +820,6 @@ body.stcm-dragging-folder .stcm-drop-line.stcm-drop-line-active.insert-between {
 .stcm_folder_row.stcm-drop-below::after { bottom: 0; }
 .stcm_folder_row.stcm-drop-into { box-shadow: 0 0 0 2px var(--ac-style-color-accent, #33f) inset; }
 .stcm_folder_row { position: relative; }
-
-
 
 
 .stcm_folder_children {
