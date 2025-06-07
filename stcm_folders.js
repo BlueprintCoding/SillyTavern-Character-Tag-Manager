@@ -66,17 +66,16 @@ export async function loadFolders(options = {}) {
     const cached = localStorage.getItem('stcm_folders_cache');
     cacheObj = cached ? parseCache(cached) : null;
     if (cacheObj && isValidFolderArray(cacheObj.folders)) {
-        // If any file load error, prompt user to restore from cache
         if (fileLoadFailed) {
             const shouldRestore = await promptRestoreFromCache(cacheObj.saved_at);
-            if (shouldRestore) return cacheObj.folders;
-            // If user says no, continue to fallback default
-        } else {
-            // If cache is fine and no server error, just use cache
-            return cacheObj.folders;
+            if (shouldRestore) {
+                await saveFolders(cacheObj.folders);
+                return cacheObj.folders;
+            }
+            // else, fall through to default
         }
+        // else: do NOT return the cache, fall through to default
     }
-
     // Show error to user if all fail (customize to your UI)
     if (errorMsg && !options.silent) {
         if (typeof toastr !== "undefined") {
