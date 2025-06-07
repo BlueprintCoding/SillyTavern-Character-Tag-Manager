@@ -310,19 +310,10 @@ refreshFoldersTree();
     document.getElementById('charSortMode').addEventListener('change', renderCharacterList);
 
 
-    document.getElementById('tagSearchInput').addEventListener(
-        'input',
-        debounce(() => renderTagSection())
-    );
-
     document.getElementById('charSearchInput').addEventListener(
         'input',
         debounce(() => renderCharacterList())
     );
-
-    document.getElementById('createNewTagBtn').addEventListener('click', () => {
-        promptCreateTag();
-    });
 
 
     document.getElementById('backupTagsBtn').addEventListener('click', () => {
@@ -366,44 +357,6 @@ refreshFoldersTree();
             toastr.error('Invalid tag backup file');
         }
         e.target.value = ''; // reset input
-    });
-
-
-    document.getElementById('assignTagSearchInput').addEventListener(
-        'input',
-        debounce(() => populateAssignTagSelect())
-    );
-
-
-    document.getElementById('assignTagsButton').addEventListener('click', () => {
-        const selectedCharIds = Array.from(stcmCharState.selectedCharacterIds);
-        if (!selectedTagIds.size || !selectedCharIds.length) {
-            toastr.warning('Please select at least one tag and one character.', 'Assign Tags');
-            return;
-        }
-
-        selectedCharIds.forEach(charId => {
-            if (!tag_map[charId]) tag_map[charId] = [];
-            selectedTagIds.forEach(tagId => {
-                if (!tag_map[charId].includes(tagId)) {
-                    tag_map[charId].push(tagId);
-                }
-            });
-        });
-        callSaveandReload();
-        toastr.success(`Assigned ${selectedTagIds.size} tag(s) to ${selectedCharIds.length} character(s).`, 'Assign Tags');
-
-        // Clear all selections/inputs
-        selectedTagIds.clear();
-        stcmCharState.selectedCharacterIds.clear();
-        const charSearchInput = document.getElementById('charSearchInput');
-        if (charSearchInput) charSearchInput.value = "";
-        const tagSearchInput = document.getElementById('assignTagSearchInput');
-        if (tagSearchInput) tagSearchInput.value = "";
-
-        populateAssignTagSelect();
-        renderCharacterList();
-        renderTagSection();
     });
 
     document.getElementById('startBulkDeleteChars').addEventListener('click', () => {

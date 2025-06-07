@@ -20,29 +20,22 @@ import {
     debounce,
     flushExtSettings,
     getFreeName,
-    isNullColor,
     escapeHtml,
     getCharacterNameById,
     buildCharNameMap,
     getFolderTypeForUI,
-    cleanTagMap,
     getNotes,
     saveNotes,
 } from './utils.js';
 
-import * as stcmFolders from './stcm_folders.js';
 import {
-    injectSidebarFolders,
-} from './stcm_folders_ui.js';
+    callSaveAndReload
+} from './index.js';
 
 import {
     characters,
-    getCharacters,
-    printCharactersDebounced,
-    saveSettingsDebounced,
 } from '../../../../script.js';
 
-import { groups } from '../../../../scripts/group-chats.js';
 
 import {
     tags,
@@ -73,16 +66,6 @@ let  selectedPrimaryTagId   = null;
 export let isBulkDeleteMode        = false;
 export const selectedBulkDeleteTags = new Set();
 export const selectedTagIds = new Set();     // ← used by characters pane
-
-// ---------------------------------------------------------------------------
-// tiny helper used all over the place
-// ---------------------------------------------------------------------------
-async function callSaveAndReload() {
-    cleanTagMap(tag_map, characters, groups);
-    saveSettingsDebounced();
-    await getCharacters();
-    await printCharactersDebounced();
-}
 
 // ---------------------------------------------------------------------------
 // PUBLIC 1: renderTagSection  (was renderCharacterTagData in index.js)
