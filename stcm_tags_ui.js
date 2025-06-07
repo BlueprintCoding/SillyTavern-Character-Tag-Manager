@@ -28,9 +28,7 @@ import {
     saveNotes,
 } from './utils.js';
 
-import {
-    callSaveAndReload
-} from './index.js';
+import { callSaveandReload } from "./index.js";
 
 import {
     characters,
@@ -279,7 +277,7 @@ function startInlineRename(icon, tagId) {
         const t = tags.find(t => t.id === tagId);
         if (t && newName && newName !== oldName) {
             t.name = newName;
-            callSaveAndReload();
+            callSaveandReload();
             renderCharacterList();
             renderTagSection();
         } else {
@@ -332,7 +330,7 @@ function buildFolderTypeDropdown(tag) {
             selectedDiv.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
             selectedDiv.title = ft.tip;
             list.style.display = 'none';
-            callSaveAndReload();
+            callSaveandReload();
             renderTagSection();
         };
         list.appendChild(opt);
@@ -441,7 +439,7 @@ export function promptCreateTag() {
             color2: selectedFg,
             folder_type: 'NONE',
         });
-        callSaveAndReload();
+        callSaveandReload();
         renderTagSection();
         toastr.success('Tag created');
     });
@@ -564,7 +562,7 @@ function confirmDeleteTag(tag) {
         const i = tags.findIndex(t => t.id === tag.id);
         if (i !== -1) tags.splice(i, 1);
 
-        callSaveAndReload();
+        callSaveandReload();
         renderTagSection();
         renderCharacterList();
         toastr.success('Tag deleted');
@@ -659,7 +657,7 @@ export function attachTagSectionListeners(modalRoot) {
             modalRoot.querySelector('#cancelBulkDeleteTags').style.display = 'none';
             modalRoot.querySelector('#confirmBulkDeleteTags').style.display = 'none';
             modalRoot.querySelector('#startBulkDeleteTags').style.display = '';
-            callSaveAndReload();
+            callSaveandReload();
             renderTagSection();
             renderCharacterList();
         });
@@ -732,7 +730,7 @@ export async function assignSelectedTagsTo(selectedCharIds) {
             if (!tag_map[cid].includes(tid)) tag_map[cid].push(tid);
         });
     });
-    await callSaveAndReload();
+    await callSaveandReload();
     toastr.success(`Assigned ${selectedTagIds.size} tag(s)`);
     selectedTagIds.clear();
     populateAssignTagSelect();
@@ -792,7 +790,7 @@ async function performMerge(modalRoot) {
     modalRoot.querySelector('#startMergeTags').textContent = 'Merge Tags';
     modalRoot.querySelector('#cancelMergeTags').style.display = 'none';
 
-    await callSaveAndReload();
+    await callSaveandReload();
     renderTagSection();
     renderCharacterList();
 }
