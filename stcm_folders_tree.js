@@ -15,7 +15,8 @@ import {
     parseSearchTerm,
     cleanTagMap,
     getNotes,
-    hexToRgba
+    hexToRgba,
+    promptInput
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
