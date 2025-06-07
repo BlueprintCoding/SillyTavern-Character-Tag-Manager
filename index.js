@@ -300,6 +300,8 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 
     dragHandle.addEventListener('dragstart', (e) => {
         const dragGhost = row.cloneNode(true);
+        const overlay = document.getElementById('characterTagManagerModal');
+        
         dragGhost.style.position = 'absolute';
         dragGhost.style.top = '-9999px'; // off-screen
         dragGhost.style.pointerEvents = 'none';
@@ -310,9 +312,14 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         e.dataTransfer.effectAllowed = 'move';
     
         e.stopPropagation();
+        overlay.classList.add('stcm-dragging-folder');
     
         // Cleanup ghost after drag
         setTimeout(() => dragGhost.remove(), 0);
+    });
+
+    dragHandle.addEventListener('dragend', (e) => {
+        overlay.classList.remove('stcm-dragging-folder');
     });
     
 
@@ -483,6 +490,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
         }
     });
 
+    
     row.addEventListener('dragover', e => {
         e.preventDefault();
         row.classList.add('stcm-folder-row-drop-target');
