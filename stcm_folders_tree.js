@@ -335,10 +335,10 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged) {
 
             // put at end
             const siblings = [...folder.children.filter(id => id !== draggedId), draggedId];
-            await reorderChildren(folder.id, siblings);
-
-            injectSidebarFolders(await stcmFolders.loadFolders(), characters);
-            onTreeChanged?.();
+            folders = await reorderChildren(folder.id, siblings);
+            injectSidebarFolders(folders, characters);
+            onTreeChanged && onTreeChanged(folders);
+            
         });
 
         node.appendChild(childrenContainer);
@@ -395,9 +395,9 @@ function createDropLine(parent, allFolders, insertAt, onTreeChanged, depth = 0) 
             .children.filter(id => id !== draggedId);
         siblings.splice(insertAt, 0, draggedId);
         folders = await reorderChildren(parent.id, siblings);
-    
+
         injectSidebarFolders(folders, characters);
-        if (onTreeChanged) await onTreeChanged(folders);
+        onTreeChanged && onTreeChanged(folders);
     });
     
 

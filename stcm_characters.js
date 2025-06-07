@@ -13,18 +13,18 @@ import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { callSaveandReload } from "./index.js";
 import { renderTagSection } from "./stcm_tags_ui.js"
 
-    renderCharacterList();        
-
 function renderCharacterList() {
-    const containerMain = document.getElementById('characterListContainer');
-    if (!containerMain) return;
-
     const wrapper = document.getElementById('characterListWrapper');
     if (!wrapper) return;
-    wrapper.innerHTML = ''; // Wipes all children!
+
+    // Remove all old content
+    wrapper.innerHTML = '';
+    const container = document.createElement('div');
+    container.id = 'characterListContainer';
+    container.className = 'stcm_scroll_300';
+    wrapper.appendChild(container);
 
     // Always re-create the container!
-    const container = document.createElement('div');
     container.id = 'characterListContainer';
     container.className = 'stcm_scroll_300'; // if needed
     wrapper.appendChild(container);
