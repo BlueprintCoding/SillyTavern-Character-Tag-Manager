@@ -281,7 +281,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
     const node = document.createElement('div');
     node.className = 'stcm_folder_node';
     node.classList.add(`stcm_depth_${depth}`);
-    node.style.marginBottom = '4px';
+    node.style.marginBottom = '0px';
 
 
     // FOLDER ROW (flex)
@@ -294,7 +294,7 @@ function renderFolderNode(folder, allFolders, depth, renderFoldersTree) {
 
     const dragHandle = document.createElement('div');
     dragHandle.className = 'stcm-folder-drag-handle';
-    dragHandle.innerHTML = '<i class="fa-solid fa-grip-lines"></i>';
+    dragHandle.innerHTML = '<i class="fa-solid fa-bars"></i>';
     dragHandle.draggable = true;
     dragHandle.style.cursor = 'grab';
 

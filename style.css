@@ -824,7 +824,8 @@
 
 
 .stcm_folder_children {
-    margin-left: 0; /* margin-left applied on .stcm_folder_node already */
+    margin-bottom: 0;
+    margin-left: 0; 
     display: block;
 }
 
@@ -995,7 +996,7 @@ min-width: 130px;
 
 .stcm_folder_row {
     border-radius: 7px;
-    margin-bottom: 2px;
+    margin-bottom: 0px;
     box-shadow: none;
 }
 
