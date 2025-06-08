@@ -562,7 +562,7 @@ export function renderSidebarCharacterCard(char) {
             </div>
             <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
             <input class="ch_fav" value="" hidden="" keeper-ignore="">
-            <div class="ch_description">${char.creatorcomment ? char.description : ''}</div>
+            <div class="ch_description">  ${char.creatorcomment || char.description || ""}</div>
             <div class="tags tags_inline">
                 ${(char.tags || []).map(tag =>
                     `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
