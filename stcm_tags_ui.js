@@ -240,20 +240,6 @@ function renderSingleTag({ tag, charIds }) {
     });
     folderWrapper.appendChild(convertBtn);
 
-    // Info icon for Tag Folders
-    const infoIcon = document.createElement('i');
-    infoIcon.className = 'fa-solid fa-circle-info stcm_folder_info_icon';
-    infoIcon.title = 'About folders';
-    infoIcon.style.marginLeft = '6px';
-    infoIcon.style.cursor = 'pointer';
-    infoIcon.addEventListener('click', (e) => {
-        e.stopPropagation();
-        // You must define showFolderInfoPopup or import it.
-        if (typeof showFolderInfoPopup === 'function') showFolderInfoPopup(infoIcon);
-        else alert("This would show folder info help.");
-    });
-    folderWrapper.appendChild(infoIcon);
-
     header.appendChild(folderWrapper);
 
     // ---------------------------------------------------------------------
