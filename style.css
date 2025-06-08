@@ -937,12 +937,15 @@ min-width: 130px;
     display: flex;
     flex-direction: column;
     padding: 0.8em 0.5em;
-    gap: 10px;
+    gap: 4x;
     background: var(--ac-style-color-background, #18181a);
     min-width: 220px;
     width: 100%;
     box-sizing: border-box;
     border-bottom: 4px solid #222;
+    max-height: 50vh;
+    min-height: 30vh;
+    overflow-y: scroll;
 }
 
 .sidebar-folder-back {
@@ -962,11 +965,11 @@ min-width: 130px;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 10px;
+    padding: 5px 10px;
     border-radius: 8px;
     background: #222;
     cursor: pointer;
-    min-height: 48px;
+    min-height: 40px;
     transition: background 0.15s;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
@@ -976,10 +979,10 @@ min-width: 130px;
 }
 
 .stcm_folder_sidebar .avatar {
-    min-width: 38px;
-    min-height: 38px;
-    max-width: 38px;
-    max-height: 38px;
+    min-width: 30px;
+    min-height: 30px;
+    max-width: 30px;
+    max-height: 30px;
     border-radius: 8px;
     background: #8b2ae6;
     display: flex;
@@ -1320,32 +1323,39 @@ dialog.popup #stcm-popup-pin-input:focus {
   
 
 /* Scroll bar styling */
+/* === Universal Scroll Bar Styling for Modal & Sidebar === */
+
+/* Firefox: */
 #characterTagManagerModal, 
-#characterTagManagerModal * {
+#characterTagManagerModal *, 
+#stcm_sidebar_folder_nav,
+#stcm_sidebar_folder_nav * {
   scrollbar-width: thin;
   scrollbar-color: #666 #181818; /* thumb, track */
 }
 
+/* WebKit browsers: */
+#characterTagManagerModal ::-webkit-scrollbar,
+#stcm_sidebar_folder_nav ::-webkit-scrollbar {
+  width: 12px;
+  background: #181818;
+}
+#characterTagManagerModal ::-webkit-scrollbar-thumb,
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb {
+  background: #666;
+  border-radius: 8px;
+  min-height: 24px;
+  border: 2.5px solid #232323;
+}
+#characterTagManagerModal ::-webkit-scrollbar-thumb:hover,
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb:hover {
+  background: #888;
+}
+#characterTagManagerModal ::-webkit-scrollbar-corner,
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-corner {
+  background: #181818;
+}
 
-#characterTagManagerModal ::-webkit-scrollbar {
-    width: 12px;
-    background: #181818;
-  }
-  
-  #characterTagManagerModal ::-webkit-scrollbar-thumb {
-    background: #666;
-    border-radius: 8px;
-    min-height: 24px;
-    border: 2.5px solid #232323;
-  }
-  
-  #characterTagManagerModal ::-webkit-scrollbar-thumb:hover {
-    background: #888;
-  }
-  
-  #characterTagManagerModal ::-webkit-scrollbar-corner {
-    background: #181818;
-  }
   
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {
