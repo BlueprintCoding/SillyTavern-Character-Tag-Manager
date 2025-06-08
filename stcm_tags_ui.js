@@ -201,10 +201,60 @@ function renderSingleTag({ tag, charIds }) {
            </div>` : ''}
     `;
 
-    // ---------------------------------------------------------------------
-    // folder-type dropdown (none / open / closed)
-    // ---------------------------------------------------------------------
-    header.appendChild(buildFolderTypeDropdown(tag));
+    // ─────────────────────────────────────────────────────────────────────
+    // Tag Type / Folder-Type row
+    // ─────────────────────────────────────────────────────────────────────
+
+    // Build dropdown using your own builder function (to keep logic DRY)
+    const folderDropdownWrapper = buildFolderTypeDropdown(tag);
+
+    const folderWrapper = document.createElement('div');
+    folderWrapper.className = 'stcm_folder_type_row';
+    folderWrapper.style.display = 'flex';
+    folderWrapper.style.alignItems = 'center';
+    folderWrapper.style.gap = '0.5em';
+    folderWrapper.style.marginLeft = '20px';
+
+    // Label with icon
+    const folderLabel = document.createElement('span');
+    folderLabel.innerHTML = `<i class="fa-solid fa-folder" style="margin-right: 4px;"></i>Tag Type:`;
+    folderLabel.style.fontWeight = 'bold';
+    folderLabel.style.whiteSpace = 'nowrap';
+    folderLabel.title = "Choose how this tag behaves as a folder";
+
+    // Append label and dropdown to wrapper
+    folderWrapper.appendChild(folderLabel);
+    folderWrapper.appendChild(folderDropdownWrapper);
+
+    // Convert to Real Folder button
+    const convertBtn = document.createElement('button');
+    convertBtn.className = 'stcm_menu_button tiny interactable';
+    convertBtn.textContent = 'Convert to Real Folder';
+    convertBtn.title = 'Create a real folder with this tag’s settings';
+    convertBtn.style.marginLeft = '6px';
+    convertBtn.addEventListener('click', () => {
+        // Be sure you have this method in your stcmFolders API!
+        import('./stcm_folders.js').then(mod => {
+            mod.convertTagToRealFolder && mod.convertTagToRealFolder(tag);
+        });
+    });
+    folderWrapper.appendChild(convertBtn);
+
+    // Info icon for Tag Folders
+    const infoIcon = document.createElement('i');
+    infoIcon.className = 'fa-solid fa-circle-info stcm_folder_info_icon';
+    infoIcon.title = 'About folders';
+    infoIcon.style.marginLeft = '6px';
+    infoIcon.style.cursor = 'pointer';
+    infoIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // You must define showFolderInfoPopup or import it.
+        if (typeof showFolderInfoPopup === 'function') showFolderInfoPopup(infoIcon);
+        else alert("This would show folder info help.");
+    });
+    folderWrapper.appendChild(infoIcon);
+
+    header.appendChild(folderWrapper);
 
     // ---------------------------------------------------------------------
     // action buttons: Characters / Notes / Delete
