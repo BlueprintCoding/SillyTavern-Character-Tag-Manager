@@ -1074,18 +1074,28 @@ min-width: 130px;
     border: 1.5px solid #444;
 }
 
+/* Old way */
+/*
 .stcm_folder_disabled {
     opacity: 0.3;
     filter: grayscale(0.8);
-    -webkit-user-select: none; /* Safari */
-    -moz-user-select: none;    /* Firefox */
-    -ms-user-select: none;     /* IE 10+ */
-    user-select: none;         /* Standard */
-}
+    -webkit-user-select: none; 
+    -moz-user-select: none;    
+    -ms-user-select: none;     
+    user-select: none;         
+} 
 
 .stcm_folder_disabled:hover {
     background: #222;
 }
+
+*/
+
+.stcm_folder_disabled {
+display: none;
+}
+
+
 
 .stcm_folders_breadcrumb {
     color: var(--SmartThemeBodyColor);
