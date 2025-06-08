@@ -28,6 +28,8 @@ import {
     saveNotes,
 } from './utils.js';
 
+import { convertTagToRealFolder} from './stcm_folders.js';
+
 import { callSaveandReload } from "./index.js";
 
 import {
@@ -233,10 +235,7 @@ function renderSingleTag({ tag, charIds }) {
     convertBtn.title = 'Create a real folder with this tag’s settings';
     convertBtn.style.marginLeft = '6px';
     convertBtn.addEventListener('click', () => {
-        // Be sure you have this method in your stcmFolders API!
-        import('./stcm_folders.js').then(mod => {
-            mod.convertTagToRealFolder && mod.convertTagToRealFolder(tag);
-        });
+        convertTagToRealFolder(tag); 
     });
     folderWrapper.appendChild(convertBtn);
 
