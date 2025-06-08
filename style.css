@@ -937,7 +937,7 @@ min-width: 130px;
     display: flex;
     flex-direction: column;
     padding: 0.8em 0.5em;
-    gap: 4x;
+    gap: 3px;
     background: var(--ac-style-color-background, #18181a);
     min-width: 220px;
     width: 100%;
