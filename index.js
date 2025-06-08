@@ -393,6 +393,37 @@ refreshFoldersTree();
         e.target.value = ''; // reset input
     });
 
+    document.getElementById('assignTagsButton').addEventListener('click', () => {
+        const selectedCharIds = Array.from(stcmCharState.selectedCharacterIds);
+        if (!selectedTagIds.size || !selectedCharIds.length) {
+            toastr.warning('Please select at least one tag and one character.', 'Assign Tags');
+            return;
+        }
+
+        selectedCharIds.forEach(charId => {
+            if (!tag_map[charId]) tag_map[charId] = [];
+            selectedTagIds.forEach(tagId => {
+                if (!tag_map[charId].includes(tagId)) {
+                    tag_map[charId].push(tagId);
+                }
+            });
+        });
+        callSaveandReload();
+        toastr.success(`Assigned ${selectedTagIds.size} tag(s) to ${selectedCharIds.length} character(s).`, 'Assign Tags');
+
+        // Clear all selections/inputs
+        selectedTagIds.clear();
+        stcmCharState.selectedCharacterIds.clear();
+        const charSearchInput = document.getElementById('charSearchInput');
+        if (charSearchInput) charSearchInput.value = "";
+        const tagSearchInput = document.getElementById('assignTagSearchInput');
+        if (tagSearchInput) tagSearchInput.value = "";
+
+        populateAssignTagSelect();
+        renderCharacterList();
+        renderCharacterTagData();
+    });
+
     document.getElementById('startBulkDeleteChars').addEventListener('click', () => {
         stcmCharState.isBulkDeleteCharMode = true;
         stcmCharState.selectedCharacterIds.clear();
