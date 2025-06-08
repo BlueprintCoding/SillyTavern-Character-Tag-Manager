@@ -1,15 +1,22 @@
 // utils.js
-import { uploadFileAttachment, getFileAttachment,  } from '../../../chats.js';
-import { injectTagManagerControlButton } from "./index.js";
 import {
-    POPUP_RESULT,
+    getContext,
+} from "../../../extensions.js";
+import { 
+    callGenericPopup,
     POPUP_TYPE,
-    callGenericPopup
-} from "../../../popup.js";
+    POPUP_RESULT 
+} from '../../../popup.js';
 
+let context = null;
+
+function ensureContext() {
+    if (!context) {
+        context = getContext();
+    }
+}
 
 let tagFilterBarObserver = null;  // Singleton observer for tag filter bar
-
 
 function debounce(fn, delay = 200) {
     let timer;
@@ -21,15 +28,16 @@ function debounce(fn, delay = 200) {
 
 let persistDebounceTimer;
 function debouncePersist() {
-    return new Promise(resolve => {
-        clearTimeout(persistDebounceTimer);
-        persistDebounceTimer = setTimeout(async () => {
-            await persistNotesToFile();
-            resolve();
-        }, 500);
-    });
+    clearTimeout(persistDebounceTimer);
+    persistDebounceTimer = setTimeout(() => {
+        ensureContext();
+        context.saveSettingsDebounced();
+    }, 500);
 }
 
+function flushExtSettings() {
+    debouncePersist();
+}
 
 function getFreeName(base, existingNames) {
     const lowerSet = new Set(existingNames.map(n => n.toLowerCase()));
@@ -49,13 +57,9 @@ function isNullColor(color) {
 
 function escapeHtml(text) {
     if (!text) return '';
-    return text.replace(/[&<>"']/g, (m) => (
-        m === '&' ? '&amp;' :
-            m === '<' ? '&lt;' :
-                m === '>' ? '&gt;' :
-                    m === '"' ? '&quot;' :
-                        m === "'" ? '&#39;' : m
-    ));
+    return text.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
 }
 
 function getCharacterNameById(id, charNameMap) {
@@ -68,16 +72,9 @@ function resetModalScrollPositions() {
         if (modal) modal.scrollTo({ top: 0 });
 
         const scrollables = modal?.querySelectorAll('.modalBody, .accordionContent, #characterListContainer');
-        scrollables?.forEach(el => {
-            el.scrollTop = 0;
-        });
+        scrollables?.forEach(el => el.scrollTop = 0);
 
-        //  force 2nd frame in case browser restores it AFTER first frame
-        requestAnimationFrame(() => {
-            scrollables?.forEach(el => {
-                el.scrollTop = 0;
-            });
-        });
+        requestAnimationFrame(() => scrollables?.forEach(el => el.scrollTop = 0));
     });
 }
 
@@ -87,84 +84,121 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
 
     handle.style.cursor = 'move';
 
-    const getHeaderHeight = () => handle.offsetHeight || 50;
-
     handle.addEventListener('mousedown', (e) => {
         isDragging = true;
-        // modal.getBoundingClientRect() is more reliable than offsetLeft on fixed
         const rect = modal.getBoundingClientRect();
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
+
         modal.style.position = 'fixed';
-        modal.style.zIndex = 10000;
-        modal.style.margin = 0;
+        modal.style.zIndex   = 10000;
+        modal.style.margin   = 0;
         document.body.style.userSelect = 'none';
     });
 
     function onMove(e) {
         if (!isDragging) return;
-        let newLeft = e.clientX - offsetX;
-        let newTop = e.clientY - offsetY;
-
-        // Clamp left/top to 0, right, and keep header visible at bottom
-        const headerHeight = getHeaderHeight();
-        const width = modal.offsetWidth;
-        const height = modal.offsetHeight;
-
-        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - width));
-        newTop = Math.max(0, Math.min(newTop, window.innerHeight - headerHeight));
-
+        const newLeft = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth  - modal.offsetWidth));
+        const newTop  = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - handle.offsetHeight));
         modal.style.left = `${newLeft}px`;
-        modal.style.top = `${newTop}px`;
-        modal.style.right = '';
-        modal.style.bottom = '';
-        modal.style.transform = ''; // Remove any center transform
+        modal.style.top  = `${newTop}px`;
     }
 
     function onUp() {
-        if (isDragging) {
-            isDragging = false;
-            document.body.style.userSelect = '';
-            if (onDragEnd) onDragEnd();
-        }
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.userSelect = '';
+        if (onDragEnd) onDragEnd();
     }
 
+    // global mouse handlers
     document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('mouseup',   onUp);
 
-    // CLEANUP: remove event listeners when modal closes
-    modal.addEventListener('DOMNodeRemoved', (ev) => {
-        if (ev.target === modal) {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
+    /* ---------- clean-up when the modal is removed ---------- */
+    const cleanupObserver = new MutationObserver((records, observer) => {
+        for (const { removedNodes } of records) {
+            for (const node of removedNodes) {
+                if (node === modal) {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup',   onUp);
+                    observer.disconnect();
+                    return;
+                }
+            }
         }
     });
+
+    // watch the modal’s parent (fallback to <body>)
+    cleanupObserver.observe(modal.parentNode || document.body, { childList: true });
 }
 
-
-
-// After making modal draggable, also track size and position for saving
 const STORAGE_KEY = 'stcm_modal_pos_size';
 
 function saveModalPosSize(modalContent) {
     const rect = modalContent.getBoundingClientRect();
+    if (rect.width < 100 || rect.height < 100 || (rect.left === 0 && rect.top === 0)) return;
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(rect));
+}
 
-    // Only save if width/height and position are meaningful
-    if (
-        rect.width < 100 || rect.height < 100 || // too small, not user-sized yet
-        (rect.left === 0 && rect.top === 0)     // opened at corner, likely initial
-    ) {
-        // Don't save the initial "reset" or "default" position/size!
-        return;
+/**
+ * Clamp a draggable / resizable modal so it never leaves the viewport.
+ * @param {HTMLElement} modalEl – the element you want to constrain
+ * @param {number} [margin=20] – free space to keep between the modal and window edges
+ * @returns {boolean} true if any dimension or position was changed
+ */
+function clampModalSize(modalEl, margin = 20) {
+    const maxWidth  = window.innerWidth  - margin;
+    const maxHeight = window.innerHeight - margin;
+    let changed = false;
+  
+    // -------- Size --------
+    if (modalEl.offsetWidth > maxWidth) {
+      modalEl.style.width = `${maxWidth}px`;
+      changed = true;
     }
+    if (modalEl.offsetHeight > maxHeight) {
+      modalEl.style.height = `${maxHeight}px`;
+      changed = true;
+    }
+  
+    // -------- Position --------
+    const rect = modalEl.getBoundingClientRect();
+    // Right / bottom edges
+    if (rect.right > window.innerWidth) {
+      modalEl.style.left = `${Math.max(0, window.innerWidth - rect.width)}px`;
+      changed = true;
+    }
+    if (rect.bottom > window.innerHeight) {
+      modalEl.style.top = `${Math.max(0, window.innerHeight - rect.height)}px`;
+      changed = true;
+    }
+    // Left / top edges (don’t let header fly off-screen)
+    if (rect.left < 0) {
+      modalEl.style.left = '0px';
+      changed = true;
+    }
+    if (rect.top < 0) {
+      modalEl.style.top = '0px';
+      changed = true;
+    }
+  
+    return changed;
+  }
 
-    // console.log('[STCM] Saving modal position/size:', rect); // debug log
-    sessionStorage.setItem('stcm_modal_pos_size', JSON.stringify({
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
-    }));
+function cleanTagMap(tag_map, characters = [], groups = []) {
+    // Build a list of every still-valid character / group id
+    const validIds = new Set([
+        ...characters.map(c => c.avatar),
+        ...groups.map(g => g.id),
+    ]);
+
+    // Strip any orphaned ids out of the map
+    for (const charId of Object.keys(tag_map)) {
+        if (!validIds.has(charId)) {
+            delete tag_map[charId];
+        }
+    }
 }
 
 function buildTagMap(tags) {
@@ -175,416 +209,108 @@ function buildCharNameMap(characters) {
     return new Map(characters.map(char => [char.avatar, char.name]));
 }
 
-
 function getNotes() {
-    try {
-        const data = JSON.parse(localStorage.getItem('stcm_notes_cache') || '{}');
-        return {
-            charNotes: data.charNotes || {},
-            tagNotes: data.tagNotes || {},
-            tagPrivate: data.tagPrivate || {},
-            tagPrivatePinHash: data.tagPrivatePinHash || ""    // <-- use this!
-        };
-    } catch {
-        return { charNotes: {}, tagNotes: {}, tagPrivate: {}, tagPrivatePinHash: "" };
-    }
+    ensureContext();
+    // create the bucket if it isn’t there
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    return context.extensionSettings.stcm.notes ?? { charNotes: {}, tagNotes: {} };
 }
-
 
 function saveNotes(notes) {
-    localStorage.setItem('stcm_notes_cache', JSON.stringify({
-        charNotes: notes.charNotes || {},
-        tagNotes: notes.tagNotes || {},
-        tagPrivate: notes.tagPrivate || {},
-        tagPrivatePinHash: notes.tagPrivatePinHash || ""    // <-- use this!
-    }));
+    ensureContext();
+    // create the bucket if it isn’t there
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    context.extensionSettings.stcm.notes = notes;
+    context.saveSettingsDebounced();
 }
 
+function watchTagFilterBar(injectTagManagerControlButton) {
+    const tagRow = document.querySelector('.tags.rm_tag_filter');
+    if (!tagRow) return;
+    if (tagFilterBarObserver) tagFilterBarObserver.disconnect();
+    injectTagManagerControlButton();
 
-async function persistNotesToFile() {
-    const raw = getNotes();
-    const notes = {
-        charNotes: Object.fromEntries(Object.entries(raw.charNotes || {}).filter(([_, v]) => v.trim() !== '')),
-        tagNotes: Object.fromEntries(Object.entries(raw.tagNotes || {}).filter(([_, v]) => v.trim() !== '')),
-        tagPrivate: raw.tagPrivate || {},
-        tagPrivatePinHash: raw.tagPrivatePinHash || ""
-    };
-
-    const json = JSON.stringify(notes, null, 2);
-    const base64 = window.btoa(unescape(encodeURIComponent(json)));
-
-    const fileUrl = await uploadFileAttachment('stcm-notes.json', base64);
-    if (fileUrl) {
-        localStorage.setItem('stcm_notes_url', fileUrl);
-        localStorage.setItem('stcm_notes_cache', JSON.stringify(notes));
-    }
+    tagFilterBarObserver = new MutationObserver(injectTagManagerControlButton);
+    tagFilterBarObserver.observe(tagRow, { childList: true });
 }
 
+async function promptInput({ label, title = 'Input', ok = 'OK', cancel = 'Cancel', initial = '' }) {
+    return new Promise(resolve => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = initial;
+        input.className = 'menu_input stcm_generic_toast_input';
+        input.style.width = '100%';
 
-async function restoreNotesFromFile() {
-    const fileUrl = localStorage.getItem('stcm_notes_url');
+        const wrapper = document.createElement('div');
+        wrapper.textContent = label;
+        wrapper.append(document.createElement('br'), input);
 
-    if (!fileUrl) {
-        console.info('[STCM] No notes file URL found. First-time setup.');
-        await persistNotesToFile(); // Create blank file
-        return;
-    }
+        callGenericPopup(wrapper, POPUP_TYPE.CONFIRM, title, {
+            okButton: ok,
+            cancelButton: cancel
+        }).then(result => resolve(result === POPUP_RESULT.AFFIRMATIVE ? input.value.trim() : null));
 
-    try {
-        const content = await getFileAttachment(fileUrl);
-        const parsed = JSON.parse(content);
-
-        // Ensure tagPrivatePinHash exists if imported
-        if (parsed && typeof parsed === "object") {
-            if (!parsed.tagPrivatePinHash) parsed.tagPrivatePinHash = "";
-        }
-        localStorage.setItem('stcm_notes_cache', JSON.stringify(parsed));
-    } catch (e) {
-        console.log('[STCM] Notes file missing or corrupted. Reinitializing blank notes.', e);
-        saveNotes({ charNotes: {}, tagNotes: {}, tagPrivate: {}, tagPrivatePinHash: "" });
-        await persistNotesToFile(); // Overwrite with fresh blank file
-    }
+        setTimeout(() => input.focus(), 50);
+    });
 }
 
 function getFolderTypeForUI(tag, notes) {
-    if (tag.folder_type === "CLOSED" && notes?.tagPrivate?.[tag.id]) return "PRIVATE";
-    return tag.folder_type || "NONE";
+    return (tag.folder_type === "CLOSED" && notes?.tagPrivate?.[tag.id]) ? "PRIVATE" : tag.folder_type || "NONE";
 }
 
-/**
- * Mutate bogus folder icons for private folders in #rm_print_characters_block
- * @param {Set<string>} privateTagIds  // set of tag ids that are private
- */
-function mutateBogusFolderIcons(privateTagIds) {
-    const container = document.getElementById('rm_print_characters_block');
-    if (!container) return;
-
-    // Helper for icon swap
-    function updateIcon(folderDiv) {
-        const tagId = folderDiv.getAttribute('tagid');
-        if (!privateTagIds.has(tagId)) return;
-        // Find the icon and swap it if needed
-        const icon = folderDiv.querySelector('.bogus_folder_icon');
-        if (icon) {
-            icon.classList.remove('fa-eye-slash', 'fa-eye');
-            icon.classList.add('fa-user-lock'); // lock icon
-        }
-            // Add custom CSS class for private folders
-    folderDiv.classList.add('stcm-private-folder');
-    }
-
-    // Mutate any existing folders immediately
-    container.querySelectorAll('.bogus_folder_select').forEach(updateIcon);
-
-    // Now observe for new folders
-    const observer = new MutationObserver(mutations => {
-        for (const mutation of mutations) {
-            mutation.addedNodes.forEach(node => {
-                if (!(node instanceof HTMLElement)) return;
-                if (node.classList?.contains('bogus_folder_select')) {
-                    updateIcon(node);
-                } else if (node.querySelectorAll) {
-                    node.querySelectorAll('.bogus_folder_select').forEach(updateIcon);
-                }
-            });
-        }
-    });
-
-    observer.observe(container, { childList: true, subtree: true });
+function parseSearchGroups(input) {
+    return input.split(',').map(g => g.match(/(?:[^\s"]+|"[^"]*")+/g) || []);
 }
 
-function injectPrivateFolderToggle(privateTagIds, onStateChange) {
-    // Only show if any private folders exist
-    const tagRow = document.querySelector('.tags.rm_tag_filter');
-    const mgrBtn = document.querySelector('#characterTagManagerControlButton');
-    if (!tagRow || !mgrBtn) return;
-
-    // REMOVE existing toggle if present
-    const oldToggle = document.getElementById('privateFolderVisibilityToggle');
-    if (oldToggle) oldToggle.remove();
-
-    // Don't add if no private folders
-    if (!privateTagIds.size) return;
-
-    // Three states: 0 = Locked, 1 = Unlocked, 2 = Private only
-    const stateKey = 'stcm_private_folder_toggle_state';
-    let state = 0; // Default to "private folders hidden"
-    const raw = localStorage.getItem(stateKey);
-    if (raw !== null && !isNaN(Number(raw))) {
-        state = Number(raw);
-    }
-
-    // Icon map and tooltips
-    const icons = [
-        { icon: 'fa-user-lock', color: '#888', tip: 'Hide private folders' },
-        { icon: 'fa-unlock', color: '#44b77b', tip: 'Show all folders (including private)' },
-        { icon: 'fa-xmarks-lines', color: '#a54e4e', tip: 'Show ONLY private folders' }
-    ];
-
-    const btn = document.createElement('span');
-    btn.id = 'privateFolderVisibilityToggle';
-    btn.className = 'tag actionable clickable-action interactable';
-    btn.style.backgroundColor = 'rgba(136, 100, 200, 0.55)';
-    btn.tabIndex = 0;
-
-    // Render the current icon/state
-    function render() {
-        btn.innerHTML = `
-            <span class="tag_name fa-solid ${icons[state].icon}" style="color: ${icons[state].color};" title="${icons[state].tip}"></span>
-            <i class="fa-solid fa-circle-xmark tag_remove interactable" tabindex="0" style="display: none;"></i>
-        `;
-        btn.setAttribute('data-toggle-state', state);
-    }
-    render();
-
-    btn.addEventListener('click', async () => {
-        let nextState = (state + 1) % 3;
-        // Only require PIN if unlocking (showing private folders) and PIN is set
-        const notes = getNotes();
-        const hasPin = !!notes.tagPrivatePinHash;
-    
-        if (nextState > 0 && hasPin && sessionStorage.getItem("stcm_pin_okay") !== "1") {
-            const userPin = await showModalPinPrompt("Enter PIN to view private folders:");
-            if ((await hashPin(userPin)) !== notes.tagPrivatePinHash) { 
-                toastr.error("Incorrect PIN.", "Private Folders");
-                return;
-            }
-            sessionStorage.setItem("stcm_pin_okay", "1");
-        }
-        state = nextState;
-        localStorage.setItem(stateKey, state);
-        render();
-        onStateChange(state);
-        hidePrivateTagsInFilterBar(); 
-    });
-    
-    
-    // Insert after the Character/Tag Manager icon
-    mgrBtn.insertAdjacentElement('afterend', btn);
+function parseSearchTerm(term) {
+    let positive = !term.startsWith('-');
+    term = term.replace(/^-/, '').trim();
+    const m = term.match(/^([ta]):(.+)$/i);
+    return m ? { field: m[1].toLowerCase(), value: m[2].toLowerCase(), positive } : { field: '', value: term, positive };
 }
-
 
 async function hashPin(pin) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(pin);
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-    // Convert buffer to hex string
-    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const data = new TextEncoder().encode(pin);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Shows a modal PIN input using your existing popup system.
- * Returns a Promise that resolves to the entered PIN string (or null if cancelled).
- */
-function showModalPinPrompt(message = "Enter PIN") {
-    return new Promise(resolve => {
-        const html = document.createElement('div');
-        html.innerHTML = `
-            <div style="margin-bottom: 10px;"><b>${message}</b></div>
-            <input type="password" id="stcm-popup-pin-input" placeholder="PIN" style="width: 100%; margin-bottom: 10px; font-size: 1.08em; padding: 5px 8px; border-radius: 4px; border: 1px solid #999;">
-        `;
-        callGenericPopup(html, POPUP_TYPE.CONFIRM, "Private Folders", {
-            okButton: "OK",
-            cancelButton: "Cancel"
-        }).then(result => {
-            if (result === POPUP_RESULT.AFFIRMATIVE) {
-                const pinValue = html.querySelector('#stcm-popup-pin-input').value;
-                resolve(pinValue);
-            } else {
-                resolve(null);
-            }
-        });
-        // Focus input after dialog open
-        setTimeout(() => {
-            html.querySelector('#stcm-popup-pin-input')?.focus();
-        }, 150);
-    });
+function getStoredPinHash() {
+    ensureContext();
+    // create the bucket if it isn’t there
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    return context.extensionSettings.stcm.pinHash ?? "";
 }
 
-/**
- * Controls folder/character visibility based on toggle.
- * @param {number} state 0=hide private, 1=show all, 2=only private
- * @param {Set<string>} privateTagIds Set of private tag IDs
- */
-function applyPrivateFolderVisibility(state, privateTagIds) {
-    const allFolders = document.querySelectorAll('.bogus_folder_select');
-    const allChars = document.querySelectorAll('.character_select.entity_block');
-    const allGroups = document.querySelectorAll('.group_select.entity_block');
-    // Find the *active* Go back element (not the template)
-    const goBackBlock = Array.from(document.querySelectorAll('.bogus_folder_select_back'))
-        .find(el => !el.closest('.template_element') && el.style.display !== 'none');
-    const inDrilldown = !!goBackBlock;
-
-    // Folders
-    // Folders
-    allFolders.forEach(div => {
-        const tagid = div.getAttribute('tagid');
-        // Always show "Go back"
-        if (div.classList.contains('bogus_folder_select_back') || tagid === 'back') {
-            div.style.display = '';
-            return;
-        }
-        const isPrivate = privateTagIds.has(tagid);
-        if (inDrilldown) {
-            div.style.display = '';
-        } else if (state === 0) {
-            div.style.display = isPrivate ? 'none' : '';
-        } else if (state === 1) {
-            div.style.display = '';
-        } else if (state === 2) {
-            div.style.display = isPrivate ? '' : 'none';
-        }
-    });
-
-
-    // Characters and groups
-    [allChars, allGroups].forEach(collection => {
-        collection.forEach(div => {
-            if (inDrilldown) {
-                // When inside a folder, always show all characters/groups
-                div.style.display = '';
-            } else if (state === 2) {
-                // Only show if in any private folder ancestry (normal top-level)
-                let inPrivateFolder = false;
-                let parent = div.parentElement;
-                while (parent) {
-                    if (parent.classList && parent.classList.contains('bogus_folder_select')) {
-                        const tagid = parent.getAttribute('tagid');
-                        if (privateTagIds.has(tagid)) {
-                            inPrivateFolder = true;
-                            break;
-                        }
-                    }
-                    parent = parent.parentElement;
-                }
-                div.style.display = inPrivateFolder ? '' : 'none';
-            } else {
-                div.style.display = '';
-            }
-        });
-    });
+function saveStoredPinHash(hash) {
+    ensureContext();
+    // create the bucket if it isn’t there
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    context.extensionSettings.stcm.pinHash = hash;
+    context.saveSettingsDebounced();
 }
 
 
-
-/**
- * Watches for changes in #rm_print_characters_block and reapplies icon and visibility mutators.
- * @param {Set<string>} privateTagIds
- * @param {Function} getVisibilityState - function returning the current visibility state (0, 1, 2)
- */
-function watchCharacterBlockMutations(privateTagIds, getVisibilityState) {
-    const container = document.getElementById('rm_print_characters_block');
-    if (!container) return;
-
-    // Initial apply on page load
-    mutateBogusFolderIcons(privateTagIds);
-    applyPrivateFolderVisibility(getVisibilityState(), privateTagIds);
-
-    // Set up the observer
-    const observer = new MutationObserver(() => {
-        // Re-apply both every mutation (should be fast)
-        mutateBogusFolderIcons(privateTagIds);
-        applyPrivateFolderVisibility(getVisibilityState(), privateTagIds);
-    });
-
-    observer.observe(container, { childList: true, subtree: true });
-}
-
-/**
- * Watches the tag filter bar row for mutations and always reinjects the private folder toggle if needed.
- * @param {Set<string>} privateTagIds
- * @param {function} onStateChange
- */
-function watchTagFilterBar(privateTagIds, onStateChange) {
-    const tagRow = document.querySelector('.tags.rm_tag_filter');
-    if (!tagRow) return;
-
-    // Disconnect previous observer
-    if (tagFilterBarObserver) {
-        tagFilterBarObserver.disconnect();
-        tagFilterBarObserver = null;
+// Helper: Hex to RGBA (supports #rgb, #rrggbb, or rgb/rgba)
+function hexToRgba(hex, alpha) {
+    if (hex.startsWith('rgb')) {
+        return hex.replace(')', `, ${alpha})`);
     }
-
-    // Always inject both icons (if missing)
-    injectTagManagerControlButton(); // injects Character/Tag Manager button
-    injectPrivateFolderToggle(privateTagIds, onStateChange);
-
-    // Observe for changes and re-inject
-    tagFilterBarObserver = new MutationObserver(() => {
-        injectTagManagerControlButton();
-        injectPrivateFolderToggle(privateTagIds, onStateChange);
-        hidePrivateTagsInFilterBar(); 
-    });
-    tagFilterBarObserver.observe(tagRow, { childList: true, subtree: false });
-
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function getCurrentVisibilityState() {
-    return Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
-}
-
-
-function isSystemTagId(id) {
-    // covers numbers, control buttons, visibility toggles, etc.
-    return (
-        !id ||
-        /^[0-9]+$/.test(id) ||
-        [
-            "characterTagManagerControlButton",
-            "privateFolderVisibilityToggle"
-        ].includes(id)
-    );
-}
-
-
-/**
- * Controls tag bar visibility for private tags based on toggle.
- * @param {number} state 0=hide private, 1=show all, 2=only private
- * @param {Set<string>} privateTagIds Set of private tag IDs
- */
-function hidePrivateTagsInFilterBar() {
-    const notes = getNotes();
-    const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
-    const state = getCurrentVisibilityState();
-
-    // Get the "Show Tag List" button
-    const showTagListBtn = document.querySelector('.tag.showTagList');
-    const tagListIsActive = showTagListBtn && showTagListBtn.classList.contains('selected');
-
-    document.querySelectorAll('.tags.rm_tag_filter > .tag').forEach(tagEl => {
-        const tagId = tagEl.getAttribute('id');
-        const isPrivate = privateTagIds.has(tagId);
-
-            if (isPrivate) {
-                tagEl.classList.add('stcm-force-hide-private');
-                tagEl.setAttribute('data-stcm-debug', 'private-hidden');
-            }
-    });
-}
-
-
-export { 
-debounce, 
-debouncePersist, 
-getFreeName, 
-isNullColor, 
-escapeHtml, 
-getCharacterNameById, 
-resetModalScrollPositions, 
-makeModalDraggable, 
-saveModalPosSize,
-buildTagMap, 
-buildCharNameMap, 
-getNotes, 
-saveNotes, 
-persistNotesToFile, 
-restoreNotesFromFile, 
-getFolderTypeForUI, 
-mutateBogusFolderIcons, 
-applyPrivateFolderVisibility, 
-injectPrivateFolderToggle,
-watchCharacterBlockMutations,
-watchTagFilterBar,
-hashPin,
-hidePrivateTagsInFilterBar
+export {
+    debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
+    resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize,
+    cleanTagMap, buildTagMap,
+    buildCharNameMap, getNotes, saveNotes,
+    watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 
+    hashPin, getStoredPinHash, saveStoredPinHash, hexToRgba
 };

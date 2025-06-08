@@ -1,31 +1,39 @@
-// index.js
+// index.js - End of Major Folder rework
 import { 
 debounce, 
-debouncePersist, 
-getFreeName, 
+flushExtSettings, 
 isNullColor, 
 escapeHtml, 
-getCharacterNameById, 
 resetModalScrollPositions, 
 makeModalDraggable, 
 saveModalPosSize,
+clampModalSize,
 getNotes, 
 saveNotes, 
-buildCharNameMap, 
-buildTagMap, 
-getFolderTypeForUI, 
-mutateBogusFolderIcons, 
-injectPrivateFolderToggle, 
-applyPrivateFolderVisibility,
-watchCharacterBlockMutations,
-watchTagFilterBar,
-hidePrivateTagsInFilterBar,
+cleanTagMap,
+promptInput,
 } from './utils.js';
+
+import * as stcmFolders from './stcm_folders.js';
+
+import {
+    watchSidebarFolderInjection,
+    injectSidebarFolders,
+} from './stcm_folders_ui.js';
+
+import { renderFoldersTree, attachFolderSectionListeners } from './stcm_folders_tree.js';
 
 import {
     tags,
     tag_map,
 } from "../../../tags.js";
+
+import {
+    renderTagSection,
+    attachTagSectionListeners,
+    populateAssignTagSelect,
+    selectedTagIds,
+  } from './stcm_tags_ui.js';
 
 import {
     characters,
@@ -42,11 +50,8 @@ import {
     callGenericPopup
 } from "../../../popup.js"
 
-import { accountStorage } from '../../../util/AccountStorage.js';
-
 import {
     renderCharacterList,
-    toggleCharacterList,
     stcmCharState 
 } from "./stcm_characters.js";
 
@@ -54,14 +59,6 @@ import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecen
 
 
 const { eventSource, event_types } = SillyTavern.getContext();
-let isMergeMode = false;
-const selectedMergeTags = new Set();      //  Global merge checkbox selection
-let selectedPrimaryTagId = null;          // Global merge radio selection
-let selectedTagIds = new Set();
-let isBulkDeleteMode = false;
-const selectedBulkDeleteTags = new Set();
-
-
 
 function openCharacterTagManagerModal() {
     if (document.getElementById('characterTagManagerModal')) return;
@@ -92,7 +89,6 @@ function openCharacterTagManagerModal() {
                         <option value="no_folder">No Folder Tags</option>
                         <option value="open_folder">Open Folder Tags</option>
                         <option value="closed_folder">Closed Folder Tags</option>
-                        <option value="private_folder">Private Folder Tags</option>
                     </select>
                                         <input type="text" id="tagSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search tags..." />                   
                 </div>
@@ -146,6 +142,21 @@ function openCharacterTagManagerModal() {
                 </div>
             </div>
         </div>
+
+        <div class="accordionSection stcm_accordion_section stcm_folders_section">
+            <button class="accordionToggle stcm_text_left" data-target="foldersSection">▶ Folders</button>
+            <div id="foldersSection" class="accordionContent">
+                <div style="padding: 1em 0;">
+                    <button id="createNewFolderBtn" class="stcm_menu_button interactable" tabindex="0">
+                        <i class="fa-solid fa-folder-plus"></i> New Folder
+                    </button>
+                </div>
+                <div id="foldersTreeContainer"><div class="loading">Loading folders...</div></div>
+                <div id="folderCharactersSection" style="display:none;"></div>
+
+            </div>
+        </div>
+
     
         <div class="accordionSection stcm_accordion_section stcm_tags_section">
             <button class="accordionToggle stcm_text_left" data-target="charactersSection">▶ Characters</button>
@@ -187,7 +198,7 @@ function openCharacterTagManagerModal() {
                                 <i class="fa-solid fa-trash"></i> Delete Selected
                             </button>
                             </div>
-                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms</span>
+                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms (- comes before modifiers like -T:Comedy)</span>
                                 </div>
 
                     </div>
@@ -202,7 +213,22 @@ function openCharacterTagManagerModal() {
 
     document.body.appendChild(overlay);
     resetModalScrollPositions();
+    attachTagSectionListeners(overlay); 
+    attachFolderSectionListeners(overlay);
 
+    // Folders: add create handler and render initial tree
+const foldersTreeContainer = document.getElementById('foldersTreeContainer');
+
+/** redraw the tree and keep sidebar in-sync */
+async function refreshFoldersTree() {
+    await renderFoldersTree(foldersTreeContainer, { onTreeChanged: refreshFoldersTree });
+    STCM.sidebarFolders = await stcmFolders.loadFolders();
+    injectSidebarFolders(STCM.sidebarFolders, characters);
+}
+refreshFoldersTree();
+
+
+// END CUSTOM FOLDERS
 
     function escToCloseHandler(e) {
         if (e.key === "Escape") {
@@ -215,86 +241,95 @@ function openCharacterTagManagerModal() {
     document.addEventListener('keydown', escToCloseHandler);
 
     // Accordion toggle behavior
-    overlay.querySelectorAll('.accordionToggle').forEach(button => {
-        button.addEventListener('click', () => {
-            const targetId = button.dataset.target;
-            const section = document.getElementById(targetId);
-            const isOpen = section.classList.toggle('open');
-            button.innerHTML = `${isOpen ? '▼' : '▶'} ${button.textContent.slice(2)}`;
-        });
-    });
+        // 1. Map each section to its render function
+        const accordionRenderers = {
+            tagsSection: renderTagSection,
+            foldersSection: refreshFoldersTree,
+            charactersSection: renderCharacterList
+        };
 
-    // Dropdown toggle for Import/Export
-    const toggleIE = document.getElementById('toggleImportExport');
-    const ieMenu = document.getElementById('importExportMenu');
+        // 2. Add event listeners to all toggles (after you add the modal to DOM)
+        overlay.querySelectorAll('.accordionToggle').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.dataset.target;
+                const section = document.getElementById(targetId);
+                cleanTagMap(tag_map, characters, groups);
 
-    toggleIE.addEventListener('click', (e) => {
-        e.stopPropagation();
-        ieMenu.style.display = ieMenu.style.display === 'none' ? 'block' : 'none';
-        // Optional: close on outside click
-        if (ieMenu.style.display === 'block') {
-            document.addEventListener('mousedown', closeIeMenu, { once: true });
-        }
-    });
+                // -- Close all other sections and reset toggles --
+                overlay.querySelectorAll('.accordionContent').forEach(content => {
+                    if (content !== section) {
+                        content.classList.remove('open');
+                        // Find its toggle and set to closed arrow
+                        const otherToggle = overlay.querySelector(`.accordionToggle[data-target="${content.id}"]`);
+                        if (otherToggle) {
+                            // Remove the leading arrow and add closed
+                            otherToggle.innerHTML = `▶ ${otherToggle.textContent.replace(/^.? /, "")}`;
+                        }
+                    }
+                });
 
-    function closeIeMenu(ev) {
-        if (!ieMenu.contains(ev.target) && ev.target !== toggleIE) {
-            ieMenu.style.display = 'none';
-        }
-    }
+                // -- Toggle open/close this section --
+                const isNowOpen = section.classList.toggle('open');
+                button.innerHTML = `${isNowOpen ? '▼' : '▶'} ${button.textContent.replace(/^.? /, "")}`;
 
+                if (isNowOpen && accordionRenderers[targetId]) {
+                    // --- Always clear content before re-rendering ---
 
-    document.getElementById('confirmBulkDeleteTags').addEventListener('click', async () => {
-        if (!selectedBulkDeleteTags.size) {
-            toastr.warning("No tags selected.", "Bulk Delete");
-            return;
-        }
+                    // Now render fresh from latest data
+                    accordionRenderers[targetId]();
 
-        const notes = getNotes();
-
-        // Build a confirm dialog
-        const tagNames = tags.filter(t => selectedBulkDeleteTags.has(t.id)).map(t => t.name);
-        const html = document.createElement('div');
-        html.innerHTML = `
-                <h3>Confirm Bulk Delete</h3>
-                <p>The following tags will be deleted and removed from all characters:</p>
-                <pre class="stcm_popup_pre">${tagNames.map(n => `• ${escapeHtml(n)}`).join('\n')}</pre>
-                <p style="color: #e57373;">This action cannot be undone.</p>
-            `;
-        const proceed = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Bulk Delete Tags');
-        if (proceed !== POPUP_RESULT.AFFIRMATIVE) {
-            toastr.info('Bulk tag delete cancelled.', 'Bulk Delete');
-        }
-        // Remove tags from tag_map and tags
-        for (const tagId of selectedBulkDeleteTags) {
-            for (const [charId, tagList] of Object.entries(tag_map)) {
-                if (Array.isArray(tagList)) {
-                    tag_map[charId] = tagList.filter(tid => tid !== tagId);
+                        // [PATCH] Force-refresh assignTagSearchInput and tag chips for Characters section
+                        if (targetId === 'charactersSection') {
+                            const assignTagSearchInput = document.getElementById('assignTagSearchInput');
+                            if (assignTagSearchInput) {
+                                assignTagSearchInput.value = '';
+                                // Trigger input event so the tag chips refresh
+                                assignTagSearchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                        }
                 }
-            }
-            const index = tags.findIndex(t => t.id === tagId);
-            if (index !== -1) tags.splice(index, 1);
-        }
-        for (const tagId of selectedBulkDeleteTags) {
-            if (notes.tagPrivate && notes.tagPrivate[tagId]) {
-                delete notes.tagPrivate[tagId];
-            }
-        }
+            });
+        });
 
-        saveNotes(notes);
-        toastr.success(`Deleted ${selectedBulkDeleteTags.size} tag(s): ${tagNames.join(', ')}`, 'Bulk Delete');
-        isBulkDeleteMode = false;
-        selectedBulkDeleteTags.clear();
-        document.getElementById('startBulkDeleteTags').style.display = '';
-        document.getElementById('cancelBulkDeleteTags').style.display = 'none';
-        document.getElementById('confirmBulkDeleteTags').style.display = 'none';
-        callSaveandReload();
-        renderCharacterList();
-        renderCharacterTagData();
+
+    document.getElementById('closeCharacterTagManagerModal').addEventListener('click', () => {
+        const modalContentEsc = overlay.querySelector('.modalContent');
+        saveModalPosSize(modalContentEsc);
+        resetModalScrollPositions();
+        overlay.remove();
+        document.removeEventListener('keydown', escToCloseHandler);
+
     });
 
 
+    document.getElementById('charSortMode').addEventListener('change', renderCharacterList);
 
+
+    document.getElementById('charSearchInput').addEventListener(
+        'input',
+        debounce(() => renderCharacterList())
+    );
+
+     // Dropdown toggle for Import/Export
+     const toggleIE = document.getElementById('toggleImportExport');
+     const ieMenu = document.getElementById('importExportMenu');
+ 
+     toggleIE.addEventListener('click', (e) => {
+         e.stopPropagation();
+         ieMenu.style.display = ieMenu.style.display === 'none' ? 'block' : 'none';
+         // Optional: close on outside click
+         if (ieMenu.style.display === 'block') {
+             document.addEventListener('mousedown', closeIeMenu, { once: true });
+         }
+     });
+ 
+     function closeIeMenu(ev) {
+         if (!ieMenu.contains(ev.target) && ev.target !== toggleIE) {
+             ieMenu.style.display = 'none';
+         }
+     }
+ 
+     
     document.getElementById('exportNotesBtn').addEventListener('click', exportTagCharacterNotes);
 
     document.getElementById('importNotesBtn').addEventListener('click', () => {
@@ -313,38 +348,6 @@ function openCharacterTagManagerModal() {
         }
         e.target.value = ''; // reset input
     });
-
-
-    document.getElementById('closeCharacterTagManagerModal').addEventListener('click', () => {
-        const modalContentEsc = overlay.querySelector('.modalContent');
-        saveModalPosSize(modalContentEsc);
-        resetModalScrollPositions();
-        overlay.remove();
-        document.removeEventListener('keydown', escToCloseHandler);
-
-    });
-
-    document.getElementById('tagSortMode').addEventListener('change', () => {
-        renderCharacterTagData();
-    });
-
-    document.getElementById('charSortMode').addEventListener('change', renderCharacterList);
-
-
-    document.getElementById('tagSearchInput').addEventListener(
-        'input',
-        debounce(() => renderCharacterTagData())
-    );
-
-    document.getElementById('charSearchInput').addEventListener(
-        'input',
-        debounce(() => renderCharacterList())
-    );
-
-    document.getElementById('createNewTagBtn').addEventListener('click', () => {
-        promptCreateTag();
-    });
-
 
     document.getElementById('backupTagsBtn').addEventListener('click', () => {
         const json = JSON.stringify({ tags, tag_map }, null, 2);
@@ -381,147 +384,13 @@ function openCharacterTagManagerModal() {
             Object.assign(tag_map, data.tag_map);
             toastr.success('Tags restored from file');
             callSaveandReload();
+            renderTagSection();
             renderCharacterList();
-            renderCharacterTagData();
+            
         } catch {
             toastr.error('Invalid tag backup file');
         }
         e.target.value = ''; // reset input
-    });
-
-
-
-    document.getElementById('assignTagSearchInput').addEventListener(
-        'input',
-        debounce(() => populateAssignTagSelect())
-    );
-
-    document.getElementById('startBulkDeleteTags').addEventListener('click', () => {
-        isBulkDeleteMode = true;
-        selectedBulkDeleteTags.clear();
-        document.getElementById('startBulkDeleteTags').style.display = 'none';
-        document.getElementById('cancelBulkDeleteTags').style.display = '';
-        document.getElementById('confirmBulkDeleteTags').style.display = '';
-        renderCharacterTagData();
-    });
-
-    document.getElementById('cancelBulkDeleteTags').addEventListener('click', () => {
-        isBulkDeleteMode = false;
-        selectedBulkDeleteTags.clear();
-        document.getElementById('startBulkDeleteTags').style.display = '';
-        document.getElementById('cancelBulkDeleteTags').style.display = 'none';
-        document.getElementById('confirmBulkDeleteTags').style.display = 'none';
-        renderCharacterTagData();
-    });
-
-
-
-    document.getElementById('cancelMergeTags').addEventListener('click', () => {
-        isMergeMode = false;
-        selectedMergeTags.clear();
-        selectedPrimaryTagId = null;
-
-        document.getElementById('startMergeTags').textContent = 'Merge Tags';
-        document.getElementById('cancelMergeTags').style.display = 'none';
-
-        document.querySelectorAll('.mergeCheckbox, input[name="mergePrimary"]').forEach(el => {
-            el.checked = false;
-        });
-
-        renderCharacterTagData();
-    });
-
-
-    document.getElementById('startMergeTags').addEventListener('click', async () => {
-        if (!isMergeMode) {
-            isMergeMode = true;
-            const mergeBtn = document.getElementById('startMergeTags');
-            mergeBtn.textContent = 'Merge Now';
-            mergeBtn.classList.add('merge-active');
-            document.getElementById('cancelMergeTags').style.display = '';
-            renderCharacterTagData();
-        } else {
-            const primaryId = selectedPrimaryTagId;
-            const mergeIds = Array.from(selectedMergeTags);
-
-            if (!primaryId || mergeIds.length === 0) {
-                toastr.warning('Select one primary and at least one tag to merge.', 'Merge Tags');
-                return;
-            }
-
-            if (mergeIds.includes(primaryId)) {
-                toastr.error('Primary tag cannot also be marked for merge.', 'Merge Tags');
-                return;
-            }
-
-            const primaryTag = tags.find(t => t.id === primaryId);
-
-            // Build confirmation message with character counts
-            const tagMapById = buildTagMap(tags);
-            const mergeDetails = mergeIds.map(tagId => {
-                const tag = tagMapById.get(tagId);
-                const count = Object.values(tag_map).filter(tagList => Array.isArray(tagList) && tagList.includes(tagId)).length;
-                return `• ${tag?.name || '(Unknown Tag)'} (${count} character${count !== 1 ? 's' : ''})`;
-            }).join('\n');
-
-            const html = document.createElement('div');
-            html.innerHTML = `
-                <h3>Confirm Merge</h3>
-                <p>You are about to merge the following tags into <strong>${primaryTag.name}</strong>:</p>
-                <pre class="stcm_popup_pre">${mergeDetails}</pre>
-                <p>This action cannot be undone. Do you want to proceed?</p>
-            `;
-
-            const proceed = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Merge Tags');
-            if (proceed !== POPUP_RESULT.AFFIRMATIVE) {
-                toastr.info('Merge cancelled.', 'Merge Tags');
-                return;
-            }
-
-            // Perform merge
-            Object.entries(tag_map).forEach(([charId, tagIds]) => {
-                if (!Array.isArray(tagIds)) return;
-
-                let changed = false;
-                mergeIds.forEach(tagId => {
-                    const idx = tagIds.indexOf(tagId);
-                    if (idx !== -1) {
-                        tagIds.splice(idx, 1);
-                        changed = true;
-                    }
-                });
-
-                if (changed && !tagIds.includes(primaryId)) {
-                    tagIds.push(primaryId);
-                }
-            });
-
-            // Remove merged tags from the master list
-            for (const id of mergeIds) {
-                const index = tags.findIndex(t => t.id === id);
-                if (index !== -1) tags.splice(index, 1);
-            }
-
-
-            toastr.success(`Merged ${mergeIds.length} tag(s) into "${primaryTag.name}".`, 'Merge Successful');
-
-            // Reset state
-            isMergeMode = false;
-            selectedMergeTags.clear();
-            selectedPrimaryTagId = null;
-            const mergeBtn = document.getElementById('startMergeTags');
-            mergeBtn.textContent = 'Merge Tags';
-            mergeBtn.classList.remove('merge-active');
-            document.getElementById('cancelMergeTags').style.display = 'none';
-            // Uncheck all merge inputs
-            document.querySelectorAll('.mergeCheckbox, input[name="mergePrimary"]').forEach(el => {
-                el.checked = false;
-            });
-
-            callSaveandReload();
-            renderCharacterList();
-            renderCharacterTagData();
-        }
     });
 
     document.getElementById('assignTagsButton').addEventListener('click', () => {
@@ -565,7 +434,7 @@ function openCharacterTagManagerModal() {
     });
     
     document.getElementById('cancelBulkDeleteChars').addEventListener('click', () => {
-        stcmCharState.isBulkDeleteCharMode = true;
+        stcmCharState.isBulkDeleteCharMode = false;
         stcmCharState.selectedCharacterIds.clear();
         document.getElementById('startBulkDeleteChars').style.display = '';
         document.getElementById('cancelBulkDeleteChars').style.display = 'none';
@@ -683,22 +552,19 @@ function openCharacterTagManagerModal() {
         document.getElementById('cancelBulkDeleteChars').style.display = 'none';
         document.getElementById('confirmBulkDeleteChars').style.display = 'none';
         await callSaveandReload();
+        renderTagSection();
+        const input = document.getElementById('charSearchInput');
+        if (input) input.value = '';
         renderCharacterList();
-        renderCharacterTagData();
+        
     });
     
     
     
-    renderCharacterTagData();
+    renderTagSection();
     populateAssignTagSelect();
-    const wrapper = document.getElementById('characterListWrapper');
-    const container = document.createElement('div');
-    container.id = 'characterListContainer';
-    container.clsss = 'stcm_scroll_300';
-    container.style.paddingBottom = '1em';
-    wrapper.innerHTML = ''; // Clear any prior content
-    wrapper.appendChild(container);
-
+    const input = document.getElementById('charSearchInput');
+    if (input) input.value = '';
     renderCharacterList();
 // MODAL Sizing, positioning, scroll, draggable  
     resetModalScrollPositions();
@@ -776,68 +642,24 @@ function openCharacterTagManagerModal() {
     if ('ResizeObserver' in window) {
         let initialized = false;
         let resizeEndTimer = null;
+        
+    // inside onResizeEnd()
+    const onResizeEnd = () => {
+        clampModalSize(modalContent);
+        const rect = modalContent.getBoundingClientRect();
+        if (rect.width > 100 && rect.height > 100) {
+            saveModalPosSize(modalContent);
+        }
+    };
     
-        const clampModalSize = () => {
-            // Enforce modal max size based on viewport, with a margin
-            const margin = 20;
-            const maxWidth = window.innerWidth - margin;
-            const maxHeight = window.innerHeight - margin;
-            let changed = false;
-    
-            // Clamp width/height
-            if (modalContent.offsetWidth > maxWidth) {
-                modalContent.style.width = maxWidth + "px";
-                changed = true;
-            }
-            if (modalContent.offsetHeight > maxHeight) {
-                modalContent.style.height = maxHeight + "px";
-                changed = true;
-            }
-    
-            // Clamp left/top so modal cannot move off the right/bottom edges
-            const rect = modalContent.getBoundingClientRect();
-            let newLeft = rect.left, newTop = rect.top;
-    
-            if (rect.right > window.innerWidth) {
-                newLeft = Math.max(0, window.innerWidth - rect.width);
-                modalContent.style.left = newLeft + "px";
-                changed = true;
-            }
-            if (rect.bottom > window.innerHeight) {
-                newTop = Math.max(0, window.innerHeight - rect.height);
-                modalContent.style.top = newTop + "px";
-                changed = true;
-            }
-    
-            // Optionally clamp left/top so the header can't go fully offscreen
-            if (rect.left < 0) {
-                modalContent.style.left = "0px";
-                changed = true;
-            }
-            if (rect.top < 0) {
-                modalContent.style.top = "0px";
-                changed = true;
-            }
-    
-            return changed;
-        };
-    
-        const onResizeEnd = () => {
-            // Clamp to safe size and position
-            clampModalSize();
-            // Only save if size is meaningful (avoid 0x0)
-            const rect = modalContent.getBoundingClientRect();
-            if (rect.width > 100 && rect.height > 100) {
-                saveModalPosSize(modalContent);
-            }
-        };
-    
-        // Also update maxWidth/maxHeight on window resize
-        window.addEventListener("resize", () => {
-            modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
-            modalContent.style.maxHeight = (window.innerHeight - 40) + "px";
-            clampModalSize();
-        });
+
+    // inside the window resize listener
+    window.addEventListener('resize', () => {
+        modalContent.style.maxWidth  = `${window.innerWidth - 40}px`;
+        modalContent.style.maxHeight = `${window.innerHeight - 40}px`;
+        clampModalSize(modalContent);          // <— and here
+    });
+
     
         // Set these at open, too!
         modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
@@ -860,770 +682,8 @@ function openCharacterTagManagerModal() {
 
 }
 
-const privateTagIds = new Set(/* array of private tag ids */);
-watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState);
-
-
-
-function getCurrentVisibilityState() {
-    // Get current state (0, 1, 2) from localStorage, or from your UI
-    return Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
-}
-
-
-
-
-function promptCreateTag() {
-    const defaultName = getFreeName('New Tag', tags.map(t => t.name));
-
-    const styles = getComputedStyle(document.body);
-    const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
-    const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#000000';
-
-    const container = document.createElement('div');
-    container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 1em; width: 100%;">
-            <label style="width: 100%;">
-                Name:
-                <input type="text" class="menu_input newTagName" value="${defaultName}" style="width: 100%;" />
-            </label>
-
-            <div class="tagPreview" style="
-                align-self: start;
-                padding: 4px 8px;
-                border-radius: 4px;
-                background-color: ${defaultBg};
-                color: ${defaultFg};
-                font-weight: bold;
-                max-width: max-content;
-                border: 1px solid #999;
-            ">
-                ${defaultName}
-            </div>
-
-            <div style="display: flex; flex-direction: row; justify-content: space-between; gap: 1em;">
-                <label style="flex: 1;">
-                    Background Color:<br>
-                    <toolcool-color-picker class="newTagBgPicker" color="${defaultBg}" style="width: 100%;"></toolcool-color-picker>
-                </label>
-                <label style="flex: 1;">
-                    Text Color:<br>
-                    <toolcool-color-picker class="newTagFgPicker" color="${defaultFg}" style="width: 100%;"></toolcool-color-picker>
-                </label>
-            </div>
-        </div>
-    `;
-
-    // Wait for popup to be added, then apply class and label overrides
-    const observer = new MutationObserver(() => {
-        // Find all currently open popups
-        document.querySelectorAll('dialog.popup[open] .popup-body').forEach(popupBody => {
-            // Only act if this popup contains your custom content
-            if (popupBody.querySelector('.newTagName')) {
-                popupBody.classList.add('stcm_custom-add-tag-popup');
-            }
-        });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-
-    callGenericPopup(container, POPUP_TYPE.CONFIRM, 'Create New Tag', {
-        okButton: 'Create Tag',
-        cancelButton: 'Cancel'
-    }).then(result => {
-        if (result !== POPUP_RESULT.AFFIRMATIVE) return;
-
-        const nameInput = container.querySelector('.newTagName');
-        const bgPicker = container.querySelector('.newTagBgPicker');
-        const fgPicker = container.querySelector('.newTagFgPicker');
-
-        if (!nameInput || !bgPicker || !fgPicker) {
-            console.error('One or more tag creation inputs were not found.');
-            toastr.error('Something went wrong creating the tag.');
-            return;
-        }
-
-        const name = nameInput.value.trim() || defaultName;
-
-        const newTag = {
-            id: crypto.randomUUID(),
-            name,
-            color: selectedBg,
-            color2: selectedFg,
-            folder_type: 'NONE'
-        };
-
-        tags.push(newTag);
-        callSaveandReload();
-        toastr.success(`Created tag "${newTag.name}"`, 'Tag Created');
-        renderCharacterTagData();
-    });
-
-    // Live preview logic
-    const nameInput = container.querySelector('.newTagName');
-    const bgPicker = container.querySelector('.newTagBgPicker');
-    const fgPicker = container.querySelector('.newTagFgPicker');
-    const preview = container.querySelector('.tagPreview');
-
-    let selectedBg = defaultBg;
-    let selectedFg = defaultFg;
-
-    function updatePreview(name = nameInput.value.trim(), bg = selectedBg, fg = selectedFg) {
-        preview.textContent = name || 'Tag Name';
-        preview.style.backgroundColor = bg;
-        preview.style.color = fg;
-    }
-
-    nameInput.addEventListener('input', () => {
-        updatePreview(nameInput.value.trim(), selectedBg, selectedFg);
-    });
-
-    bgPicker.addEventListener('change', e => {
-        selectedBg = e.detail?.rgba || defaultBg;
-        updatePreview(nameInput.value.trim(), selectedBg, selectedFg);
-    });
-
-    fgPicker.addEventListener('change', e => {
-        selectedFg = e.detail?.rgba || defaultFg;
-        updatePreview(nameInput.value.trim(), selectedBg, selectedFg);
-    });
-
-}
-
-
-function updateCheckboxVisibility() {
-    const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIds.length > 0;
-
-    document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
-
-    // Show/hide checkboxes in-place without re-rendering
-    document.querySelectorAll('.assignCharCheckbox').forEach(cb => {
-        cb.style.display = showCheckboxes ? 'inline-block' : 'none';
-    });
-}
-
-
-function populateAssignTagSelect() {
-    const tagListDiv = document.getElementById('assignTagList');
-    const searchTerm = document.getElementById('assignTagSearchInput')?.value.toLowerCase() || '';
-    if (!tagListDiv) return;
-
-    tagListDiv.innerHTML = '';  // Clear
-
-    // Multi-search: comma-separated, trims and ignores empty terms
-    const searchTerms = searchTerm.split(',').map(t => t.trim()).filter(Boolean);
-
-    const matchingTags = tags.filter(tag => {
-        if (searchTerms.length === 0) return true;
-        // Tag matches if any search term matches part of the tag name
-        return searchTerms.some(term => tag.name.toLowerCase().includes(term));
-    }).sort((a, b) => a.name.localeCompare(b.name));
-
-    matchingTags.forEach(tag => {
-        const chip = document.createElement('div');
-        chip.className = 'stcm_tag_chip';
-        chip.textContent = tag.name;
-        chip.style.background = (tag.color && tag.color !== '#') ? tag.color : '#333';
-        chip.style.color = (tag.color2 && tag.color2 !== '#') ? tag.color2 : '#fff';
-
-        // Make grayscaled if not selected
-        if (selectedTagIds.has(tag.id)) {
-            chip.classList.add('selected');
-        }
-
-        chip.addEventListener('click', () => {
-            if (selectedTagIds.has(tag.id)) {
-                selectedTagIds.delete(tag.id);
-                chip.classList.remove('selected');
-            } else {
-                selectedTagIds.add(tag.id);
-                chip.classList.add('selected');
-            }
-            // Show/hide assign bar, update character checkboxes, etc
-            updateCheckboxVisibility();
-            renderCharacterList();
-        });
-
-        tagListDiv.appendChild(chip);
-    });
-
-    // Show/hide assign bar, update character checkboxes, etc
-    updateCheckboxVisibility();
-}
-
-function renderCharacterTagData() {
-    const content = document.getElementById('characterTagManagerContent');
-    if (!content || !Array.isArray(tags) || typeof tag_map !== 'object') {
-        content.innerHTML = `<p>Tags or character map not loaded.</p>`;
-        return;
-    }
-
-    const sortMode = document.getElementById('tagSortMode')?.value || 'alpha_asc';
-    const rawInput = document.getElementById('tagSearchInput')?.value.toLowerCase() || '';
-
-    // OR: split by comma
-    const orGroups = rawInput.split(',').map(g => g.trim()).filter(Boolean);
-
-    const styles = getComputedStyle(document.body);
-    const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
-    const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#000000';
-
-    const notes = getNotes();
-    const charNameMap = buildCharNameMap(characters);
-
-    function getFolderType(tag) {
-        if (!tag || typeof tag.folder_type !== 'string') return 'NONE';
-        const ft = tag.folder_type.toUpperCase();
-        if (ft === 'CLOSED' && notes.tagPrivate && notes.tagPrivate[tag.id]) return 'PRIVATE';
-        if (['NONE','OPEN','CLOSED'].includes(ft)) return ft;
-        return 'NONE';
-    }
-
-    let tagGroups = tags.map(tag => {
-        const charIds = Object.entries(tag_map)
-            .filter(([_, tagIds]) => Array.isArray(tagIds) && tagIds.includes(tag.id))
-            .map(([charId]) => charId);
-        return { tag, charIds };
-    }).filter(group => {
-        const tagName = group.tag.name.toLowerCase();
-
-        // Filtering logic for all folder types
-        if (sortMode === 'no_folder' && getFolderType(group.tag) !== 'NONE') return false;
-        if (sortMode === 'open_folder' && getFolderType(group.tag) !== 'OPEN') return false;
-        if (sortMode === 'closed_folder' && getFolderType(group.tag) !== 'CLOSED') return false;
-        if (sortMode === 'private_folder' && getFolderType(group.tag) !== 'PRIVATE') return false;
-        if (sortMode === 'only_zero' && group.charIds.length > 0) return false;
-
-        // --- Comma search: OR logic ---
-        if (!orGroups.length) return true; // Empty = show all
-
-        for (const orGroup of orGroups) {
-            // AND logic within each group
-            const andTerms = orGroup.split(' ').map(s => s.trim()).filter(Boolean);
-
-            const matches = andTerms.every(term => {
-                if (term.startsWith('c:')) {
-                    const charSearch = term.slice(2).trim();
-                    return group.charIds
-                        .map(id => getCharacterNameById(id, charNameMap)?.toLowerCase() || '')
-                        .some(name => name.includes(charSearch));
-                } else {
-                    return tagName.includes(term);
-                }
-            });
-
-            if (matches) return true; // Match this OR group
-        }
-
-        // No OR group matched
-        return false;
-    });
-
-    // ...sorting and rendering as before
-    tagGroups.sort((a, b) => {
-        if (
-            sortMode === 'alpha_asc' ||
-            sortMode === 'no_folder' ||
-            sortMode === 'open_folder' ||
-            sortMode === 'closed_folder' ||
-            sortMode === 'private_folder' ||
-            sortMode === 'only_zero'
-        ) {
-            return a.tag.name.localeCompare(b.tag.name);
-        }
-        switch (sortMode) {
-            case 'alpha_desc':
-                return b.tag.name.localeCompare(a.tag.name);
-            case 'count_asc':
-                return a.charIds.length - b.charIds.length;
-            case 'count_desc':
-                return b.charIds.length - a.charIds.length;
-            default:
-                return 0;
-        }
-    });
-
-    const fragment = document.createDocumentFragment();
-
-
-    tagGroups.forEach(group => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'tagGroup';
-    
-        const header = document.createElement('div');
-        header.className = 'tagGroupHeader';
-    
-        const tagId = group.tag.id;
-        const tagNotes = getNotes().tagNotes || {};
-        const currentNote = tagNotes[tagId] || '';
-    
-        const styles = getComputedStyle(document.body);
-        const defaultBg = '#333';
-        const defaultFg = '#fff';
-    
-        const rawColor = typeof group.tag.color === 'string' ? group.tag.color.trim() : '';
-        const rawColor2 = typeof group.tag.color2 === 'string' ? group.tag.color2.trim() : '';
-    
-        // Use defaults if color is null, empty, or just "#"
-        const bgColor = (rawColor && rawColor !== '#') ? rawColor : defaultBg;
-        const fgColor = (rawColor2 && rawColor2 !== '#') ? rawColor2 : defaultFg;
-    
-        header.innerHTML = `
-        <span class="tagNameEditable" data-id="${tagId}">
-            ${isBulkDeleteMode
-                ? `<input type="checkbox" class="bulkDeleteTagCheckbox" value="${tagId}" ${selectedBulkDeleteTags.has(tagId) ? 'checked' : ''} style="margin-right: 7px;">`
-                : `<i class="fa-solid fa-pen editTagIcon" title="Edit name" style="cursor: pointer; margin-right: 6px;"></i>`
-            }
-            <strong class="tagNameText stcm-color-swatch" style="background-color: ${bgColor}; color: ${fgColor}; padding: 2px 6px; border-radius: 4px; cursor: pointer;" title="Click to edit tag colors">
-                ${group.tag.name}
-                <i class="fa-solid fa-palette" style="margin-left: 8px;"></i>
-            </strong>
-        </span>
-        <span class="tagCharCount">(${group.charIds.length})</span>
-        
-
-        ${isMergeMode ? `
-            <div class="stcm_merge_controls">
-                <label><input type="radio" name="mergePrimary" value="${tagId}" ${selectedPrimaryTagId === tagId ? 'checked' : ''}> Primary</label>
-                <label><input type="checkbox" class="mergeCheckbox" value="${tagId}" ${selectedMergeTags.has(tagId) ? 'checked' : ''}> Merge</label>
-            </div>` : ''}
-    `;
-
-          // --- ADD POPUP LOGIC TO THE COLOR SWATCH ---
-    const colorSwatch = header.querySelector('.stcm-color-swatch');
-    colorSwatch.addEventListener('click', () => {
-        openColorEditModal(group.tag);
-    });
-
-
-        const folderTypes = [
-            {
-                value: 'NONE',
-                label: 'No Folder',
-                icon: 'fa-xmark',
-                tooltip: 'No Folder'
-            },
-            {
-                value: 'OPEN',
-                label: 'Open Folder',
-                icon: 'fa-folder-open',
-                tooltip: 'Open Folder (Show all characters even if not selected)'
-            },
-            {
-                value: 'CLOSED',
-                label: 'Closed Folder',
-                icon: 'fa-folder-closed',
-                tooltip: 'Closed Folder (Hide all characters unless selected)'
-            },
-            {
-                value: 'PRIVATE',
-                label: 'Private Folder',
-                icon: 'fa-user-lock',
-                tooltip: 'Private Folder (Visible only to you; not shared or exported unless specified)'
-            }
-        ];
-
-
-        const notes = getNotes();
-        const displayType = getFolderTypeForUI(group.tag, notes);   // << use this
-        const selectedOption = folderTypes.find(ft => ft.value === displayType);
-
-
-        const folderDropdownWrapper = document.createElement('div');
-        folderDropdownWrapper.className = 'custom-folder-dropdown';
-
-        const folderSelected = document.createElement('div');
-        folderSelected.className = 'selected-folder-option';
-        folderSelected.innerHTML = `<i class="fa-solid ${selectedOption.icon}"></i> ${selectedOption.label}`;
-        folderDropdownWrapper.appendChild(folderSelected);
-
-        const folderOptionsList = document.createElement('div');
-        folderOptionsList.className = 'folder-options-list';
-        folderOptionsList.style.display = 'none';
-        folderSelected.title = selectedOption.tooltip;
-
-        folderTypes.forEach(ft => {
-            const opt = document.createElement('div');
-            opt.className = 'folder-option';
-            opt.innerHTML = `<i class="fa-solid ${ft.icon}" style="margin-right: 6px;"></i> ${ft.label}`;
-            opt.title = ft.tooltip;
-            opt.addEventListener('click', () => {
-                if (ft.value === "PRIVATE") {
-                    group.tag.folder_type = "CLOSED";
-                    if (!notes.tagPrivate) notes.tagPrivate = {};
-                    notes.tagPrivate[group.tag.id] = true;
-                } else {
-                    group.tag.folder_type = ft.value;
-                    if (notes.tagPrivate && notes.tagPrivate[group.tag.id]) {
-                        delete notes.tagPrivate[group.tag.id];
-                    }
-                }
-                saveNotes(notes);
-                debouncePersist();
-                folderSelected.innerHTML = `<i class="fa-solid ${ft.icon}"></i> ${ft.label}`;
-                folderSelected.title = ft.tooltip;
-                folderOptionsList.style.display = 'none';
-                callSaveandReload();
-                renderCharacterTagData(); 
-            });            
-            folderOptionsList.appendChild(opt);
-        });
-
-        folderSelected.addEventListener('click', () => {
-            folderOptionsList.style.display = folderOptionsList.style.display === 'none' ? 'block' : 'none';
-        });
-
-        folderDropdownWrapper.appendChild(folderOptionsList);
-
-        header.appendChild(folderDropdownWrapper);
-
-
-        const folderWrapper = document.createElement('div');
-        folderWrapper.className = 'stcm_folder_type_row';
-        folderWrapper.style.display = 'flex';
-        folderWrapper.style.alignItems = 'center';
-        folderWrapper.style.gap = '0.5em';
-        folderWrapper.style.marginLeft = '20px';
-
-        // Label with icon
-        const folderLabel = document.createElement('span');
-        folderLabel.innerHTML = `<i class="fa-solid fa-folder" style="margin-right: 4px;"></i>Type:`;
-        folderLabel.style.fontWeight = 'bold';
-        folderLabel.style.whiteSpace = 'nowrap';
-        folderLabel.title = "Choose how this tag behaves as a folder";
-
-        // Append label and dropdown to wrapper
-        folderWrapper.appendChild(folderLabel);
-        folderWrapper.appendChild(folderDropdownWrapper);
-
-        header.appendChild(folderWrapper);
-
-        const infoIcon = document.createElement('i');
-        infoIcon.className = 'fa-solid fa-circle-info stcm_folder_info_icon';
-        infoIcon.title = 'About folders'; // fallback tooltip
-
-        // Attach click handler (next step)
-        infoIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showFolderInfoPopup(infoIcon);
-        });
-
-
-        folderWrapper.appendChild(infoIcon);
-
-        const showBtn = document.createElement('button');
-        showBtn.textContent = 'Characters';
-        showBtn.className = 'stcm_menu_button stcm_view_btn interactable';
-        showBtn.style.marginLeft = '2px';
-        showBtn.addEventListener('click', () => toggleCharacterList(wrapper, group));
-
-        const noteBtn = document.createElement('button');
-        noteBtn.textContent = 'Notes';
-        noteBtn.className = 'stcm_menu_button charNotesToggle small interactable';
-        noteBtn.style.marginLeft = '2px';
-        noteBtn.title = 'View or edit tag notes';
-
-        const noteWrapper = document.createElement('div');
-        noteWrapper.className = 'charNotesWrapper';
-        noteWrapper.style.display = 'none';
-
-        const noteArea = document.createElement('textarea');
-        noteArea.className = 'charNoteTextarea';
-        noteArea.placeholder = 'Add tag notes...';
-        noteArea.value = currentNote;
-
-        const saveNoteBtn = document.createElement('button');
-        saveNoteBtn.className = 'stcm_menu_button stcm_save_note_btn small';
-        saveNoteBtn.textContent = 'Save Note';
-        saveNoteBtn.addEventListener('click', async () => {
-            const notes = getNotes();
-            notes.tagNotes[tagId] = noteArea.value.trim();
-            saveNotes(notes);
-            debouncePersist();
-            toastr.success(`Saved note for tag "${group.tag.name}"`);
-        });
-
-        noteBtn.addEventListener('click', () => {
-            const open = noteWrapper.style.display === 'flex';
-            noteWrapper.style.display = open ? 'none' : 'flex';
-            noteBtn.textContent = open ? 'Notes' : 'Close Notes';
-            noteBtn.style.background = open ? '' : '#8e6529';
-        });
-
-        noteWrapper.appendChild(noteArea);
-        noteWrapper.appendChild(saveNoteBtn);
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.className = 'stcm_menu_button interactable red';
-        deleteBtn.style.marginLeft = '2px';
-        deleteBtn.addEventListener('click', () => confirmDeleteTag(group.tag));
-
-        const actionButtons = document.createElement('div');
-        actionButtons.className = 'tagActionButtons';
-        actionButtons.appendChild(showBtn);
-        actionButtons.appendChild(noteBtn);
-        actionButtons.appendChild(deleteBtn);
-        wrapper.appendChild(header);
-        header.appendChild(actionButtons);
-        wrapper.appendChild(noteWrapper);
-
-        fragment.appendChild(wrapper);
-    });
-
-
-    content.innerHTML = '';
-    content.appendChild(fragment);
-
-    if (isBulkDeleteMode) {
-        content.querySelectorAll('.bulkDeleteTagCheckbox').forEach(cb => {
-            cb.checked = selectedBulkDeleteTags.has(cb.value);
-            cb.addEventListener('change', () => {
-                if (cb.checked) selectedBulkDeleteTags.add(cb.value);
-                else selectedBulkDeleteTags.delete(cb.value);
-            });
-        });
-    }
-
-
-    if (isMergeMode) {
-        document.querySelectorAll('input[name="mergePrimary"]').forEach(el => {
-            el.addEventListener('change', () => {
-                selectedPrimaryTagId = el.value;
-            });
-        });
-
-        document.querySelectorAll('.mergeCheckbox').forEach(cb => {
-            cb.addEventListener('change', () => {
-                if (cb.checked) {
-                    selectedMergeTags.add(cb.value);
-                } else {
-                    selectedMergeTags.delete(cb.value);
-                }
-            });
-        });
-    }
-
-
-    document.querySelectorAll('.editTagIcon').forEach(icon => {
-        icon.addEventListener('click', () => {
-            const container = icon.closest('.tagNameEditable');
-            const id = container.dataset.id;
-            const strong = container.querySelector('.tagNameText');
-            const oldName = strong.textContent.trim();
-
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = oldName;
-            input.className = 'menu_input';
-            input.style.width = '150px';
-
-            // Replace and focus
-            container.replaceChild(input, strong);
-            input.focus();
-            input.select();
-
-            // Save on blur or enter
-            const save = () => {
-                const newName = input.value.trim();
-                const tag = tags.find(t => t.id === id);
-
-                if (tag && newName && newName !== oldName) {
-                    tag.name = newName;
-                    callSaveandReload();
-                    renderCharacterList();
-                    renderCharacterTagData(); 
-                } else {
-                    // If unchanged or invalid, just restore display
-                    container.replaceChild(strong, input);
-                    strong.textContent = oldName;
-                }
-            };
-
-
-
-            input.addEventListener('blur', save);
-            input.addEventListener('keydown', e => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    save();
-                } else if (e.key === 'Escape') {
-                    container.replaceChild(strong, input);
-                }
-            });
-        });
-    });
-
-    // Make tag name clickable to toggle the character list
-    content.querySelectorAll('.tagNameText').forEach(nameEl => {
-        nameEl.style.cursor = 'pointer';
-        nameEl.addEventListener('click', () => {
-            const container = nameEl.closest('.tagGroup');
-            const tagId = nameEl.closest('.tagNameEditable')?.dataset?.id;
-            const group = tagGroups.find(g => g.tag.id === tagId);
-            if (group) {
-                toggleCharacterList(container, group);
-            }
-        });
-    });
-
-
-    accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
-}
-
-function showFolderInfoPopup(anchorEl) {
-    // Small HTML for the popup
-    const html = document.createElement('div');
-    html.className = 'stcm_folder_info_popup';
-    html.innerHTML = `
-        <strong>Tag Folder Types</strong><br>
-        <ul style="margin: 8px 0 0 0; padding-left: 1.2em;">
-            <li><b>No Folder:</b> Tag behaves as a regular label, no grouping.</li>
-            <li><b>Open Folder:</b> Tag acts as a folder. All characters with this tag are always visible and grouped together.</li>
-            <li><b>Closed Folder:</b> Tag acts as a collapsed folder. Characters with this tag are hidden unless you open this folder.</li>
-            <li><b>Private Folder:</b> <span style="color:#c77600;">Visible only to you; not exported/shared unless explicitly selected. (Only works with this extension)</span></li>
-        </ul>
-        <div style="margin-top: 8px; font-size: 0.95em;">
-            <em>You can assign multiple folders per character, and folders can be stacked!</em>
-        </div>
-    `;
-
-    // Place popup near the icon
-    const rect = anchorEl.getBoundingClientRect();
-    html.style.left = (rect.left + window.scrollX + 28) + 'px';
-    html.style.top = (rect.top + window.scrollY - 6) + 'px';
-
-    document.body.appendChild(html);
-
-    // Dismiss on click outside
-    function closePopup(e) {
-        if (!html.contains(e.target)) {
-            html.remove();
-            document.removeEventListener('mousedown', closePopup, true);
-        }
-    }
-    setTimeout(() => document.addEventListener('mousedown', closePopup, true), 20);
-}
-
-function openColorEditModal(tag) {
-    const styles = getComputedStyle(document.body);
-    const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#333';
-    const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#fff';
-
-    let currBg = (tag.color && tag.color !== '#') ? tag.color : defaultBg;
-    let currFg = (tag.color2 && tag.color2 !== '#') ? tag.color2 : defaultFg;
-
-    const container = document.createElement('div');
-    container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 1em; width: 100%;">
-            <div class="tagPreview" style="
-                align-self: flex-start;
-                padding: 4px 12px;
-                border-radius: 4px;
-                background-color: ${currBg};
-                color: ${currFg};
-                font-weight: bold;
-                border: 1px solid #999;
-                max-width: max-content;
-                margin-bottom: .3em;
-                margin: 0 auto;
-            ">
-                ${escapeHtml(tag.name)}
-            </div>
-            <div style="display: flex; gap: 1em;">
-                <label style="flex: 1;">
-                    Background Color:<br>
-                    <toolcool-color-picker class="editTagBgPicker" color="${currBg}" style="width: 100%;"></toolcool-color-picker>
-                </label>
-                <label style="flex: 1;">
-                    Text Color:<br>
-                    <toolcool-color-picker class="editTagFgPicker" color="${currFg}" style="width: 100%;"></toolcool-color-picker>
-                </label>
-            </div>
-        </div>
-    `;
-
-    const preview = container.querySelector('.tagPreview');
-    const bgPicker = container.querySelector('.editTagBgPicker');
-    const fgPicker = container.querySelector('.editTagFgPicker');
-
-    bgPicker.addEventListener('change', (e) => {
-        currBg = e.detail?.rgba ?? e.target.color;
-        preview.style.backgroundColor = currBg;
-    });
-    fgPicker.addEventListener('change', (e) => {
-        currFg = e.detail?.rgba ?? e.target.color;
-        preview.style.color = currFg;
-    }); 
-    
-    // --- Add observer to ensure class is applied to the correct popup ---
-    const observer = new MutationObserver(() => {
-        // Find the open popup with .popup-body
-        document.querySelectorAll('dialog.popup[open] .popup-body').forEach(popupBody => {
-            // Only add if it contains our editTagBgPicker
-            if (popupBody.querySelector('.editTagBgPicker')) {
-                popupBody.classList.add('stcm_custom-color-edit-popup');
-            }
-        });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    callGenericPopup(container, POPUP_TYPE.CONFIRM, `Edit Colors: ${escapeHtml(tag.name)}`, {
-        okButton: 'Save Colors',
-        cancelButton: 'Cancel'
-    }).then(async result => {
-        observer.disconnect(); // cleanup
-        if (result !== POPUP_RESULT.AFFIRMATIVE) return;
-        tag.color = currBg;
-        tag.color2 = currFg;
-        await callSaveandReload();
-        renderCharacterList();
-        renderCharacterTagData();
-    });
-}
-
-
-function confirmDeleteTag(tag) {
-    if (!tag) return;
-
-    const html = document.createElement('div');
-    html.innerHTML = `
-        <h3>Confirm Delete</h3>
-        <p>Are you sure you want to delete the tag <strong>${tag.name}</strong>?</p>
-        <p style="color: #e57373;">It will be removed from all associated characters and cannot be undone.</p>
-    `;
-
-    callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Tag').then(result => {
-        if (result !== POPUP_RESULT.AFFIRMATIVE) {
-            toastr.info('Tag deletion cancelled.', 'Delete Tag');
-            return;
-        }
-
-        // Proceed with deletion
-        for (const [charId, tagList] of Object.entries(tag_map)) {
-            if (Array.isArray(tagList)) {
-                tag_map[charId] = tagList.filter(tid => tid !== tag.id);
-            }
-        }
-
-        const notes = getNotes();
-        if (notes.tagPrivate && notes.tagPrivate[tag.id]) {
-            delete notes.tagPrivate[tag.id];
-            saveNotes(notes);
-        }
-
-        const index = tags.findIndex(t => t.id === tag.id);
-        if (index !== -1) tags.splice(index, 1);
-
-        toastr.success(`Deleted tag "${tag.name}".`, 'Delete Tag');
-        callSaveandReload();
-        renderCharacterList();
-        renderCharacterTagData();
-    });
-}
-
 async function callSaveandReload() {
-    updatePrivateFolderObservers();
+    cleanTagMap(tag_map, characters, groups);
     saveSettingsDebounced();
     await getCharacters();
     await printCharactersDebounced();
@@ -1725,7 +785,6 @@ function exportTagCharacterNotes() {
     // Only keep tagNotes and charNotes for the export
     const exportData = {
         tagNotes: notes.tagNotes || {},
-        tagPrivate: notes.tagPrivate || {},
         charNotes: notes.charNotes || {}
     };
     const json = JSON.stringify(exportData, null, 2);
@@ -1745,11 +804,10 @@ async function handleNotesImport(importData) {
     }
     const notes = getNotes ? getNotes() : {};
     const tagNotes = notes.tagNotes || {};
-    const tagPrivate = notes.tagPrivate || {};
     const charNotes = notes.charNotes || {};
 
     let conflicts = [];
-    let newNotes = { tagNotes: {}, tagPrivate: {}, charNotes: {} };
+    let newNotes = { tagNotes: {}, charNotes: {} };
 
     // Tags notes
     for (const [tagId, note] of Object.entries(importData.tagNotes || {})) {
@@ -1762,16 +820,6 @@ async function handleNotesImport(importData) {
         }
     }
 
-    // Tags (Private flags)
-    for (const [tagId, isPrivate] of Object.entries(importData.tagPrivate || {})) {
-        if (tags.find(t => t.id === tagId)) {
-            // Only set if not already set, or to preserve a new import as True
-            // You could also show a conflict dialog here if you want
-            if (!tagPrivate[tagId] || isPrivate === true) {
-                newNotes.tagPrivate[tagId] = isPrivate;
-            }
-        }
-    }
 
     // Characters (robust match: avatar, avatar basename, and optionally name)
     for (const [importKey, note] of Object.entries(importData.charNotes || {})) {
@@ -1798,59 +846,29 @@ async function handleNotesImport(importData) {
     // If there are conflicts, show conflict dialog and wait for user to resolve, then refresh UI
     if (conflicts.length) {
         await showNotesConflictDialog(conflicts, newNotes, importData);
-        await debouncePersist();
+        flushExtSettings();
+        renderTagSection();
         renderCharacterList();
-        renderCharacterTagData();
     } else {
         // Apply new notes
         Object.assign(tagNotes, newNotes.tagNotes);
         Object.assign(charNotes, newNotes.charNotes);
-        Object.assign(tagPrivate, newNotes.tagPrivate);  // <-- Merge private flags
-        saveNotes({ ...notes, tagNotes, charNotes, tagPrivate }); // <-- Save with tagPrivate
-        await debouncePersist();
+        saveNotes({ ...notes, tagNotes, charNotes }); 
+        flushExtSettings();
+        renderTagSection();
         renderCharacterList();
-        renderCharacterTagData();
         toastr.success('Notes imported successfully!');
     }
 }
 
-
-function refreshPrivateFolderToggle() {
-    const notes = getNotes();
-    const privateIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
-    mutateBogusFolderIcons(privateIds);
-
-    // Set up the toggle if there are private folders
-    injectPrivateFolderToggle(privateIds, (state) => {
-        applyPrivateFolderVisibility(state, privateIds);
-        hidePrivateTagsInFilterBar();
-    });
-
-    // Optionally, set visibility on load (if persisting state)
-    const savedState = Number(localStorage.getItem('stcm_private_folder_toggle_state') || 0);
-    applyPrivateFolderVisibility(savedState, privateIds);
-    hidePrivateTagsInFilterBar();
-}
-
-function updatePrivateFolderObservers() {
-    refreshPrivateFolderToggle();
-    const notes = getNotes();
-    const privateTagIds = new Set(Object.keys(notes.tagPrivate || {}).filter(id => notes.tagPrivate[id]));
-    watchTagFilterBar(privateTagIds, (state) => {
-        applyPrivateFolderVisibility(state, privateTagIds);
-        hidePrivateTagsInFilterBar();
-    });
-    watchCharacterBlockMutations(privateTagIds, getCurrentVisibilityState); // If you use this for folder icon/char blocks too
-}
-
-
-eventSource.on(event_types.APP_READY, () => {
+eventSource.on(event_types.APP_READY, async () => {
+    STCM.sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
+    injectSidebarFolders(STCM.sidebarFolders, characters);  // <--- use sidebarFolders!
+    watchSidebarFolderInjection(); 
     injectStcmSettingsPanel();    
-    // private folder observer
-    updatePrivateFolderObservers();
 
 });
 
@@ -1937,7 +955,6 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     // Apply selected conflicts
     const notes = getNotes ? getNotes() : {};
     const tagNotes = notes.tagNotes || {};
-    const tagPrivate = notes.tagPrivate || {};
     const charNotes = notes.charNotes || {};
 
     conflicts.forEach((conflict, idx) => {
@@ -1954,10 +971,13 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     Object.assign(charNotes, newNotes.charNotes);
 
     saveNotes({ ...notes, tagNotes, charNotes });
-    await debouncePersist();
+    flushExtSettings();
+    renderTagSection();
     renderCharacterList();
-    renderCharacterTagData();
     toastr.success('Selected notes imported!');
 }
 
-export { renderCharacterTagData, callSaveandReload, injectTagManagerControlButton };
+export { callSaveandReload, injectTagManagerControlButton};
+export const STCM = {
+    sidebarFolders: [],
+};

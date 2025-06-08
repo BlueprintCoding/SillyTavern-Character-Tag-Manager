@@ -1,23 +1,19 @@
 //settings-drawer.js
-import { saveSettingsDebounced } from '../../../../script.js';
-import { extension_settings } from '../../../extensions.js';
-// index.js
-import { 
-    debouncePersist, 
-    getNotes, 
-    saveNotes, 
-    hashPin
-    } from './utils.js';
+import { extension_settings }     from '../../../extensions.js';
 
+import {
+    debouncePersist,
+    hashPin,
+    getStoredPinHash,
+    saveStoredPinHash,
+} from './utils.js';
 
 const MODULE_NAME = 'characterTagManager';
 const defaultSettings = {
     showDefaultTagManager: true,
     showWelcomeRecentChats: true,
     showTopBarIcon: true,
-    blurPrivatePreviews: false
 };
-
 
 function getSettings() {
     if (!extension_settings[MODULE_NAME]) extension_settings[MODULE_NAME] = structuredClone(defaultSettings);
@@ -26,7 +22,6 @@ function getSettings() {
     }
     return extension_settings[MODULE_NAME];
 }
-
 
 function createStcmSettingsPanel() {
     const panel = document.createElement('div');
@@ -55,28 +50,27 @@ function createStcmSettingsPanel() {
                     <input type="checkbox" id="stcm--showWelcomeRecentChats"/>
                     <span>Show Welcome Screen Recent Chats</span>
                 </label>
-                <hr style="margin: 1em 0;">
-                <div style="margin-bottom: 0.1em;"><b>Private Folder Preferences</b></div>
-                <label style="display:flex;align-items:center;gap:8px;">
-                    <input type="checkbox" id="stcm--blurPrivatePreviews"/>
-                    <span>Blur Character Previews</span>
-                </label>
-                <hr style="margin: 1em 0;">
-                <div style="margin-bottom: 0.7em;"><b>Private Folder PIN/Password</b></div>
-                <div id="stcm-pin-form">
-                    <div id="stcm-pin-current-row">
-                        <input type="password" id="stcm-pin-current" placeholder="Current PIN" style="width: 120px;">
+                <hr style="margin: 10px 0;">
+                <div id="stcm-pin-form" class="stcm-pin-form" style="margin-top: 10px;">
+                    <div id="stcm-pin-current-row" style="display:none;">
+                        <label>Current PIN:</label>
+                        <input type="password" id="stcm-pin-current" class="menu_input">
                     </div>
                     <div id="stcm-pin-new-row">
-                        <input type="password" id="stcm-pin-new" placeholder="New PIN" style="width: 120px;">
+                        <label>New PIN:</label>
+                        <input type="password" id="stcm-pin-new" class="menu_input">
                     </div>
                     <div id="stcm-pin-confirm-row">
-                        <input type="password" id="stcm-pin-confirm" placeholder="Confirm New PIN" style="width: 120px;">
+                        <label>Confirm New PIN:</label>
+                        <input type="password" id="stcm-pin-confirm" class="menu_input">
                     </div>
-                    <button id="stcm-set-pin-btn" class="stcm_menu_button small">Set PIN</button>
-                    <button id="stcm-remove-pin-btn" class="stcm_menu_button small red">Remove PIN</button>
-                    <div id="stcm-pin-msg" style="color:#e57373; margin-top:5px; font-size:0.97em;"></div>
+                    <div style="margin-top: 8px;">
+                        <button id="stcm-set-pin-btn" class="stcm_menu_button green small">Set PIN</button>
+                        <button id="stcm-remove-pin-btn" class="stcm_menu_button red small" style="display:none;">Remove PIN</button>
+                    </div>
+                    <div id="stcm-pin-msg" style="margin-top: 8px; color: #f87;"></div>
                 </div>
+
             </div>
         </div>
     `;
@@ -97,9 +91,9 @@ function createStcmSettingsPanel() {
     const checkboxTag = panel.querySelector('#stcm--showDefaultTagManager');
     if (checkboxTag) {
         checkboxTag.checked = getSettings().showDefaultTagManager;
-        checkboxTag.addEventListener('change', (e) => {
+        checkboxTag.addEventListener('change', e => {
             getSettings().showDefaultTagManager = e.target.checked;
-            saveSettingsDebounced();
+            debouncePersist();                    
             updateDefaultTagManagerVisibility(e.target.checked);
         });
     }
@@ -107,9 +101,9 @@ function createStcmSettingsPanel() {
     const checkboxRecent = panel.querySelector('#stcm--showWelcomeRecentChats');
     if (checkboxRecent) {
         checkboxRecent.checked = getSettings().showWelcomeRecentChats;
-        checkboxRecent.addEventListener('change', (e) => {
+        checkboxRecent.addEventListener('change', e => {
             getSettings().showWelcomeRecentChats = e.target.checked;
-            saveSettingsDebounced();
+            debouncePersist();                  
             updateRecentChatsVisibility(e.target.checked);
         });
     }
@@ -117,9 +111,9 @@ function createStcmSettingsPanel() {
     const checkboxTopBarIcon = panel.querySelector('#stcm--showTopBarIcon');
     if (checkboxTopBarIcon) {
         checkboxTopBarIcon.checked = getSettings().showTopBarIcon;
-        checkboxTopBarIcon.addEventListener('change', (e) => {
+        checkboxTopBarIcon.addEventListener('change', e => {
             getSettings().showTopBarIcon = e.target.checked;
-            saveSettingsDebounced();
+            debouncePersist();                   
             updateTopBarIconVisibility(e.target.checked);
         });
     }
@@ -136,81 +130,77 @@ function createStcmSettingsPanel() {
     const msg = pinForm.querySelector("#stcm-pin-msg");
 
     function updatePinFormUi() {
-        const notes = getNotes();
-        const hasPin = !!notes.tagPrivatePinHash;
-
-        // Only show current PIN and remove if a PIN is set
+        const currentPinHash = getStoredPinHash();
+        const hasPin = !!currentPinHash;
+    
         pinCurrentRow.style.display = hasPin ? "" : "none";
         removeBtn.style.display = hasPin ? "" : "none";
-
-        // Label should be "Set PIN" or "Change PIN"
         setBtn.textContent = hasPin ? "Change PIN" : "Set PIN";
-
-        // Always show new/confirm fields (makes sense for both setting and changing PIN)
         pinNewRow.style.display = "";
         pinConfirmRow.style.display = "";
-        // Clear any prior messages
         msg.textContent = "";
     }
-
+    
     // Initial UI update
     updatePinFormUi();
 
-    setBtn.onclick = async function() {
-        const notes = getNotes();
-        const currentPinHash = notes.tagPrivatePinHash || "";
-        // Validate current PIN if set
+    setBtn.onclick = async () => {
+        const currentPinHash = getStoredPinHash();
+    
+        // ── verify the current PIN if one is already set ──────────────────────
         if (currentPinHash) {
-            const enteredCurrentHash = await hashPin(pinForm.querySelector("#stcm-pin-current").value);
+            const enteredCurrentHash = await hashPin(
+                pinForm.querySelector('#stcm-pin-current').value
+            );
             if (enteredCurrentHash !== currentPinHash) {
-                msg.textContent = "Current PIN is incorrect.";
+                msg.textContent = 'Current PIN is incorrect.';
                 return;
             }
         }
-        // New PIN must not be empty and must match confirmation
+    
+        // ── validate the new PIN inputs ───────────────────────────────────────
         if (!pinNew.value || pinNew.value !== pinConfirm.value) {
-            msg.textContent = "New PINs must match and not be empty.";
+            msg.textContent = 'New PINs must match and not be empty.';
             return;
         }
-        notes.tagPrivatePinHash = await hashPin(pinNew.value);
-        saveNotes(notes);
-        debouncePersist();
-        sessionStorage.removeItem("stcm_pin_okay");
-        msg.textContent = currentPinHash ? "PIN updated!" : "PIN set!";
-        // Clear inputs
-        pinForm.querySelector("#stcm-pin-current").value = "";
-        pinNew.value = pinConfirm.value = "";
+    
+        // ── save to extensionSettings and flush ───────────────────────────────
+        saveStoredPinHash(await hashPin(pinNew.value));
+        debouncePersist();          // writes extensionSettings via utils.js
+    
+        sessionStorage.removeItem('stcm_pin_okay');
+        msg.textContent = currentPinHash ? 'PIN updated!' : 'PIN set!';
+        pinForm.querySelector('#stcm-pin-current').value = '';
+        pinNew.value = pinConfirm.value = '';
         updatePinFormUi();
     };
     
-    removeBtn.onclick = async function() {
-        const notes = getNotes();
-        const currentPinHash = notes.tagPrivatePinHash || "";
+    removeBtn.onclick = async () => {
+        const currentPinHash = getStoredPinHash();
         if (!currentPinHash) {
-            msg.textContent = "No PIN is set.";
+            msg.textContent = 'No PIN is set.';
             return;
         }
-        const enteredCurrentHash = await hashPin(pinForm.querySelector("#stcm-pin-current").value);
+    
+        const enteredCurrentHash = await hashPin(
+            pinForm.querySelector('#stcm-pin-current').value
+        );
         if (enteredCurrentHash !== currentPinHash) {
-            msg.textContent = "Current PIN is incorrect.";
+            msg.textContent = 'Current PIN is incorrect.';
             return;
         }
-        notes.tagPrivatePinHash = "";
-        saveNotes(notes);
-        debouncePersist();
-        sessionStorage.removeItem("stcm_pin_okay");
-        msg.textContent = "PIN removed!";
-        // Clear inputs
-        pinForm.querySelector("#stcm-pin-current").value = "";
-        pinNew.value = pinConfirm.value = "";
+    
+        saveStoredPinHash('');      // clears the hash in extensionSettings
+        debouncePersist();          // flush change to disk
+    
+        sessionStorage.removeItem('stcm_pin_okay');
+        msg.textContent = 'PIN removed!';
+        pinForm.querySelector('#stcm-pin-current').value = '';
+        pinNew.value = pinConfirm.value = '';
         updatePinFormUi();
     };
-    
-
     return panel;
 }
-
-
 
 export function injectStcmSettingsPanel() {
     const container = document.getElementById('extensions_settings');
@@ -219,13 +209,10 @@ export function injectStcmSettingsPanel() {
     const panel = createStcmSettingsPanel();
     container.appendChild(panel);
 
-
-
     // Set initial Tag Manager button visibility
     updateDefaultTagManagerVisibility(getSettings().showDefaultTagManager);
     updateRecentChatsVisibility(getSettings().showWelcomeRecentChats);
     updateTopBarIconVisibility(getSettings().showTopBarIcon);
-    updateBlurPrivatePreviews(getSettings().blurPrivatePreviews);
 }
 
 export function updateDefaultTagManagerVisibility(isVisible = true) {
@@ -266,18 +253,3 @@ export function updateTopBarIconVisibility(isVisible = true) {
     if (icon) icon.style.display = isVisible ? '' : 'none';
 }
 
-export function updateBlurPrivatePreviews(isBlur = false) {
-    let styleEl = document.getElementById('stcm-blur-private-previews');
-    if (!styleEl && isBlur) {
-        styleEl = document.createElement('style');
-        styleEl.id = 'stcm-blur-private-previews';
-        styleEl.textContent = `
-            .bogus_folder_select.stcm-private-folder .bogus_folder_avatars_block img {
-                filter: blur(2px) !important;
-            }
-        `;
-        document.head.appendChild(styleEl);
-    } else if (styleEl && !isBlur) {
-        styleEl.remove();
-    }
-}

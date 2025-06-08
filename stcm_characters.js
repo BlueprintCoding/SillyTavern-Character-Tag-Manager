@@ -3,60 +3,35 @@ import { debouncePersist,
     buildTagMap,
     getNotes,
     saveNotes,
-    restoreNotesFromFile
+    parseSearchGroups,
+    parseSearchTerm
  } from './utils.js';
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
 import { characters, selectCharacterById } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
-import { renderCharacterTagData, callSaveandReload } from "./index.js";
-import { uploadFileAttachment, getFileAttachment } from '../../../chats.js';
-
-
-(async () => {
-    await restoreNotesFromFile();  // Only runs if not already cached
-    renderCharacterList();         // After loading notes
-})();
-
-function parseSearchTerms(raw) {
-    // Split on spaces, except within quotes
-    const matches = raw.match(/(-?[AT]?:?"[^"]+"|-?[AT]?:?\S+)/g) || [];
-    return matches.map(term => {
-        let positive = true, field = 'name', value = term;
-        if (value.startsWith('-')) {
-            positive = false;
-            value = value.slice(1);
-        }
-        if (value.toUpperCase().startsWith('A:')) {
-            field = 'a';
-            value = value.slice(2);
-        } else if (value.toUpperCase().startsWith('T:')) {
-            field = 't';
-            value = value.slice(2);
-        } else if (value.startsWith(':')) {
-            // Edge: :foo is invalid, just treat as name
-            value = value.slice(1);
-        }
-        // Remove quotes
-        value = value.replace(/^"|"$/g, '').trim();
-        return { positive, field, value: value.toLowerCase() };
-    }).filter(t => t.value);
-}
+import { callSaveandReload } from "./index.js";
+import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 
 
 function renderCharacterList() {
-    const container = document.getElementById('characterListContainer');
-    if (!container) return;
+    const wrapper = document.getElementById('characterListWrapper');
+    if (!wrapper) return;
+
+    // Remove all old content
+    wrapper.innerHTML = '';
+    const container = document.createElement('div');
+    container.id = 'characterListContainer';
+    container.className = 'stcm_scroll_300';
+    wrapper.appendChild(container);
 
     const tagMapById = buildTagMap(tags);
-
-    const selectedTagIds = Array.from(document.getElementById('assignTagSelect')?.selectedOptions || []).map(opt => opt.value);
+    const selectedTagIdsArr = Array.from(selectedTagIds);
     const selectedTagsDisplay = document.getElementById('selectedTagsDisplay');
     selectedTagsDisplay.innerHTML = '';
 
-    if (selectedTagIds.length > 0) {
-        const tagMapById = buildTagMap(tags);
-        selectedTagIds.forEach(tagId => {
+    if (selectedTagIdsArr.length > 0) {
+        selectedTagIdsArr.forEach(tagId => {
             const tag = tagMapById.get(tagId);
             if (!tag) return;
 
@@ -68,33 +43,9 @@ function renderCharacterList() {
         });
     }
 
-    const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIds.length > 0;
+    const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIdsArr.length > 0;
 
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
-
-        // --- New Parsing Functions ---
-        function parseSearchGroups(input) {
-            return input
-                .split(',')
-                .map(group => group.trim())
-                .filter(Boolean)
-                .map(group => group.match(/(?:[^\s"]+|"[^"]*")+/g) || []);
-        }
-
-        function parseSearchTerm(term) {
-            let positive = true;
-            term = term.trim();
-            if (!term) return null;
-            if (term.startsWith('-')) {
-                positive = false;
-                term = term.slice(1).trim();
-            }
-            const m = term.match(/^([ta]):(.+)$/i);
-            if (m) {
-                return { field: m[1].toLowerCase(), value: m[2].toLowerCase(), positive };
-            }
-            return { field: '', value: term.toLowerCase(), positive };
-        }
 
         const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
         const sortMode = document.getElementById('charSortMode')?.value || 'alpha_asc';
@@ -255,7 +206,6 @@ function renderCharacterList() {
         nameRow.appendChild(nameSpan);
 
         // Notes button
-        const notes = getNotes();
         const currentNote = notes.charNotes[entity.id] || '';
 
         const noteBtn = document.createElement('button');
@@ -340,8 +290,9 @@ function renderCharacterList() {
             removeBtn.addEventListener('click', () => {
                 removeTagFromEntity(tag, entity.id);
                 callSaveandReload();
+                renderTagSection();
                 renderCharacterList();
-                renderCharacterTagData();
+
             });
 
             tagBox.appendChild(removeBtn);
@@ -398,8 +349,9 @@ function renderCharacterList() {
 
             toastr.error(`Character "${entity.name}" permanently deleted.`, 'Delete Successful');
             callSaveandReload();
+            renderTagSection();
             renderCharacterList();
-            renderCharacterTagData();
+
         });
 
         rightControls.appendChild(deleteIcon);
@@ -495,8 +447,9 @@ function toggleCharacterList(container, group) {
 
             // 🔄 Save and Refresh both sections
             callSaveandReload();
+            renderTagSection(); 
             renderCharacterList();
-            renderCharacterTagData(); // imported from index.js
+
         });
 
 
