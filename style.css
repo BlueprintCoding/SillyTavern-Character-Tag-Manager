@@ -934,7 +934,7 @@ min-width: 130px;
 
 /* --- Sidebar nav wrapper --- */
 
-#stcm_sidebar_folder_nav,
+/* #stcm_sidebar_folder_nav,
 #rm_print_characters_block,
 #rm_characters_block,
 #right-nav-panel.drawer-content > .scrollableInner
@@ -955,7 +955,7 @@ div#rightNavHolder.drawer {
 
 [id^="BogusFolder"] {
     display: none !important;
-}
+} */
 
 #stcm_sidebar_folder_nav {
     display: flex;
@@ -967,9 +967,9 @@ div#rightNavHolder.drawer {
     width: 100%;
     box-sizing: border-box;
     border-bottom: 4px solid #222;
-    max-height: 50vh;
+    /* max-height: 50vh;
     min-height: 30vh;
-    overflow-y: scroll;
+    overflow-y: scroll; */
 }
 
 .sidebar-folder-back {

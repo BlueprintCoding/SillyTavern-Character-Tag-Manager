@@ -13,6 +13,8 @@ const defaultSettings = {
     showDefaultTagManager: true,
     showWelcomeRecentChats: true,
     showTopBarIcon: true,
+    folderNavHeightMode: "auto",   // "auto" or "custom"
+    folderNavMaxHeight: 50         // default 50 (% of vh)
 };
 
 function getSettings() {
@@ -50,6 +52,24 @@ function createStcmSettingsPanel() {
                     <input type="checkbox" id="stcm--showWelcomeRecentChats"/>
                     <span>Show Welcome Screen Recent Chats</span>
                 </label>
+                <hr style="margin: 10px 0;">
+                <div style="margin: 10px 0 18px 0;">
+                    <label style="display:flex;align-items:center;gap:8px;">
+                        <select id="stcm--folderNavHeightMode" style="min-width: 160px;">
+                            <option value="auto">Auto Height (default)</option>
+                            <option value="custom">Custom Max Height</option>
+                        </select>
+                        <span>Folder Panel Height Mode</span>
+                    </label>
+                    <div id="stcm--customFolderHeightRow" style="margin-left:30px;margin-top:8px;display:none;">
+                        <label>
+                            Max Height:
+                            <input id="stcm--folderNavMaxHeight" type="number" min="10" max="90" step="1" style="width:60px;">
+                            % of viewport height
+                        </label>
+                    </div>
+                </div>
+
                 <hr style="margin: 10px 0;">
                 <div id="stcm-pin-form" class="stcm-pin-form" style="margin-top: 10px;">
                     <div id="stcm-pin-current-row" style="display:none;">
@@ -199,8 +219,44 @@ function createStcmSettingsPanel() {
         pinNew.value = pinConfirm.value = '';
         updatePinFormUi();
     };
+
+
+
+    const settings = getSettings();
+    const modeSelect = panel.querySelector('#stcm--folderNavHeightMode');
+    const maxHeightInput = panel.querySelector('#stcm--folderNavMaxHeight');
+    const customRow = panel.querySelector('#stcm--customFolderHeightRow');
+
+    // Init
+    modeSelect.value = settings.folderNavHeightMode || "auto";
+    maxHeightInput.value = settings.folderNavMaxHeight || 50;
+    customRow.style.display = (modeSelect.value === "custom") ? "" : "none";
+
+    // Show/hide custom max height input
+    modeSelect.addEventListener('change', e => {
+        settings.folderNavHeightMode = modeSelect.value;
+        debouncePersist();
+        customRow.style.display = (modeSelect.value === "custom") ? "" : "none";
+        applyFolderNavHeightMode();
+    });
+
+    // Update value and apply on change
+    maxHeightInput.addEventListener('input', e => {
+        let val = parseInt(maxHeightInput.value, 10);
+        if (isNaN(val) || val < 10) val = 10;
+        if (val > 90) val = 90;
+        settings.folderNavMaxHeight = val;
+        maxHeightInput.value = val; // clamp visually
+        debouncePersist();
+        applyFolderNavHeightMode();
+    });
+
+
+
+    // END SETTINGS SECTION
     return panel;
 }
+
 
 export function injectStcmSettingsPanel() {
     const container = document.getElementById('extensions_settings');
@@ -213,6 +269,7 @@ export function injectStcmSettingsPanel() {
     updateDefaultTagManagerVisibility(getSettings().showDefaultTagManager);
     updateRecentChatsVisibility(getSettings().showWelcomeRecentChats);
     updateTopBarIconVisibility(getSettings().showTopBarIcon);
+    applyFolderNavHeightMode();
 }
 
 export function updateDefaultTagManagerVisibility(isVisible = true) {
@@ -253,3 +310,44 @@ export function updateTopBarIconVisibility(isVisible = true) {
     if (icon) icon.style.display = isVisible ? '' : 'none';
 }
 
+function applyFolderNavHeightMode() {
+    // Remove any existing style tag
+    let style = document.getElementById('stcm-folder-nav-style');
+    if (!style) {
+        style = document.createElement('style');
+        style.id = 'stcm-folder-nav-style';
+        document.head.appendChild(style);
+    }
+    const settings = getSettings();
+    if (settings.folderNavHeightMode === 'custom') {
+        style.textContent = `
+#stcm_sidebar_folder_nav {
+    max-height: ${settings.folderNavMaxHeight}vh !important;
+    min-height: 30vh !important;
+    overflow-y: auto !important;
+}
+`;
+    } else {
+        // Reset to auto/default
+        style.textContent = `
+#stcm_sidebar_folder_nav,
+#rm_print_characters_block,
+#rm_characters_block,
+#right-nav-panel.drawer-content > .scrollableInner {
+    overflow-y: visible !important;
+    height: auto !important;
+    max-height: none !important;
+}
+nav#right-nav-panel.drawer-content {
+    overflow-y: auto !important;
+    height: 100% !important;
+}
+div#rightNavHolder.drawer {
+    overflow: hidden !important;
+}
+[id^="BogusFolder"] {
+    display: none !important;
+}
+`;
+    }
+}
