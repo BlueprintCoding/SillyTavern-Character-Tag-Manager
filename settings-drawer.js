@@ -52,9 +52,9 @@ function createStcmSettingsPanel() {
                     <input type="checkbox" id="stcm--showWelcomeRecentChats"/>
                     <span>Show Welcome Screen Recent Chats</span>
                 </label>
-                <hr style="margin: 10px 0;">
-                <div style="margin: 10px 0 18px 0;">
-                    <label style="">
+                <hr>
+                <div style="margin-left: 10px;">
+                    <label>
                      <span style="text-wrap:nowrap;">Folder Panel Height Mode</span>
                         <select id="stcm--folderNavHeightMode" style="min-width: 160px;">
                             <option value="auto">Auto Height (default)</option>
@@ -62,7 +62,7 @@ function createStcmSettingsPanel() {
                         </select>
                        
                     </label>
-                    <div id="stcm--customFolderHeightRow" style="margin-left:30px;margin-top:8px;display:none;">
+                    <div id="stcm--customFolderHeightRow" style="margin-left:30px;margin-top:4px;display:none;">
                         <label>
                             Max Height:
                             <input id="stcm--folderNavMaxHeight" class="menu_input" type="number" min="10" max="90" step="1" style="width:60px;">
@@ -71,7 +71,8 @@ function createStcmSettingsPanel() {
                     </div>
                 </div>
 
-                <hr style="margin: 10px 0;">
+                <hr>
+                <div style="margin-left: 10px;">
                 <span style="text-wrap:nowrap;">Private Folder Pin</span>
                 <div id="stcm-pin-form" class="stcm-pin-form" style="margin-top: 10px;">
                     <div id="stcm-pin-current-row" style="display:none;">
@@ -92,7 +93,7 @@ function createStcmSettingsPanel() {
                     </div>
                     <div id="stcm-pin-msg" style="margin-top: 8px; color: #f87;"></div>
                 </div>
-
+                </div>
             </div>
         </div>
     `;
