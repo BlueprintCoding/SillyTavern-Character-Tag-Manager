@@ -87,34 +87,63 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
 
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
-
+    
         for (const el of globalList.querySelectorAll('.character_select')) {
             const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
             if (!img) continue;
-
+    
             const url = new URL(img.src, window.location.origin);
             const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
             const name = (el.querySelector('.ch_name')?.textContent || '').toLowerCase();
-
-            const wasHiddenByFolder = el.dataset.stcmHiddenByFolder === 'true';
-
-            if (
-                term &&
-                wasHiddenByFolder &&
-                name.includes(term) &&
-                isAvatarInVisibleFolder(avatarFile, folders)
-            ) {
-                el.classList.remove('stcm_force_hidden'); // unhide only if folder is visible
-            } else if (term && !name.includes(term)) {
-                el.classList.add('stcm_force_hidden'); // hide non-matching
-            } else if (wasHiddenByFolder) {
-                el.classList.add('stcm_force_hidden'); // restore original hidden state
-            } else {
-                el.classList.remove('stcm_force_hidden'); // restore visible
+    
+            // --- New logic:
+            // 1. If searching and name matches...
+            if (term && name.includes(term)) {
+                // ...and if in a folder...
+                let isInFolder = false;
+                let isInPrivateHiddenFolder = false;
+                for (const folder of folders) {
+                    if (folder.characters?.includes(avatarFile)) {
+                        isInFolder = true;
+                        if (folder.private && privateFolderVisibilityMode === 0) {
+                            // Private folders hidden and this is private
+                            isInPrivateHiddenFolder = true;
+                        }
+                        if (folder.private && privateFolderVisibilityMode === 2 && !sessionStorage.getItem("stcm_pin_okay")) {
+                            // "Show Only Private" but not unlocked
+                            isInPrivateHiddenFolder = true;
+                        }
+                    }
+                }
+    
+                if (isInFolder && !isInPrivateHiddenFolder) {
+                    // Character is in a folder but should be visible for search
+                    el.classList.remove('stcm_force_hidden');
+                    continue;
+                }
+                if (isInPrivateHiddenFolder) {
+                    // Hidden in private folder, stay hidden
+                    el.classList.add('stcm_force_hidden');
+                    continue;
+                }
+                // Not in any folder or not private-hidden
+                el.classList.remove('stcm_force_hidden');
+            }
+            // 2. If searching and not matching, hide
+            else if (term && !name.includes(term)) {
+                el.classList.add('stcm_force_hidden');
+            }
+            // 3. If not searching, restore original hidden state based on folder
+            else {
+                if (el.dataset.stcmHiddenByFolder === 'true') {
+                    el.classList.add('stcm_force_hidden');
+                } else {
+                    el.classList.remove('stcm_force_hidden');
+                }
             }
         }
-
     }, 150));
+    
 
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
