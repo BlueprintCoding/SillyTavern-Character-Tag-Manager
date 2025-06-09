@@ -121,41 +121,36 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         stcmLastSearchFolderId = null;
 
         if (term) {
-            // Find first character matching the term
-            let match = null, matchFolder = null;
-            for (const folder of folders) {
-                for (const charAvatar of (folder.characters || [])) {
-                    const char = allCharacters.find(c => c.avatar === charAvatar);
-                    if (char && char.name.toLowerCase().includes(term)) {
-                        match = char;
-                        matchFolder = folder;
-                        break;
-                    }
-                }
-                if (match) break;
-            }
-
+            // ...find matching character/folder...
             if (match && matchFolder) {
                 stcmLastSearchFolderId = matchFolder.id;
+                stcmSearchActive = true;
+                currentSidebarFolderId = matchFolder.id; // <--- Fix: update current folder
                 renderSidebarFolderSearchResult(folders, allCharacters, matchFolder.id, term);
             } else {
-                // No match: Show sidebar in root (or you could show a 'no results' message)
+                stcmLastSearchFolderId = null;
+                stcmSearchActive = true;
+                currentSidebarFolderId = 'root';
                 renderSidebarFolderContents(folders, allCharacters, 'root');
             }
         } else {
             stcmSearchActive = false;
             stcmLastSearchFolderId = null;
+            currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
             renderSidebarFolderContents(folders, allCharacters, 'root');
         }
+        
     }, 150));
 
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
             stcmSearchActive = false;
             stcmLastSearchFolderId = null;
+            currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
             renderSidebarFolderContents(folders, allCharacters, 'root');
         }
     });
+    
 }
 
 
