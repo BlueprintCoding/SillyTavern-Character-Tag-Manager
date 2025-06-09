@@ -250,7 +250,6 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
-    if (stcmSearchActive) return;
     const folderedCharAvatars = new Set();
     for (const folder of folders) {
         if (Array.isArray(folder.characters)) {
