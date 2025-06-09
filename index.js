@@ -691,22 +691,35 @@ async function callSaveandReload() {
 
 
 function addCharacterTagManagerIcon() {
-    const existingIcon = document.getElementById('rightNavHolder');
-    if (!existingIcon || document.getElementById('characterTagManagerToggle')) return;
+    // Prevent double-insertion
+    if (document.getElementById('characterTagManagerButton')) return;
 
-    // Create your new icon
+    // The main bar
+    const topSettings = document.getElementById('top-settings-holder');
+    const rightNavHolder = document.getElementById('rightNavHolder');
+    if (!topSettings || !rightNavHolder) return;
+
+    // Build structure
+    const button = document.createElement('div');
+    button.id = 'characterTagManagerButton';
+    button.className = 'drawer';
+
+    const toggle = document.createElement('div');
+    toggle.className = 'drawer-toggle';
+
     const icon = document.createElement('div');
-    icon.id = 'characterTagManagerToggle';
-    icon.className = 'drawer drawer-icon fa-solid fa-tags fa-fw interactable';
+    icon.className = 'drawer-icon fa-solid fa-tags fa-fw closedIcon interactable';
     icon.title = 'Character / Tag Manager';
     icon.setAttribute('tabindex', '0');
-
     icon.addEventListener('click', openCharacterTagManagerModal);
 
-    // Insert before the existing #rightNavDrawerIcon
-    const parent = existingIcon.parentElement;
-    parent.insertBefore(icon, existingIcon);
+    toggle.appendChild(icon);
+    button.appendChild(toggle);
+
+    // Insert before rightNavHolder in the top nav bar
+    topSettings.insertBefore(button, rightNavHolder);
 }
+
 
 function injectTagManagerControlButton() {
     const container = document.querySelector('#rm_characters_block .rm_tag_controls');
