@@ -55,11 +55,12 @@ function createStcmSettingsPanel() {
                 <hr style="margin: 10px 0;">
                 <div style="margin: 10px 0 18px 0;">
                     <label style="display:flex;align-items:center;gap:8px;">
+                     <span style="text-wrap:none;">Folder Panel Height Mode</span>
                         <select id="stcm--folderNavHeightMode" style="min-width: 160px;">
                             <option value="auto">Auto Height (default)</option>
                             <option value="custom">Custom Max Height</option>
                         </select>
-                        <span>Folder Panel Height Mode</span>
+                       
                     </label>
                     <div id="stcm--customFolderHeightRow" style="margin-left:30px;margin-top:8px;display:none;">
                         <label>
