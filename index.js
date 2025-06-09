@@ -19,6 +19,7 @@ import * as stcmFolders from './stcm_folders.js';
 import {
     watchSidebarFolderInjection,
     injectSidebarFolders,
+    hookFolderSidebarEvents
 } from './stcm_folders_ui.js';
 
 import { renderFoldersTree, attachFolderSectionListeners } from './stcm_folders_tree.js';
@@ -32,8 +33,7 @@ import {
     renderTagSection,
     attachTagSectionListeners,
     populateAssignTagSelect,
-    selectedTagIds,
-    hookFolderSidebarEvents
+    selectedTagIds
   } from './stcm_tags_ui.js';
 
 import {
