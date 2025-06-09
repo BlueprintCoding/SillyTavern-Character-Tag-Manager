@@ -711,46 +711,47 @@ export function renderSidebarCharacterCard(char) {
 }
 
 
-export function watchSidebarFolderInjection() {
-    const container = document.getElementById('rm_print_characters_block');
-    if (!container) return;
+const debouncedInject = debounce(async () => {
+    const sidebar = container.querySelector('#stcm_sidebar_folder_nav');
+    const currentAvatars = getCurrentAvatars();
 
-    const getCurrentAvatars = () => {
-        // Adjust selector as needed for your character cards
-        return Array.from(container.querySelectorAll('.character_select img[src*="/thumbnail?type=avatar&file="]'))
-            .map(img => {
-                const url = new URL(img.src, window.location.origin);
-                return decodeURIComponent(url.searchParams.get("file") || "");
-            })
-            .sort(); // always sorted for reliable comparison
-    };
-
-    const arraysEqual = (a, b) => (
-        a.length === b.length && a.every((val, idx) => val === b[idx])
-    );
-
-    const debouncedInject = debounce(async () => {
-        const now = Date.now();
-        if (now - lastSidebarInjection < SIDEBAR_INJECTION_THROTTLE_MS) return;
-
-        const currentAvatars = getCurrentAvatars();
-        if (arraysEqual(currentAvatars, lastKnownCharacterAvatars)) {
-            // No change, skip update
-            return;
-        }
-
-        lastKnownCharacterAvatars = currentAvatars;
-        lastSidebarInjection = now;
+    // 1. If sidebar is missing, always inject.
+    if (!sidebar) {
         await updateSidebar(true);
-    }, 150);
+        lastKnownCharacterAvatars = getCurrentAvatars();
+        lastSidebarInjection = Date.now();
+        return;
+    }
 
-    if (stcmObserver) stcmObserver.disconnect();
-    stcmObserver = new MutationObserver(debouncedInject);
-    stcmObserver.observe(container, { childList: true, subtree: false });
+    // 2. If sidebar is present, only re-inject if avatars have changed.
+    if (!arraysEqual(currentAvatars, lastKnownCharacterAvatars)) {
+        await updateSidebar(true);
+        lastKnownCharacterAvatars = getCurrentAvatars();
+        lastSidebarInjection = Date.now();
+    }
+    // else, no update needed
+}, 150);
+const debouncedInject = debounce(async () => {
+    const sidebar = container.querySelector('#stcm_sidebar_folder_nav');
+    const currentAvatars = getCurrentAvatars();
 
-    // Initialize state
-    lastKnownCharacterAvatars = getCurrentAvatars();
-}
+    // 1. If sidebar is missing, always inject.
+    if (!sidebar) {
+        await updateSidebar(true);
+        lastKnownCharacterAvatars = getCurrentAvatars();
+        lastSidebarInjection = Date.now();
+        return;
+    }
+
+    // 2. If sidebar is present, only re-inject if avatars have changed.
+    if (!arraysEqual(currentAvatars, lastKnownCharacterAvatars)) {
+        await updateSidebar(true);
+        lastKnownCharacterAvatars = getCurrentAvatars();
+        lastSidebarInjection = Date.now();
+    }
+    // else, no update needed
+}, 150);
+
 
 
 
