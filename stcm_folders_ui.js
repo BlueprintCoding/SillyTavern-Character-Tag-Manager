@@ -193,8 +193,8 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
 function characterMatchesTerm(char, term, tag_map, tags) {
     
         // ---- GET THE LATEST tags/tag_map EVERY TIME ----
-        const { tags, tag_map } = getCurrentTagsAndMap();
-        const tagMapById = buildTagMap(tags);
+        let { tags, tag_map } = getCurrentTagsAndMap();
+        let tagMapById = buildTagMap(tags);
 
     term = term.toLowerCase();
 
