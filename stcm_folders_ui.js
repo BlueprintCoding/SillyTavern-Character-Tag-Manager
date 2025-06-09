@@ -122,11 +122,10 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     
         let match = null, matchFolder = null;
         if (term) {
-            // --- FIND the first character matching the term and the folder containing it
             for (const folder of folders) {
                 for (const charAvatar of (folder.characters || [])) {
                     const char = allCharacters.find(c => c.avatar === charAvatar);
-                    if (char && char.name.toLowerCase().includes(term)) {
+                    if (char && characterMatchesTerm(char, term)) {
                         match = char;
                         matchFolder = folder;
                         break;
@@ -134,7 +133,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
                 }
                 if (match) break;
             }
-    
+
             if (match && matchFolder) {
                 stcmLastSearchFolderId = matchFolder.id;
                 stcmSearchActive = true;
@@ -180,6 +179,20 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     });
     
 }
+
+function characterMatchesTerm(char, term) {
+    // Case-insensitive match of term in ANY field of char object (shallow, primitive fields only)
+    for (const key in char) {
+        if (!char.hasOwnProperty(key)) continue;
+        let val = char[key];
+        if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
+        // Optionally, include numbers or arrays:
+        if (typeof val === 'number' && val.toString().includes(term)) return true;
+        if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
+    }
+    return false;
+}
+
 
 
 // Only shows the folder open with matches highlighted inside
@@ -251,7 +264,7 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
     // Show only matching characters in this folder
     (folder.characters || []).forEach(charId => {
         const char = allCharacters.find(c => c.avatar === charId);
-        if (char && char.name.toLowerCase().includes(term)) {
+        if (char && characterMatchesTerm(char, term)) {
             const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
             charCard.style.background = 'rgba(100, 200, 250, 0.17)'; // optional: highlight
             contentDiv.appendChild(charCard);
