@@ -192,6 +192,7 @@ function characterMatchesTerm(char, term) {
     // ---- CHECK TAGS ----
     if (Array.isArray(char.tags)) {
         for (const tag of char.tags) {
+            console.log(char.tags);
             if (
                 typeof tag === 'string' && tag.toLowerCase().includes(term)
                 ||
