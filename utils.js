@@ -201,6 +201,14 @@ function cleanTagMap(tag_map, characters = [], groups = []) {
     }
 }
 
+export function getCurrentTagsAndMap() {
+    const context = getContext && getContext();
+    return {
+        tags: Array.isArray(context?.tags) ? context.tags : [],
+        tag_map: typeof context?.tagMap === 'object' && context?.tagMap !== null ? context.tagMap : {},
+    };
+}
+
 function buildTagMap(tags) {
     return new Map(tags.map(tag => [tag.id, tag]));
 }

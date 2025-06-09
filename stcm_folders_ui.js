@@ -5,7 +5,8 @@ import {
     escapeHtml,
     getStoredPinHash, 
     hashPin,
-    promptInput
+    promptInput,
+    getCurrentTagsAndMap
     } from './utils.js';
     
     import * as stcmFolders from './stcm_folders.js';
@@ -124,11 +125,8 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         stcmSearchActive = !!term;
         stcmLastSearchFolderId = null;
 
-        // --- GET TAGS/TAG_MAP SAFELY FROM CONTEXT ---
-        let context = getContext && getContext();
-        let tags = (context && context.tags) ? context.tags : (typeof window.tags !== "undefined" ? window.tags : []);
-        let tag_map = (context && context.tagMap) ? context.tagMap : (typeof window.tag_map !== "undefined" ? window.tag_map : {});
-
+        // ---- GET THE LATEST tags/tag_map EVERY TIME ----
+        const { tags, tag_map } = getCurrentTagsAndMap();
         const tagMapById = buildTagMap(tags);
 
         let match = null, matchFolder = null;
@@ -136,6 +134,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
             for (const folder of folders) {
                 for (const charAvatar of (folder.characters || [])) {
                     const char = allCharacters.find(c => c.avatar === charAvatar);
+                    // Pass *tags* and *tag_map* explicitly:
                     if (char && characterMatchesTerm(char, term, tag_map, tags)) {
                         match = char;
                         matchFolder = folder;
