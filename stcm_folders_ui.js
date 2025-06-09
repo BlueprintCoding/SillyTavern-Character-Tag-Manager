@@ -119,15 +119,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         const term = input.value.trim().toLowerCase();
         stcmSearchActive = !!term;
         stcmLastSearchFolderId = null;
-<<<<<<< HEAD
-    
-=======
 
-        // ---- GET THE LATEST tags/tag_map EVERY TIME ----
-        const { tags, tag_map } = getCurrentTagsAndMap();
-        const tagMapById = buildTagMap(tags);
-
->>>>>>> parent of 9b12b05 (why)
         let match = null, matchFolder = null;
         if (term) {
             for (const folder of folders) {
