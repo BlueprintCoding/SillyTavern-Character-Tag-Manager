@@ -186,13 +186,21 @@ function characterMatchesTerm(char, term) {
         if (!char.hasOwnProperty(key)) continue;
         let val = char[key];
         if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
-        // Optionally, include numbers or arrays:
         if (typeof val === 'number' && val.toString().includes(term)) return true;
         if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
     }
+    // ---- CHECK TAGS ----
+    if (Array.isArray(char.tags)) {
+        for (const tag of char.tags) {
+            if (
+                typeof tag === 'string' && tag.toLowerCase().includes(term)
+                ||
+                tag && tag.name && tag.name.toLowerCase().includes(term)
+            ) return true;
+        }
+    }
     return false;
 }
-
 
 
 // Only shows the folder open with matches highlighted inside
