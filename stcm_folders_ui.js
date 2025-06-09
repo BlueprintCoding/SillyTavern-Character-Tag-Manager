@@ -182,8 +182,6 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     
 }
 
-import { buildTagMap } from './utils.js'; // You already have this
-
 function characterMatchesTerm(char, term, tag_map, tags) {
     const tagMapById = buildTagMap(tags);
     term = term.toLowerCase();
