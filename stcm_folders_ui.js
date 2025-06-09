@@ -79,10 +79,43 @@ export async function updateSidebar(forceReload = false) {
         }
         injectSidebarFolders(STCM.sidebarFolders, characters);
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+        insertNoFolderLabelIfNeeded();
+
     } catch (e) {
         console.error("Sidebar update failed:", e);
     } finally {
         sidebarUpdateInProgress = false;
+    }
+}
+
+function insertNoFolderLabelIfNeeded() {
+    // Remove existing if any (prevents duplicates)
+    let oldLabel = document.getElementById('stcm_no_folder_label');
+    if (oldLabel) oldLabel.remove();
+
+    const parent = document.getElementById('rm_print_characters_block');
+    if (!parent) return;
+
+    // Find any visible character not in a folder
+    // They have data-stcm-hidden-by-folder != "true"
+    const firstUnfoldered = Array.from(parent.children).find(child =>
+        child.classList?.contains('character_select') &&
+        child.dataset.stcmHiddenByFolder !== 'true'
+    );
+    if (firstUnfoldered) {
+        // Create label
+        const label = document.createElement('div');
+        label.id = 'stcm_no_folder_label';
+        label.textContent = 'Characters Not in Folders';
+        label.style.cssText = `
+            margin: 18px 0 7px 0;
+            font-weight: 700;
+            font-size: 1.04em;
+            letter-spacing: 0.01em;
+            padding-left: 2px;
+            color: var(--ac-style-color-text, #bbb);
+        `;
+        parent.insertBefore(label, firstUnfoldered);
     }
 }
 
