@@ -12,6 +12,7 @@ getNotes,
 saveNotes, 
 cleanTagMap,
 promptInput,
+ensureContext 
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
@@ -877,6 +878,7 @@ async function handleNotesImport(importData) {
 
 eventSource.on(event_types.APP_READY, async () => {
     STCM.sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!
+    ensureContext();
     addCharacterTagManagerIcon();         // Top UI bar
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
