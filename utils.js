@@ -201,19 +201,6 @@ function cleanTagMap(tag_map, characters = [], groups = []) {
     }
 }
 
-export function getCurrentTagsAndMap() {
-    if (window.getContext) {
-        const context = window.getContext();
-        if (context && context.tags && context.tagMap)
-            return { tags: context.tags, tag_map: context.tagMap };
-    }
-    // fallback: window globals or static imports
-    return {
-        tags: typeof window.tags !== "undefined" ? window.tags : [],
-        tag_map: typeof window.tag_map !== "undefined" ? window.tag_map : {}
-    };
-}
-
 function buildTagMap(tags) {
     return new Map(tags.map(tag => [tag.id, tag]));
 }
@@ -320,7 +307,7 @@ function hexToRgba(hex, alpha) {
 }
 
 export {
-    ensureContext, debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
+    debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
     resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize,
     cleanTagMap, buildTagMap,
     buildCharNameMap, getNotes, saveNotes,

@@ -5,8 +5,7 @@ import {
     escapeHtml,
     getStoredPinHash, 
     hashPin,
-    promptInput,
-    getCurrentTagsAndMap
+    promptInput
     } from './utils.js';
     
     import * as stcmFolders from './stcm_folders.js';
@@ -22,10 +21,6 @@ import {
         eventSource, 
         event_types
     } from "../../../../script.js";
-
-    import {
-        getContext,
-    } from "../../../extensions.js";
     
     import { STCM } from './index.js';
     
@@ -124,18 +119,13 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         const term = input.value.trim().toLowerCase();
         stcmSearchActive = !!term;
         stcmLastSearchFolderId = null;
-
-        // ---- GET THE LATEST tags/tag_map EVERY TIME ----
-        let { tags, tag_map } = getCurrentTagsAndMap();
-        let tagMapById = buildTagMap(tags);
-
+    
         let match = null, matchFolder = null;
         if (term) {
             for (const folder of folders) {
                 for (const charAvatar of (folder.characters || [])) {
                     const char = allCharacters.find(c => c.avatar === charAvatar);
-                    // Pass *tags* and *tag_map* explicitly:
-                    if (char && characterMatchesTerm(char, term, tag_map, tags)) {
+                    if (char && characterMatchesTerm(char, term)) {
                         match = char;
                         matchFolder = folder;
                         break;
@@ -190,32 +180,16 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     
 }
 
-function characterMatchesTerm(char, term, tag_map, tags) {
-    
-        // ---- GET THE LATEST tags/tag_map EVERY TIME ----
-        let { tags, tag_map } = getCurrentTagsAndMap();
-        let tagMapById = buildTagMap(tags);
-
-    term = term.toLowerCase();
-
-    // 1. Search all primitive fields and arrays in the character object
+function characterMatchesTerm(char, term) {
+    // Case-insensitive match of term in ANY field of char object (shallow, primitive fields only)
     for (const key in char) {
         if (!char.hasOwnProperty(key)) continue;
-        const val = char[key];
+        let val = char[key];
         if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
+        // Optionally, include numbers or arrays:
         if (typeof val === 'number' && val.toString().includes(term)) return true;
         if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
     }
-
-    // 2. Search assigned tag names
-    const tagIds = tag_map[char.avatar] || [];
-    for (const tagId of tagIds) {
-        const tagObj = tagMapById.get(tagId);
-        if (tagObj && tagObj.name && tagObj.name.toLowerCase().includes(term)) {
-            return true;
-        }
-    }
-
     return false;
 }
 
