@@ -91,50 +91,38 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         for (const el of globalList.querySelectorAll('.character_select')) {
             const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
             if (!img) continue;
-    
             const url = new URL(img.src, window.location.origin);
             const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
             const name = (el.querySelector('.ch_name')?.textContent || '').toLowerCase();
     
-            // --- New logic:
-            // 1. If searching and name matches...
-            if (term && name.includes(term)) {
-                // ...and if in a folder...
-                let isInFolder = false;
-                let isInPrivateHiddenFolder = false;
+            // --- Only reveal if search is active and name matches
+            if (term) {
+                let inPrivateFolder = false;
+                let isInAnyFolder = false;
                 for (const folder of folders) {
                     if (folder.characters?.includes(avatarFile)) {
-                        isInFolder = true;
-                        if (folder.private && privateFolderVisibilityMode === 0) {
-                            // Private folders hidden and this is private
-                            isInPrivateHiddenFolder = true;
-                        }
-                        if (folder.private && privateFolderVisibilityMode === 2 && !sessionStorage.getItem("stcm_pin_okay")) {
-                            // "Show Only Private" but not unlocked
-                            isInPrivateHiddenFolder = true;
+                        isInAnyFolder = true;
+                        // Check private folder states
+                        if (
+                            folder.private &&
+                            (
+                                privateFolderVisibilityMode === 0 || // private folders hidden
+                                (privateFolderVisibilityMode === 2 && !sessionStorage.getItem("stcm_pin_okay")) // Only show privates, but not unlocked
+                            )
+                        ) {
+                            inPrivateFolder = true;
+                            break;
                         }
                     }
                 }
-    
-                if (isInFolder && !isInPrivateHiddenFolder) {
-                    // Character is in a folder but should be visible for search
+                // Show if it matches and not hidden in private
+                if (name.includes(term) && (!inPrivateFolder)) {
                     el.classList.remove('stcm_force_hidden');
-                    continue;
-                }
-                if (isInPrivateHiddenFolder) {
-                    // Hidden in private folder, stay hidden
+                } else {
                     el.classList.add('stcm_force_hidden');
-                    continue;
                 }
-                // Not in any folder or not private-hidden
-                el.classList.remove('stcm_force_hidden');
-            }
-            // 2. If searching and not matching, hide
-            else if (term && !name.includes(term)) {
-                el.classList.add('stcm_force_hidden');
-            }
-            // 3. If not searching, restore original hidden state based on folder
-            else {
+            } else {
+                // No search: restore original hidden state (folder logic)
                 if (el.dataset.stcmHiddenByFolder === 'true') {
                     el.classList.add('stcm_force_hidden');
                 } else {
