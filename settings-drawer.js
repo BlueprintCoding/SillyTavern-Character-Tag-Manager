@@ -227,12 +227,11 @@ function createStcmSettingsPanel() {
     const maxHeightInput = panel.querySelector('#stcm--folderNavMaxHeight');
     const customRow = panel.querySelector('#stcm--customFolderHeightRow');
 
-    // Init
+    // Clamp value on load
+    maxHeightInput.value = Math.max(10, Math.min(90, settings.folderNavMaxHeight || 50));
     modeSelect.value = settings.folderNavHeightMode || "auto";
-    maxHeightInput.value = settings.folderNavMaxHeight || 50;
     customRow.style.display = (modeSelect.value === "custom") ? "" : "none";
 
-    // Show/hide custom max height input
     modeSelect.addEventListener('change', e => {
         settings.folderNavHeightMode = modeSelect.value;
         debouncePersist();
@@ -240,13 +239,12 @@ function createStcmSettingsPanel() {
         applyFolderNavHeightMode();
     });
 
-    // Update value and apply on change
     maxHeightInput.addEventListener('input', e => {
         let val = parseInt(maxHeightInput.value, 10);
         if (isNaN(val) || val < 10) val = 10;
         if (val > 90) val = 90;
         settings.folderNavMaxHeight = val;
-        maxHeightInput.value = val; // clamp visually
+        maxHeightInput.value = val;
         debouncePersist();
         applyFolderNavHeightMode();
     });
