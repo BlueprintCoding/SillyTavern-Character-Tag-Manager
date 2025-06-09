@@ -719,7 +719,6 @@ export function watchSidebarFolderInjection() {
     const debouncedInject = debounce(async () => {
         const now = Date.now();
         if (now - lastSidebarInjection < SIDEBAR_INJECTION_THROTTLE_MS) return;
-        if (stcmSearchActive) return;
 
         const currentAvatars = getCurrentAvatars();
         if (arraysEqual(currentAvatars, lastKnownCharacterAvatars)) {
