@@ -307,7 +307,7 @@ function hexToRgba(hex, alpha) {
 }
 
 export {
-    debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
+    ensureContext, debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
     resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize,
     cleanTagMap, buildTagMap,
     buildCharNameMap, getNotes, saveNotes,
