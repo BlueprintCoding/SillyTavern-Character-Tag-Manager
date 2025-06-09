@@ -113,35 +113,47 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     if (!input || input.dataset.stcmHooked) return;
     input.dataset.stcmHooked = "true";
 
-    const globalList = document.getElementById('rm_print_characters_block');
-
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
         stcmSearchActive = !!term;
         stcmLastSearchFolderId = null;
-
+    
+        let match = null, matchFolder = null;
         if (term) {
-            // ...find matching character/folder...
+            // --- FIND the first character matching the term and the folder containing it
+            for (const folder of folders) {
+                for (const charAvatar of (folder.characters || [])) {
+                    const char = allCharacters.find(c => c.avatar === charAvatar);
+                    if (char && char.name.toLowerCase().includes(term)) {
+                        match = char;
+                        matchFolder = folder;
+                        break;
+                    }
+                }
+                if (match) break;
+            }
+    
             if (match && matchFolder) {
                 stcmLastSearchFolderId = matchFolder.id;
                 stcmSearchActive = true;
-                currentSidebarFolderId = matchFolder.id; // <--- Fix: update current folder
+                currentSidebarFolderId = matchFolder.id;
                 renderSidebarFolderSearchResult(folders, allCharacters, matchFolder.id, term);
             } else {
+                // No match: show sidebar with all folders from root (or you could show a "no results" message)
                 stcmLastSearchFolderId = null;
                 stcmSearchActive = true;
                 currentSidebarFolderId = 'root';
                 renderSidebarFolderContents(folders, allCharacters, 'root');
             }
         } else {
+            // Search is empty; reset view and folder state
             stcmSearchActive = false;
             stcmLastSearchFolderId = null;
-            currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
+            currentSidebarFolderId = 'root';
             renderSidebarFolderContents(folders, allCharacters, 'root');
         }
-        
     }, 150));
-
+    
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
             stcmSearchActive = false;
