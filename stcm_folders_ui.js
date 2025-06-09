@@ -126,8 +126,8 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         stcmLastSearchFolderId = null;
 
         // ---- GET THE LATEST tags/tag_map EVERY TIME ----
-        const { tags, tag_map } = getCurrentTagsAndMap();
-        const tagMapById = buildTagMap(tags);
+        let { tags, tag_map } = getCurrentTagsAndMap();
+        let tagMapById = buildTagMap(tags);
 
         let match = null, matchFolder = null;
         if (term) {
