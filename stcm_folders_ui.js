@@ -252,8 +252,17 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
                 stcmSearchActive = false;
                 stcmLastSearchFolderId = null;
                 document.getElementById('character_search_bar').value = '';
-                renderSidebarFolderContents(folders, allCharacters, parent.id);
+            
+                // Force a "reset" to the main character block view
+                const mainBtn = document.getElementById('rm_button_characters');
+                if (mainBtn) {
+                    mainBtn.click();
+                } else {
+                    // Fallback to rendering root if button missing
+                    renderSidebarFolderContents(folders, allCharacters, 'root');
+                }
             };
+            
             
             container.appendChild(backBtn);
         }
