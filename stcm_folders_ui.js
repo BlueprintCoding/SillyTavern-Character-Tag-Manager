@@ -181,9 +181,13 @@ function hideFolderedCharactersOutsideSidebar(folders) {
         const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
 
         if (folderedCharAvatars.has(avatarFile)) {
-            const shouldHide = !isAvatarInVisibleFolder(avatarFile, folders);
-            el.dataset.stcmHiddenByFolder = shouldHide ? 'true' : 'false';
-            el.classList.toggle('stcm_force_hidden', shouldHide);
+            // Always hide in the main list if this avatar is in ANY folder
+            el.dataset.stcmHiddenByFolder = 'true';
+            el.classList.add('stcm_force_hidden');
+        } else {
+            // Show only if not in a folder
+            el.dataset.stcmHiddenByFolder = 'false';
+            el.classList.remove('stcm_force_hidden');
         }
         
         
