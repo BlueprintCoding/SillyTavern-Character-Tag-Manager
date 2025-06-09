@@ -239,7 +239,7 @@ function createStcmSettingsPanel() {
         applyFolderNavHeightMode();
     });
 
-    maxHeightInput.addEventListener('input', e => {
+    maxHeightInput.addEventListener('change', e => {
         let val = parseInt(maxHeightInput.value, 10);
         if (isNaN(val) || val < 10) val = 10;
         if (val > 90) val = 90;
@@ -248,7 +248,15 @@ function createStcmSettingsPanel() {
         debouncePersist();
         applyFolderNavHeightMode();
     });
-
+    
+    maxHeightInput.addEventListener('input', e => {
+        // Optional: live preview (no clamping)
+        let val = parseInt(maxHeightInput.value, 10);
+        if (!isNaN(val)) {
+            settings.folderNavMaxHeight = val;
+            applyFolderNavHeightMode();
+        }
+    });
 
 
     // END SETTINGS SECTION
