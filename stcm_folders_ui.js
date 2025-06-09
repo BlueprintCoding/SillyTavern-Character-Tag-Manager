@@ -88,17 +88,18 @@ export async function updateSidebar(forceReload = false) {
 
 
 export function injectSidebarFolders(folders, allCharacters) {
-    // Do NOT set currentSidebarFolderId = 'root' here.
-    let sidebar = document.getElementById('stcm_sidebar_folder_nav');
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
 
-    if (!sidebar) {
-        sidebar = document.createElement('div');
-        sidebar.id = 'stcm_sidebar_folder_nav';
-        sidebar.className = 'stcm_sidebar_folder_nav';
-        parent.insertBefore(sidebar, parent.firstChild);
-    }
+    // Remove any previous instance in case DOM was wiped
+    let existingSidebar = document.getElementById('stcm_sidebar_folder_nav');
+    if (existingSidebar) existingSidebar.remove();
+
+    let sidebar = document.createElement('div');
+    sidebar.id = 'stcm_sidebar_folder_nav';
+    sidebar.className = 'stcm_sidebar_folder_nav';
+    parent.insertBefore(sidebar, parent.firstChild);
+
     hideFolderedCharactersOutsideSidebar(folders);
     if (stcmSearchActive && stcmLastSearchFolderId) {
         renderSidebarFolderSearchResult(folders, allCharacters, stcmLastSearchFolderId, document.getElementById('character_search_bar').value.trim().toLowerCase());
@@ -107,6 +108,7 @@ export function injectSidebarFolders(folders, allCharacters) {
     }
     hookIntoCharacterSearchBar(folders, allCharacters);
 }
+
 
 function hookIntoCharacterSearchBar(folders, allCharacters) {
     const input = document.getElementById('character_search_bar');
