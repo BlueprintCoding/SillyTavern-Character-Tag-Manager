@@ -72,6 +72,7 @@ function createStcmSettingsPanel() {
                 </div>
 
                 <hr style="margin: 10px 0;">
+                <span style="text-wrap:nowrap;">Private Folder Pin</span>
                 <div id="stcm-pin-form" class="stcm-pin-form" style="margin-top: 10px;">
                     <div id="stcm-pin-current-row" style="display:none;">
                         <label>Current PIN:</label>
