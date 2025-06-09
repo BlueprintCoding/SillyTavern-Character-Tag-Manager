@@ -64,8 +64,8 @@ function createStcmSettingsPanel() {
                     <div id="stcm--customFolderHeightRow" style="margin-left:30px;margin-top:8px;display:none;">
                         <label>
                             Max Height:
-                            <input id="stcm--folderNavMaxHeight" type="number" min="10" max="90" step="1" style="width:60px;">
-                            % of viewport height
+                            <input id="stcm--folderNavMaxHeight" class="menu_input" type="number" min="10" max="90" step="1" style="width:60px;">
+                            % of window height
                         </label>
                     </div>
                 </div>
@@ -321,7 +321,7 @@ function applyFolderNavHeightMode() {
         style.textContent = `
 #stcm_sidebar_folder_nav {
     max-height: ${settings.folderNavMaxHeight}vh !important;
-    min-height: 30vh !important;
+    min-height: ${settings.folderNavMaxHeight}vh !important;
     overflow-y: auto !important;
 }
 `;

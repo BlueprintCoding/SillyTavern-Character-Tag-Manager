@@ -298,9 +298,9 @@
 .menu_input {
     padding: 6px;
     border-radius: 4px;
-    border: 1px solid var(--neutral-500);
-    background-color: var(--neutral-900);
-    color: var(--mainTextColor);
+    background-color: var(--black30a);
+    color: var(--SmartThemeBodyColor);
+    border: 1px solid var(--SmartThemeBorderColor);
 }
 
 .smallInstructions {
