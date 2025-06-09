@@ -253,9 +253,8 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
                 stcmLastSearchFolderId = null;
                 document.getElementById('character_search_bar').value = '';
                 // Force a "reset" to the main character block view
-                const mainBtn = document.getElementById('rm_button_characters');
+                document.getElementById('rm_button_characters')?.click();
                     renderSidebarFolderContents(folders, allCharacters, 'root');
-                    mainBtn.click(); 
 
             };
             
