@@ -122,10 +122,11 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     
         let match = null, matchFolder = null;
         if (term) {
+            const tagMapById = buildTagMap(tags);
             for (const folder of folders) {
                 for (const charAvatar of (folder.characters || [])) {
                     const char = allCharacters.find(c => c.avatar === charAvatar);
-                    if (char && characterMatchesTerm(char, term)) {
+                    if (char && characterMatchesTerm(char, term, tag_map, tagMapById)) {
                         match = char;
                         matchFolder = folder;
                         break;
@@ -180,26 +181,22 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     
 }
 
-function characterMatchesTerm(char, term) {
-    // Case-insensitive match of term in ANY field of char object (shallow, primitive fields only)
-    for (const key in char) {
-        if (!char.hasOwnProperty(key)) continue;
-        let val = char[key];
-        if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
-        if (typeof val === 'number' && val.toString().includes(term)) return true;
-        if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
-    }
-    // ---- CHECK TAGS ----
-    if (Array.isArray(char.tags)) {
-        for (const tag of char.tags) {
-            console.log(char.tags);
-            if (
-                typeof tag === 'string' && tag.toLowerCase().includes(term)
-                ||
-                tag && tag.name && tag.name.toLowerCase().includes(term)
-            ) return true;
-        }
-    }
+function characterMatchesTerm(char, term, tag_map, tagMapById) {
+    // Gather all string fields into one search string
+    let allFields = Object.values(char)
+        .filter(v => typeof v === 'string')
+        .join(' ')
+        .toLowerCase();
+
+    // Grab all attached tag names
+    const tagIds = tag_map[char.avatar] || [];
+    const tagNames = tagIds
+        .map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
+
+    // Check fields OR tag names
+    if (allFields.includes(term)) return true;
+    if (tagNames.some(tagName => tagName.includes(term))) return true;
+
     return false;
 }
 
