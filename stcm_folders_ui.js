@@ -73,104 +73,85 @@ export function injectSidebarFolders(folders, allCharacters) {
 function hookIntoCharacterSearchBar(folders, allCharacters) {
     const input = document.getElementById('character_search_bar');
     if (!input || input.dataset.stcmHooked) return;
-
     input.dataset.stcmHooked = "true";
 
     const globalList = document.getElementById('rm_print_characters_block');
-    const folderedCharAvatars = new Set();
-    for (const folder of folders) {
-        if (Array.isArray(folder.characters)) {
-            for (const charAvatar of folder.characters) {
-                folderedCharAvatars.add(charAvatar);
-            }
-        }
-    }
 
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
         stcmSearchActive = !!term;
-        for (const el of globalList.querySelectorAll('.character_select')) {
-            const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-            if (!img) continue;
-            const url = new URL(img.src, window.location.origin);
-            const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
-            const name = (el.querySelector('.ch_name')?.textContent || '').toLowerCase();
-    
-            // --- Only reveal if search is active and name matches
-            if (term) {
-                let inPrivateFolder = false;
-                let isInAnyFolder = false;
-                for (const folder of folders) {
-                    if (folder.characters?.includes(avatarFile)) {
-                        isInAnyFolder = true;
-                        // Check private folder states
-                        if (
-                            folder.private &&
-                            (
-                                privateFolderVisibilityMode === 0 || // private folders hidden
-                                (privateFolderVisibilityMode === 2 && !sessionStorage.getItem("stcm_pin_okay")) // Only show privates, but not unlocked
-                            )
-                        ) {
-                            inPrivateFolder = true;
-                            break;
-                        }
+        stcmLastSearchFolderId = null;
+
+        if (term) {
+            // Find first character matching the term
+            let match = null, matchFolder = null;
+            for (const folder of folders) {
+                for (const charAvatar of (folder.characters || [])) {
+                    const char = allCharacters.find(c => c.avatar === charAvatar);
+                    if (char && char.name.toLowerCase().includes(term)) {
+                        match = char;
+                        matchFolder = folder;
+                        break;
                     }
                 }
-                // Show if it matches and not hidden in private
-                if (name.includes(term) && (!inPrivateFolder)) {
-                    el.classList.remove('stcm_force_hidden');
-                } else {
-                    el.classList.add('stcm_force_hidden');
-                }
-            } else {
-                // No search: restore original hidden state (folder logic)
-                if (el.dataset.stcmHiddenByFolder === 'true') {
-                    el.classList.add('stcm_force_hidden');
-                } else {
-                    el.classList.remove('stcm_force_hidden');
-                }
+                if (match) break;
             }
+
+            if (match && matchFolder) {
+                stcmLastSearchFolderId = matchFolder.id;
+                renderSidebarFolderSearchResult(folders, allCharacters, matchFolder.id, term);
+            } else {
+                // No match: Show sidebar in root (or you could show a 'no results' message)
+                renderSidebarFolderContents(folders, allCharacters, 'root');
+            }
+        } else {
+            stcmSearchActive = false;
+            stcmLastSearchFolderId = null;
+            renderSidebarFolderContents(folders, allCharacters, 'root');
         }
     }, 150));
-    
 
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
             stcmSearchActive = false;
-            // Reset visibility state when search is cleared
-            for (const el of globalList.querySelectorAll('.character_select')) {
-                const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-                if (!img) continue;
-
-                const url = new URL(img.src, window.location.origin);
-                const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
-
-                if (el.dataset.stcmHiddenByFolder === 'true') {
-                    el.classList.add('stcm_force_hidden');
-                } else {
-                    el.classList.remove('stcm_force_hidden');
-                }
-            }
+            stcmLastSearchFolderId = null;
+            renderSidebarFolderContents(folders, allCharacters, 'root');
         }
     });
 }
 
-function isAvatarInVisibleFolder(avatarFile, folders) {
-    for (const folder of folders) {
-        if (folder.characters?.includes(avatarFile)) {
-            const isPrivate = !!folder.private;
 
-            if (privateFolderVisibilityMode === 0 && isPrivate) return false;
-            if (privateFolderVisibilityMode === 2 && !isPrivate) return false;
+// Only shows the folder open with matches highlighted inside
+function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term) {
+    const container = document.getElementById('stcm_sidebar_folder_nav');
+    if (!container) return;
+    container.innerHTML = "";
 
-            const hasPin = !!sessionStorage.getItem("stcm_pin_okay");
-            if (isPrivate && !hasPin) return false;
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
 
-            return true;
-        }
+    // --- Breadcrumb Label ---
+    const breadcrumbDiv = document.createElement('div');
+    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
+    const chain = getFolderChain(folderId, folders);
+    if (chain.length > 0) {
+        const names = chain.map(f => f.name);
+        names[0] = '.../' + names[0];
+        breadcrumbDiv.textContent = names.join(' / ');
+    } else {
+        breadcrumbDiv.textContent = ".../";
     }
-    return false;
-}
+
+    const controlRow = document.createElement('div');
+    controlRow.className = 'stcm_folders_header_controls';
+    controlRow.style.display = 'flex';
+    controlRow.style.alignItems = 'center';
+    controlRow.style.gap = '8px';
+    controlRow.appendChild(breadcrumbDiv);
+    container.appendChild(controlRow);
+
+    // Show 'Back' if not r
+
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
@@ -625,6 +606,7 @@ let stcmObserver = null;
 let lastInjectedAt = 0;
 let lastSidebarInjection = 0;
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
+let stcmLastSearchFolderId = null;
 
 
 export function watchSidebarFolderInjection() {
