@@ -933,6 +933,30 @@ min-width: 130px;
 }
 
 /* --- Sidebar nav wrapper --- */
+
+#stcm_sidebar_folder_nav,
+#rm_print_characters_block,
+#rm_characters_block,
+#right-nav-panel.drawer-content > .scrollableInner
+{
+    overflow-y: visible !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+nav#right-nav-panel.drawer-content {
+    overflow-y: auto !important;
+    height: 100% !important;
+}
+
+div#rightNavHolder.drawer {
+    overflow: hidden !important;
+}
+
+[id^="BogusFolder"] {
+    display: none !important;
+}
+
 #stcm_sidebar_folder_nav {
     display: flex;
     flex-direction: column;
