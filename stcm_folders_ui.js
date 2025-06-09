@@ -239,22 +239,6 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
     controlRow.appendChild(breadcrumbDiv);
     container.appendChild(controlRow);
 
-//     // Show 'Back' if not root
-//    if (folderId !== 'root') {
-//     const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
-//     if (parent) {
-//         const backBtn = document.createElement('div');
-//         backBtn.className = "sidebar-folder-back";
-//         backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
-//         backBtn.style.cursor = 'pointer';
-//         backBtn.onclick = () => {
-//             currentSidebarFolderId = parent.id;
-//             renderSidebarFolderContents(folders, allCharacters, parent.id);
-//         };
-//         container.appendChild(backBtn);
-//     }
-// }
-
     let contentDiv = document.getElementById('stcm_folder_contents');
     if (contentDiv) {
         contentDiv.innerHTML = "";
