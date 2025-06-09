@@ -248,21 +248,19 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
             backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
             backBtn.style.cursor = 'pointer';
             backBtn.onclick = () => {
-                // Clear search
+                // Clear all search/folder state
                 stcmSearchActive = false;
                 stcmLastSearchFolderId = null;
+                currentSidebarFolderId = 'root'; // <-- this line is crucial
                 document.getElementById('character_search_bar').value = '';
             
-                // Force a "reset" to the main character block view
+                // Render the root folder view (hard reset)
+                renderSidebarFolderContents(folders, allCharacters, 'root');
                 const mainBtn = document.getElementById('rm_button_characters');
-                if (mainBtn) {
-                    renderSidebarFolderContents(folders, allCharacters, 'root');
-                    mainBtn.click(); 
-                } else {
-                    // Fallback to rendering root if button missing
-                    renderSidebarFolderContents(folders, allCharacters, 'root');
-                }
+                if (mainBtn) mainBtn.click();
+
             };
+            
             
             
             container.appendChild(backBtn);
