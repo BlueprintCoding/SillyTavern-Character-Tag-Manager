@@ -176,6 +176,11 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
             currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
             renderSidebarFolderContents(folders, allCharacters, 'root');
         }
+
+            // HIDE the "characters hidden" info block if searching
+    document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+        block.style.display = stcmSearchActive ? 'none' : '';
+    });
     });
     
 }
