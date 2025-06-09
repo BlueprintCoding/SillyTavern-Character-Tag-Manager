@@ -202,10 +202,15 @@ function cleanTagMap(tag_map, characters = [], groups = []) {
 }
 
 export function getCurrentTagsAndMap() {
-    const context = getContext && getContext();
+    if (window.getContext) {
+        const context = window.getContext();
+        if (context && context.tags && context.tagMap)
+            return { tags: context.tags, tag_map: context.tagMap };
+    }
+    // fallback: window globals or static imports
     return {
-        tags: Array.isArray(context?.tags) ? context.tags : [],
-        tag_map: typeof context?.tagMap === 'object' && context?.tagMap !== null ? context.tagMap : {},
+        tags: typeof window.tags !== "undefined" ? window.tags : [],
+        tag_map: typeof window.tag_map !== "undefined" ? window.tag_map : {}
     };
 }
 
