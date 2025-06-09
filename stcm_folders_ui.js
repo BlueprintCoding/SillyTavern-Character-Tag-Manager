@@ -32,6 +32,12 @@ let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
 let sidebarUpdateInProgress = false;
 let stcmSearchActive = false;
+let stcmLastSearchFolderId = null;
+let stcmObserver = null;
+let lastInjectedAt = 0;
+let lastSidebarInjection = 0;
+const SIDEBAR_INJECTION_THROTTLE_MS = 500;
+
 
 export async function updateSidebar(forceReload = false) {
     if (sidebarUpdateInProgress) return;
@@ -52,8 +58,7 @@ export async function updateSidebar(forceReload = false) {
 
 
 export function injectSidebarFolders(folders, allCharacters) {
-    currentSidebarFolderId = 'root';
-    // Inject our sidebar if not present
+    // Do NOT set currentSidebarFolderId = 'root' here.
     let sidebar = document.getElementById('stcm_sidebar_folder_nav');
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
@@ -62,11 +67,14 @@ export function injectSidebarFolders(folders, allCharacters) {
         sidebar = document.createElement('div');
         sidebar.id = 'stcm_sidebar_folder_nav';
         sidebar.className = 'stcm_sidebar_folder_nav';
-        // Insert at the top, or wherever you want
         parent.insertBefore(sidebar, parent.firstChild);
     }
     hideFolderedCharactersOutsideSidebar(folders);
-    renderSidebarFolderContents(folders, allCharacters, 'root');
+    if (stcmSearchActive && stcmLastSearchFolderId) {
+        renderSidebarFolderSearchResult(folders, allCharacters, stcmLastSearchFolderId, document.getElementById('character_search_bar').value.trim().toLowerCase());
+    } else {
+        renderSidebarFolderContents(folders, allCharacters, currentSidebarFolderId);
+    }
     hookIntoCharacterSearchBar(folders, allCharacters);
 }
 
@@ -150,7 +158,55 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
     controlRow.appendChild(breadcrumbDiv);
     container.appendChild(controlRow);
 
-    // Show 'Back' if not r
+    // Show 'Back' if not root
+    if (folderId !== 'root') {
+        const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
+        if (parent) {
+            const backBtn = document.createElement('div');
+            backBtn.className = "sidebar-folder-back";
+            backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
+            backBtn.style.cursor = 'pointer';
+            backBtn.onclick = () => {
+                // Clear search
+                stcmSearchActive = false;
+                stcmLastSearchFolderId = null;
+                document.getElementById('character_search_bar').value = '';
+                renderSidebarFolderContents(folders, allCharacters, parent.id);
+            };
+            
+            container.appendChild(backBtn);
+        }
+    }
+
+    let contentDiv = document.getElementById('stcm_folder_contents');
+    if (contentDiv) {
+        contentDiv.innerHTML = "";
+    } else {
+        contentDiv = document.createElement('div');
+        contentDiv.id = 'stcm_folder_contents';
+        contentDiv.className = 'stcm_folder_contents';
+    }
+
+    // Show child folders as usual (optional: could collapse them for less confusion)
+    (folder.children || []).forEach(childId => {
+        const child = folders.find(f => f.id === childId);
+        if (child) {
+            // Could display, or not, as you prefer for search mode
+        }
+    });
+
+    // Show only matching characters in this folder
+    (folder.characters || []).forEach(charId => {
+        const char = allCharacters.find(c => c.avatar === charId);
+        if (char && char.name.toLowerCase().includes(term)) {
+            const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
+            charCard.style.background = 'rgba(100, 200, 250, 0.17)'; // optional: highlight
+            contentDiv.appendChild(charCard);
+        }
+    });
+
+    container.appendChild(contentDiv);
+}
 
 
 
@@ -601,12 +657,6 @@ export function renderSidebarCharacterCard(char) {
 
     return div;
 }
-
-let stcmObserver = null;
-let lastInjectedAt = 0;
-let lastSidebarInjection = 0;
-const SIDEBAR_INJECTION_THROTTLE_MS = 500;
-let stcmLastSearchFolderId = null;
 
 
 export function watchSidebarFolderInjection() {
