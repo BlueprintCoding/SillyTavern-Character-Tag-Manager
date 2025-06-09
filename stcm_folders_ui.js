@@ -17,7 +17,9 @@ import {
     
     import {
         characters,
-        selectCharacterById
+        selectCharacterById,
+        eventSource, 
+        event_types
     } from "../../../../script.js";
     
     import { STCM } from './index.js';
@@ -36,8 +38,36 @@ let stcmLastSearchFolderId = null;
 let stcmObserver = null;
 let lastInjectedAt = 0;
 let lastSidebarInjection = 0;
+let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
 
+const debouncedUpdateSidebar = debounce(() => updateSidebar(true), 100);
+
+export function hookFolderSidebarEvents() {
+    // List of events that might affect characters/folders display:
+    const folderRelevantEvents = [
+        event_types.CHARACTER_EDITED,
+        event_types.CHARACTER_DELETED,
+        event_types.CHARACTER_DUPLICATED,
+        event_types.CHARACTER_RENAMED,
+        event_types.CHARACTER_RENAMED_IN_PAST_CHAT,
+        event_types.GROUP_UPDATED,
+        event_types.GROUP_CHAT_CREATED,
+        event_types.GROUP_CHAT_DELETED,
+    ];
+
+    folderRelevantEvents.forEach(ev => {
+        eventSource.on(ev, () => {
+            // Always update folders on relevant character changes
+            eventSource.on(ev, debouncedUpdateSidebar);
+        });
+    });
+
+    // Optionally: Also hook EXTENSIONS_FIRST_LOAD if you want to refresh folders when all plugins/extensions are loaded.
+    eventSource.on(event_types.EXTENSIONS_FIRST_LOAD, () => {
+        updateSidebar(true);
+    });
+}
 
 export async function updateSidebar(forceReload = false) {
     if (sidebarUpdateInProgress) return;
@@ -663,11 +693,32 @@ export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
 
+    const getCurrentAvatars = () => {
+        // Adjust selector as needed for your character cards
+        return Array.from(container.querySelectorAll('.character_select img[src*="/thumbnail?type=avatar&file="]'))
+            .map(img => {
+                const url = new URL(img.src, window.location.origin);
+                return decodeURIComponent(url.searchParams.get("file") || "");
+            })
+            .sort(); // always sorted for reliable comparison
+    };
+
+    const arraysEqual = (a, b) => (
+        a.length === b.length && a.every((val, idx) => val === b[idx])
+    );
+
     const debouncedInject = debounce(async () => {
         const now = Date.now();
         if (now - lastSidebarInjection < SIDEBAR_INJECTION_THROTTLE_MS) return;
         if (stcmSearchActive) return;
 
+        const currentAvatars = getCurrentAvatars();
+        if (arraysEqual(currentAvatars, lastKnownCharacterAvatars)) {
+            // No change, skip update
+            return;
+        }
+
+        lastKnownCharacterAvatars = currentAvatars;
         lastSidebarInjection = now;
         await updateSidebar(true);
     }, 150);
@@ -675,7 +726,11 @@ export function watchSidebarFolderInjection() {
     if (stcmObserver) stcmObserver.disconnect();
     stcmObserver = new MutationObserver(debouncedInject);
     stcmObserver.observe(container, { childList: true, subtree: false });
+
+    // Initialize state
+    lastKnownCharacterAvatars = getCurrentAvatars();
 }
+
 
 
 export function makeFolderNameEditable(span, folder, rerender) {

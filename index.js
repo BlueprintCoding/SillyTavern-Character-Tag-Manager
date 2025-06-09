@@ -33,6 +33,7 @@ import {
     attachTagSectionListeners,
     populateAssignTagSelect,
     selectedTagIds,
+    hookFolderSidebarEvents
   } from './stcm_tags_ui.js';
 
 import {
@@ -881,6 +882,7 @@ eventSource.on(event_types.APP_READY, async () => {
     observeTagViewInjection();    // Tag view list
     injectSidebarFolders(STCM.sidebarFolders, characters);  // <--- use sidebarFolders!
     watchSidebarFolderInjection(); 
+    hookFolderSidebarEvents();
     injectStcmSettingsPanel();    
 
 });
