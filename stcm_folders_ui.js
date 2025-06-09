@@ -396,6 +396,16 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
         }
     }
 
+        // === NEW: Create folder contents wrapper ===
+        let contentDiv = document.getElementById('stcm_folder_contents');
+        if (contentDiv) {
+            contentDiv.innerHTML = "";
+        } else {
+            contentDiv = document.createElement('div');
+            contentDiv.id = 'stcm_folder_contents';
+            contentDiv.className = 'stcm_folder_contents';
+        }
+
     const tagsById = buildTagMap(tags);
     // Show folders (children)
    (folder.children || []).forEach(childId => {
@@ -468,7 +478,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             folderDiv.onclick = null;
         }
 
-        container.appendChild(folderDiv);
+        contentDiv.appendChild(folderDiv);
     }
 });
    
@@ -481,10 +491,10 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
                 const tagsForChar = getTagsForChar(char.avatar, tagsById);
                 // Pass tags explicitly to avoid global mutation:
                 const charCard = renderSidebarCharacterCard({ ...char, tags: tagsForChar });
-                container.appendChild(charCard);
+                contentDiv.appendChild(charCard);
             }
         });
-
+        container.appendChild(contentDiv);
 }
 
 function hasPrivateDescendant(folderId, folders) {
