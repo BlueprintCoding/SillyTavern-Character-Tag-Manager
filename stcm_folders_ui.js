@@ -31,6 +31,7 @@ import {
 let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
 let sidebarUpdateInProgress = false;
+let stcmSearchActive = false;
 
 export async function updateSidebar(forceReload = false) {
     if (sidebarUpdateInProgress) return;
@@ -87,7 +88,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
 
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
-    
+        stcmSearchActive = !!term;
         for (const el of globalList.querySelectorAll('.character_select')) {
             const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
             if (!img) continue;
@@ -135,6 +136,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
 
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
+            stcmSearchActive = false;
             // Reset visibility state when search is cleared
             for (const el of globalList.querySelectorAll('.character_select')) {
                 const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
@@ -172,6 +174,7 @@ function isAvatarInVisibleFolder(avatarFile, folders) {
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
+    if (stcmSearchActive) return;
     const folderedCharAvatars = new Set();
     for (const folder of folders) {
         if (Array.isArray(folder.characters)) {
