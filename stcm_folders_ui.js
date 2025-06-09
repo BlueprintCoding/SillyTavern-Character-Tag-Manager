@@ -21,6 +21,10 @@ import {
         eventSource, 
         event_types
     } from "../../../../script.js";
+
+    import {
+        getContext,
+    } from "../../../extensions.js";
     
     import { STCM } from './index.js';
     
@@ -119,11 +123,16 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         const term = input.value.trim().toLowerCase();
         stcmSearchActive = !!term;
         stcmLastSearchFolderId = null;
-    
+
+        // --- GET TAGS/TAG_MAP SAFELY FROM CONTEXT ---
+        let context = getContext && getContext();
+        let tags = (context && context.tags) ? context.tags : (typeof window.tags !== "undefined" ? window.tags : []);
+        let tag_map = (context && context.tagMap) ? context.tagMap : (typeof window.tag_map !== "undefined" ? window.tag_map : {});
+
+        const tagMapById = buildTagMap(tags);
+
         let match = null, matchFolder = null;
         if (term) {
-            const tagMapById = buildTagMap(tags);
-
             for (const folder of folders) {
                 for (const charAvatar of (folder.characters || [])) {
                     const char = allCharacters.find(c => c.avatar === charAvatar);
