@@ -119,7 +119,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         const term = input.value.trim().toLowerCase();
         stcmSearchActive = !!term;
         stcmLastSearchFolderId = null;
-
+    
         let match = null, matchFolder = null;
         if (term) {
             for (const folder of folders) {
