@@ -191,7 +191,11 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
 }
 
 function characterMatchesTerm(char, term, tag_map, tags) {
-    const tagMapById = buildTagMap(tags);
+    
+        // ---- GET THE LATEST tags/tag_map EVERY TIME ----
+        const { tags, tag_map } = getCurrentTagsAndMap();
+        const tagMapById = buildTagMap(tags);
+
     term = term.toLowerCase();
 
     // 1. Search all primitive fields and arrays in the character object
