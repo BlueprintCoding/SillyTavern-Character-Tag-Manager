@@ -155,10 +155,16 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
             renderSidebarFolderContents(folders, allCharacters, 'root');
         }
 
-        // Hide or show the "characters hidden" block based on search state
-document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-    block.style.display = stcmSearchActive ? 'none' : '';
-});
+        // Hide or show the "characters hidden" info block based on search state
+        document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+            if (stcmSearchActive) {
+                block.style.display = 'none';
+            } else {
+                // Only show if at least one character is hidden, fallback to block.style.display = ''
+                block.style.display = '';
+            }
+        });
+
 
 
     }, 150));
@@ -169,11 +175,6 @@ document.querySelectorAll('.text_block.hidden_block').forEach(block => {
             stcmLastSearchFolderId = null;
             currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
             renderSidebarFolderContents(folders, allCharacters, 'root');
-
-                // Hide or show the "characters hidden" block based on search state
-    document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-        block.style.display = stcmSearchActive ? 'none' : '';
-    });
         }
     });
     
