@@ -634,6 +634,7 @@ export function watchSidebarFolderInjection() {
     const debouncedInject = debounce(async () => {
         const now = Date.now();
         if (now - lastSidebarInjection < SIDEBAR_INJECTION_THROTTLE_MS) return;
+        if (stcmSearchActive) return;
 
         lastSidebarInjection = now;
         await updateSidebar(true);
