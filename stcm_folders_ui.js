@@ -123,10 +123,11 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         let match = null, matchFolder = null;
         if (term) {
             const tagMapById = buildTagMap(tags);
+
             for (const folder of folders) {
                 for (const charAvatar of (folder.characters || [])) {
                     const char = allCharacters.find(c => c.avatar === charAvatar);
-                    if (char && characterMatchesTerm(char, term, tag_map, tagMapById)) {
+                    if (char && characterMatchesTerm(char, term, tag_map, tags)) {
                         match = char;
                         matchFolder = folder;
                         break;
@@ -181,24 +182,33 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     
 }
 
-function characterMatchesTerm(char, term, tag_map, tagMapById) {
-    // Gather all string fields into one search string
-    let allFields = Object.values(char)
-        .filter(v => typeof v === 'string')
-        .join(' ')
-        .toLowerCase();
+import { buildTagMap } from './utils.js'; // You already have this
 
-    // Grab all attached tag names
+function characterMatchesTerm(char, term, tag_map, tags) {
+    const tagMapById = buildTagMap(tags);
+    term = term.toLowerCase();
+
+    // 1. Search all primitive fields and arrays in the character object
+    for (const key in char) {
+        if (!char.hasOwnProperty(key)) continue;
+        const val = char[key];
+        if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
+        if (typeof val === 'number' && val.toString().includes(term)) return true;
+        if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
+    }
+
+    // 2. Search assigned tag names
     const tagIds = tag_map[char.avatar] || [];
-    const tagNames = tagIds
-        .map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
-
-    // Check fields OR tag names
-    if (allFields.includes(term)) return true;
-    if (tagNames.some(tagName => tagName.includes(term))) return true;
+    for (const tagId of tagIds) {
+        const tagObj = tagMapById.get(tagId);
+        if (tagObj && tagObj.name && tagObj.name.toLowerCase().includes(term)) {
+            return true;
+        }
+    }
 
     return false;
 }
+
 
 
 // Only shows the folder open with matches highlighted inside
