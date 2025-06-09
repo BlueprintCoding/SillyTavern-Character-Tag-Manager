@@ -12,6 +12,7 @@ getNotes,
 saveNotes, 
 cleanTagMap,
 promptInput,
+ensureContext 
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
