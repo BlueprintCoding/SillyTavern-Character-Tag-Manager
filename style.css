@@ -972,6 +972,15 @@ div#rightNavHolder.drawer {
     overflow-y: scroll; */
 }
 
+#stcm_folder_contents {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    flex-direction: row;
+    justify-content: space-around;
+    align-content: flex-start;
+  }
+
 .sidebar-folder-back {
     font-weight: bold;
     font-size: 1em;
