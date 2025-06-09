@@ -181,17 +181,32 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
 }
 
 function characterMatchesTerm(char, term) {
-    // Case-insensitive match of term in ANY field of char object (shallow, primitive fields only)
+    // 1. Check all string/number/array fields
     for (const key in char) {
         if (!char.hasOwnProperty(key)) continue;
         let val = char[key];
         if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
-        // Optionally, include numbers or arrays:
         if (typeof val === 'number' && val.toString().includes(term)) return true;
         if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
     }
+
+    // 2. Check tags assigned to this character
+    // You'll need access to tag_map and tags (already imported at the top)
+    const tagIds = tag_map[char.avatar] || [];
+    if (tagIds.length) {
+        // Build tagsById map just once per render ideally, but it's fine here for clarity
+        const tagsById = buildTagMap(tags);
+        for (const tagId of tagIds) {
+            const tag = tagsById.get(tagId);
+            if (tag && tag.name && tag.name.toLowerCase().includes(term)) {
+                return true;
+            }
+        }
+    }
+
     return false;
 }
+
 
 
 
