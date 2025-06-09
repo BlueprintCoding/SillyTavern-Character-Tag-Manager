@@ -257,6 +257,7 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
                 const mainBtn = document.getElementById('rm_button_characters');
                 if (mainBtn) {
                     mainBtn.click();
+                    renderSidebarFolderContents(folders, allCharacters, 'root');
                 } else {
                     // Fallback to rendering root if button missing
                     renderSidebarFolderContents(folders, allCharacters, 'root');
