@@ -256,8 +256,8 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
                 // Force a "reset" to the main character block view
                 const mainBtn = document.getElementById('rm_button_characters');
                 if (mainBtn) {
-                    mainBtn.click();
                     renderSidebarFolderContents(folders, allCharacters, 'root');
+                    mainBtn.click(); 
                 } else {
                     // Fallback to rendering root if button missing
                     renderSidebarFolderContents(folders, allCharacters, 'root');
