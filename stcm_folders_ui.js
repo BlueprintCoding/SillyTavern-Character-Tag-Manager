@@ -239,29 +239,21 @@ function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term)
     controlRow.appendChild(breadcrumbDiv);
     container.appendChild(controlRow);
 
-    // Show 'Back' if not root
-    if (folderId !== 'root') {
-        const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
-        if (parent) {
-            const backBtn = document.createElement('div');
-            backBtn.className = "sidebar-folder-back";
-            backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
-            backBtn.style.cursor = 'pointer';
-            backBtn.onclick = () => {
-                // Clear search
-                stcmSearchActive = false;
-                stcmLastSearchFolderId = null;
-                document.getElementById('character_search_bar').value = '';
-                // Force a "reset" to the main character block view
-                document.getElementById('rm_button_characters')?.click();
-                    renderSidebarFolderContents(folders, allCharacters, 'root');
-
-            };
-            
-            
-            container.appendChild(backBtn);
-        }
-    }
+//     // Show 'Back' if not root
+//    if (folderId !== 'root') {
+//     const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
+//     if (parent) {
+//         const backBtn = document.createElement('div');
+//         backBtn.className = "sidebar-folder-back";
+//         backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
+//         backBtn.style.cursor = 'pointer';
+//         backBtn.onclick = () => {
+//             currentSidebarFolderId = parent.id;
+//             renderSidebarFolderContents(folders, allCharacters, parent.id);
+//         };
+//         container.appendChild(backBtn);
+//     }
+// }
 
     let contentDiv = document.getElementById('stcm_folder_contents');
     if (contentDiv) {
