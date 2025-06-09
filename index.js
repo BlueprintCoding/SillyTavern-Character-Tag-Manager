@@ -691,40 +691,22 @@ async function callSaveandReload() {
 
 
 function addCharacterTagManagerIcon() {
-    // Prevent double-insertion
-    if (document.getElementById('characterTagManagerButton')) return;
+    const existingIcon = document.getElementById('rightNavHolder');
+    if (!existingIcon || document.getElementById('characterTagManagerToggle')) return;
 
-    // Find where to insert
-    const rightNavDrawerIcon = document.getElementById('rightNavDrawerIcon');
-    if (!rightNavDrawerIcon) return;
-
-    // Build structure
-    const button = document.createElement('div');
-    button.id = 'characterTagManagerButton';
-    button.className = 'drawer';
-
-    // .drawer-toggle
-    const toggle = document.createElement('div');
-    toggle.className = 'drawer-toggle';
-
-    // .drawer-icon
+    // Create your new icon
     const icon = document.createElement('div');
-    icon.className = 'drawer-icon fa-solid fa-tags fa-fw closedIcon interactable';
+    icon.id = 'characterTagManagerToggle';
+    icon.className = 'drawer drawer-icon fa-solid fa-tags fa-fw interactable';
     icon.title = 'Character / Tag Manager';
     icon.setAttribute('tabindex', '0');
+
     icon.addEventListener('click', openCharacterTagManagerModal);
 
-    // Build tree
-    toggle.appendChild(icon);
-    button.appendChild(toggle);
-
-    // Insert before the persona management button, or after the last drawer icon
-    rightNavDrawerIcon.parentElement.insertBefore(button, rightNavDrawerIcon);
-
-    // (Optional: expose icon for toggling visibility elsewhere)
-    window.characterTagManagerNavIcon = icon;
+    // Insert before the existing #rightNavDrawerIcon
+    const parent = existingIcon.parentElement;
+    parent.insertBefore(icon, existingIcon);
 }
-
 
 function injectTagManagerControlButton() {
     const container = document.querySelector('#rm_characters_block .rm_tag_controls');
