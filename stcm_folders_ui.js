@@ -343,19 +343,32 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
 }
 
 function hideFolderedCharactersOutsideSidebar(folders) {
-    const parent = document.getElementById('rm_print_characters_block');
-    if (!parent) return;
+    // 1. Hide all character/group cards except bogus folders
+    const globalList = document.getElementById('rm_print_characters_block');
+    if (!globalList) return;
 
-    Array.from(parent.children).forEach(child => {
-        if (
-            child.classList?.contains('bogus_folder_select') ||
-            child.id === 'stcm_sidebar_folder_nav'
-        ) {
-            child.classList.remove('stcm_force_hidden');
-        } else {
-            child.classList.add('stcm_force_hidden');
+    // Hide all character/group selects except .bogus_folder_select
+    for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
+        // Only hide if not inside a bogus folder select (so they can stay as previews)
+        el.classList.add('stcm_force_hidden');
+    }
+
+    // 2. UNHIDE all those inside the *currently opened* folder grid
+    // Find the open folder grid (".stcm_folder_contents" is used in your modal/sidebar)
+    const openFolderGrid = document.getElementById('stcm_folder_contents');
+    if (openFolderGrid) {
+        for (const el of openFolderGrid.querySelectorAll('.character_select, .group_select')) {
+            el.classList.remove('stcm_force_hidden');
         }
-    });
+    }
+
+    // 3. Never hide bogus folders (sidebar or preview blocks)
+    for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
+        el.classList.remove('stcm_force_hidden');
+    }
+    // Optionally, remove force-hidden from your label
+    let label = document.getElementById('stcm_no_folder_label');
+    if (label) label.classList.remove('stcm_force_hidden');
 }
 
 
