@@ -813,8 +813,12 @@ if (folderSearchInput) {
 
         // Filter folders recursively by folder name OR assigned character names
         function filterFolders(folders, parentId = 'root') {
-            return folders
-                .filter(f => f.parentId === parentId)
+            const parent = folders.find(f => f.id === parentId);
+            if (!parent || !Array.isArray(parent.children)) return [];
+        
+            return parent.children
+                .map(childId => folders.find(f => f.id === childId))
+                .filter(Boolean)
                 .map(f => {
                     const folderNameMatch = raw ? f.name.toLowerCase().includes(raw) : true;
                     const charNameMatch   = raw ? getCharNames(f).includes(raw) : true;
@@ -829,12 +833,12 @@ if (folderSearchInput) {
                             children: filteredChildren
                         };
                     } else {
-                        // No match in this folder or descendants
                         return null;
                     }
                 })
-                .filter(Boolean); // Remove nulls
+                .filter(Boolean);
         }
+        
         
         // Flatten filtered tree for rendering dropdown (indented)
         function flatten(foldersTree, depth = 0) {
