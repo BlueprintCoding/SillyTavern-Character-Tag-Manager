@@ -13,6 +13,8 @@ import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { callSaveandReload } from "./index.js";
 import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 import * as stcmFolders from './stcm_folders.js';
+import { getFolderOptionsTree } from './stcm_folders_ui.js'; // adjust path if needed
+
 
 
 async function renderCharacterList() {
@@ -239,7 +241,7 @@ async function renderCharacterList() {
             folderDropdown.appendChild(optNone);
 
             // Use indented tree
-            const folderOptions = stcmFolders.getFolderOptionsTree(folders, [], 'root', 0)
+            const folderOptions = getFolderOptionsTree(folders, [], 'root', 0)
                 .filter(opt => opt.id !== 'root'); // Don't allow root as assignable
 
             folderOptions.forEach(opt => {
