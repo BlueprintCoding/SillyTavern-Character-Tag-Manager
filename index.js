@@ -147,10 +147,16 @@ function openCharacterTagManagerModal() {
         <div class="accordionSection stcm_accordion_section stcm_folders_section">
             <button class="accordionToggle stcm_text_left" data-target="foldersSection">▶ Folders</button>
             <div id="foldersSection" class="accordionContent">
-                <div style="padding: 1em 0;">
+                <div style="padding: 1em 0; display: flex; align-items: flex-end; gap: 14px;">
                     <button id="createNewFolderBtn" class="stcm_menu_button interactable" tabindex="0">
                         <i class="fa-solid fa-folder-plus"></i> New Folder
                     </button>
+                    <div style="display: flex; flex-direction: column; flex: 1 1 auto;">
+                        <input type="text" id="folderSearchInput" class="menu_input stcm_fullwidth_input" style="min-width:220px;max-width:340px;" placeholder="Search folders..." />
+                        <span class="smallInstructions" style="margin-top: 1px;">
+                              Search by folder name, or by character name assigned to the folder.
+                        </span>
+                    </div>
                 </div>
                 <div id="foldersTreeContainer"><div class="loading">Loading folders...</div></div>
                 <div id="folderCharactersSection" style="display:none;"></div>

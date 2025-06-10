@@ -791,6 +791,73 @@ export async function attachFolderSectionListeners(modalRoot) {
             }
         });
     }
+
+const folderSearchInput = modalRoot.querySelector('#folderSearchInput');
+
+if (folderSearchInput) {
+    folderSearchInput.addEventListener('input', debounce(async function () {
+        const raw = folderSearchInput.value.trim().toLowerCase();
+        const folders = await stcmFolders.loadFolders();
+        const tagMapById = buildTagMap(tags);
+
+        // Build character name map for each folder
+        function getCharNames(folder) {
+            return (folder.characters || [])
+                .map(charId => {
+                    const char = characters.find(c => c.avatar === charId);
+                    return char ? char.name.toLowerCase() : '';
+                })
+                .filter(Boolean)
+                .join(' ');
+        }
+
+        // Filter folders recursively by folder name OR assigned character names
+        function filterFolders(folders, parentId = 'root') {
+            return folders
+                .filter(f => f.parentId === parentId)
+                .filter(f => {
+                    if (!raw) return true;
+                    const folderNameMatch = f.name.toLowerCase().includes(raw);
+                    const charNameMatch = getCharNames(f).includes(raw);
+                    return folderNameMatch || charNameMatch;
+                })
+                .map(f => ({
+                    ...f,
+                    children: filterFolders(folders, f.id)
+                }));
+        }
+
+        // Flatten filtered tree for rendering dropdown (indented)
+        function flatten(foldersTree, depth = 0) {
+            let result = [];
+            for (const folder of foldersTree) {
+                result.push({ folder, depth });
+                result = result.concat(flatten(folder.children, depth + 1));
+            }
+            return result;
+        }
+
+        // Create filtered+flattened list
+        const tree = filterFolders(folders);
+        const flat = flatten(tree);
+
+        // Re-render tree UI
+        const treeContainer = modalRoot.querySelector('#foldersTreeContainer');
+        treeContainer.innerHTML = '';
+        if (flat.length === 0) {
+            treeContainer.innerHTML = '<div class="no-results">No folders found.</div>';
+        } else {
+            for (const { folder, depth } of flat) {
+                treeContainer.appendChild(
+                    renderFolderNode(folder, folders, depth, folders => refreshFolderUI(treeContainer, folders), treeContainer)
+                );
+            }
+        }
+
+        // (Optional: If you want to update other UI elsewhere when searching, do it here)
+    }, 180));
+}
+    
 }
 
 
