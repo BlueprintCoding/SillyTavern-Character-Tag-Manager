@@ -253,7 +253,7 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
 
         // Native grid container (matches SillyTavern style)
         const grid = document.createElement('div');
-        grid.className = 'stcm_folder_contents'; // or your native grid class
+        grid.className = 'stcm_folder_contents_search'; // or your native grid class
 
         chars.forEach(char => {
             const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
