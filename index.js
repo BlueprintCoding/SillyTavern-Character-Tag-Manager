@@ -1006,6 +1006,31 @@ async function showNotesConflictDialog(conflicts, newNotes, importData) {
     toastr.success('Selected notes imported!');
 }
 
+// hard char refresh
+document.addEventListener('DOMContentLoaded', function() {
+    const charBtn = document.getElementById('rm_button_characters');
+    if (charBtn) {
+        charBtn.addEventListener('click', () => {
+            console.log("return fired");
+            accountStorage.setItem('SelectedNavTab', 'rm_button_selected_ch');
+            accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
+            setActiveCharacter(null)
+            setActiveGroup(null);
+            openWelcomeScreen();
+            currentSidebarFolderId = 'root';
+            stcmSearchActive = false;
+            stcmSearchResults = null;
+            stcmSearchTerm = '';
+            stcmLastSearchFolderId = null;
+            orphanFolderExpanded = false;
+            const input = document.getElementById('character_search_bar');
+            if (input) input.value = '';
+            injectSidebarFolders(STCM.sidebarFolders);
+        });
+    }
+});
+
+
 export { callSaveandReload, injectTagManagerControlButton};
 export const STCM = {
     sidebarFolders: [],

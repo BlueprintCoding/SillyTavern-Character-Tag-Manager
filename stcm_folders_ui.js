@@ -608,27 +608,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             }
         }
 
-        $('#rm_button_characters').click(function () {
-            // Reset to root
-            console.log("return fired");
-            accountStorage.setItem('SelectedNavTab', 'rm_button_selected_ch');
-            accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
-            setActiveCharacter(null)
-            setActiveGroup(null);
-            openWelcomeScreen();
-            currentSidebarFolderId = 'root';
-            // You should also clear any search or orphan views if needed:
-            stcmSearchActive = false;
-            stcmSearchResults = null;
-            stcmSearchTerm = '';
-            stcmLastSearchFolderId = null;
-            orphanFolderExpanded = false; // if used
-            const input = document.getElementById('character_search_bar');
-            if (input) input.value = '';
-            // Redraw the sidebar folder UI
-                injectSidebarFolders(STCM.sidebarFolders); // or whatever triggers the folder UI rerender
-        });
-    
         renderSidebarFolderContents(folders, allEntities, folderId);
     });
     
