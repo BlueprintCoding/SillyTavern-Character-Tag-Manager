@@ -14,12 +14,6 @@ cleanTagMap,
 promptInput,
 } from './utils.js';
 
-import { accountStorage } from '../../../util/AccountStorage.js';
-import {
-    openWelcomeScreen
-} from "../../../welcome-screen.js"
-
-
 import * as stcmFolders from './stcm_folders.js';
 
 import {
@@ -46,9 +40,7 @@ import {
     characters,
     getCharacters,
     printCharactersDebounced,
-    saveSettingsDebounced,
-    setActiveCharacter,
-    setActiveGroup
+    saveSettingsDebounced
 } from "../../../../script.js";
 
 import { groups, getGroupAvatar } from '../../../../scripts/group-chats.js';
@@ -906,21 +898,6 @@ eventSource.on(event_types.APP_READY, async () => {
     watchSidebarFolderInjection(); 
     hookFolderSidebarEvents();
     injectStcmSettingsPanel();    
-// // hard char refresh
-//     const charBtn = document.getElementById('rm_button_characters');
-//     if (charBtn) {
-//         charBtn.addEventListener('click', () => {
-//             console.log("return fired");
-//             accountStorage.setItem('SelectedNavTab', 'rm_button_selected_ch');
-//             accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
-//             setActiveCharacter(null)
-//             setActiveGroup(null);
-//             openWelcomeScreen();
-//             const input = document.getElementById('character_search_bar');
-//             if (input) input.value = '';
-//             injectSidebarFolders(STCM.sidebarFolders);
-//         });
-//     }
 
 });
 
