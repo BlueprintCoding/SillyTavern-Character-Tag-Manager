@@ -864,33 +864,29 @@ export function showFolderColorPicker(folder, rerender) {
     });
 }
 
+// entity can be a top-level {item, id, type} or just an item
 function getEntityChid(entity) {
-    // Entity can be full or .item, or a mix
-    if (entity.type === "character") {
-        if (entity.item && entity.item.id) return entity.item.id;
-        if (entity.avatar) return entity.avatar;
-        if (entity.item && entity.item.avatar) return entity.item.avatar;
-        if (entity.id) return entity.id;
-        return undefined; // Should never happen
-    }
-    if (entity.type === "group" || entity.type === "tag" || entity.type === "folder") {
-        return entity.id;
-    }
-    // Fallback
-    return entity.id || (entity.item && entity.item.id) || entity.avatar || (entity.item && entity.item.avatar);
+    // Prefer top-level id if present (for character and group)
+    if (entity.id !== undefined && entity.type) return entity.id;
+    // If it's just the inner item (not recommended), fallback to avatar or id
+    if (entity.avatar) return entity.avatar;
+    if (entity.item && entity.item.id) return entity.item.id;
+    if (entity.item && entity.item.avatar) return entity.item.avatar;
+    return undefined;
 }
+
 
 
 
 export function renderSidebarCharacterCard(entity) {
     // Flatten
     let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
-
+    console.log(ent);
     let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
     let desc = ent.description || ent.creatorcomment || "";
     let isGroup = ent.type === 'group';
 
-    const chid = getEntityChid(entity);
+    const chid = getEntityChid(entity); 
     
     // Escape dangerous fields
     const escapedName = escapeHtml(ent.name || "");
