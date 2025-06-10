@@ -188,7 +188,6 @@ function removeCharacterSortSelect() {
     if (oldSelect) oldSelect.remove();
 }
 
-<input id="character_search_bar" class="text_pole width100p" type="search" data-i18n="[placeholder]Search..." placeholder="Search..." keeper-ignore="" data-stcm-hooked="true"></input>
 
 function hookIntoCharacterSearchBar() {
     const input = document.getElementById('character_search_bar_stcm');
