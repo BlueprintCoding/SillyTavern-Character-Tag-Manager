@@ -524,31 +524,41 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
     if (folderId === 'root') {
         const orphanedChars = getCharactersNotInAnyFolder(allCharacters, folders);
         if (orphanedChars.length > 0) {
-            // Label (clickable)
-            const orphanLabel = document.createElement('div');
-            orphanLabel.className = 'stcm_search_folder_label stcm_folder_row_clickable';
-            orphanLabel.style.cursor = "pointer";
-            orphanLabel.style.fontWeight = orphanFolderExpanded ? "bold" : "normal";
-            // Folder icon
-            const icon = document.createElement('i');
-            icon.className = 'fa-solid fa-folder' + (orphanFolderExpanded ? '-open' : '');
-            icon.style.marginRight = "7px";
-            icon.style.fontSize = "0.93em";
-            icon.style.opacity = "0.92";
-            icon.style.verticalAlign = "middle";
-            orphanLabel.appendChild(icon);
-            // Name
-            orphanLabel.appendChild(document.createTextNode("Cards not in Folder"));
-    
-            orphanLabel.addEventListener("click", () => {
-                orphanFolderExpanded = !orphanFolderExpanded;
+            // Folder-like row for orphans
+            const orphanDiv = document.createElement('div');
+            orphanDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+            orphanDiv.setAttribute('data-folder-id', 'orphans');
+            orphanDiv.style.cursor = 'pointer';
+
+            // Use a default folder color, or something distinct
+            let iconColor = "#8887c2";
+            let iconClass = orphanFolderExpanded ? 'fa-folder-open' : 'fa-folder';
+            let charCount = orphanedChars.length;
+
+            orphanDiv.innerHTML = `
+                <div class="stcm_folder_main">
+                    <div class="avatar flex alignitemscenter textAlignCenter"
+                        style="background-color: ${iconColor}; color: #fff;">
+                        <i class="bogus_folder_icon fa-solid fa-xl ${iconClass}"></i>
+                    </div>
+                    <span class="ch_name stcm_folder_name" title="[Folder] Cards not in Folder">Cards not in Folder</span>
+                    <div class="stcm_folder_counts">
+                        <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
+                        <div class="stcm_folder_folder_count" style="opacity:0.5;">0 folders</div>
+                    </div>
+                </div>
+            `;
+
+            // Click toggles open/close
+            orphanDiv.onclick = (e) => {
+                window.STCM_orphanFolderExpanded = !window.STCM_orphanFolderExpanded;
                 renderSidebarFolderContents(folders, allCharacters, folderId);
-            });
-    
-            container.appendChild(orphanLabel);
-    
-            // Only show cards if expanded
-            if (orphanFolderExpanded) {
+            };
+
+            container.appendChild(orphanDiv);
+
+            // If expanded, show character cards in a grid
+            if (window.STCM_orphanFolderExpanded) {
                 const grid = document.createElement('div');
                 grid.className = 'stcm_folder_contents';
                 orphanedChars.forEach(char => {
@@ -559,6 +569,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             }
         }
     }
+
     
 
 
