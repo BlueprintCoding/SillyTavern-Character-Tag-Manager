@@ -233,43 +233,35 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
     if (!container) return;
     container.innerHTML = "";
 
-    const contentDiv = document.createElement('div');
-    contentDiv.id = 'stcm_folder_contents';
-    contentDiv.className = 'stcm_folder_contents';
-
-    // Map: folderId -> [matching characters]
+    // Group characters by folderId
     const folderMatches = {};
     for (const res of results) {
         const char = res.item;
-        // Find the folder(s) this character belongs to:
         const folder = folders.find(f => (f.characters || []).includes(char.avatar));
         const folderId = folder ? folder.id : 'no_folder';
         if (!folderMatches[folderId]) folderMatches[folderId] = { folder, chars: [] };
         folderMatches[folderId].chars.push(char);
     }
 
-    // Order: by folder name, then show characters
+    // For each folder, create a label and a grid of cards
     Object.values(folderMatches).forEach(({ folder, chars }) => {
         // Folder label
         const folderLabel = document.createElement('div');
         folderLabel.className = 'stcm_search_folder_label';
         folderLabel.textContent = folder ? folder.name : "Not in a Folder";
-        contentDiv.appendChild(folderLabel);
-    
-        // === New: Create a grid wrapper for cards ===
-        const gridDiv = document.createElement('div');
-        gridDiv.className = 'stcm_folder_contents'; // Uses your standard grid/flex styling
-    
+        container.appendChild(folderLabel);
+
+        // Native grid container (matches SillyTavern style)
+        const grid = document.createElement('div');
+        grid.className = 'stcm_folder_contents'; // or your native grid class
+
         chars.forEach(char => {
             const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
-            gridDiv.appendChild(charCard);
+            grid.appendChild(charCard);
         });
-    
-        contentDiv.appendChild(gridDiv);
-    });
-    
 
-    container.appendChild(contentDiv);
+        container.appendChild(grid);
+    });
 }
 
 
