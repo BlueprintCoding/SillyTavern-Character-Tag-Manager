@@ -89,7 +89,7 @@ export async function updateSidebar(forceReload = false) {
         injectSidebarFolders(STCM.sidebarFolders);
         // Defer hiding logic to after the DOM updates:
         setTimeout(() => {
-            hideFolderedCharactersOutsideSidebar(folders);
+            hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
         }, 0);
 
     } catch (e) {
