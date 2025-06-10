@@ -149,18 +149,18 @@ function openCharacterTagManagerModal() {
             <div id="foldersSection" class="accordionContent">
                 <div style="padding: 1em 0; display: flex; align-items: flex-end; gap: 14px;">
                 <div style="display: flex; gap: 2px;">
-                    <button id="collapseAllFoldersBtn" class="stcm_menu_button tiny interactable" title="Collapse All Folders">
+                    <button id="collapseAllFoldersBtn" class="stcm_menu_button tiny interactable collapseExpandAllFoldersBtn" title="Collapse All Folders">
                         <i class="fa-solid fa-caret-up"></i> Collapse All
                     </button>
                     <button id="expandAllFoldersBtn" class="stcm_menu_button tiny interactable collapseExpandAllFoldersBtn" title="Expand All Folders">
                         <i class="fa-solid fa-caret-down"></i> Expand All
                     </button>
-                    <button id="createNewFolderBtn" class="stcm_menu_button interactable collapseExpandAllFoldersBtn" tabindex="0">
+                    <button id="createNewFolderBtn" class="stcm_menu_button interactable" tabindex="0">
                         <i class="fa-solid fa-folder-plus"></i> New Folder
                     </button>
                 </div>
                     <div style="display: flex; flex-direction: column; flex: 1 1 auto;">
-                        <input type="text" id="folderSearchInput" class="menu_input stcm_fullwidth_input" style="min-width:220px;max-width:340px;" placeholder="Search folders..." />
+                        <input type="text" id="folderSearchInput" class="menu_input stcm_fullwidth_input" placeholder="Search folders..." />
                         <span class="smallInstructions" style="margin-top: 1px;">
                               Search by folder name, or by character name assigned to the folder.
                         </span>
