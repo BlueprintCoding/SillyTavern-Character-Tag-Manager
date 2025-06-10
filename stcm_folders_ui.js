@@ -1027,8 +1027,10 @@ export function showIconPicker(folder, parentNode, rerender) {
 }
 
 
-export function confirmDeleteFolder (folder, rerender) {
+export function confirmDeleteFolder(folder, rerender) {
     const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
+    const hasCharacters = Array.isArray(folder.characters) && folder.characters.length > 0;
+    const hasParent = folder.parentId && folder.parentId !== 'root';
 
     // ── build popup ──────────────────────────────────────────────────────
     const html = document.createElement('div');
@@ -1046,6 +1048,21 @@ export function confirmDeleteFolder (folder, rerender) {
                 Delete this folder and <b>move</b> its sub-folders to Root
             </label>
         ` : ''}
+        ${hasCharacters && hasParent ? `
+            <div style="margin-top:10px;">
+                <b>This folder has ${folder.characters.length} character${folder.characters.length > 1 ? 's' : ''} assigned.</b>
+                <div style="margin:4px 0 4px 12px;">
+                    <label style="display:block;">
+                        <input type="radio" name="delCharMode" value="moveToParent" checked>
+                        Move assigned characters to parent folder
+                    </label>
+                    <label style="display:block;">
+                        <input type="radio" name="delCharMode" value="unassign">
+                        Remove all assigned characters from folders
+                    </label>
+                </div>
+            </div>
+        ` : ''}
         <p style="color:#e57373;">This cannot be undone.</p>`;
 
     // ── show popup ───────────────────────────────────────────────────────
@@ -1058,9 +1075,35 @@ export function confirmDeleteFolder (folder, rerender) {
                 : 'cascade';
             const cascade  = (mode === 'cascade');
 
-            const folders = await stcmFolders.deleteFolder(folder.id, cascade);
+            // Handle assigned characters if necessary
+            if (hasCharacters && hasParent) {
+                const charMode = html.querySelector('input[name="delCharMode"]:checked').value;
+                const folders = await stcmFolders.loadFolders();
+                const parent = folders.find(f => f.id === folder.parentId);
+                if (charMode === 'moveToParent' && parent) {
+                    // Move characters to parent
+                    folder.characters.forEach(charId => {
+                        // Remove from this folder (will happen anyway after delete)
+                        // Add to parent if not already present
+                        if (!parent.characters.includes(charId)) parent.characters.push(charId);
+                    });
+                    await stcmFolders.saveFolders(folders); // persist change
+                } else if (charMode === 'unassign') {
+                    // Remove from this folder (will happen on delete)
+                    // Also remove from ALL other folders (i.e., unassign everywhere)
+                    const charIds = folder.characters.slice();
+                    folders.forEach(f => {
+                        if (!Array.isArray(f.characters)) return;
+                        f.characters = f.characters.filter(c => !charIds.includes(c));
+                    });
+                    await stcmFolders.saveFolders(folders);
+                }
+            }
+
+            // Now delete folder as usual
+            const foldersAfterDelete = await stcmFolders.deleteFolder(folder.id, cascade);
             await updateSidebar(true);
-            rerender && rerender(folders);
+            rerender && rerender(foldersAfterDelete);
             toastr.success(
                 cascade
                     ? 'Folder and all sub-folders deleted'
@@ -1068,6 +1111,7 @@ export function confirmDeleteFolder (folder, rerender) {
             );
         });
 }
+
 
 function walkFolderTree(folderId, folders, opts = {}, depth = 0) {
     const folder = folders.find(f => f.id === folderId);

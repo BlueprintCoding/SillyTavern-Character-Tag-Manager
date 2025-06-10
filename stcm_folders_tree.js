@@ -39,6 +39,7 @@ import { characters } from '../../../../script.js';
 import { tags, tag_map }        from "../../../tags.js";
 import { groups }               from "../../../../scripts/group-chats.js";
 import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
+
 // If you keep the global STCM object (as in index.js) you can re-use it here:
 export const STCM_TREE = { renderFoldersTree: null };
 const collapsedFolders = {};
