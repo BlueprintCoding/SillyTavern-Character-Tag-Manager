@@ -1179,6 +1179,13 @@ display: none;
     font-size: 1em!important;
 }
 
+.stcm_search_folder_label {
+    margin: 2px 0; 
+    font-weight: 700; 
+    font-size: .9em; 
+    color: var(--ac-style-color-text, #bbb);
+}
+
 /* === Merge Tag Buttons/States === */
 #cancelMergeTags {
     background-color: #ca7673;
