@@ -176,10 +176,9 @@ function replaceCharacterSearchBar() {
     // Create your new search bar
     const stcmInput = document.createElement('input');
     stcmInput.id = 'character_search_bar_stcm';
-    stcmInput.className = 'stcm_text_pole width100p'; // Use your styling
+    stcmInput.className = 'text_pole width100p'; // Use your styling
     stcmInput.type = 'search';
     stcmInput.placeholder = 'Search...';
-
     // Replace in place
     oldInput.parentNode.replaceChild(stcmInput, oldInput);
 }
@@ -189,7 +188,7 @@ function removeCharacterSortSelect() {
     if (oldSelect) oldSelect.remove();
 }
 
-
+<input id="character_search_bar" class="text_pole width100p" type="search" data-i18n="[placeholder]Search..." placeholder="Search..." keeper-ignore="" data-stcm-hooked="true"></input>
 
 function hookIntoCharacterSearchBar() {
     const input = document.getElementById('character_search_bar_stcm');
@@ -270,6 +269,27 @@ function characterMatchesTerm(char, term) {
     return false;
 }
 
+function buildCharacterToFolderMap(folders) {
+    const map = new Map();
+    function walk(folder, parentId = null) {
+        if (folder.characters) {
+            folder.characters.forEach(chid => {
+                // If character appears in multiple folders, first match wins (adjust if you want "all folders")
+                if (!map.has(chid)) {
+                    map.set(chid, folder.id);
+                }
+            });
+        }
+        (folder.children || []).forEach(childId => {
+            const childFolder = folders.find(f => f.id === childId);
+            if (childFolder) walk(childFolder, folder.id);
+        });
+    }
+    const root = folders.find(f => f.id === "root");
+    if (root) walk(root);
+    else folders.forEach(f => walk(f));
+    return map;
+}
 
 
 
@@ -282,6 +302,9 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     const folderMatches = {};
     const ORPHAN_KEY = '__orphans__';
 
+    // Build character/group → folderId map
+    const charToFolder = buildCharacterToFolderMap(folders);
+
     // Make a lookup map for allEntities (id -> {entity, avatar, type})
     const entityByAvatar = {};
     const entityById = {};
@@ -290,15 +313,12 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         if (e.type === "group" && e.id) entityById[e.id] = e;
     });
 
-    // Folder assignment logic (robust, works for any search result shape)
     for (const res of results) {
-        // Determine what this is: character or group, and get avatar or id
         let entity, type, avatar, id;
         if (res.type === "character" || (res.item && res.item.spec)) {
-            // Character (from fuzzy search, res.item may exist)
             entity = res.item ? res.item : res;
             type = "character";
-            avatar = entity.avatar || entity.avatar_url; // main way to identify
+            avatar = entity.avatar || entity.avatar_url;
             id = res.id || entity.id;
         } else if (res.type === "group" || (res.item && res.item.members)) {
             entity = res.item ? res.item : res;
@@ -307,24 +327,21 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
             id = res.id || entity.id;
         }
 
-        // Try to find this entity in any folder
-        let foundFolder = null;
-        for (const folder of folders) {
-            if (!Array.isArray(folder.characters)) continue;
-            if (
-                (type === "character" && avatar && folder.characters.includes(avatar)) ||
-                (type === "group" && id && folder.characters.includes(id))
-            ) {
-                foundFolder = folder;
-                break;
-            }
+        // Use the map!
+        let folderId = null;
+        if (type === "character" && avatar && charToFolder.has(avatar)) {
+            folderId = charToFolder.get(avatar);
+        } else if (type === "group" && id && charToFolder.has(id)) {
+            folderId = charToFolder.get(id);
         }
-        const folderId = foundFolder ? foundFolder.id : ORPHAN_KEY;
-        if (!folderMatches[folderId]) folderMatches[folderId] = { folder: foundFolder, chars: [] };
+        if (!folderId) folderId = ORPHAN_KEY;
+
+        if (!folderMatches[folderId]) folderMatches[folderId] = { folder: folders.find(f => f.id === folderId), chars: [] };
+
         // reconstruct proper entity object for rendering
         let entityObj = (type === "character" && avatar && entityByAvatar[avatar]) ? entityByAvatar[avatar]
-                       : (type === "group" && id && entityById[id]) ? entityById[id]
-                       : entity;
+                    : (type === "group" && id && entityById[id]) ? entityById[id]
+                    : entity;
         folderMatches[folderId].chars.push(entityObj);
     }
 
@@ -332,7 +349,6 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     const folderOrder = Object.keys(folderMatches).sort((a, b) => {
         if (a === ORPHAN_KEY) return 1;
         if (b === ORPHAN_KEY) return -1;
-        // By folder name
         const an = (folderMatches[a].folder?.name || '').toLowerCase();
         const bn = (folderMatches[b].folder?.name || '').toLowerCase();
         return an.localeCompare(bn);
