@@ -373,27 +373,31 @@ function hideFolderedCharactersOutsideSidebar(folders) {
 
 
         // If we are in a tag folder dive, UNHIDE the right characters
-    if (isTagFolderDiveActive()) {
-        console.log("isDIVE?");
-        let label = document.getElementById('stcm_no_folder_label');
-        if (label) {
-            console.log("islabel?");
-            let el = label.nextElementSibling;
-            // Skip all back buttons
-            while (el && el.classList.contains('bogus_folder_select_back')) {
-                el = el.nextElementSibling;
-            }
-            while (el && !el.classList.contains('bogus_folder_select')) {
-                console.log("isDIVEFolder?");
-                if (el.classList.contains('character_select') || el.classList.contains('group_select')) {
-                    console.log("isDIVEFolderChar?");
-                    el.classList.remove('stcm_force_hidden');
-                    el.classList.add('FoundDiveFolder');
+        if (isTagFolderDiveActive()) {
+            // 1. Find the back button (start of dive area)
+            let backBtn = document.getElementById('BogusFolderBack');
+            // 2. Find the block marking the end (the "hidden" info)
+            let endBlock = document.querySelector('.text_block.hidden_block');
+        
+            if (backBtn && endBlock) {
+                let el = backBtn.nextElementSibling;
+                while (el && el !== endBlock) {
+                    // Unhide all characters, groups, and nested bogus folders in this "dive"
+                    if (
+                        el.classList.contains('character_select') ||
+                        el.classList.contains('group_select') ||
+                        el.classList.contains('bogus_folder_select')
+                    ) {
+                        el.classList.remove('stcm_force_hidden');
+                        el.classList.add('FoundDiveFolder');
+                        // For debugging:
+                        console.log('UNHIDING:', el);
+                    }
+                    el = el.nextElementSibling;
                 }
-                el = el.nextElementSibling;
             }
         }
-    }
+        
 
     // Never hide the bogus folders
     for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
