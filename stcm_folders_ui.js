@@ -349,7 +349,10 @@ function hideFolderedCharactersOutsideSidebar(folders) {
     if (!parent) return;
 
     Array.from(parent.children).forEach(child => {
-        if (child.classList?.contains('bogus_folder_select')) {
+        if (
+            child.classList?.contains('bogus_folder_select') ||
+            child.id === 'stcm_sidebar_folder_nav'
+        ) {
             child.classList.remove('stcm_force_hidden');
         } else {
             child.classList.add('stcm_force_hidden');
