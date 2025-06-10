@@ -390,6 +390,7 @@ function hideFolderedCharactersOutsideSidebar(folders) {
                     ) {
                         el.classList.remove('stcm_force_hidden');
                         el.classList.add('FoundDiveFolder');
+                        document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
                         // For debugging:
                         console.log('UNHIDING:', el);
                     }

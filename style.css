@@ -912,6 +912,10 @@ margin-right: 0!important;
     display: none !important;
 }
 
+.stcm_dive_hidden {
+    display: none !important;
+}
+
 
 .folderCharSelectAll .customCheckboxWrapper {
     min-width: 75px;
