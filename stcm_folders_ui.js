@@ -45,6 +45,7 @@ let stcmObserver = null;
 let stcmLastSearchFolderId = null;
 let lastInjectedAt = 0;
 let lastSidebarInjection = 0;
+let suppressSidebarObserver = false;
 let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
 let orphanFolderExpanded = false;
@@ -81,23 +82,24 @@ export function hookFolderSidebarEvents() {
 export async function updateSidebar(forceReload = false) {
     if (sidebarUpdateInProgress) return;
     sidebarUpdateInProgress = true;
-
+    suppressSidebarObserver = true; /
     try {
         if (forceReload || !STCM.sidebarFolders?.length) {
             STCM.sidebarFolders = await stcmFolders.loadFolders();
         }
         injectSidebarFolders(STCM.sidebarFolders);
-        // Defer hiding logic to after the DOM updates:
         setTimeout(() => {
             hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+            suppressSidebarObserver = false; 
         }, 0);
-
     } catch (e) {
+        suppressSidebarObserver = false; 
         console.error("Sidebar update failed:", e);
     } finally {
         sidebarUpdateInProgress = false;
     }
 }
+
 
 function insertNoFolderLabelIfNeeded() {
     // Remove existing if any (prevents duplicates)
@@ -933,6 +935,7 @@ export function watchSidebarFolderInjection() {
     );
 
     const debouncedInject = debounce(async () => {
+        if (suppressSidebarObserver) return; // ADD THIS GUARD!
         const sidebar = container.querySelector('#stcm_sidebar_folder_nav');
         const currentAvatars = getCurrentAvatars();
 
