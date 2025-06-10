@@ -784,7 +784,7 @@
 }
 
 .collapseExpandAllFoldersBtn {
-    margin: 0;
+    margin: 0px!important;
 }
 
 .stcm-folder-toggle-btn {
