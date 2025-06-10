@@ -988,9 +988,7 @@ div#rightNavHolder.drawer {
     overflow: hidden !important;
 }
 
-[id^="BogusFolder"] {
-    display: none !important;
-} */
+*/
 
 #stcm_sidebar_folder_nav {
     display: flex;
