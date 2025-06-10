@@ -873,17 +873,16 @@ export function renderSidebarCharacterCard(entity) {
     let desc = ent.description || ent.creatorcomment || "";
     let isGroup = ent.type === 'group';
 
-    // ⬇ Escape all fields that might be set by users or files!
+    // Escape dangerous fields
     const escapedName = escapeHtml(ent.name || "");
     const escapedDesc = escapeHtml(desc || "");
-    const escapedAvatarUrl = escapeHtml(avatarUrl);
-    // Tags may be undefined, so always escape
-    const safeTags = (ent.tags || []).map(tag => ({
-        color: tag.color || '',
-        color2: tag.color2 || '',
-        name: escapeHtml(tag.name || "")
-    }));
 
+    const div = document.createElement('div');
+    div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
+    div.setAttribute('chid', ent.id);
+    div.setAttribute('data-chid', ent.id);
+    div.tabIndex = 0;
+    
     let avatarHtml;
     if (isGroup && Array.isArray(ent.members) && ent.members.length > 0) {
         // Use up to 3 member avatars for the collage
@@ -898,12 +897,12 @@ export function renderSidebarCharacterCard(entity) {
     } else {
         // Single avatar for character
         avatarHtml = `
-            <div class="avatar" title="[Character] ${escapedName}\nFile: ${escapedAvatarUrl}">
+            <div class="avatar" title="[Character] ${escapedName}\nFile: ${escapeHtml(avatarUrl)}">
                 <img src="${avatarUrl.startsWith('img/') ? avatarUrl : '/thumbnail?type=avatar&file=' + encodeURIComponent(avatarUrl)}" alt="${escapedName}">
             </div>
         `;
     }
-
+    
     div.innerHTML = `
         ${avatarHtml}
         <div class="flex-container wide100pLess70px character_select_container">
@@ -916,8 +915,8 @@ export function renderSidebarCharacterCard(entity) {
             <input class="ch_fav" value="" hidden="" keeper-ignore="">
             <div class="ch_description">${escapedDesc}</div>
             <div class="tags tags_inline">
-                ${safeTags.map(tag =>
-                    `<span class="tag" style="background-color: ${tag.color}; color: ${tag.color2};">
+                ${(ent.tags || []).map(tag =>
+                    `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
                         <span class="tag_name">${tag.name}</span>
                     </span>`
                 ).join('')}
