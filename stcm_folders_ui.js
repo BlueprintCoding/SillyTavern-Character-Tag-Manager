@@ -694,20 +694,21 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
    
 
         // Show characters in this folder (full card style)
-
         (folder.characters || []).forEach(folderVal => {
-            // Try to match by avatar for characters, id for groups
-            const entity = allEntities.find(e => {
-                if (e.type === "character") return e.avatar === folderVal;
-                if (e.type === "group") return e.id === folderVal;
-                return false;
-            });
+            // Try to match a character by avatar, or group by id
+            const entity = allEntities.find(e => (
+                (e.type === "character" && e.avatar === folderVal) ||
+                (e.type === "group" && e.id === folderVal)
+            ));
             if (entity) {
-                const tagsForEntity = getTagsForChar(entity.id, tagsById);
-                const entityCard = renderSidebarCharacterCard(entity); 
+                // Pass tags, etc as needed
+                const tagsForEntity = getTagsForChar(entity.id || entity.avatar, tagsById);
+                const entityCard = renderSidebarCharacterCard({ ...entity, tags: tagsForEntity });
                 contentDiv.appendChild(entityCard);
             }
         });
+        
+        
         
         container.appendChild(contentDiv);
 }
