@@ -350,12 +350,15 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
 }
 
 function isTagFolderDiveActive() {
-    // Find all .bogus_folder_select_back elements NOT inside the template
     const backs = Array.from(document.querySelectorAll('.bogus_folder_select_back'));
     return backs.some(back =>
-        !back.closest('#bogus_folder_back_template') && back.offsetParent !== null
+        // Only true if inside the real character block, NOT inside template
+        back.offsetParent !== null &&
+        back.closest('#rm_print_characters_block') && // Must be in main block
+        !back.closest('#bogus_folder_back_template')  // ...but NOT in template
     );
 }
+
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
