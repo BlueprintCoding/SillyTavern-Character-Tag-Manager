@@ -312,6 +312,21 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
         e.stopPropagation();
         // function is defined elsewhere (kept global in original code)
         showFolderCharactersSection?.(folder, allFolders);
+
+        setTimeout(() => {
+            const section = document.getElementById('folderCharactersSection');
+            const modalBody = document.querySelector('.modalBody.stcm_scroll_300');
+            if (section && modalBody) {
+                // Get section's offsetTop relative to the scroll container
+                const rect = section.getBoundingClientRect();
+                const containerRect = modalBody.getBoundingClientRect();
+                modalBody.scrollTo({
+                    top: modalBody.scrollTop + (rect.top - containerRect.top) - 10,
+                    behavior: 'smooth'
+                });
+            }
+        }, 20);
+        
     });
     row.appendChild(charBtn);
 
