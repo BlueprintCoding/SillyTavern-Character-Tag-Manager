@@ -254,7 +254,7 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
         const folderLabel = document.createElement('div');
         folderLabel.className = 'stcm_search_folder_label';
         folderLabel.textContent = folder ? folder.name : "Not in a Folder";
-        folderLabel.style = 'margin: 18px 0 7px 0; font-weight: 700; font-size: 1.04em; color: var(--ac-style-color-text, #bbb);';
+        folderLabel.style = '';
         contentDiv.appendChild(folderLabel);
 
         chars.forEach(char => {
