@@ -508,6 +508,37 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
     container.appendChild(controlRow);
 
 
+    // ===== CARDS NOT IN FOLDER SECTION =====
+    const orphanedChars = getCharactersNotInAnyFolder(allCharacters, folders);
+    if (orphanedChars.length > 0) {
+        // Label
+        const orphanLabel = document.createElement('div');
+        orphanLabel.className = 'stcm_search_folder_label';
+
+        // Folder icon
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-folder-open';
+        icon.style.marginRight = "7px";
+        icon.style.fontSize = "0.93em";
+        icon.style.opacity = "0.92";
+        icon.style.verticalAlign = "middle";
+        orphanLabel.appendChild(icon);
+
+        // Name
+        orphanLabel.appendChild(document.createTextNode("Cards not in Folder"));
+
+        container.appendChild(orphanLabel);
+
+        // Card grid
+        const grid = document.createElement('div');
+        grid.className = 'stcm_folder_contents'; // matches normal grid style
+        orphanedChars.forEach(char => {
+            const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
+            grid.appendChild(charCard);
+        });
+        container.appendChild(grid);
+    }
+
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
 
