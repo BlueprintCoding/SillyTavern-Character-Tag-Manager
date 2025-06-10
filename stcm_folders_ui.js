@@ -344,60 +344,17 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     }
 }
 
-
 function hideFolderedCharactersOutsideSidebar(folders) {
-    const folderedCharAvatars = new Set();
-    for (const folder of folders) {
-        if (Array.isArray(folder.characters)) {
-            for (const charAvatar of folder.characters) {
-                folderedCharAvatars.add(charAvatar);
-            }
-        }
-    }
+    const parent = document.getElementById('rm_print_characters_block');
+    if (!parent) return;
 
-    const globalList = document.getElementById('rm_print_characters_block');
-    if (!globalList) return;
-
-    const sidebar = document.getElementById('stcm_sidebar_folder_nav');
-    if (!sidebar) return;
-
-    // Hide main character cards
-    for (const el of globalList.querySelectorAll('.character_select')) {
-        if (sidebar.contains(el)) continue;
-
-        const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-        if (!img) continue;
-
-        const url = new URL(img.src, window.location.origin);
-        const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
-
-        if (folderedCharAvatars.has(avatarFile)) {
-            // Always hide in the main list if this avatar is in ANY folder
-            el.dataset.stcmHiddenByFolder = 'true';
-            el.classList.add('stcm_force_hidden');
+    Array.from(parent.children).forEach(child => {
+        if (child.classList?.contains('bogus_folder_select')) {
+            child.classList.remove('stcm_force_hidden');
         } else {
-            // Show only if not in a folder
-            el.dataset.stcmHiddenByFolder = 'false';
-            el.classList.remove('stcm_force_hidden');
+            child.classList.add('stcm_force_hidden');
         }
-        
-        
-    }
-
-    // Hide avatars in bogus folder previews
-    // for (const container of document.querySelectorAll('.bogus_folder_avatars_block')) {
-    //     for (const el of container.querySelectorAll('.avatar[data-type="character"]')) {
-    //         const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-    //         if (!img) continue;
-
-    //         const url = new URL(img.src, window.location.origin);
-    //         const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
-
-    //         if (folderedCharAvatars.has(avatarFile)) {
-    //             el.style.display = 'none';
-    //         }
-    //     }
-    // }
+    });
 }
 
 
@@ -614,7 +571,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 <div class="stcm_folder_main">
                     <div class="avatar flex alignitemscenter textAlignCenter"
                         style="background-color: #8887c2; color: #fff;">
-                        <i class="bogus_folder_icon fa-solid fa-xl fa-stack-overflow"></i>
+                        <i class="bogus_folder_icon fa-solid fa-cubes-stacked"></i>
                     </div>
                     <span class="ch_name stcm_folder_name" title="[Folder] Cards not in Folder">Cards not in Folder</span>
                     <div class="stcm_folder_counts">
