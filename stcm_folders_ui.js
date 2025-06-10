@@ -374,6 +374,7 @@ function hideFolderedCharactersOutsideSidebar(folders) {
 
         // If we are in a tag folder dive, UNHIDE the right characters
     if (isTagFolderDiveActive()) {
+        console.log("isDIVE?");
         let label = document.getElementById('stcm_no_folder_label');
         if (label) {
             let el = label.nextElementSibling;
