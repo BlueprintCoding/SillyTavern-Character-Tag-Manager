@@ -26,7 +26,9 @@ import {
     selectCharacterById,
     eventSource, 
     event_types,
-    getEntitiesList
+    getEntitiesList,
+    setActiveCharacter,
+    setActiveGroup
 } from "../../../../script.js";
 
 import { STCM } from './index.js';
@@ -604,7 +606,10 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         document.getElementById('rm_button_characters')?.addEventListener('click', () => {
             // Reset to root
+            accountStorage.setItem('SelectedNavTab', 'rm_button_selected_ch');
             accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
+            setActiveCharacter(null)
+            setActiveGroup(null);
             currentSidebarFolderId = 'root';
             // You should also clear any search or orphan views if needed:
             stcmSearchActive = false;
