@@ -610,6 +610,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         document.getElementById('rm_button_characters')?.addEventListener('click', () => {
             // Reset to root
+            console.log("return fired");
             accountStorage.setItem('SelectedNavTab', 'rm_button_selected_ch');
             accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
             setActiveCharacter(null)
