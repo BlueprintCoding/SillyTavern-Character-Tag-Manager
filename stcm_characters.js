@@ -218,7 +218,7 @@ async function renderCharacterList() {
 
         nameRow.appendChild(noteBtn);
         
-        // --- FOLDER DROPDOWN ---
+     // --- FOLDER DROPDOWN ---
         let folderDropdown;
         let assignedFolder = null;
 
@@ -228,6 +228,9 @@ async function renderCharacterList() {
             folderDropdown = document.createElement('select');
             folderDropdown.className = 'charFolderDropdown';
             folderDropdown.style.marginLeft = '8px';
+            // Make sure indents work visually!
+            folderDropdown.style.fontFamily = "'Fira Mono', 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace";
+            folderDropdown.style.whiteSpace = 'pre';
 
             // Add option for "No Folder"
             const optNone = document.createElement('option');
@@ -235,17 +238,19 @@ async function renderCharacterList() {
             optNone.textContent = '-- No Folder --';
             folderDropdown.appendChild(optNone);
 
-            // Add all folders as options
-            folders.forEach(folder => {
-                if (folder.id === 'root') return; // skip root as assignable
-                const opt = document.createElement('option');
-                opt.value = folder.id;
-                opt.textContent = folder.name;
-                if (assignedFolder && folder.id === assignedFolder.id) opt.selected = true;
-                folderDropdown.appendChild(opt);
+            // Use indented tree
+            const folderOptions = stcmFolders.getFolderOptionsTree(folders, [], 'root', 0)
+                .filter(opt => opt.id !== 'root'); // Don't allow root as assignable
+
+            folderOptions.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.id;
+                option.innerHTML = opt.name; // opt.name includes &nbsp; for indentation
+                if (assignedFolder && opt.id === assignedFolder.id) option.selected = true;
+                folderDropdown.appendChild(option);
             });
 
-            // Show which folder, allow removal or change
+            // Folder assignment change handler
             folderDropdown.addEventListener('change', async (e) => {
                 const newFolderId = e.target.value;
                 // Remove from old folder first
@@ -260,8 +265,10 @@ async function renderCharacterList() {
                 renderCharacterList();
                 renderTagSection && renderTagSection();
             });
+
             nameRow.appendChild(folderDropdown);
         }
+
 
         rightContent.appendChild(nameRow);
 
