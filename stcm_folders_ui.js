@@ -83,6 +83,7 @@ export async function updateSidebar(forceReload = false) {
     if (sidebarUpdateInProgress) return;
     sidebarUpdateInProgress = true;
     suppressSidebarObserver = true; 
+    if (stcmObserver) stcmObserver.disconnect();
     try {
         if (forceReload || !STCM.sidebarFolders?.length) {
             STCM.sidebarFolders = await stcmFolders.loadFolders();
@@ -91,10 +92,12 @@ export async function updateSidebar(forceReload = false) {
         setTimeout(() => {
             hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
             suppressSidebarObserver = false; 
+            watchSidebarFolderInjection(); // This will recreate the observer
         }, 0);
     } catch (e) {
         suppressSidebarObserver = false; 
         console.error("Sidebar update failed:", e);
+        watchSidebarFolderInjection(); // This will recreate the observer
     } finally {
         sidebarUpdateInProgress = false;
     }
@@ -921,6 +924,7 @@ export function renderSidebarCharacterCard(entity) {
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
+    if (stcmObserver) stcmObserver.disconnect();
 
     const getCurrentAvatars = () => {
         return Array.from(container.querySelectorAll('.character_select img[src*="/thumbnail?type=avatar&file="]'))
@@ -936,7 +940,7 @@ export function watchSidebarFolderInjection() {
     );
 
     const debouncedInject = debounce(async () => {
-        if (suppressSidebarObserver) return; // ADD THIS GUARD!
+        if (suppressSidebarObserver) return;
         const sidebar = container.querySelector('#stcm_sidebar_folder_nav');
         const currentAvatars = getCurrentAvatars();
 
