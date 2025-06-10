@@ -159,7 +159,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         if (term) {
             // Use fuzzy search for results
             const results = fuzzySearchCharacters(term);
-            renderSidebarAllFolderSearchResults(folders, allCharacters, results, term);
+            renderSidebarFolderSearchResult(folders, allCharacters, results, term);
         } else {
             stcmSearchActive = false;
             stcmLastSearchFolderId = null;
