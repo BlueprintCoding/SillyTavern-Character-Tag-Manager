@@ -79,7 +79,6 @@ export async function updateSidebar(forceReload = false) {
         }
         injectSidebarFolders(STCM.sidebarFolders, characters);
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
-        insertNoFolderLabelIfNeeded();
 
     } catch (e) {
         console.error("Sidebar update failed:", e);
@@ -140,6 +139,7 @@ export function injectSidebarFolders(folders, allCharacters) {
         renderSidebarFolderContents(folders, allCharacters, currentSidebarFolderId);
     }
     hookIntoCharacterSearchBar(folders, allCharacters);
+    insertNoFolderLabelIfNeeded();
 }
 
 
