@@ -206,6 +206,8 @@ function hookIntoCharacterSearchBar(folders, allEntities) {
             stcmSearchResults = null;
             stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
+            const input = document.getElementById('character_search_bar');
+            if (input) input.value = '';
             currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
             injectSidebarFolders(folders);
         }
