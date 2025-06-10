@@ -815,18 +815,27 @@ if (folderSearchInput) {
         function filterFolders(folders, parentId = 'root') {
             return folders
                 .filter(f => f.parentId === parentId)
-                .filter(f => {
-                    if (!raw) return true;
-                    const folderNameMatch = f.name.toLowerCase().includes(raw);
-                    const charNameMatch = getCharNames(f).includes(raw);
-                    return folderNameMatch || charNameMatch;
+                .map(f => {
+                    const folderNameMatch = raw ? f.name.toLowerCase().includes(raw) : true;
+                    const charNameMatch   = raw ? getCharNames(f).includes(raw) : true;
+        
+                    // Recursively filter children
+                    const filteredChildren = filterFolders(folders, f.id);
+        
+                    // If current folder matches, or any children match, keep it
+                    if ((folderNameMatch || charNameMatch) || filteredChildren.length > 0) {
+                        return {
+                            ...f,
+                            children: filteredChildren
+                        };
+                    } else {
+                        // No match in this folder or descendants
+                        return null;
+                    }
                 })
-                .map(f => ({
-                    ...f,
-                    children: filterFolders(folders, f.id)
-                }));
+                .filter(Boolean); // Remove nulls
         }
-
+        
         // Flatten filtered tree for rendering dropdown (indented)
         function flatten(foldersTree, depth = 0) {
             let result = [];
