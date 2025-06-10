@@ -384,6 +384,7 @@ function hideFolderedCharactersOutsideSidebar(folders) {
             while (el && !el.classList.contains('bogus_folder_select')) {
                 if (el.classList.contains('character_select') || el.classList.contains('group_select')) {
                     el.classList.remove('stcm_force_hidden');
+                    el.classList.add('FoundDiveFolder');
                 }
                 el = el.nextElementSibling;
             }
