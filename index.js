@@ -47,8 +47,6 @@ import {
     getCharacters,
     printCharactersDebounced,
     saveSettingsDebounced,
-    eventSource, 
-    event_types,
     setActiveCharacter,
     setActiveGroup
 } from "../../../../script.js";
