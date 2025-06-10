@@ -928,11 +928,25 @@ export function renderSidebarCharacterCard(entity) {
         </div>
     `;
 
+    document.getElementById('rm_button_characters')?.addEventListener('click', () => {
+        // Reset to root
+        currentSidebarFolderId = 'root';
+        // You should also clear any search or orphan views if needed:
+        stcmSearchActive = false;
+        stcmSearchResults = null;
+        stcmSearchTerm = '';
+        stcmLastSearchFolderId = null;
+        orphanFolderExpanded = false; // if used
+    
+        // Redraw the sidebar folder UI
+        if (typeof injectSidebarFolders === 'function') {
+            injectSidebarFolders(STCM.sidebarFolders); // or whatever triggers the folder UI rerender
+        }
+    });
+    
 
     return div;
 }
-
-
 
 
 export function watchSidebarFolderInjection() {
