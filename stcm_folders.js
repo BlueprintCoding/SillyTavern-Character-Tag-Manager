@@ -200,14 +200,18 @@ export async function setFolderColor(id, color) {
     return folders;
 }
 
-export async function setFolderPrivacy(id, isPrivate) {
+export async function setFolderPrivacy(id, isPrivate, recursive = false) {
     const folders = await loadFolders();
-    const f = getFolder(id, folders);
-    if (f) {
-        f.private = !!isPrivate;
-        return await saveFolders(folders);
-    }
-    return folders;
+    const updatePrivacyRecursive = (fid) => {
+        const folder = folders.find(f => f.id === fid);
+        if (!folder) return;
+        folder.private = !!isPrivate;
+        if (recursive && Array.isArray(folder.children)) {
+            folder.children.forEach(childId => updatePrivacyRecursive(childId));
+        }
+    };
+    updatePrivacyRecursive(id);
+    return await saveFolders(folders);
 }
 
 

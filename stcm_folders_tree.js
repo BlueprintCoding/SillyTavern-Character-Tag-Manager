@@ -218,9 +218,26 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     `;
     typeSelect.addEventListener('change', async e => {
         const isPriv = e.target.value === 'private';
-        const folders = await stcmFolders.setFolderPrivacy(folder.id, isPriv);
+        const childIds = Array.isArray(folder.children) ? folder.children : [];
+        const hasChildren = childIds.length > 0;
+        let recursive = false;
+    
+        if (hasChildren) {
+            const confirmed = await callGenericPopup(
+                `<div>
+                    <b>This folder has ${childIds.length} subfolder(s).</b><br>
+                    Do you want to apply the <b>${isPriv ? 'Private' : 'Public'}</b> status to all children as well?
+                </div>`,
+                POPUP_TYPE.CONFIRM,
+                isPriv ? 'Set All to Private?' : 'Set All to Public?'
+            );
+            recursive = (confirmed === POPUP_RESULT.AFFIRMATIVE);
+        }
+    
+        const folders = await stcmFolders.setFolderPrivacy(folder.id, isPriv, recursive);
         if (onTreeChanged) await onTreeChanged(folders);
     });
+    
     row.appendChild(typeSelect);
 
     // delete
