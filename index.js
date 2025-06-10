@@ -19,6 +19,7 @@ import * as stcmFolders from './stcm_folders.js';
 import {
     watchSidebarFolderInjection,
     injectSidebarFolders,
+    hookFolderSidebarEvents
 } from './stcm_folders_ui.js';
 
 import { renderFoldersTree, attachFolderSectionListeners } from './stcm_folders_tree.js';
@@ -32,7 +33,7 @@ import {
     renderTagSection,
     attachTagSectionListeners,
     populateAssignTagSelect,
-    selectedTagIds,
+    selectedTagIds
   } from './stcm_tags_ui.js';
 
 import {
@@ -146,10 +147,24 @@ function openCharacterTagManagerModal() {
         <div class="accordionSection stcm_accordion_section stcm_folders_section">
             <button class="accordionToggle stcm_text_left" data-target="foldersSection">▶ Folders</button>
             <div id="foldersSection" class="accordionContent">
-                <div style="padding: 1em 0;">
+                <div style="padding: .2em 0; display: flex; align-items: flex-start; gap: 3px;">
+                <div style="display: flex; gap: 3px;">
+                    <button id="collapseAllFoldersBtn" class="stcm_menu_button tiny interactable collapseExpandAllFoldersBtn" title="Collapse All Folders">
+                        <i class="fa-solid fa-caret-up"></i> Collapse All
+                    </button>
+                    <button id="expandAllFoldersBtn" class="stcm_menu_button tiny interactable collapseExpandAllFoldersBtn" title="Expand All Folders">
+                        <i class="fa-solid fa-caret-down"></i> Expand All
+                    </button>
                     <button id="createNewFolderBtn" class="stcm_menu_button interactable" tabindex="0">
                         <i class="fa-solid fa-folder-plus"></i> New Folder
                     </button>
+                </div>
+                    <div style="display: flex; flex-direction: column; flex: 1 1 auto;">
+                        <input type="text" id="folderSearchInput" class="menu_input stcm_fullwidth_input" placeholder="Search folders..." />
+                        <span class="smallInstructions" style="margin-top: 1px;">
+                              Search by folder name, or by character name assigned to the folder.
+                        </span>
+                    </div>
                 </div>
                 <div id="foldersTreeContainer"><div class="loading">Loading folders...</div></div>
                 <div id="folderCharactersSection" style="display:none;"></div>
@@ -691,22 +706,35 @@ async function callSaveandReload() {
 
 
 function addCharacterTagManagerIcon() {
-    const existingIcon = document.getElementById('rightNavHolder');
-    if (!existingIcon || document.getElementById('characterTagManagerToggle')) return;
+    // Prevent double-insertion
+    if (document.getElementById('characterTagManagerButton')) return;
 
-    // Create your new icon
+    // The main bar
+    const topSettings = document.getElementById('top-settings-holder');
+    const rightNavHolder = document.getElementById('rightNavHolder');
+    if (!topSettings || !rightNavHolder) return;
+
+    // Build structure
+    const button = document.createElement('div');
+    button.id = 'characterTagManagerButton';
+    button.className = 'drawer';
+
+    const toggle = document.createElement('div');
+    toggle.className = 'drawer-toggle';
+
     const icon = document.createElement('div');
-    icon.id = 'characterTagManagerToggle';
-    icon.className = 'drawer drawer-icon fa-solid fa-tags fa-fw interactable';
+    icon.className = 'drawer-icon fa-solid fa-tags fa-fw closedIcon interactable';
     icon.title = 'Character / Tag Manager';
     icon.setAttribute('tabindex', '0');
-
     icon.addEventListener('click', openCharacterTagManagerModal);
 
-    // Insert before the existing #rightNavDrawerIcon
-    const parent = existingIcon.parentElement;
-    parent.insertBefore(icon, existingIcon);
+    toggle.appendChild(icon);
+    button.appendChild(toggle);
+
+    // Insert before rightNavHolder in the top nav bar
+    topSettings.insertBefore(button, rightNavHolder);
 }
+
 
 function injectTagManagerControlButton() {
     const container = document.querySelector('#rm_characters_block .rm_tag_controls');
@@ -868,6 +896,7 @@ eventSource.on(event_types.APP_READY, async () => {
     observeTagViewInjection();    // Tag view list
     injectSidebarFolders(STCM.sidebarFolders, characters);  // <--- use sidebarFolders!
     watchSidebarFolderInjection(); 
+    hookFolderSidebarEvents();
     injectStcmSettingsPanel();    
 
 });

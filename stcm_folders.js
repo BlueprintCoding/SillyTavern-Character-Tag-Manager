@@ -200,28 +200,50 @@ export async function setFolderColor(id, color) {
     return folders;
 }
 
-export async function setFolderPrivacy(id, isPrivate) {
+export async function setFolderPrivacy(id, isPrivate, recursive = false) {
     const folders = await loadFolders();
-    const f = getFolder(id, folders);
-    if (f) {
-        f.private = !!isPrivate;
-        return await saveFolders(folders);
-    }
-    return folders;
+    const updatePrivacyRecursive = (fid) => {
+        const folder = folders.find(f => f.id === fid);
+        if (!folder) return;
+        folder.private = !!isPrivate;
+        if (recursive && Array.isArray(folder.children)) {
+            folder.children.forEach(childId => updatePrivacyRecursive(childId));
+        }
+    };
+    updatePrivacyRecursive(id);
+    return await saveFolders(folders);
 }
 
 
 // deleteFolder(id[, cascade=true])
 // • cascade = true  → delete this folder AND all descendants
 // • cascade = false → move all child-folders to Root first, then delete only this folder
-export async function deleteFolder (id, cascade = true) {
+// deleteFolder(id[, cascade=true, foldersOverride])
+export async function deleteFolder(id, cascade = true, moveAssigned = true) {
     if (id === 'root') return await loadFolders();
 
     const folders = await loadFolders();
     const self    = getFolder(id, folders);
     if (!self) return folders;
 
+    // Helper to move assigned chars
+    function moveCharsToParent(folder, parentId) {
+        if (!Array.isArray(folder.characters) || !folder.characters.length) return;
+        if (!parentId) return;
+        const parent = getFolder(parentId, folders);
+        if (!parent) return;
+        folder.characters.forEach(charId => {
+            if (!parent.characters.includes(charId)) parent.characters.push(charId);
+        });
+        folder.characters = [];
+    }
+    // Helper to unassign chars
+    function unassignChars(folder) {
+        folder.characters = [];
+    }
+
     if (!cascade && Array.isArray(self.children) && self.children.length) {
+        // move subfolders to root
         const root = getFolder('root', folders);
         self.children.forEach(childId => {
             const child = getFolder(childId, folders);
@@ -232,6 +254,30 @@ export async function deleteFolder (id, cascade = true) {
         });
     }
 
+    // Determine what characters to move/unassign
+    if (cascade) {
+        // Move/unassign all characters in self and descendants
+        const allFoldersToDelete = [];
+        function collectAll(f) {
+            allFoldersToDelete.push(f);
+            (f.children || []).forEach(cid => {
+                const child = getFolder(cid, folders);
+                if (child) collectAll(child);
+            });
+        }
+        collectAll(self);
+
+        allFoldersToDelete.forEach(f => {
+            if (moveAssigned && f.id !== 'root' && f.parentId) moveCharsToParent(f, getFolder(f.parentId, folders).id);
+            else if (!moveAssigned) unassignChars(f);
+        });
+    } else {
+        // Only the deleted folder itself
+        if (moveAssigned && self.parentId) moveCharsToParent(self, self.parentId);
+        else if (!moveAssigned) unassignChars(self);
+    }
+
+    // Now do the delete
     function drop(fid) {
         const idx = folders.findIndex(f => f.id === fid);
         if (idx !== -1) {
@@ -245,6 +291,7 @@ export async function deleteFolder (id, cascade = true) {
 
     return await saveFolders(folders);
 }
+
 
 /* ---------------------------------------------------------------- */
 /*  Tag-to-Folder conversion                                        */

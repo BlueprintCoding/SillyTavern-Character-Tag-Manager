@@ -289,6 +289,7 @@
 #charSearchInput,
 #assignTagSearchInput,
 #folderCharSearchInput,
+#folderSearchInput
 .newTagName {
     background-color: rgba(255, 255, 255, 0.04)!important;
     color: #fff!important;
@@ -298,9 +299,9 @@
 .menu_input {
     padding: 6px;
     border-radius: 4px;
-    border: 1px solid var(--neutral-500);
-    background-color: var(--neutral-900);
-    color: var(--mainTextColor);
+    background-color: var(--black30a);
+    color: var(--SmartThemeBodyColor);
+    border: 1px solid var(--SmartThemeBorderColor);
 }
 
 .smallInstructions {
@@ -440,6 +441,21 @@
     cursor: pointer;
     padding: 4px;
     font-size: 0.9em;
+}
+
+.charFolderDropdownWrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.charFolderDropdown {
+    font-size: 0.99em;
+    border-radius: 4px;
+    border: 1px solid #bbb;
+    background: var(--ac-style-color-background, #23232b);
+    color: var(--ac-style-color-text, #ccc);
+    margin-bottom: 0;
 }
 
 /* === Tag List, Tag Groups, Tag Chips === */
@@ -768,6 +784,25 @@
     gap: 7px;
 }
 
+.collapseExpandAllFoldersBtn {
+    margin: 0px!important;
+    min-height: 34px;
+}
+
+.stcm-folder-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+    line-height: 1;
+    margin-left: -8px; /* line up nicely with indents */
+    color: var(--ac-style-color-text, #ccc);
+}
+.stcm-folder-toggle-btn:focus {
+    outline: none;
+}
+
+
 /* Drag ghost is handled by the browser using cloneNode */
 .stcm-drop-hover {
     outline: 2px dashed var(--ac-style-color-accent, #6ec0ff);
@@ -933,6 +968,30 @@ min-width: 130px;
 }
 
 /* --- Sidebar nav wrapper --- */
+
+/* #stcm_sidebar_folder_nav,
+#rm_print_characters_block,
+#rm_characters_block,
+#right-nav-panel.drawer-content > .scrollableInner
+{
+    overflow-y: visible !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+nav#right-nav-panel.drawer-content {
+    overflow-y: auto !important;
+    height: 100% !important;
+}
+
+div#rightNavHolder.drawer {
+    overflow: hidden !important;
+}
+
+[id^="BogusFolder"] {
+    display: none !important;
+} */
+
 #stcm_sidebar_folder_nav {
     display: flex;
     flex-direction: column;
@@ -943,10 +1002,19 @@ min-width: 130px;
     width: 100%;
     box-sizing: border-box;
     border-bottom: 4px solid #222;
-    max-height: 50vh;
+    /* max-height: 50vh;
     min-height: 30vh;
-    overflow-y: scroll;
+    overflow-y: scroll; */
 }
+
+#stcm_folder_contents {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    flex-direction: row;
+    justify-content: space-around;
+    align-content: flex-start;
+  }
 
 .sidebar-folder-back {
     font-weight: bold;

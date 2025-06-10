@@ -17,7 +17,9 @@ import {
     
     import {
         characters,
-        selectCharacterById
+        selectCharacterById,
+        eventSource, 
+        event_types
     } from "../../../../script.js";
     
     import { STCM } from './index.js';
@@ -31,6 +33,41 @@ import {
 let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
 let sidebarUpdateInProgress = false;
+let stcmSearchActive = false;
+let stcmLastSearchFolderId = null;
+let stcmObserver = null;
+let lastInjectedAt = 0;
+let lastSidebarInjection = 0;
+let lastKnownCharacterAvatars = [];
+const SIDEBAR_INJECTION_THROTTLE_MS = 500;
+
+const debouncedUpdateSidebar = debounce(() => updateSidebar(true), 100);
+
+export function hookFolderSidebarEvents() {
+    // List of events that might affect characters/folders display:
+    const folderRelevantEvents = [
+        event_types.CHARACTER_EDITED,
+        event_types.CHARACTER_DELETED,
+        event_types.CHARACTER_DUPLICATED,
+        event_types.CHARACTER_RENAMED,
+        event_types.CHARACTER_RENAMED_IN_PAST_CHAT,
+        event_types.GROUP_UPDATED,
+        event_types.GROUP_CHAT_CREATED,
+        event_types.GROUP_CHAT_DELETED,
+    ];
+
+    folderRelevantEvents.forEach(ev => {
+        eventSource.on(ev, () => {
+            // Always update folders on relevant character changes
+            eventSource.on(ev, debouncedUpdateSidebar);
+        });
+    });
+
+    // Optionally: Also hook EXTENSIONS_FIRST_LOAD if you want to refresh folders when all plugins/extensions are loaded.
+    eventSource.on(event_types.EXTENSIONS_FIRST_LOAD, () => {
+        updateSidebar(true);
+    });
+}
 
 export async function updateSidebar(forceReload = false) {
     if (sidebarUpdateInProgress) return;
@@ -42,6 +79,7 @@ export async function updateSidebar(forceReload = false) {
         }
         injectSidebarFolders(STCM.sidebarFolders, characters);
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+
     } catch (e) {
         console.error("Sidebar update failed:", e);
     } finally {
@@ -49,109 +87,221 @@ export async function updateSidebar(forceReload = false) {
     }
 }
 
+function insertNoFolderLabelIfNeeded() {
+    // Remove existing if any (prevents duplicates)
+    let oldLabel = document.getElementById('stcm_no_folder_label');
+    if (oldLabel) oldLabel.remove();
 
-export function injectSidebarFolders(folders, allCharacters) {
-    currentSidebarFolderId = 'root';
-    // Inject our sidebar if not present
-    let sidebar = document.getElementById('stcm_sidebar_folder_nav');
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
 
-    if (!sidebar) {
-        sidebar = document.createElement('div');
-        sidebar.id = 'stcm_sidebar_folder_nav';
-        sidebar.className = 'stcm_sidebar_folder_nav';
-        // Insert at the top, or wherever you want
-        parent.insertBefore(sidebar, parent.firstChild);
+    // Find any visible character not in a folder
+    // They have data-stcm-hidden-by-folder != "true"
+    const firstUnfoldered = Array.from(parent.children).find(child =>
+        child.classList?.contains('character_select') &&
+        child.dataset.stcmHiddenByFolder !== 'true'
+    );
+    if (firstUnfoldered) {
+        // Create label
+        const label = document.createElement('div');
+        label.id = 'stcm_no_folder_label';
+        label.textContent = 'Characters Not in Folders';
+        label.style.cssText = `
+            margin: 18px 0 7px 0;
+            font-weight: 700;
+            font-size: 1.04em;
+            letter-spacing: 0.01em;
+            padding-left: 2px;
+            color: var(--ac-style-color-text, #bbb);
+        `;
+        parent.insertBefore(label, firstUnfoldered);
     }
-    hideFolderedCharactersOutsideSidebar(folders);
-    renderSidebarFolderContents(folders, allCharacters, 'root');
-    hookIntoCharacterSearchBar(folders, allCharacters);
 }
+
+
+export function injectSidebarFolders(folders, allCharacters) {
+    const parent = document.getElementById('rm_print_characters_block');
+    if (!parent) return;
+
+    // Remove any previous instance in case DOM was wiped
+    let existingSidebar = document.getElementById('stcm_sidebar_folder_nav');
+    if (existingSidebar) existingSidebar.remove();
+
+    let sidebar = document.createElement('div');
+    sidebar.id = 'stcm_sidebar_folder_nav';
+    sidebar.className = 'stcm_sidebar_folder_nav';
+    parent.insertBefore(sidebar, parent.firstChild);
+
+    hideFolderedCharactersOutsideSidebar(folders);
+    if (stcmSearchActive && stcmLastSearchFolderId) {
+        renderSidebarFolderSearchResult(folders, allCharacters, stcmLastSearchFolderId, document.getElementById('character_search_bar').value.trim().toLowerCase());
+    } else {
+        renderSidebarFolderContents(folders, allCharacters, currentSidebarFolderId);
+    }
+    hookIntoCharacterSearchBar(folders, allCharacters);
+    insertNoFolderLabelIfNeeded();
+}
+
 
 function hookIntoCharacterSearchBar(folders, allCharacters) {
     const input = document.getElementById('character_search_bar');
     if (!input || input.dataset.stcmHooked) return;
-
     input.dataset.stcmHooked = "true";
-
-    const globalList = document.getElementById('rm_print_characters_block');
-    const folderedCharAvatars = new Set();
-    for (const folder of folders) {
-        if (Array.isArray(folder.characters)) {
-            for (const charAvatar of folder.characters) {
-                folderedCharAvatars.add(charAvatar);
-            }
-        }
-    }
 
     input.addEventListener('input', debounce(() => {
         const term = input.value.trim().toLowerCase();
-
-        for (const el of globalList.querySelectorAll('.character_select')) {
-            const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-            if (!img) continue;
-
-            const url = new URL(img.src, window.location.origin);
-            const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
-            const name = (el.querySelector('.ch_name')?.textContent || '').toLowerCase();
-
-            const wasHiddenByFolder = el.dataset.stcmHiddenByFolder === 'true';
-
-            if (
-                term &&
-                wasHiddenByFolder &&
-                name.includes(term) &&
-                isAvatarInVisibleFolder(avatarFile, folders)
-            ) {
-                el.classList.remove('stcm_force_hidden'); // unhide only if folder is visible
-            } else if (term && !name.includes(term)) {
-                el.classList.add('stcm_force_hidden'); // hide non-matching
-            } else if (wasHiddenByFolder) {
-                el.classList.add('stcm_force_hidden'); // restore original hidden state
-            } else {
-                el.classList.remove('stcm_force_hidden'); // restore visible
+        stcmSearchActive = !!term;
+        stcmLastSearchFolderId = null;
+    
+        let match = null, matchFolder = null;
+        if (term) {
+            for (const folder of folders) {
+                for (const charAvatar of (folder.characters || [])) {
+                    const char = allCharacters.find(c => c.avatar === charAvatar);
+                    if (char && characterMatchesTerm(char, term)) {
+                        match = char;
+                        matchFolder = folder;
+                        break;
+                    }
+                }
+                if (match) break;
             }
+
+            if (match && matchFolder) {
+                stcmLastSearchFolderId = matchFolder.id;
+                stcmSearchActive = true;
+                currentSidebarFolderId = matchFolder.id;
+                renderSidebarFolderSearchResult(folders, allCharacters, matchFolder.id, term);
+            } else {
+                // No match: show sidebar with all folders from root (or you could show a "no results" message)
+                stcmLastSearchFolderId = null;
+                stcmSearchActive = true;
+                currentSidebarFolderId = 'root';
+                renderSidebarFolderContents(folders, allCharacters, 'root');
+            }
+        } else {
+            // Search is empty; reset view and folder state
+            stcmSearchActive = false;
+            stcmLastSearchFolderId = null;
+            currentSidebarFolderId = 'root';
+            renderSidebarFolderContents(folders, allCharacters, 'root');
         }
+
+        // Hide or show the "characters hidden" info block based on search state
+        setTimeout(() => {
+            document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+                block.style.display = stcmSearchActive ? 'none' : '';
+            });
+        }, 1);
+
 
     }, 150));
-
+    
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
-            // Reset visibility state when search is cleared
-            for (const el of globalList.querySelectorAll('.character_select')) {
-                const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-                if (!img) continue;
+            stcmSearchActive = false;
+            stcmLastSearchFolderId = null;
+            currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
+            renderSidebarFolderContents(folders, allCharacters, 'root');
+        }
 
-                const url = new URL(img.src, window.location.origin);
-                const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
+            // HIDE the "characters hidden" info block if searching
+    document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+        block.style.display = stcmSearchActive ? 'none' : '';
+    });
+    });
+    
+}
 
-                if (el.dataset.stcmHiddenByFolder === 'true') {
-                    el.classList.add('stcm_force_hidden');
-                } else {
-                    el.classList.remove('stcm_force_hidden');
-                }
+function characterMatchesTerm(char, term) {
+    // 1. Check all string/number/array fields
+    for (const key in char) {
+        if (!char.hasOwnProperty(key)) continue;
+        let val = char[key];
+        if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
+        if (typeof val === 'number' && val.toString().includes(term)) return true;
+        if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
+    }
+
+    // 2. Check tags assigned to this character
+    // You'll need access to tag_map and tags (already imported at the top)
+    const tagIds = tag_map[char.avatar] || [];
+    if (tagIds.length) {
+        // Build tagsById map just once per render ideally, but it's fine here for clarity
+        const tagsById = buildTagMap(tags);
+        for (const tagId of tagIds) {
+            const tag = tagsById.get(tagId);
+            if (tag && tag.name && tag.name.toLowerCase().includes(term)) {
+                return true;
             }
         }
-    });
-}
-
-function isAvatarInVisibleFolder(avatarFile, folders) {
-    for (const folder of folders) {
-        if (folder.characters?.includes(avatarFile)) {
-            const isPrivate = !!folder.private;
-
-            if (privateFolderVisibilityMode === 0 && isPrivate) return false;
-            if (privateFolderVisibilityMode === 2 && !isPrivate) return false;
-
-            const hasPin = !!sessionStorage.getItem("stcm_pin_okay");
-            if (isPrivate && !hasPin) return false;
-
-            return true;
-        }
     }
+
     return false;
 }
+
+
+
+
+// Only shows the folder open with matches highlighted inside
+function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term) {
+    const container = document.getElementById('stcm_sidebar_folder_nav');
+    if (!container) return;
+    container.innerHTML = "";
+
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    // --- Breadcrumb Label ---
+    const breadcrumbDiv = document.createElement('div');
+    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
+    const chain = getFolderChain(folderId, folders);
+    if (chain.length > 0) {
+        const names = chain.map(f => f.name);
+        names[0] = '.../' + names[0];
+        breadcrumbDiv.textContent = names.join(' / ');
+    } else {
+        breadcrumbDiv.textContent = ".../";
+    }
+
+    const controlRow = document.createElement('div');
+    controlRow.className = 'stcm_folders_header_controls';
+    controlRow.style.display = 'flex';
+    controlRow.style.alignItems = 'center';
+    controlRow.style.gap = '8px';
+    controlRow.appendChild(breadcrumbDiv);
+    container.appendChild(controlRow);
+
+    let contentDiv = document.getElementById('stcm_folder_contents');
+    if (contentDiv) {
+        contentDiv.innerHTML = "";
+    } else {
+        contentDiv = document.createElement('div');
+        contentDiv.id = 'stcm_folder_contents';
+        contentDiv.className = 'stcm_folder_contents';
+    }
+
+    // Show child folders as usual (optional: could collapse them for less confusion)
+    (folder.children || []).forEach(childId => {
+        const child = folders.find(f => f.id === childId);
+        if (child) {
+            // Could display, or not, as you prefer for search mode
+        }
+    });
+
+    // Show only matching characters in this folder
+    (folder.characters || []).forEach(charId => {
+        const char = allCharacters.find(c => c.avatar === charId);
+        if (char && characterMatchesTerm(char, term)) {
+            const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
+            charCard.style.background = 'rgba(100, 200, 250, 0.17)'; // optional: highlight
+            contentDiv.appendChild(charCard);
+        }
+    });
+
+    container.appendChild(contentDiv);
+}
+
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
@@ -181,9 +331,13 @@ function hideFolderedCharactersOutsideSidebar(folders) {
         const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
 
         if (folderedCharAvatars.has(avatarFile)) {
-            const shouldHide = !isAvatarInVisibleFolder(avatarFile, folders);
-            el.dataset.stcmHiddenByFolder = shouldHide ? 'true' : 'false';
-            el.classList.toggle('stcm_force_hidden', shouldHide);
+            // Always hide in the main list if this avatar is in ANY folder
+            el.dataset.stcmHiddenByFolder = 'true';
+            el.classList.add('stcm_force_hidden');
+        } else {
+            // Show only if not in a folder
+            el.dataset.stcmHiddenByFolder = 'false';
+            el.classList.remove('stcm_force_hidden');
         }
         
         
@@ -396,6 +550,16 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
         }
     }
 
+        // === NEW: Create folder contents wrapper ===
+        let contentDiv = document.getElementById('stcm_folder_contents');
+        if (contentDiv) {
+            contentDiv.innerHTML = "";
+        } else {
+            contentDiv = document.createElement('div');
+            contentDiv.id = 'stcm_folder_contents';
+            contentDiv.className = 'stcm_folder_contents';
+        }
+
     const tagsById = buildTagMap(tags);
     // Show folders (children)
    (folder.children || []).forEach(childId => {
@@ -468,7 +632,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             folderDiv.onclick = null;
         }
 
-        container.appendChild(folderDiv);
+        contentDiv.appendChild(folderDiv);
     }
 });
    
@@ -481,10 +645,10 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
                 const tagsForChar = getTagsForChar(char.avatar, tagsById);
                 // Pass tags explicitly to avoid global mutation:
                 const charCard = renderSidebarCharacterCard({ ...char, tags: tagsForChar });
-                container.appendChild(charCard);
+                contentDiv.appendChild(charCard);
             }
         });
-
+        container.appendChild(contentDiv);
 }
 
 function hasPrivateDescendant(folderId, folders) {
@@ -587,28 +751,51 @@ export function renderSidebarCharacterCard(char) {
     return div;
 }
 
-let stcmObserver = null;
-let lastInjectedAt = 0;
-let lastSidebarInjection = 0;
-const SIDEBAR_INJECTION_THROTTLE_MS = 500;
-
 
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
 
-    const debouncedInject = debounce(async () => {
-        const now = Date.now();
-        if (now - lastSidebarInjection < SIDEBAR_INJECTION_THROTTLE_MS) return;
+    const getCurrentAvatars = () => {
+        return Array.from(container.querySelectorAll('.character_select img[src*="/thumbnail?type=avatar&file="]'))
+            .map(img => {
+                const url = new URL(img.src, window.location.origin);
+                return decodeURIComponent(url.searchParams.get("file") || "");
+            })
+            .sort();
+    };
 
-        lastSidebarInjection = now;
-        await updateSidebar(true);
+    const arraysEqual = (a, b) => (
+        a.length === b.length && a.every((val, idx) => val === b[idx])
+    );
+
+    const debouncedInject = debounce(async () => {
+        const sidebar = container.querySelector('#stcm_sidebar_folder_nav');
+        const currentAvatars = getCurrentAvatars();
+
+        // Always inject if missing
+        if (!sidebar) {
+            await updateSidebar(true);
+            lastKnownCharacterAvatars = getCurrentAvatars();
+            lastSidebarInjection = Date.now();
+            return;
+        }
+        // Only update if avatars changed
+        if (!arraysEqual(currentAvatars, lastKnownCharacterAvatars)) {
+            await updateSidebar(true);
+            lastKnownCharacterAvatars = getCurrentAvatars();
+            lastSidebarInjection = Date.now();
+        }
     }, 150);
 
     if (stcmObserver) stcmObserver.disconnect();
     stcmObserver = new MutationObserver(debouncedInject);
     stcmObserver.observe(container, { childList: true, subtree: false });
+
+    // Initial state
+    lastKnownCharacterAvatars = getCurrentAvatars();
 }
+
 
 
 export function makeFolderNameEditable(span, folder, rerender) {
@@ -840,10 +1027,32 @@ export function showIconPicker(folder, parentNode, rerender) {
 }
 
 
-export function confirmDeleteFolder (folder, rerender) {
+export function confirmDeleteFolder(folder, rerender) {
     const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
+    // Compute character assignments:
+    const folders = window.STCM?.sidebarFolders || []; // or however you have access to all folders
+    const getDescendants = (f, all) => {
+        let result = [];
+        if (!Array.isArray(f.children)) return result;
+        f.children.forEach(cid => {
+            const child = all.find(ff => ff.id === cid);
+            if (child) {
+                result.push(child);
+                result.push(...getDescendants(child, all));
+            }
+        });
+        return result;
+    };
 
-    // ── build popup ──────────────────────────────────────────────────────
+    // Only direct characters for the default "move children to Root" option
+    const directCharCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
+
+    // If cascade: count all assigned characters in folder + descendants
+    const descendants = getDescendants(folder, folders);
+    const cascadeCharCount = [folder, ...descendants]
+        .reduce((sum, f) => sum + (Array.isArray(f.characters) ? f.characters.length : 0), 0);
+
+    // Build popup
     const html = document.createElement('div');
     html.innerHTML = `
         <h3>Delete Folder</h3>
@@ -859,19 +1068,59 @@ export function confirmDeleteFolder (folder, rerender) {
                 Delete this folder and <b>move</b> its sub-folders to Root
             </label>
         ` : ''}
-        <p style="color:#e57373;">This cannot be undone.</p>`;
+        ${(hasChildren && cascadeCharCount > 0) || (!hasChildren && directCharCount > 0) ? `
+            <p style="margin-top: 10px;">
+                <b>
+                    ${
+                        hasChildren
+                            ? (`
+                                <span class="cascadeCharCount" style="display: ${'cascade'};">This folder and its subfolders have ${cascadeCharCount} characters assigned.</span>
+                                <span class="directCharCount" style="display: ${'none'};">This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.</span>
+                            `)
+                            : `This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.`
+                    }
+                </b>
+            </p>
+            <label style="display:block;margin:4px 0 0 12px;">
+                <input type="radio" name="moveMode" value="move" checked>
+                Move assigned characters to parent folder
+            </label>
+            <label style="display:block;margin:4px 0 0 12px;">
+                <input type="radio" name="moveMode" value="unassign">
+                Remove all assigned characters from folders
+            </label>
+        ` : ''}
+        <p style="color:#e57373;">This cannot be undone.</p>
+    `;
 
-    // ── show popup ───────────────────────────────────────────────────────
+    // Live update visibility of char count labels based on mode
+    if (hasChildren) {
+        html.querySelectorAll('input[name="delMode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                const isCascade = html.querySelector('input[name="delMode"]:checked').value === 'cascade';
+                html.querySelector('.cascadeCharCount').style.display = isCascade ? '' : 'none';
+                html.querySelector('.directCharCount').style.display = isCascade ? 'none' : '';
+            });
+        });
+    }
+
     callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Folder')
         .then(async res => {
             if (res !== POPUP_RESULT.AFFIRMATIVE) return;
 
-            const mode     = hasChildren
+            const mode = hasChildren
                 ? html.querySelector('input[name="delMode"]:checked').value
                 : 'cascade';
-            const cascade  = (mode === 'cascade');
+            const cascade = (mode === 'cascade');
 
-            const folders = await stcmFolders.deleteFolder(folder.id, cascade);
+            // Only show/ask about character move if there are any
+            let moveChars = false;
+            if ((cascade && cascadeCharCount > 0) || (!cascade && directCharCount > 0)) {
+                moveChars = html.querySelector('input[name="moveMode"]:checked').value === 'move';
+            }
+
+            // Pass new options to deleteFolder
+            const folders = await stcmFolders.deleteFolder(folder.id, cascade, moveChars);
             await updateSidebar(true);
             rerender && rerender(folders);
             toastr.success(
@@ -881,6 +1130,7 @@ export function confirmDeleteFolder (folder, rerender) {
             );
         });
 }
+
 
 function walkFolderTree(folderId, folders, opts = {}, depth = 0) {
     const folder = folders.find(f => f.id === folderId);

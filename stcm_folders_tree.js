@@ -38,10 +38,11 @@ import {
 import { characters } from '../../../../script.js';
 import { tags, tag_map }        from "../../../tags.js";
 import { groups }               from "../../../../scripts/group-chats.js";
+import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 
 // If you keep the global STCM object (as in index.js) you can re-use it here:
 export const STCM_TREE = { renderFoldersTree: null };
-
+const collapsedFolders = {};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -126,6 +127,32 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
 
     row.prepend(dragHandle);
 
+    // Only show toggle if this folder has children
+    const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
+    if (hasChildren) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'stcm-folder-toggle-btn';
+        toggleBtn.style.marginLeft = '2px';
+        toggleBtn.style.background = 'none';
+        toggleBtn.style.border = 'none';
+        toggleBtn.style.cursor = 'pointer';
+        toggleBtn.style.padding = '0 4px';
+        toggleBtn.title = collapsedFolders[folder.id] ? 'Expand' : 'Collapse';
+
+        // Use a FontAwesome caret (down for open, right for collapsed)
+        toggleBtn.innerHTML = `<i class="fa-solid fa-caret-${collapsedFolders[folder.id] ? 'right' : 'down'}"></i>`;
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            collapsedFolders[folder.id] = !collapsedFolders[folder.id];
+            // Rerender just this node and its children for simplicity
+            const newNode = renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContainer);
+            node.replaceWith(newNode);
+        });
+
+        row.appendChild(toggleBtn);
+    }
+
+
     // ── icon (click → icon picker) ────────────────────────────────────────
     const iconBg = document.createElement('div');
     iconBg.className = 'avatar flex alignitemscenter textAlignCenter stcm-folder-avatar';
@@ -192,9 +219,26 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     `;
     typeSelect.addEventListener('change', async e => {
         const isPriv = e.target.value === 'private';
-        const folders = await stcmFolders.setFolderPrivacy(folder.id, isPriv);
+        const childIds = Array.isArray(folder.children) ? folder.children : [];
+        const hasChildren = childIds.length > 0;
+        let recursive = false;
+    
+        if (hasChildren) {
+            const confirmed = await callGenericPopup(
+                `<div>
+                    <b>This folder has ${childIds.length} subfolder(s).</b><br>
+                    Do you want to apply the <b>${isPriv ? 'Private' : 'Public'}</b> status to all children as well?
+                </div>`,
+                POPUP_TYPE.CONFIRM,
+                isPriv ? 'Set All to Private?' : 'Set All to Public?'
+            );
+            recursive = (confirmed === POPUP_RESULT.AFFIRMATIVE);
+        }
+    
+        const folders = await stcmFolders.setFolderPrivacy(folder.id, isPriv, recursive);
         if (onTreeChanged) await onTreeChanged(folders);
     });
+    
     row.appendChild(typeSelect);
 
     // delete
@@ -268,6 +312,14 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
         e.stopPropagation();
         // function is defined elsewhere (kept global in original code)
         showFolderCharactersSection?.(folder, allFolders);
+
+        setTimeout(() => {
+            const section = document.getElementById('folderCharactersSection');
+            if (section && section.style.display !== 'none') {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 50);
+        
     });
     row.appendChild(charBtn);
 
@@ -278,6 +330,8 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
         const childrenContainer = document.createElement('div');
         childrenContainer.className = 'stcm_folder_children';
         childrenContainer.style.display = 'block';
+
+        childrenContainer.style.display = collapsedFolders[folder.id] ? 'none' : 'block';
 
         // drop-line before first child
         childrenContainer.appendChild(
@@ -791,6 +845,112 @@ export async function attachFolderSectionListeners(modalRoot) {
             }
         });
     }
+
+const folderSearchInput = modalRoot.querySelector('#folderSearchInput');
+
+if (folderSearchInput) {
+    folderSearchInput.addEventListener('input', debounce(async function () {
+        const raw = folderSearchInput.value.trim().toLowerCase();
+        const folders = await stcmFolders.loadFolders();
+        const tagMapById = buildTagMap(tags);
+
+        // Build character name map for each folder
+        function getCharNames(folder) {
+            return (folder.characters || [])
+                .map(charId => {
+                    const char = characters.find(c => c.avatar === charId);
+                    return char ? char.name.toLowerCase() : '';
+                })
+                .filter(Boolean)
+                .join(' ');
+        }
+
+        // Filter folders recursively by folder name OR assigned character names
+        function filterFolders(folders, parentId = 'root') {
+            const parent = folders.find(f => f.id === parentId);
+            if (!parent || !Array.isArray(parent.children)) return [];
+        
+            return parent.children
+                .map(childId => folders.find(f => f.id === childId))
+                .filter(Boolean)
+                .map(f => {
+                    const folderNameMatch = raw ? f.name.toLowerCase().includes(raw) : true;
+                    const charNameMatch   = raw ? getCharNames(f).includes(raw) : true;
+        
+                    // Recursively filter children
+                    const filteredChildren = filterFolders(folders, f.id);
+        
+                    // If current folder matches, or any children match, keep it
+                    if ((folderNameMatch || charNameMatch) || filteredChildren.length > 0) {
+                        return {
+                            ...f,
+                            children: filteredChildren
+                        };
+                    } else {
+                        return null;
+                    }
+                })
+                .filter(Boolean);
+        }
+        
+        
+        // Flatten filtered tree for rendering dropdown (indented)
+        function flatten(foldersTree, depth = 0) {
+            let result = [];
+            for (const folder of foldersTree) {
+                result.push({ folder, depth });
+                result = result.concat(flatten(folder.children, depth + 1));
+            }
+            return result;
+        }
+
+        // Create filtered+flattened list
+        const tree = filterFolders(folders);
+        const flat = flatten(tree);
+
+        // Re-render tree UI
+        const treeContainer = modalRoot.querySelector('#foldersTreeContainer');
+        treeContainer.innerHTML = '';
+        if (flat.length === 0) {
+            treeContainer.innerHTML = '<div class="no-results">No folders found.</div>';
+        } else {
+            for (const { folder, depth } of flat) {
+                treeContainer.appendChild(
+                    renderFolderNode(folder, folders, depth, folders => refreshFolderUI(treeContainer, folders), treeContainer)
+                );
+            }
+        }
+
+    }, 180));
+}
+    
+    // collapse/expand all folders
+    const collapseAllBtn = modalRoot.querySelector('#collapseAllFoldersBtn');
+    const expandAllBtn = modalRoot.querySelector('#expandAllFoldersBtn');
+
+    if (collapseAllBtn && expandAllBtn) {
+        collapseAllBtn.addEventListener('click', async () => {
+            const folders = await stcmFolders.loadFolders();
+            folders.forEach(f => {
+                if (f.id !== 'root' && Array.isArray(f.children) && f.children.length > 0)
+                    collapsedFolders[f.id] = true;
+            });
+            // Rerender
+            const treeContainer = modalRoot.querySelector('#foldersTreeContainer');
+            await renderFoldersTree(treeContainer, { onTreeChanged: (folders) => refreshFolderUI(treeContainer, folders) });
+        });
+        expandAllBtn.addEventListener('click', async () => {
+            const folders = await stcmFolders.loadFolders();
+            folders.forEach(f => {
+                if (f.id !== 'root' && Array.isArray(f.children) && f.children.length > 0)
+                    collapsedFolders[f.id] = false;
+            });
+            // Rerender
+            const treeContainer = modalRoot.querySelector('#foldersTreeContainer');
+            await renderFoldersTree(treeContainer, { onTreeChanged: (folders) => refreshFolderUI(treeContainer, folders) });
+        });
+    }
+
 }
 
 

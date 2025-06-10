@@ -12,11 +12,15 @@ import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { callSaveandReload } from "./index.js";
 import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
+import * as stcmFolders from './stcm_folders.js';
+import { getFolderOptionsTree } from './stcm_folders_ui.js'; // adjust path if needed
 
 
-function renderCharacterList() {
+
+async function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
     if (!wrapper) return;
+    const folders = await stcmFolders.loadFolders(); 
 
     // Remove all old content
     wrapper.innerHTML = '';
@@ -215,6 +219,71 @@ function renderCharacterList() {
         noteBtn.style.marginLeft = '8px';
 
         nameRow.appendChild(noteBtn);
+        
+     // --- FOLDER DROPDOWN ---
+        let folderDropdown;
+        let assignedFolder = null;
+
+        if (entity.type === 'character') {
+            assignedFolder = stcmFolders.getCharacterAssignedFolder(entity.id, folders);
+        
+            // --- Create container for icon + dropdown ---
+            const folderDropdownWrapper = document.createElement('span');
+            folderDropdownWrapper.className = 'charFolderDropdownWrapper';
+        
+            // --- Font Awesome icon ---
+            const folderIcon = document.createElement('i');
+            folderIcon.className = 'fa-solid fa-folder-open';
+            folderIcon.style.fontSize = '1.5em';
+        
+            // --- Dropdown ---
+            folderDropdown = document.createElement('select');
+            folderDropdown.className = 'charFolderDropdown';
+            folderDropdown.style.whiteSpace = 'pre';
+        
+            // Add option for "No Folder"
+            const optNone = document.createElement('option');
+            optNone.value = '';
+            optNone.textContent = '-- No Folder --';
+            folderDropdown.appendChild(optNone);
+        
+            // Use indented tree
+            const folderOptions = getFolderOptionsTree(folders, [], 'root', 0)
+                .filter(opt => opt.id !== 'root'); // Don't allow root as assignable
+        
+            folderOptions.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.id;
+                option.innerHTML = opt.name; // .name contains indents (&nbsp;)
+                if (assignedFolder && opt.id === assignedFolder.id) option.selected = true;
+                folderDropdown.appendChild(option);
+            });
+        
+            // Folder assignment change handler
+            folderDropdown.addEventListener('change', async (e) => {
+                const newFolderId = e.target.value;
+                // Remove from old folder first
+                if (assignedFolder) {
+                    await stcmFolders.removeCharacterFromFolder(assignedFolder.id, entity.id);
+                }
+                if (newFolderId) {
+                    await stcmFolders.assignCharactersToFolder(newFolderId, [entity.id]);
+                }
+                toastr.success('Folder assignment updated.');
+                callSaveandReload();
+                renderCharacterList();
+                renderTagSection && renderTagSection();
+            });
+        
+            // --- Put icon and dropdown together ---
+            folderDropdownWrapper.appendChild(folderIcon);
+            folderDropdownWrapper.appendChild(folderDropdown);
+        
+            // --- Insert into the row ---
+            nameRow.appendChild(folderDropdownWrapper);
+        }
+        
+
         rightContent.appendChild(nameRow);
 
         // Note editor wrapper
