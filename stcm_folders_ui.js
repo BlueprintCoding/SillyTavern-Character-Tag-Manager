@@ -254,14 +254,20 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
         const folderLabel = document.createElement('div');
         folderLabel.className = 'stcm_search_folder_label';
         folderLabel.textContent = folder ? folder.name : "Not in a Folder";
-        folderLabel.style = '';
         contentDiv.appendChild(folderLabel);
-
+    
+        // === New: Create a grid wrapper for cards ===
+        const gridDiv = document.createElement('div');
+        gridDiv.className = 'stcm_folder_contents'; // Uses your standard grid/flex styling
+    
         chars.forEach(char => {
             const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
-            contentDiv.appendChild(charCard);
+            gridDiv.appendChild(charCard);
         });
+    
+        contentDiv.appendChild(gridDiv);
     });
+    
 
     container.appendChild(contentDiv);
 }
