@@ -39,6 +39,8 @@ let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only 
 let sidebarUpdateInProgress = false;
 let stcmSearchActive = false;
 let stcmLastSearchFolderId = null;
+let stcmSearchResults = null;
+let stcmSearchTerm = '';
 let stcmObserver = null;
 let lastInjectedAt = 0;
 let lastSidebarInjection = 0;
@@ -137,11 +139,12 @@ export function injectSidebarFolders(folders, allCharacters) {
     parent.insertBefore(sidebar, parent.firstChild);
 
     hideFolderedCharactersOutsideSidebar(folders);
-    if (stcmSearchActive && stcmLastSearchFolderId) {
-        renderSidebarFolderSearchResult(folders, allCharacters, stcmLastSearchFolderId, document.getElementById('character_search_bar').value.trim().toLowerCase());
+    if (stcmSearchActive && stcmSearchResults && stcmSearchTerm) {
+        renderSidebarFolderSearchResult(folders, allCharacters, stcmSearchResults, stcmSearchTerm);
     } else {
         renderSidebarFolderContents(folders, allCharacters, currentSidebarFolderId);
     }
+    
     hookIntoCharacterSearchBar(folders, allCharacters);
     insertNoFolderLabelIfNeeded();
 }
@@ -157,16 +160,18 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         stcmSearchActive = !!term;
     
         if (term) {
-            // Use fuzzy search for results
-            const results = fuzzySearchCharacters(term);
-            renderSidebarFolderSearchResult(folders, allCharacters, results, term);
+            stcmSearchTerm = term;
+            stcmSearchResults = fuzzySearchCharacters(term);
+            injectSidebarFolders(folders, allCharacters); // <-- always redraw using this up-to-date info!
         } else {
             stcmSearchActive = false;
+            stcmSearchResults = null;
+            stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
             currentSidebarFolderId = 'root';
-            renderSidebarFolderContents(folders, allCharacters, 'root');
+            injectSidebarFolders(folders, allCharacters);
         }
-        // Hide or show the "characters hidden" info block based on search state
+        // Hide or show "characters hidden" info block based on search state
         setTimeout(() => {
             document.querySelectorAll('.text_block.hidden_block').forEach(block => {
                 block.style.display = stcmSearchActive ? 'none' : '';
@@ -178,16 +183,17 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
             stcmSearchActive = false;
+            stcmSearchResults = null;
+            stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
             currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
-            renderSidebarFolderContents(folders, allCharacters, 'root');
+            injectSidebarFolders(folders, allCharacters);
         }
-
-            // HIDE the "characters hidden" info block if searching
-    document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-        block.style.display = stcmSearchActive ? 'none' : '';
+        document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+            block.style.display = stcmSearchActive ? 'none' : '';
+        });
     });
-    });
+    
     
 }
 
