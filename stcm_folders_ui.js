@@ -157,10 +157,39 @@ export function injectSidebarFolders(folders) {
     const allEntities = getEntitiesList();
     console.log(allEntities);
     if (stcmSearchActive && stcmSearchResults && stcmSearchTerm) {
-        renderSidebarFolderSearchResult(folders, allEntities, stcmSearchResults, stcmSearchTerm);
+        // Always filter private here, not just at renderSidebarFolderSearchResult
+        let filteredResults = stcmSearchResults.filter(res => {
+            let avatar, id, folderId;
+            if (res.type === "character" || (res.item && res.item.spec)) {
+                let entity = res.item ? res.item : res;
+                avatar = (entity.avatar || entity.avatar_url || "").trim();
+                folderId = buildCharacterToFolderMap(folders).get(avatar);
+                if (
+                    folderId &&
+                    privateFolderVisibilityMode === 0 &&
+                    isInPrivateFolder(folderId, folders)
+                ) {
+                    return false; // filter out
+                }
+            } else if (res.type === "group" || (res.item && res.item.members)) {
+                let entity = res.item ? res.item : res;
+                id = res.id || entity.id;
+                folderId = buildCharacterToFolderMap(folders).get(id);
+                if (
+                    folderId &&
+                    privateFolderVisibilityMode === 0 &&
+                    isInPrivateFolder(folderId, folders)
+                ) {
+                    return false; // filter out
+                }
+            }
+            return true;
+        });
+        renderSidebarFolderSearchResult(folders, allEntities, filteredResults, stcmSearchTerm);
     } else {
         renderSidebarFolderContents(folders, allEntities, currentSidebarFolderId);
     }
+    
     
     replaceCharacterSearchBar();
     removeCharacterSortSelect();
