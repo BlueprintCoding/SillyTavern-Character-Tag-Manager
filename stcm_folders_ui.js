@@ -178,25 +178,29 @@ function hookIntoCharacterSearchBar(folders, allEntities) {
         const term = input.value.trim();
         stcmSearchActive = !!term;
     
+        // --- ALWAYS grab the freshest folders/entities!
+        const currentFolders = window.STCM?.sidebarFolders || [];
+        const currentEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
+    
         if (term) {
             stcmSearchTerm = term;
             stcmSearchResults = fuzzySearchCharacters(term);
-            injectSidebarFolders(folders); // <-- always redraw using this up-to-date info!
+            injectSidebarFolders(currentFolders, currentEntities);
         } else {
             stcmSearchActive = false;
             stcmSearchResults = null;
             stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
             currentSidebarFolderId = 'root';
-            injectSidebarFolders(folders);
+            injectSidebarFolders(currentFolders, currentEntities);
         }
-        // Hide or show "characters hidden" info block based on search state
         setTimeout(() => {
             document.querySelectorAll('.text_block.hidden_block').forEach(block => {
                 block.style.display = stcmSearchActive ? 'none' : '';
             });
         }, 1);
     }, 150));
+    
     
     
     input.addEventListener('blur', () => {
