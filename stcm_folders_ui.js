@@ -1029,117 +1029,108 @@ export function showIconPicker(folder, parentNode, rerender) {
 
 export function confirmDeleteFolder(folder, rerender) {
     const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
+    // Compute character assignments:
+    const folders = window.STCM?.sidebarFolders || []; // or however you have access to all folders
+    const getDescendants = (f, all) => {
+        let result = [];
+        if (!Array.isArray(f.children)) return result;
+        f.children.forEach(cid => {
+            const child = all.find(ff => ff.id === cid);
+            if (child) {
+                result.push(child);
+                result.push(...getDescendants(child, all));
+            }
+        });
+        return result;
+    };
 
-    // Helper: Recursively collect all character IDs in this folder + descendants
-    function collectAllCharacters(folderId, folders) {
-        let chars = new Set();
-        function recurse(id) {
-            const f = folders.find(f => f.id === id);
-            if (!f) return;
-            (f.characters || []).forEach(cid => chars.add(cid));
-            (f.children || []).forEach(childId => recurse(childId));
-        }
-        recurse(folderId);
-        return Array.from(chars);
+    // Only direct characters for the default "move children to Root" option
+    const directCharCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
+
+    // If cascade: count all assigned characters in folder + descendants
+    const descendants = getDescendants(folder, folders);
+    const cascadeCharCount = [folder, ...descendants]
+        .reduce((sum, f) => sum + (Array.isArray(f.characters) ? f.characters.length : 0), 0);
+
+    // Build popup
+    const html = document.createElement('div');
+    html.innerHTML = `
+        <h3>Delete Folder</h3>
+        <p>Delete <strong>${escapeHtml(folder.name)}</strong>?</p>
+        ${hasChildren ? `
+            <p>This folder contains <b>${folder.children.length}</b> sub-folder${folder.children.length > 1 ? 's' : ''}.</p>
+            <label style="display:block;margin:4px 0;">
+                <input type="radio" name="delMode" value="cascade" checked>
+                Delete this folder <b>and</b> all sub-folders
+            </label>
+            <label style="display:block;margin:4px 0;">
+                <input type="radio" name="delMode" value="move">
+                Delete this folder and <b>move</b> its sub-folders to Root
+            </label>
+        ` : ''}
+        ${(hasChildren && cascadeCharCount > 0) || (!hasChildren && directCharCount > 0) ? `
+            <p style="margin-top: 10px;">
+                <b>
+                    ${
+                        hasChildren
+                            ? (`
+                                <span class="cascadeCharCount" style="display: ${'cascade'};">This folder and its subfolders have ${cascadeCharCount} characters assigned.</span>
+                                <span class="directCharCount" style="display: ${'none'};">This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.</span>
+                            `)
+                            : `This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.`
+                    }
+                </b>
+            </p>
+            <label style="display:block;margin:4px 0 0 12px;">
+                <input type="radio" name="moveMode" value="move" checked>
+                Move assigned characters to parent folder
+            </label>
+            <label style="display:block;margin:4px 0 0 12px;">
+                <input type="radio" name="moveMode" value="unassign">
+                Remove all assigned characters from folders
+            </label>
+        ` : ''}
+        <p style="color:#e57373;">This cannot be undone.</p>
+    `;
+
+    // Live update visibility of char count labels based on mode
+    if (hasChildren) {
+        html.querySelectorAll('input[name="delMode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                const isCascade = html.querySelector('input[name="delMode"]:checked').value === 'cascade';
+                html.querySelector('.cascadeCharCount').style.display = isCascade ? '' : 'none';
+                html.querySelector('.directCharCount').style.display = isCascade ? 'none' : '';
+            });
+        });
     }
 
-    (async () => {
-        const folders = await stcmFolders.loadFolders();
-        const totalCharacters = collectAllCharacters(folder.id, folders).length;
-        const isChild = !!folder.parentId && folder.parentId !== 'root';
+    callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Folder')
+        .then(async res => {
+            if (res !== POPUP_RESULT.AFFIRMATIVE) return;
 
-        // --- build popup content ---
-        const html = document.createElement('div');
-        html.innerHTML = `
-            <h3>Delete Folder</h3>
-            <p>Delete <strong>${escapeHtml(folder.name)}</strong>?</p>
-            ${hasChildren ? `
-                <p>This folder contains <b>${folder.children.length}</b> sub-folder${folder.children.length > 1 ? 's' : ''}.</p>
-                <label style="display:block;margin:4px 0;">
-                    <input type="radio" name="delMode" value="cascade" checked>
-                    Delete this folder <b>and</b> all sub-folders
-                </label>
-                <label style="display:block;margin:4px 0;">
-                    <input type="radio" name="delMode" value="move">
-                    Delete this folder and <b>move</b> its sub-folders to Root
-                </label>
-            ` : ''}
-            ${totalCharacters > 0 && isChild ? `
-                <div style="margin:6px 0 6px 0;"><b>This folder and its subfolders have ${totalCharacters} character${totalCharacters > 1 ? 's' : ''} assigned.</b></div>
-                <label style="display:block;margin:4px 0;">
-                    <input type="radio" name="delChars" value="move" checked>
-                    Move assigned characters to parent folder
-                </label>
-                <label style="display:block;margin:4px 0;">
-                    <input type="radio" name="delChars" value="remove">
-                    Remove all assigned characters from folders
-                </label>
-            ` : ''}
-            <p style="color:#e57373;">This cannot be undone.</p>
-        `;
+            const mode = hasChildren
+                ? html.querySelector('input[name="delMode"]:checked').value
+                : 'cascade';
+            const cascade = (mode === 'cascade');
 
-        callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Folder')
-            .then(async res => {
-                if (res !== POPUP_RESULT.AFFIRMATIVE) return;
+            // Only show/ask about character move if there are any
+            let moveChars = false;
+            if ((cascade && cascadeCharCount > 0) || (!cascade && directCharCount > 0)) {
+                moveChars = html.querySelector('input[name="moveMode"]:checked').value === 'move';
+            }
 
-                const mode = hasChildren
-                    ? html.querySelector('input[name="delMode"]:checked').value
-                    : 'cascade';
-                const cascade = (mode === 'cascade');
-
-                const handleChars = totalCharacters > 0 && isChild;
-                let moveCharsToParent = true;
-                if (handleChars) {
-                    moveCharsToParent = html.querySelector('input[name="delChars"]:checked').value === 'move';
-                }
-
-                let folders = await stcmFolders.loadFolders();
-
-                // CHAR MOVE/REMOVE LOGIC:
-                if (handleChars) {
-                    const parentId = folder.parentId;
-                    const allCharIds = collectAllCharacters(folder.id, folders);
-                    if (moveCharsToParent) {
-                        // Move all to parent
-                        const parent = folders.find(f => f.id === parentId);
-                        if (parent) {
-                            allCharIds.forEach(cid => {
-                                if (!parent.characters.includes(cid))
-                                    parent.characters.push(cid);
-                            });
-                        }
-                    }
-                    // Remove all from every affected folder
-                    const getAllAffectedIds = (fid) => {
-                        let ids = [fid];
-                        const f = folders.find(x => x.id === fid);
-                        if (!f || !f.children) return ids;
-                        f.children.forEach(childId => {
-                            ids = ids.concat(getAllAffectedIds(childId));
-                        });
-                        return ids;
-                    };
-                    const affected = getAllAffectedIds(folder.id);
-                    folders.forEach(f => {
-                        if (affected.includes(f.id)) {
-                            f.characters = [];
-                        }
-                    });
-                }
-
-                // Actually delete the folders now:
-                folders = await stcmFolders.deleteFolder(folder.id, cascade, folders);
-
-                await updateSidebar(true);
-                rerender && rerender(folders);
-                toastr.success(
-                    cascade
-                        ? 'Folder and all sub-folders deleted'
-                        : 'Folder deleted – sub-folders moved to Root'
-                );
-            });
-    })();
+            // Pass new options to deleteFolder
+            const folders = await stcmFolders.deleteFolder(folder.id, cascade, moveChars);
+            await updateSidebar(true);
+            rerender && rerender(folders);
+            toastr.success(
+                cascade
+                    ? 'Folder and all sub-folders deleted'
+                    : 'Folder deleted – sub-folders moved to Root'
+            );
+        });
 }
+
 
 function walkFolderTree(folderId, folders, opts = {}, depth = 0) {
     const folder = folders.find(f => f.id === folderId);

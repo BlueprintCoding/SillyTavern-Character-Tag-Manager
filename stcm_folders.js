@@ -219,14 +219,31 @@ export async function setFolderPrivacy(id, isPrivate, recursive = false) {
 // • cascade = true  → delete this folder AND all descendants
 // • cascade = false → move all child-folders to Root first, then delete only this folder
 // deleteFolder(id[, cascade=true, foldersOverride])
-export async function deleteFolder(id, cascade = true, foldersOverride = null) {
+export async function deleteFolder(id, cascade = true, moveAssigned = true) {
     if (id === 'root') return await loadFolders();
 
-    const folders = foldersOverride || await loadFolders();
+    const folders = await loadFolders();
     const self    = getFolder(id, folders);
     if (!self) return folders;
 
+    // Helper to move assigned chars
+    function moveCharsToParent(folder, parentId) {
+        if (!Array.isArray(folder.characters) || !folder.characters.length) return;
+        if (!parentId) return;
+        const parent = getFolder(parentId, folders);
+        if (!parent) return;
+        folder.characters.forEach(charId => {
+            if (!parent.characters.includes(charId)) parent.characters.push(charId);
+        });
+        folder.characters = [];
+    }
+    // Helper to unassign chars
+    function unassignChars(folder) {
+        folder.characters = [];
+    }
+
     if (!cascade && Array.isArray(self.children) && self.children.length) {
+        // move subfolders to root
         const root = getFolder('root', folders);
         self.children.forEach(childId => {
             const child = getFolder(childId, folders);
@@ -237,6 +254,30 @@ export async function deleteFolder(id, cascade = true, foldersOverride = null) {
         });
     }
 
+    // Determine what characters to move/unassign
+    if (cascade) {
+        // Move/unassign all characters in self and descendants
+        const allFoldersToDelete = [];
+        function collectAll(f) {
+            allFoldersToDelete.push(f);
+            (f.children || []).forEach(cid => {
+                const child = getFolder(cid, folders);
+                if (child) collectAll(child);
+            });
+        }
+        collectAll(self);
+
+        allFoldersToDelete.forEach(f => {
+            if (moveAssigned && f.id !== 'root' && f.parentId) moveCharsToParent(f, getFolder(f.parentId, folders).id);
+            else if (!moveAssigned) unassignChars(f);
+        });
+    } else {
+        // Only the deleted folder itself
+        if (moveAssigned && self.parentId) moveCharsToParent(self, self.parentId);
+        else if (!moveAssigned) unassignChars(self);
+    }
+
+    // Now do the delete
     function drop(fid) {
         const idx = folders.findIndex(f => f.id === fid);
         if (idx !== -1) {
