@@ -356,6 +356,7 @@ function isTagFolderDiveActive() {
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
+    console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
