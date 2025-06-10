@@ -238,25 +238,49 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     if (!container) return;
     container.innerHTML = "";
 
-    // Group characters by folderId
+    // Step 1: Prepare a map: folderId -> {folder, entities[]}
     const folderMatches = {};
+    // Special key for orphans
+    const ORPHAN_KEY = '__orphans__';
+
+    // Folder assignment logic
     for (const res of results) {
-        const entity = res.item;
-        const folder = folders.find(f => (f.characters || []).includes(entity.id));
-        const folderId = folder ? folder.id : 'no_folder';
-        if (!folderMatches[folderId]) folderMatches[folderId] = { folder, chars: [] };
+        const entity = res.item ? { ...res.item, id: res.id, type: res.type } : res;
+        let foundFolder = null;
+        // Try to find this entity in any folder
+        for (const folder of folders) {
+            if (!Array.isArray(folder.characters)) continue;
+            if (
+                (entity.type === "character" && folder.characters.includes(entity.avatar)) ||
+                (entity.type === "group" && folder.characters.includes(entity.id))
+            ) {
+                foundFolder = folder;
+                break;
+            }
+        }
+        const folderId = foundFolder ? foundFolder.id : ORPHAN_KEY;
+        if (!folderMatches[folderId]) folderMatches[folderId] = { folder: foundFolder, chars: [] };
         folderMatches[folderId].chars.push(entity);
     }
-    
 
-    // For each folder, create a label and a grid of cards
-    Object.values(folderMatches).forEach(({ folder, chars }) => {
+    // Step 2: Render folders (folders first, then orphans)
+    // Always sort: root folders by name, orphans last
+    const folderOrder = Object.keys(folderMatches).sort((a, b) => {
+        if (a === ORPHAN_KEY) return 1;
+        if (b === ORPHAN_KEY) return -1;
+        // By folder name
+        const an = (folderMatches[a].folder?.name || '').toLowerCase();
+        const bn = (folderMatches[b].folder?.name || '').toLowerCase();
+        return an.localeCompare(bn);
+    });
+
+    for (const folderId of folderOrder) {
+        const { folder, chars } = folderMatches[folderId];
+
         // Folder label
         const folderLabel = document.createElement('div');
         folderLabel.className = 'stcm_search_folder_label';
-    
-        // --- Folder icon (default or custom)
-        const iconClass = folder && folder.icon ? folder.icon : 'fa-folder';
+        const iconClass = folder && folder.icon ? folder.icon : (folderId === ORPHAN_KEY ? 'fa-folder' : 'fa-folder');
         const icon = document.createElement('i');
         icon.className = `fa-solid ${iconClass}`;
         icon.style.marginRight = "2px";
@@ -264,29 +288,40 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         icon.style.fontSize = "0.88em";
         icon.style.opacity = "0.92";
         icon.style.verticalAlign = "top";
-    
         folderLabel.appendChild(icon);
-    
-        // Folder name text
-        folderLabel.appendChild(document.createTextNode(folder ? folder.name : "Not in a Folder"));
-    
+
+        folderLabel.appendChild(
+            document.createTextNode(folder
+                ? folder.name
+                : "Not in a Folder"
+            )
+        );
         container.appendChild(folderLabel);
 
         // Native grid container (matches SillyTavern style)
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents_search'; // or your native grid class
 
-        chars
-            .filter(e => e.type === "character" || e.type === "group")
-            .forEach(entity => {
-                const entityCard = renderSidebarCharacterCard(entity);  
-                grid.appendChild(entityCard);
-            });
+        // For orphans: always character first, then groups
+        const display = chars.slice().sort((a, b) => {
+            if (a.type === b.type) return 0;
+            if (a.type === "character") return -1;
+            return 1;
+        });
 
-        
+        display.forEach(entity => {
+            const tagsById = buildTagMap(tags);
+            const tagsForEntity = getTagsForChar(entity.id || entity.avatar, tagsById);
+            const cardObj = entity.type === "character"
+                ? { ...entity, tags: tagsForEntity }
+                : { ...entity, tags: tagsForEntity };
+            grid.appendChild(renderSidebarCharacterCard(cardObj));
+        });
+
         container.appendChild(grid);
-    });
+    }
 }
+
 
 
 
