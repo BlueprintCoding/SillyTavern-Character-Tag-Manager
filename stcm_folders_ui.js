@@ -790,17 +790,9 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 (e.type === "group" && e.id === folderVal)
             );
             if (entity) {
-                // You may want to pass .item for character cards (see below)
-                const tagsForEntity = getTagsForChar(entity.id || entity.item.avatar, tagsById);
-                // For characters, pass { ...entity.item, tags: tagsForEntity }
-                // For groups, pass { ...entity, tags: tagsForEntity }
-                if (entity.type === "character") {
-                    const entityCard = renderSidebarCharacterCard({ ...entity.item, tags: tagsForEntity });
-                    contentDiv.appendChild(entityCard);
-                } else {
-                    const entityCard = renderSidebarCharacterCard({ ...entity, tags: tagsForEntity });
-                    contentDiv.appendChild(entityCard);
-                }
+                // Just pass the entity as-is!
+                const entityCard = renderSidebarCharacterCard(entity);
+                contentDiv.appendChild(entityCard);
             }
         });
         
