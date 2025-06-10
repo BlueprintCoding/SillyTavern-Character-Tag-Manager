@@ -238,21 +238,41 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     if (!container) return;
     container.innerHTML = "";
 
-    // Step 1: Prepare a map: folderId -> {folder, entities[]}
     const folderMatches = {};
-    // Special key for orphans
     const ORPHAN_KEY = '__orphans__';
 
-    // Folder assignment logic
+    // Make a lookup map for allEntities (id -> {entity, avatar, type})
+    const entityByAvatar = {};
+    const entityById = {};
+    allEntities.forEach(e => {
+        if (e.type === "character" && e.item && e.item.avatar) entityByAvatar[e.item.avatar] = e;
+        if (e.type === "group" && e.id) entityById[e.id] = e;
+    });
+
+    // Folder assignment logic (robust, works for any search result shape)
     for (const res of results) {
-        const entity = res.item ? { ...res.item, id: res.id, type: res.type } : res;
-        let foundFolder = null;
+        // Determine what this is: character or group, and get avatar or id
+        let entity, type, avatar, id;
+        if (res.type === "character" || (res.item && res.item.spec)) {
+            // Character (from fuzzy search, res.item may exist)
+            entity = res.item ? res.item : res;
+            type = "character";
+            avatar = entity.avatar || entity.avatar_url; // main way to identify
+            id = res.id || entity.id;
+        } else if (res.type === "group" || (res.item && res.item.members)) {
+            entity = res.item ? res.item : res;
+            type = "group";
+            avatar = null;
+            id = res.id || entity.id;
+        }
+
         // Try to find this entity in any folder
+        let foundFolder = null;
         for (const folder of folders) {
             if (!Array.isArray(folder.characters)) continue;
             if (
-                (entity.type === "character" && folder.characters.includes(entity.avatar)) ||
-                (entity.type === "group" && folder.characters.includes(entity.id))
+                (type === "character" && avatar && folder.characters.includes(avatar)) ||
+                (type === "group" && id && folder.characters.includes(id))
             ) {
                 foundFolder = folder;
                 break;
@@ -260,11 +280,14 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         }
         const folderId = foundFolder ? foundFolder.id : ORPHAN_KEY;
         if (!folderMatches[folderId]) folderMatches[folderId] = { folder: foundFolder, chars: [] };
-        folderMatches[folderId].chars.push(entity);
+        // reconstruct proper entity object for rendering
+        let entityObj = (type === "character" && avatar && entityByAvatar[avatar]) ? entityByAvatar[avatar]
+                       : (type === "group" && id && entityById[id]) ? entityById[id]
+                       : entity;
+        folderMatches[folderId].chars.push(entityObj);
     }
 
-    // Step 2: Render folders (folders first, then orphans)
-    // Always sort: root folders by name, orphans last
+    // Sort folder keys: folders first, then orphans
     const folderOrder = Object.keys(folderMatches).sort((a, b) => {
         if (a === ORPHAN_KEY) return 1;
         if (b === ORPHAN_KEY) return -1;
@@ -276,7 +299,6 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
 
     for (const folderId of folderOrder) {
         const { folder, chars } = folderMatches[folderId];
-
         // Folder label
         const folderLabel = document.createElement('div');
         folderLabel.className = 'stcm_search_folder_label';
@@ -298,11 +320,11 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         );
         container.appendChild(folderLabel);
 
-        // Native grid container (matches SillyTavern style)
+        // Grid container
         const grid = document.createElement('div');
-        grid.className = 'stcm_folder_contents_search'; // or your native grid class
+        grid.className = 'stcm_folder_contents_search';
 
-        // For orphans: always character first, then groups
+        // Always: characters first, then groups
         const display = chars.slice().sort((a, b) => {
             if (a.type === b.type) return 0;
             if (a.type === "character") return -1;
@@ -311,9 +333,9 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
 
         display.forEach(entity => {
             const tagsById = buildTagMap(tags);
-            const tagsForEntity = getTagsForChar(entity.id || entity.avatar, tagsById);
+            const tagsForEntity = getTagsForChar(entity.id || entity.item?.avatar, tagsById);
             const cardObj = entity.type === "character"
-                ? { ...entity, tags: tagsForEntity }
+                ? { ...entity.item, tags: tagsForEntity }
                 : { ...entity, tags: tagsForEntity };
             grid.appendChild(renderSidebarCharacterCard(cardObj));
         });
@@ -321,8 +343,6 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         container.appendChild(grid);
     }
 }
-
-
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
