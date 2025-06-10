@@ -310,28 +310,16 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     charBtn.title = 'Manage Characters in this Folder';
     charBtn.addEventListener('click', e => {
         e.stopPropagation();
+        // function is defined elsewhere (kept global in original code)
         showFolderCharactersSection?.(folder, allFolders);
-    
-        // Wait for DOM to update (especially if async), then scroll the modal body
+
         setTimeout(() => {
             const section = document.getElementById('folderCharactersSection');
-            // The main scrollable modal content
-            const modalBody = document.getElementById('characterTagManagerContent');
-            if (section && modalBody) {
-                // If the section is hidden, don't scroll
-                if (section.style.display !== 'none') {
-                    // Scroll the modal content so the folderCharactersSection is at the top
-                    const sectionRect = section.getBoundingClientRect();
-                    const bodyRect = modalBody.getBoundingClientRect();
-                    // Calculate offset relative to scroll container
-                    const scrollTop = modalBody.scrollTop + (sectionRect.top - bodyRect.top) - 10;
-                    modalBody.scrollTo({
-                        top: scrollTop,
-                        behavior: 'smooth'
-                    });
-                }
+            if (section && section.style.display !== 'none') {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
-        }, 100); // Small delay for UI painting
+        }, 50);
+        
     });
     row.appendChild(charBtn);
 
