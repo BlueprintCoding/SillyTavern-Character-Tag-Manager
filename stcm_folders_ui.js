@@ -83,7 +83,7 @@ export async function updateSidebar(forceReload = false) {
         if (forceReload || !STCM.sidebarFolders?.length) {
             STCM.sidebarFolders = await stcmFolders.loadFolders();
         }
-        injectSidebarFolders(STCM.sidebarFolders, characters);
+        injectSidebarFolders(STCM.sidebarFolders);
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
 
     } catch (e) {
@@ -125,11 +125,10 @@ function insertNoFolderLabelIfNeeded() {
 }
 
 
-export function injectSidebarFolders(folders, allCharacters) {
+export function injectSidebarFolders(folders) {
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
 
-    // Remove any previous instance in case DOM was wiped
     let existingSidebar = document.getElementById('stcm_sidebar_folder_nav');
     if (existingSidebar) existingSidebar.remove();
 
@@ -139,18 +138,21 @@ export function injectSidebarFolders(folders, allCharacters) {
     parent.insertBefore(sidebar, parent.firstChild);
 
     hideFolderedCharactersOutsideSidebar(folders);
+    const allEntities = getEntitiesList();
+    console.log(allEntities);
     if (stcmSearchActive && stcmSearchResults && stcmSearchTerm) {
-        renderSidebarFolderSearchResult(folders, allCharacters, stcmSearchResults, stcmSearchTerm);
+        renderSidebarFolderSearchResult(folders, allEntities, stcmSearchResults, stcmSearchTerm);
     } else {
-        renderSidebarFolderContents(folders, allCharacters, currentSidebarFolderId);
+        renderSidebarFolderContents(folders, allEntities, currentSidebarFolderId);
     }
     
-    hookIntoCharacterSearchBar(folders, allCharacters);
+    hookIntoCharacterSearchBar(folders, allEntities);
     insertNoFolderLabelIfNeeded();
 }
 
 
-function hookIntoCharacterSearchBar(folders, allCharacters) {
+
+function hookIntoCharacterSearchBar(folders, allEntities) {
     const input = document.getElementById('character_search_bar');
     if (!input || input.dataset.stcmHooked) return;
     input.dataset.stcmHooked = "true";
@@ -162,14 +164,14 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
         if (term) {
             stcmSearchTerm = term;
             stcmSearchResults = fuzzySearchCharacters(term);
-            injectSidebarFolders(folders, allCharacters); // <-- always redraw using this up-to-date info!
+            injectSidebarFolders(folders); // <-- always redraw using this up-to-date info!
         } else {
             stcmSearchActive = false;
             stcmSearchResults = null;
             stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
             currentSidebarFolderId = 'root';
-            injectSidebarFolders(folders, allCharacters);
+            injectSidebarFolders(folders);
         }
         // Hide or show "characters hidden" info block based on search state
         setTimeout(() => {
@@ -187,7 +189,7 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
             stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
             currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
-            injectSidebarFolders(folders, allCharacters);
+            injectSidebarFolders(folders);
         }
         document.querySelectorAll('.text_block.hidden_block').forEach(block => {
             block.style.display = stcmSearchActive ? 'none' : '';
@@ -228,7 +230,7 @@ function characterMatchesTerm(char, term) {
 
 
 // Only shows the folder open with matches highlighted inside
-function renderSidebarFolderSearchResult(folders, allCharacters, results, term) {
+function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
@@ -236,12 +238,13 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
     // Group characters by folderId
     const folderMatches = {};
     for (const res of results) {
-        const char = res.item;
-        const folder = folders.find(f => (f.characters || []).includes(char.avatar));
+        const entity = res.item;
+        const folder = folders.find(f => (f.characters || []).includes(entity.id));
         const folderId = folder ? folder.id : 'no_folder';
         if (!folderMatches[folderId]) folderMatches[folderId] = { folder, chars: [] };
-        folderMatches[folderId].chars.push(char);
+        folderMatches[folderId].chars.push(entity);
     }
+    
 
     // For each folder, create a label and a grid of cards
     Object.values(folderMatches).forEach(({ folder, chars }) => {
@@ -270,11 +273,11 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents_search'; // or your native grid class
 
-        chars.forEach(char => {
-            const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
-            grid.appendChild(charCard);
+        chars.forEach(entity => {
+            const entityCard = renderSidebarCharacterCard({ ...entity, tags: getTagsForChar(entity.id) });
+            grid.appendChild(entityCard);
         });
-
+        
         container.appendChild(grid);
     });
 }
@@ -397,20 +400,20 @@ function getVisibleDescendantCharacterCount(folderId, folders) {
     return total;
 }
 
-function getEntitiesNotInAnyFolder(allEntities, folders) {
-    // allEntities = characters.concat(groups)
+function getEntitiesNotInAnyFolder(folders) {
+    const allEntities = getEntitiesList();
     const assigned = new Set();
     folders.forEach(f => {
         if (Array.isArray(f.characters)) {
             f.characters.forEach(id => assigned.add(id));
         }
     });
-    return allEntities.filter(e => !assigned.has(e.avatar));
+    return allEntities.filter(e => !assigned.has(e.id));
 }
 
 
 
-export function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
+export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
@@ -462,7 +465,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
         sessionStorage.removeItem("stcm_pin_okay");
         toastr.info("Private folder access has been locked.");
         logoutBtn.style.display = 'none';
-        renderSidebarFolderContents(folders, allCharacters, folderId);
+        renderSidebarFolderContents(folders, allEntities, folderId);
     });
 
 
@@ -511,7 +514,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             }
         }
     
-        renderSidebarFolderContents(folders, allCharacters, folderId);
+        renderSidebarFolderContents(folders, allEntities, folderId);
     });
     
     updateToggleIcon();
@@ -523,19 +526,17 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
 
     // ====== Top of Folder List: Orphan Cards ======
     if (folderId === 'root') {
-        const orphanedChars = getEntitiesNotInAnyFolder(allCharacters, folders);
-        if (orphanedChars.length > 0) {
-            // Folder-like row for orphans
+        const orphanedEntities = getEntitiesNotInAnyFolder(folders);
+        if (orphanedEntities.length > 0) {
             const orphanDiv = document.createElement('div');
             orphanDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
             orphanDiv.setAttribute('data-folder-id', 'orphans');
             orphanDiv.style.cursor = 'pointer';
-
-            // Use a default folder color, or something distinct
+    
             let iconColor = "#8887c2";
             let iconClass = orphanFolderExpanded ? 'fa-folder-open' : 'fa-folder';
-            let charCount = orphanedChars.length;
-
+            let charCount = orphanedEntities.length;
+    
             orphanDiv.innerHTML = `
                 <div class="stcm_folder_main">
                     <div class="avatar flex alignitemscenter textAlignCenter"
@@ -549,30 +550,25 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
                     </div>
                 </div>
             `;
-
-            // Click toggles open/close
+    
             orphanDiv.onclick = (e) => {
                 window.STCM_orphanFolderExpanded = !window.STCM_orphanFolderExpanded;
-                renderSidebarFolderContents(folders, allCharacters, folderId);
+                renderSidebarFolderContents(folders, allEntities, folderId);
             };
-
+    
             container.appendChild(orphanDiv);
-
-            // If expanded, show character cards in a grid
+    
             if (window.STCM_orphanFolderExpanded) {
                 const grid = document.createElement('div');
                 grid.className = 'stcm_folder_contents';
-                orphanedChars.forEach(char => {
-                    const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
-                    grid.appendChild(charCard);
+                orphanedEntities.forEach(entity => {
+                    const entityCard = renderSidebarCharacterCard({ ...entity, tags: getTagsForChar(entity.id) });
+                    grid.appendChild(entityCard);
                 });
                 container.appendChild(grid);
             }
         }
     }
-
-    
-
 
     const folder = folders.find(f => f.id === folderId);
     if (!folder && folderId !== 'root') return;
@@ -587,7 +583,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             backBtn.style.cursor = 'pointer';
             backBtn.onclick = () => {
                 currentSidebarFolderId = parent.id;
-                renderSidebarFolderContents(folders, allCharacters, parent.id);
+                renderSidebarFolderContents(folders, allEntities, parent.id);
             };
             container.appendChild(backBtn);
         }
@@ -666,7 +662,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
         if (folderIsVisible) {
             folderDiv.onclick = () => {
                 currentSidebarFolderId = child.id;
-                renderSidebarFolderContents(folders, allCharacters, child.id);
+                renderSidebarFolderContents(folders, getEntitiesList(), child.id);
             };
         } else {
             folderDiv.style.cursor = 'default';
@@ -682,13 +678,12 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
 
         // Show characters in this folder (full card style)
 
-        (folder.characters || []).forEach(charId => {
-            const char = allCharacters.find(c => c.avatar === charId);
-            if (char) {
-                const tagsForChar = getTagsForChar(char.avatar, tagsById);
-                // Pass tags explicitly to avoid global mutation:
-                const charCard = renderSidebarCharacterCard({ ...char, tags: tagsForChar });
-                contentDiv.appendChild(charCard);
+        (folder.characters || []).forEach(entityId => {
+            const entity = allEntities.find(e => e.id === entityId);
+            if (entity) {
+                const tagsForEntity = getTagsForChar(entity.id, tagsById);
+                const entityCard = renderSidebarCharacterCard({ ...entity, tags: tagsForEntity });
+                contentDiv.appendChild(entityCard);
             }
         });
         container.appendChild(contentDiv);
@@ -722,11 +717,12 @@ export function getFolderChain(folderId, folders) {
     return chain;
 }
 
-export function getTagsForChar(charId) {
-    const tagIds = tag_map[charId] || [];
-    const tagsById = buildTagMap(tags); // Only build this once per render if you can
+export function getTagsForChar(entityId) {
+    const tagIds = tag_map[entityId] || [];
+    const tagsById = buildTagMap(tags);
     return tagIds.map(id => tagsById.get(id)).filter(Boolean);
 }
+
 
 export function showFolderColorPicker(folder, rerender) {
     const container = document.createElement('div');
@@ -748,30 +744,30 @@ export function showFolderColorPicker(folder, rerender) {
 }
 
 
-export function renderSidebarCharacterCard(char) {
-    // Build character card using standard classes + a custom sidebar marker
+export function renderSidebarCharacterCard(entity) {
     const div = document.createElement('div');
     div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
-    div.setAttribute('chid', char.avatar);
-    div.setAttribute('data-chid', char.avatar);
+    div.setAttribute('chid', entity.id);
+    div.setAttribute('data-chid', entity.id);
     div.tabIndex = 0;
 
-    // Card avatar
+    let desc = entity.description || entity.creatorcomment || "";
+
     div.innerHTML = `
-        <div class="avatar" title="[Character] ${char.name}\nFile: ${char.avatar}">
-            <img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">
+        <div class="avatar" title="[${entity.type === 'group' ? 'Group' : 'Character'}] ${entity.name}\nFile: ${entity.avatar}">
+            <img src="/thumbnail?type=avatar&file=${encodeURIComponent(entity.avatar)}" alt="${entity.name}">
         </div>
         <div class="flex-container wide100pLess70px character_select_container">
             <div class="wide100p character_name_block">
-                <span class="ch_name" title="[Character] ${char.name}">${char.name}</span>
+                <span class="ch_name" title="[${entity.type === 'group' ? 'Group' : 'Character'}] ${entity.name}">${entity.name}</span>
                 <small class="ch_additional_info ch_add_placeholder">+++</small>
                 <small class="ch_additional_info ch_avatar_url"></small>
             </div>
             <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
             <input class="ch_fav" value="" hidden="" keeper-ignore="">
-            <div class="ch_description">  ${char.creatorcomment || char.description || ""}</div>
+            <div class="ch_description">${desc}</div>
             <div class="tags tags_inline">
-                ${(char.tags || []).map(tag =>
+                ${(entity.tags || []).map(tag =>
                     `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
                         <span class="tag_name">${tag.name}</span>
                     </span>`
@@ -779,15 +775,20 @@ export function renderSidebarCharacterCard(char) {
             </div>
         </div>
     `;
+
     // Make the entire card clickable for activation:
+ // Make the entire card clickable for activation:
     div.addEventListener('click', function(e) {
-        const id = char.avatar ? characters.findIndex(c => c.avatar === char.avatar) : -1;
+        // Activation logic, you can adjust as needed:
+        // You may want separate logic for group select if needed!
+        const allEntities = getEntitiesList();
+        const id = allEntities.findIndex(ent => ent.id === entity.id);
         if (id !== -1 && typeof selectCharacterById === 'function') {
             selectCharacterById(id);
             if (typeof setActiveGroup === 'function') setActiveGroup(null);
             if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
         } else {
-            toastr.warning('Unable to activate character: not found.');
+            toastr.warning('Unable to activate entity: not found.');
         }
     });
 
