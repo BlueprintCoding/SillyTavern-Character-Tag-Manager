@@ -218,10 +218,11 @@ export async function setFolderPrivacy(id, isPrivate, recursive = false) {
 // deleteFolder(id[, cascade=true])
 // • cascade = true  → delete this folder AND all descendants
 // • cascade = false → move all child-folders to Root first, then delete only this folder
-export async function deleteFolder (id, cascade = true) {
+// deleteFolder(id[, cascade=true, foldersOverride])
+export async function deleteFolder(id, cascade = true, foldersOverride = null) {
     if (id === 'root') return await loadFolders();
 
-    const folders = await loadFolders();
+    const folders = foldersOverride || await loadFolders();
     const self    = getFolder(id, folders);
     if (!self) return folders;
 
@@ -249,6 +250,7 @@ export async function deleteFolder (id, cascade = true) {
 
     return await saveFolders(folders);
 }
+
 
 /* ---------------------------------------------------------------- */
 /*  Tag-to-Folder conversion                                        */
