@@ -310,23 +310,28 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     charBtn.title = 'Manage Characters in this Folder';
     charBtn.addEventListener('click', e => {
         e.stopPropagation();
-        // function is defined elsewhere (kept global in original code)
         showFolderCharactersSection?.(folder, allFolders);
-
+    
+        // Wait for DOM to update (especially if async), then scroll the modal body
         setTimeout(() => {
             const section = document.getElementById('folderCharactersSection');
-            const modalBody = document.querySelector('.modalBody.stcm_scroll_300');
+            // The main scrollable modal content
+            const modalBody = document.getElementById('characterTagManagerContent');
             if (section && modalBody) {
-                // Get section's offsetTop relative to the scroll container
-                const rect = section.getBoundingClientRect();
-                const containerRect = modalBody.getBoundingClientRect();
-                modalBody.scrollTo({
-                    top: modalBody.scrollTop + (rect.top - containerRect.top) - 10,
-                    behavior: 'smooth'
-                });
+                // If the section is hidden, don't scroll
+                if (section.style.display !== 'none') {
+                    // Scroll the modal content so the folderCharactersSection is at the top
+                    const sectionRect = section.getBoundingClientRect();
+                    const bodyRect = modalBody.getBoundingClientRect();
+                    // Calculate offset relative to scroll container
+                    const scrollTop = modalBody.scrollTop + (sectionRect.top - bodyRect.top) - 10;
+                    modalBody.scrollTo({
+                        top: scrollTop,
+                        behavior: 'smooth'
+                    });
+                }
             }
-        }, 20);
-        
+        }, 20); // Small delay for UI painting
     });
     row.appendChild(charBtn);
 
