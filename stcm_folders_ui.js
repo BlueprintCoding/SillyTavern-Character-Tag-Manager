@@ -22,6 +22,10 @@ import {
 } from "../../../power-user.js";
 
 import {
+    openWelcomeScreen
+} from "../../../welcome-screen.js"
+
+import {
     characters,
     selectCharacterById,
     eventSource, 
@@ -610,6 +614,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
             setActiveCharacter(null)
             setActiveGroup(null);
+            openWelcomeScreen();
             currentSidebarFolderId = 'root';
             // You should also clear any search or orphan views if needed:
             stcmSearchActive = false;
