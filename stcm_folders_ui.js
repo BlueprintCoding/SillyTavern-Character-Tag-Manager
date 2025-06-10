@@ -156,32 +156,25 @@ export function injectSidebarFolders(folders) {
 
     const allEntities = getEntitiesList();
     console.log(allEntities);
-    if (stcmSearchActive && stcmSearchResults && stcmSearchTerm) {
-        // Always filter private here, not just at renderSidebarFolderSearchResult
-        let filteredResults = stcmSearchResults.filter(res => {
-            let avatar, id, folderId;
+    if (stcmSearchActive && stcmSearchTerm) {
+        // Always get a fresh result set on each render
+        let rawResults = fuzzySearchCharacters(stcmSearchTerm);
+    
+        let charToFolder = buildCharacterToFolderMap(folders);
+        let filteredResults = rawResults.filter(res => {
+            let folderId;
             if (res.type === "character" || (res.item && res.item.spec)) {
                 let entity = res.item ? res.item : res;
-                avatar = (entity.avatar || entity.avatar_url || "").trim();
-                folderId = buildCharacterToFolderMap(folders).get(avatar);
-                if (
-                    folderId &&
-                    privateFolderVisibilityMode === 0 &&
-                    isInPrivateFolder(folderId, folders)
-                ) {
-                    return false; // filter out
-                }
+                let avatar = (entity.avatar || entity.avatar_url || "").trim();
+                folderId = charToFolder.get(avatar);
             } else if (res.type === "group" || (res.item && res.item.members)) {
                 let entity = res.item ? res.item : res;
-                id = res.id || entity.id;
-                folderId = buildCharacterToFolderMap(folders).get(id);
-                if (
-                    folderId &&
-                    privateFolderVisibilityMode === 0 &&
-                    isInPrivateFolder(folderId, folders)
-                ) {
-                    return false; // filter out
-                }
+                let id = res.id || entity.id;
+                folderId = charToFolder.get(id);
+            }
+            // Only filter if privacy mode is 0 (private folders hidden)
+            if (folderId && privateFolderVisibilityMode === 0 && isInPrivateFolder(folderId, folders)) {
+                return false;
             }
             return true;
         });
@@ -226,28 +219,19 @@ function hookIntoCharacterSearchBar() {
     input.addEventListener('input', debounce(() => {
         const currentFolders = window.STCM?.sidebarFolders || [];
         const allEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
-
+    
         const term = input.value.trim();
         stcmSearchActive = !!term;
-
-        if (term) {
-            stcmSearchTerm = term;
-            stcmSearchResults = fuzzySearchCharacters(term);
-            injectSidebarFolders(currentFolders);
-        } else {
-            stcmSearchActive = false;
-            stcmSearchResults = null;
-            stcmSearchTerm = '';
-            stcmLastSearchFolderId = null;
-            currentSidebarFolderId = 'root';
-            injectSidebarFolders(currentFolders);
-        }
+        stcmSearchTerm = term;
+    
+        injectSidebarFolders(currentFolders);
         setTimeout(() => {
             document.querySelectorAll('.text_block.hidden_block').forEach(block => {
                 block.style.display = stcmSearchActive ? 'none' : '';
             });
         }, 1);
     }, 150));
+    
     
     
     input.addEventListener('blur', () => {
