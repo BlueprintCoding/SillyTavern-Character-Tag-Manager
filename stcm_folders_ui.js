@@ -287,14 +287,19 @@ function buildCharacterToFolderMap(folders) {
     return map;
 }
 
-
-
 function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
 
-    // For entity lookups (character/group)
+    // Map: character avatar -> folderId
+    const charToFolder = buildCharacterToFolderMap(folders);
+
+    // Map: folderId -> folder object (for quick lookup)
+    const foldersById = {};
+    folders.forEach(f => foldersById[f.id] = f);
+
+    // Entity lookups (character/group)
     const entityByAvatar = {};
     const entityById = {};
     allEntities.forEach(e => {
@@ -302,20 +307,30 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         if (e.type === "group" && e.id) entityById[e.id] = e;
     });
 
-    // Set to keep track and avoid duplicates
     const alreadyAdded = new Set();
-
-    // Container for flat results grid
     const grid = document.createElement('div');
     grid.className = 'stcm_folder_contents_search';
 
     results.forEach(res => {
-        let entity, avatar, id, uniqueKey;
+        let entity, avatar, id, uniqueKey, folderId, folder;
         if (res.type === "character" || (res.item && res.item.spec)) {
             entity = res.item ? res.item : res;
             avatar = (entity.avatar || entity.avatar_url || "").trim();
             uniqueKey = avatar;
             if (!avatar || alreadyAdded.has(uniqueKey)) return;
+
+            folderId = charToFolder.get(avatar);
+            folder = folderId ? foldersById[folderId] : null;
+
+            // 🚩 Hide if assigned to private folder and private folders are hidden
+            if (
+                folder &&
+                folder.private &&
+                privateFolderVisibilityMode === 0
+            ) {
+                return; // Skip this character in search view
+            }
+
             alreadyAdded.add(uniqueKey);
             entity = entityByAvatar[avatar] || entity;
         } else if (res.type === "group" || (res.item && res.item.members)) {
@@ -323,6 +338,19 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
             id = res.id || entity.id;
             uniqueKey = id;
             if (!id || alreadyAdded.has(uniqueKey)) return;
+
+            folderId = charToFolder.get(id);
+            folder = folderId ? foldersById[folderId] : null;
+
+            // 🚩 Hide if assigned to private folder and private folders are hidden
+            if (
+                folder &&
+                folder.private &&
+                privateFolderVisibilityMode === 0
+            ) {
+                return; // Skip this group in search view
+            }
+
             alreadyAdded.add(uniqueKey);
             entity = entityById[id] || entity;
         } else {
@@ -335,6 +363,7 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
 
     container.appendChild(grid);
 }
+
 
 
 function isTagFolderDiveActive() {
