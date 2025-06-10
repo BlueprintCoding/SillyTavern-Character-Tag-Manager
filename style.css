@@ -1013,6 +1013,15 @@ div#rightNavHolder.drawer {
     align-content: flex-start;
   }
 
+  .stcm_folder_contents
+  {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-content: flex-start;
+  }
+
   .stcm_folder_contents_search{
     display: flex;
     gap: 5px;
