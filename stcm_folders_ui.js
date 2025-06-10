@@ -163,31 +163,15 @@ export function injectSidebarFolders(folders) {
     }
     
     replaceCharacterSearchBar();
-    insertStcmCharacterSearchBar();
+    removeCharacterSortSelect();
     hookIntoCharacterSearchBar(folders, allEntities);
     insertNoFolderLabelIfNeeded();
 }
 
 
 function replaceCharacterSearchBar() {
-    // Remove original search input if present
     const oldInput = document.getElementById('character_search_bar');
-    if (oldInput) oldInput.remove();
-
-    // Remove original select if present
-    const oldSelect = document.getElementById('character_sort_order');
-    if (oldSelect) oldSelect.remove();
-
-    // Optionally, also remove any labels/wrappers if needed:
-    // oldInput.closest('.some-parent-class')?.remove();
-}
-
-function insertStcmCharacterSearchBar() {
-    const parent = document.getElementById('rm_print_characters_block');
-    if (!parent) return;
-
-    // Prevent duplicate
-    if (document.getElementById('character_search_bar_stcm')) return;
+    if (!oldInput) return;
 
     // Create your new search bar
     const stcmInput = document.createElement('input');
@@ -196,9 +180,15 @@ function insertStcmCharacterSearchBar() {
     stcmInput.type = 'search';
     stcmInput.placeholder = 'Search...';
 
-    // Insert at top
-    parent.insertBefore(stcmInput, parent.firstChild);
+    // Replace in place
+    oldInput.parentNode.replaceChild(stcmInput, oldInput);
 }
+
+function removeCharacterSortSelect() {
+    const oldSelect = document.getElementById('character_sort_order');
+    if (oldSelect) oldSelect.remove();
+}
+
 
 
 function hookIntoCharacterSearchBar() {
