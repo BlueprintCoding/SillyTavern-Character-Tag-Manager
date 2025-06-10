@@ -87,7 +87,10 @@ export async function updateSidebar(forceReload = false) {
             STCM.sidebarFolders = await stcmFolders.loadFolders();
         }
         injectSidebarFolders(STCM.sidebarFolders);
-        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+        // Defer hiding logic to after the DOM updates:
+        setTimeout(() => {
+            hideFolderedCharactersOutsideSidebar(folders);
+        }, 0);
 
     } catch (e) {
         console.error("Sidebar update failed:", e);
@@ -138,7 +141,6 @@ export function injectSidebarFolders(folders) {
     sidebar.className = 'stcm_sidebar_folder_nav';
     parent.insertBefore(sidebar, parent.firstChild);
 
-    hideFolderedCharactersOutsideSidebar(folders);
     const allEntities = getEntitiesList();
     console.log(allEntities);
     if (stcmSearchActive && stcmSearchResults && stcmSearchTerm) {
