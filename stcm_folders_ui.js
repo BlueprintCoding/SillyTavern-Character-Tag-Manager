@@ -883,18 +883,24 @@ function getEntityChid(entity) {
 
 
 export function renderSidebarCharacterCard(entity) {
+    // Flatten
     let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
 
-    // (escape fields etc...)
-    const escapedName = escapeHtml(ent.name || "");
-    const escapedDesc = escapeHtml(ent.description || ent.creatorcomment || "");
+    let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
+    let desc = ent.description || ent.creatorcomment || "";
+    let isGroup = ent.type === 'group';
 
     const chid = getEntityChid(entity);
+    
+    // Escape dangerous fields
+    const escapedName = escapeHtml(ent.name || "");
+    const escapedDesc = escapeHtml(desc || "");
 
     const div = document.createElement('div');
     div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
     div.setAttribute('chid', chid);
     div.setAttribute('data-chid', chid);
+    
     div.tabIndex = 0;
     
     let avatarHtml;
@@ -938,22 +944,22 @@ export function renderSidebarCharacterCard(entity) {
         </div>
     `;
 
-    // div.addEventListener('click', function(e) {
-    //     // Try avatar-based lookup for all characters (always works for folder or non-folder)
-    //     let id = -1;
-    //     if (char.avatar) {
-    //         id = characters.findIndex(c => c.avatar === char.avatar);
-    //     }
-    //     // Optionally: add group support here with a separate function
+    div.addEventListener('click', function(e) {
+        // Try avatar-based lookup for all characters (always works for folder or non-folder)
+        let id = -1;
+        if (char.avatar) {
+            id = characters.findIndex(c => c.avatar === char.avatar);
+        }
+        // Optionally: add group support here with a separate function
     
-    //     if (id !== -1 && typeof selectCharacterById === 'function') {
-    //         selectCharacterById(id);
-    //         if (typeof setActiveGroup === 'function') setActiveGroup(null);
-    //         if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-    //     } else {
-    //         toastr.warning('Unable to activate character: not found.');
-    //     }
-    // });
+        if (id !== -1 && typeof selectCharacterById === 'function') {
+            selectCharacterById(id);
+            if (typeof setActiveGroup === 'function') setActiveGroup(null);
+            if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+        } else {
+            toastr.warning('Unable to activate character: not found.');
+        }
+    });
     
 
     return div;
