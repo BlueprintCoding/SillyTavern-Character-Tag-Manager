@@ -925,19 +925,19 @@ export function renderSidebarCharacterCard(entity) {
     `;
 
     div.addEventListener('click', function(e) {
+        // Try avatar-based lookup for all characters (always works for folder or non-folder)
         let id = -1;
-        if (ent.type === "character" && ent.avatar) {
-            id = characters.findIndex(c => c.avatar === ent.avatar);
-        } else if (ent.type === "group" && ent.id) {
-            const allEntities = getEntitiesList();
-            id = allEntities.findIndex(ent2 => ent2.id === ent.id);
+        if (char.avatar) {
+            id = characters.findIndex(c => c.avatar === char.avatar);
         }
+        // Optionally: add group support here with a separate function
+    
         if (id !== -1 && typeof selectCharacterById === 'function') {
             selectCharacterById(id);
             if (typeof setActiveGroup === 'function') setActiveGroup(null);
             if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
         } else {
-            toastr.warning('Unable to activate entity: not found.');
+            toastr.warning('Unable to activate character: not found.');
         }
     });
     
