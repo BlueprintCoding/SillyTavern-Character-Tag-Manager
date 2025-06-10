@@ -148,12 +148,15 @@ function openCharacterTagManagerModal() {
             <button class="accordionToggle stcm_text_left" data-target="foldersSection">▶ Folders</button>
             <div id="foldersSection" class="accordionContent">
                 <div style="padding: 1em 0; display: flex; align-items: flex-end; gap: 14px;">
-                <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                <div style="display: flex; gap: 8px;">
                     <button id="collapseAllFoldersBtn" class="stcm_menu_button tiny interactable" title="Collapse All Folders">
                         <i class="fa-solid fa-caret-up"></i> Collapse All
                     </button>
-                    <button id="expandAllFoldersBtn" class="stcm_menu_button tiny interactable" title="Expand All Folders">
+                    <button id="expandAllFoldersBtn" class="stcm_menu_button tiny interactable collapseExpandAllFoldersBtn" title="Expand All Folders">
                         <i class="fa-solid fa-caret-down"></i> Expand All
+                    </button>
+                    <button id="createNewFolderBtn" class="stcm_menu_button interactable collapseExpandAllFoldersBtn" tabindex="0">
+                        <i class="fa-solid fa-folder-plus"></i> New Folder
                     </button>
                 </div>
                     <div style="display: flex; flex-direction: column; flex: 1 1 auto;">
@@ -162,10 +165,6 @@ function openCharacterTagManagerModal() {
                               Search by folder name, or by character name assigned to the folder.
                         </span>
                     </div>
-                    
-                    <button id="createNewFolderBtn" class="stcm_menu_button interactable" tabindex="0">
-                        <i class="fa-solid fa-folder-plus"></i> New Folder
-                    </button>
                 </div>
                 <div id="foldersTreeContainer"><div class="loading">Loading folders...</div></div>
                 <div id="folderCharactersSection" style="display:none;"></div>

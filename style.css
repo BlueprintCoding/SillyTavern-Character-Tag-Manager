@@ -783,6 +783,10 @@
     gap: 7px;
 }
 
+.collapseExpandAllFoldersBtn {
+    margin: 0;
+}
+
 .stcm-folder-toggle-btn {
     background: none;
     border: none;
