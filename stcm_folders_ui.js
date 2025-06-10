@@ -298,10 +298,10 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     const folderMatches = {};
     const ORPHAN_KEY = '__orphans__';
 
-    // Build character/group → folderId map
+    // Build characterAvatar->folderId map (characters), groupId->folderId map (groups)
     const charToFolder = buildCharacterToFolderMap(folders);
 
-    // Make a lookup map for allEntities (id -> {entity, avatar, type})
+    // For entity lookups
     const entityByAvatar = {};
     const entityById = {};
     allEntities.forEach(e => {
@@ -309,36 +309,69 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         if (e.type === "group" && e.id) entityById[e.id] = e;
     });
 
+    // To prevent double-adding
+    const alreadyAssigned = new Set();
+
+    // 1. **Assign all search results to their folder, if present**
     for (const res of results) {
         let entity, type, avatar, id;
         if (res.type === "character" || (res.item && res.item.spec)) {
             entity = res.item ? res.item : res;
             type = "character";
-            avatar = entity.avatar || entity.avatar_url;
-            id = res.id || entity.id;
+            avatar = (entity.avatar || entity.avatar_url || "").trim();
+            id = res.id || entity.id || avatar;
+            if (!avatar) continue;
+            let folderId = charToFolder.get(avatar);
+            if (folderId) {
+                if (!folderMatches[folderId]) folderMatches[folderId] = { folder: folders.find(f => f.id === folderId), chars: [] };
+                let entityObj = entityByAvatar[avatar] || entity;
+                folderMatches[folderId].chars.push(entityObj);
+                alreadyAssigned.add(avatar);
+                continue;
+            }
         } else if (res.type === "group" || (res.item && res.item.members)) {
             entity = res.item ? res.item : res;
             type = "group";
-            avatar = null;
             id = res.id || entity.id;
+            if (!id) continue;
+            let folderId = charToFolder.get(id);
+            if (folderId) {
+                if (!folderMatches[folderId]) folderMatches[folderId] = { folder: folders.find(f => f.id === folderId), chars: [] };
+                let entityObj = entityById[id] || entity;
+                folderMatches[folderId].chars.push(entityObj);
+                alreadyAssigned.add(id);
+                continue;
+            }
         }
-        // Look up both id and avatar in the map (cover all cases)
-        let folderId = null;
-        if (type === "character") {
-            folderId = charToFolder.get(avatar);
-        } else if (type === "group") {
-            folderId = charToFolder.get(id);
-        }
-        if (!folderId) folderId = ORPHAN_KEY;
-        if (!folderMatches[folderId]) folderMatches[folderId] = { folder: folders.find(f => f.id === folderId), chars: [] };
-        // Use correct entity object
-        let entityObj = (type === "character" && avatar && entityByAvatar[avatar]) ? entityByAvatar[avatar]
-                      : (type === "group" && id && entityById[id]) ? entityById[id]
-                      : entity;
-        folderMatches[folderId].chars.push(entityObj);
+        // If not found in any folder, handle below.
     }
-    
-    // Sort folder keys: folders first, then orphans
+
+    // 2. **Assign remaining search results to orphans**
+    for (const res of results) {
+        let entity, type, avatar, id;
+        if (res.type === "character" || (res.item && res.item.spec)) {
+            entity = res.item ? res.item : res;
+            type = "character";
+            avatar = (entity.avatar || entity.avatar_url || "").trim();
+            id = res.id || entity.id || avatar;
+            if (!avatar || alreadyAssigned.has(avatar)) continue;
+            if (!folderMatches[ORPHAN_KEY]) folderMatches[ORPHAN_KEY] = { folder: null, chars: [] };
+            let entityObj = entityByAvatar[avatar] || entity;
+            folderMatches[ORPHAN_KEY].chars.push(entityObj);
+            alreadyAssigned.add(avatar);
+        } else if (res.type === "group" || (res.item && res.item.members)) {
+            entity = res.item ? res.item : res;
+            type = "group";
+            id = res.id || entity.id;
+            if (!id || alreadyAssigned.has(id)) continue;
+            if (!folderMatches[ORPHAN_KEY]) folderMatches[ORPHAN_KEY] = { folder: null, chars: [] };
+            let entityObj = entityById[id] || entity;
+            folderMatches[ORPHAN_KEY].chars.push(entityObj);
+            alreadyAssigned.add(id);
+        }
+    }
+
+    // 3. **Sort and render as before**
     const folderOrder = Object.keys(folderMatches).sort((a, b) => {
         if (a === ORPHAN_KEY) return 1;
         if (b === ORPHAN_KEY) return -1;
@@ -374,7 +407,7 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents_search';
 
-        // Always: characters first, then groups
+        // Characters first, then groups
         const display = chars.slice().sort((a, b) => {
             if (a.type === b.type) return 0;
             if (a.type === "character") return -1;
@@ -382,11 +415,10 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         });
 
         display.forEach(entity => {
-            // Attach tags at the top level, but keep the entity structure intact
             entity.tags = getTagsForChar(entity.id || entity.item?.avatar, buildTagMap(tags));
             grid.appendChild(renderSidebarCharacterCard(entity));
         });
-        
+
         container.appendChild(grid);
     }
 }
