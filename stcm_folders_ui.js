@@ -248,7 +248,21 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
         // Folder label
         const folderLabel = document.createElement('div');
         folderLabel.className = 'stcm_search_folder_label';
-        folderLabel.textContent = folder ? folder.name : "Not in a Folder";
+    
+        // --- Folder icon (default or custom)
+        const iconClass = folder && folder.icon ? folder.icon : 'fa-folder';
+        const icon = document.createElement('i');
+        icon.className = `fa-solid ${iconClass}`;
+        icon.style.marginRight = "2px";
+        icon.style.fontSize = "0.8em";
+        icon.style.opacity = "0.92";
+        icon.style.verticalAlign = "middle";
+    
+        folderLabel.appendChild(icon);
+    
+        // Folder name text
+        folderLabel.appendChild(document.createTextNode(folder ? folder.name : "Not in a Folder"));
+    
         container.appendChild(folderLabel);
 
         // Native grid container (matches SillyTavern style)
