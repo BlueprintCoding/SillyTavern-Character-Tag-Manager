@@ -14,6 +14,12 @@ cleanTagMap,
 promptInput,
 } from './utils.js';
 
+import { accountStorage } from '../../../util/AccountStorage.js';
+import {
+    openWelcomeScreen
+} from "../../../welcome-screen.js"
+
+
 import * as stcmFolders from './stcm_folders.js';
 
 import {
@@ -40,7 +46,11 @@ import {
     characters,
     getCharacters,
     printCharactersDebounced,
-    saveSettingsDebounced
+    saveSettingsDebounced,
+    eventSource, 
+    event_types,
+    setActiveCharacter,
+    setActiveGroup
 } from "../../../../script.js";
 
 import { groups, getGroupAvatar } from '../../../../scripts/group-chats.js';
@@ -908,12 +918,6 @@ eventSource.on(event_types.APP_READY, async () => {
             setActiveCharacter(null)
             setActiveGroup(null);
             openWelcomeScreen();
-            currentSidebarFolderId = 'root';
-            stcmSearchActive = false;
-            stcmSearchResults = null;
-            stcmSearchTerm = '';
-            stcmLastSearchFolderId = null;
-            orphanFolderExpanded = false;
             const input = document.getElementById('character_search_bar');
             if (input) input.value = '';
             injectSidebarFolders(STCM.sidebarFolders);
