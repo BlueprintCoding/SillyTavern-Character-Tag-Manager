@@ -161,6 +161,7 @@ export function injectSidebarFolders(folders) {
         let rawResults = fuzzySearchCharacters(stcmSearchTerm);
     
         let charToFolder = buildCharacterToFolderMap(folders);
+        let parentMap = buildParentMap(folders);
         let filteredResults = rawResults.filter(res => {
             let folderId;
             if (res.type === "character" || (res.item && res.item.spec)) {
@@ -172,13 +173,12 @@ export function injectSidebarFolders(folders) {
                 let id = res.id || entity.id;
                 folderId = charToFolder.get(id);
             }
-            // Only filter if privacy mode is 0 (private folders hidden)
-            if (folderId && privateFolderVisibilityMode === 0 && isInPrivateFolder(folderId, folders)) {
+            if (folderId && privateFolderVisibilityMode === 0 && isInPrivateFolder(folderId, folders, parentMap)) {
                 return false;
             }
             return true;
         });
-        renderSidebarFolderSearchResult(folders, allEntities, filteredResults, stcmSearchTerm);
+        arFolderSearchResult(folders, allEntities, filteredResults, stcmSearchTerm);
     } else {
         renderSidebarFolderContents(folders, allEntities, currentSidebarFolderId);
     }
@@ -281,6 +281,17 @@ function characterMatchesTerm(char, term) {
     return false;
 }
 
+function buildParentMap(folders) {
+    const parentMap = {};
+    folders.forEach(folder => {
+        (folder.children || []).forEach(childId => {
+            parentMap[childId] = folder.id;
+        });
+    });
+    return parentMap;
+}
+
+
 function buildCharacterToFolderMap(folders) {
     // Returns: Map (characterAvatar => folderId)
     const map = new Map();
@@ -300,15 +311,18 @@ function buildCharacterToFolderMap(folders) {
     return map;
 }
 
-function isInPrivateFolder(folderId, folders) {
-    let current = folders.find(f => f.id === folderId);
-    while (current) {
-        if (current.private) return true;
-        // Find parent
-        current = folders.find(f => Array.isArray(f.children) && f.children.includes(current.id));
+function isInPrivateFolder(folderId, folders, parentMap) {
+    let currentId = folderId;
+    const foldersById = {};
+    folders.forEach(f => { foldersById[f.id] = f; });
+
+    while (currentId && foldersById[currentId]) {
+        if (foldersById[currentId].private) return true;
+        currentId = parentMap[currentId];
     }
     return false;
 }
+
 
 
 function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
