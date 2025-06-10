@@ -608,7 +608,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             }
         }
 
-        document.getElementById('rm_button_characters')?.addEventListener('click', () => {
+        $('#rm_button_characters').click(function () {
             // Reset to root
             console.log("return fired");
             accountStorage.setItem('SelectedNavTab', 'rm_button_selected_ch');
