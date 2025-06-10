@@ -254,9 +254,10 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
         const icon = document.createElement('i');
         icon.className = `fa-solid ${iconClass}`;
         icon.style.marginRight = "2px";
-        icon.style.fontSize = "0.8em";
+        icon.style.marginTop = "2px";
+        icon.style.fontSize = "0.88em";
         icon.style.opacity = "0.92";
-        icon.style.verticalAlign = "middle";
+        icon.style.verticalAlign = "top";
     
         folderLabel.appendChild(icon);
     
