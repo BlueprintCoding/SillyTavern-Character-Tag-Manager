@@ -354,9 +354,6 @@ nav#right-nav-panel.drawer-content {
 div#rightNavHolder.drawer {
     overflow: hidden !important;
 }
-[id^="BogusFolder"] {
-    display: none !important;
-}
 `;
     }
 }
