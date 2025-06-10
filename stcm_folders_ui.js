@@ -269,21 +269,22 @@ function characterMatchesTerm(char, term) {
 }
 
 function buildCharacterToFolderMap(folders) {
+    // Returns: Map (characterAvatar/id => folderId)
     const map = new Map();
-    function walk(folder, parentId = null) {
-        if (folder.characters) {
-            folder.characters.forEach(chid => {
-                // If character appears in multiple folders, first match wins (adjust if you want "all folders")
-                if (!map.has(chid)) {
-                    map.set(chid, folder.id);
-                }
-            });
-        }
+
+    function walk(folder) {
+        // Characters (by avatar)
+        (folder.characters || []).forEach(chid => {
+            // Prefer first assignment (closest to root wins)
+            if (!map.has(chid)) map.set(chid, folder.id);
+        });
+        // Recurse children
         (folder.children || []).forEach(childId => {
-            const childFolder = folders.find(f => f.id === childId);
-            if (childFolder) walk(childFolder, folder.id);
+            const child = folders.find(f => f.id === childId);
+            if (child) walk(child);
         });
     }
+    // Start from root
     const root = folders.find(f => f.id === "root");
     if (root) walk(root);
     else folders.forEach(f => walk(f));
@@ -325,25 +326,22 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
             avatar = null;
             id = res.id || entity.id;
         }
-
-        // Use the map!
+        // Look up both id and avatar in the map (cover all cases)
         let folderId = null;
-        if (type === "character" && avatar && charToFolder.has(avatar)) {
-            folderId = charToFolder.get(avatar);
-        } else if (type === "group" && id && charToFolder.has(id)) {
+        if (type === "character") {
+            folderId = charToFolder.get(avatar) || charToFolder.get(id);
+        } else if (type === "group") {
             folderId = charToFolder.get(id);
         }
         if (!folderId) folderId = ORPHAN_KEY;
-
         if (!folderMatches[folderId]) folderMatches[folderId] = { folder: folders.find(f => f.id === folderId), chars: [] };
-
-        // reconstruct proper entity object for rendering
+        // Use correct entity object
         let entityObj = (type === "character" && avatar && entityByAvatar[avatar]) ? entityByAvatar[avatar]
-                    : (type === "group" && id && entityById[id]) ? entityById[id]
-                    : entity;
+                      : (type === "group" && id && entityById[id]) ? entityById[id]
+                      : entity;
         folderMatches[folderId].chars.push(entityObj);
     }
-
+    
     // Sort folder keys: folders first, then orphans
     const folderOrder = Object.keys(folderMatches).sort((a, b) => {
         if (a === ORPHAN_KEY) return 1;
