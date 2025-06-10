@@ -42,6 +42,7 @@ let stcmSearchActive = false;
 let stcmSearchResults = null;
 let stcmSearchTerm = '';
 let stcmObserver = null;
+let stcmLastSearchFolderId = null;
 let lastInjectedAt = 0;
 let lastSidebarInjection = 0;
 let lastKnownCharacterAvatars = [];
@@ -695,18 +696,25 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         // Show characters in this folder (full card style)
         (folder.characters || []).forEach(folderVal => {
-            // Try to match a character by avatar, or group by id
-            const entity = allEntities.find(e => (
-                (e.type === "character" && e.avatar === folderVal) ||
+            const entity = allEntities.find(e =>
+                (e.type === "character" && e.item.avatar === folderVal) ||
                 (e.type === "group" && e.id === folderVal)
-            ));
+            );
             if (entity) {
-                // Pass tags, etc as needed
-                const tagsForEntity = getTagsForChar(entity.id || entity.avatar, tagsById);
-                const entityCard = renderSidebarCharacterCard({ ...entity, tags: tagsForEntity });
-                contentDiv.appendChild(entityCard);
+                // You may want to pass .item for character cards (see below)
+                const tagsForEntity = getTagsForChar(entity.id || entity.item.avatar, tagsById);
+                // For characters, pass { ...entity.item, tags: tagsForEntity }
+                // For groups, pass { ...entity, tags: tagsForEntity }
+                if (entity.type === "character") {
+                    const entityCard = renderSidebarCharacterCard({ ...entity.item, tags: tagsForEntity });
+                    contentDiv.appendChild(entityCard);
+                } else {
+                    const entityCard = renderSidebarCharacterCard({ ...entity, tags: tagsForEntity });
+                    contentDiv.appendChild(entityCard);
+                }
             }
         });
+        
         
         
         
