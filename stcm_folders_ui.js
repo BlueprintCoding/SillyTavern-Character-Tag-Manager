@@ -343,33 +343,55 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
 }
 
 function hideFolderedCharactersOutsideSidebar(folders) {
-    // 1. Hide all character/group cards except bogus folders
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
-    // Hide all character/group selects except .bogus_folder_select
+    // Hide all main character cards
     for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
-        // Only hide if not inside a bogus folder select (so they can stay as previews)
         el.classList.add('stcm_force_hidden');
     }
 
-    // 2. UNHIDE all those inside the *currently opened* folder grid
-    // Find the open folder grid (".stcm_folder_contents" is used in your modal/sidebar)
-    const openFolderGrid = document.getElementById('stcm_folder_contents');
-    if (openFolderGrid) {
-        for (const el of openFolderGrid.querySelectorAll('.character_select, .group_select')) {
-            el.classList.remove('stcm_force_hidden');
-        }
-    }
-
-    // 3. Never hide bogus folders (sidebar or preview blocks)
+    // Always show bogus folders & label
     for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
         el.classList.remove('stcm_force_hidden');
     }
-    // Optionally, remove force-hidden from your label
     let label = document.getElementById('stcm_no_folder_label');
     if (label) label.classList.remove('stcm_force_hidden');
+
+    // ----- Here's the crucial bit! -----
+    // UNHIDE the actual .character_select cards in the main list matching the open folder (including orphans)
+
+    // Figure out which characters/groups should be visible based on current folder view
+    let visibleIds = [];
+    if (currentSidebarFolderId === 'orphans') {
+        // Get all not-in-any-folder (orphans)
+        const orphanedEntities = getEntitiesNotInAnyFolder(folders);
+        visibleIds = orphanedEntities.map(e =>
+            (e.type === "character" && e.item && e.item.avatar)
+                ? e.item.avatar
+                : (e.type === "group" ? e.id : null)
+        );
+    } else if (currentSidebarFolderId && currentSidebarFolderId !== 'root') {
+        // A normal folder; show its assigned
+        const folder = folders.find(f => f.id === currentSidebarFolderId);
+        if (folder && Array.isArray(folder.characters)) {
+            visibleIds = folder.characters.slice();
+        }
+    } else {
+        // If root: don't show any character/group cards in the main list
+        visibleIds = [];
+    }
+
+    // Unhide those in the main list whose avatar/id matches a visibleId
+    for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
+        // for character cards
+        let avatar = el.getAttribute('data-chid') || el.getAttribute('chid');
+        if (visibleIds.includes(avatar)) {
+            el.classList.remove('stcm_force_hidden');
+        }
+    }
 }
+
 
 
 
