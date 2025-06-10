@@ -351,14 +351,6 @@ function isTagFolderDiveActive() {
 }
 
 
-function isTagFolderDiveActive() {
-    // Find all .bogus_folder_select_back elements NOT inside the template
-    const backs = Array.from(document.querySelectorAll('.bogus_folder_select_back'));
-    return backs.some(back =>
-        !back.closest('#bogus_folder_back_template') && back.offsetParent !== null
-    );
-}
-
 function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return false;
