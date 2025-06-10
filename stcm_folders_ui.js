@@ -178,7 +178,8 @@ export function injectSidebarFolders(folders) {
             }
             return true;
         });
-        arFolderSearchResult(folders, allEntities, filteredResults, stcmSearchTerm);
+        
+        renderSidebarFolderSearchResult(folders, allEntities, filteredResults, stcmSearchTerm);
     } else {
         renderSidebarFolderContents(folders, allEntities, currentSidebarFolderId);
     }
