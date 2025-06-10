@@ -546,6 +546,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
 
     // ====== Top of Folder List: Orphan Cards ======
+    // Top of folder list: show orphan "folder" in root, navigate in
     if (folderId === 'root') {
         const orphanedEntities = getEntitiesNotInAnyFolder(folders);
         if (orphanedEntities.length > 0) {
@@ -553,46 +554,64 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             orphanDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
             orphanDiv.setAttribute('data-folder-id', 'orphans');
             orphanDiv.style.cursor = 'pointer';
-    
-            let iconColor = "#8887c2";
-            let iconClass = orphanFolderExpanded ? 'fa-folder-open' : 'fa-folder';
-            let charCount = orphanedEntities.length;
-    
+
             orphanDiv.innerHTML = `
                 <div class="stcm_folder_main">
                     <div class="avatar flex alignitemscenter textAlignCenter"
-                        style="background-color: ${iconColor}; color: #fff;">
-                        <i class="bogus_folder_icon fa-solid fa-xl ${iconClass}"></i>
+                        style="background-color: #8887c2; color: #fff;">
+                        <i class="bogus_folder_icon fa-solid fa-xl fa-folder"></i>
                     </div>
                     <span class="ch_name stcm_folder_name" title="[Folder] Cards not in Folder">Cards not in Folder</span>
                     <div class="stcm_folder_counts">
-                        <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
+                        <div class="stcm_folder_char_count">${orphanedEntities.length} Card${orphanedEntities.length === 1 ? '' : 's'}</div>
                         <div class="stcm_folder_folder_count" style="opacity:0.5;">0 folders</div>
                     </div>
                 </div>
             `;
-    
-            orphanDiv.onclick = (e) => {
-                window.STCM_orphanFolderExpanded = !window.STCM_orphanFolderExpanded;
-                renderSidebarFolderContents(folders, allEntities, folderId);
-            };
-    
-            container.appendChild(orphanDiv);
-    
-            if (window.STCM_orphanFolderExpanded) {
-                const grid = document.createElement('div');
-                grid.className = 'stcm_folder_contents';
-                orphanedEntities
-                .filter(e => e.type === "character" || e.type === "group")
-                .forEach(entity => {
-                    const entityCard = renderSidebarCharacterCard(entity);  
-                    grid.appendChild(entityCard);
-                });
 
-                container.appendChild(grid);
-            }
+            orphanDiv.onclick = () => {
+                currentSidebarFolderId = 'orphans';
+                renderSidebarFolderContents(folders, allEntities, 'orphans');
+            };
+
+            container.appendChild(orphanDiv);
         }
+        // ... regular children display below
     }
+
+    // --- If in "orphans" pseudo-folder, show just orphans with a back button
+    if (folderId === 'orphans') {
+        // --- Breadcrumb ---
+        const bcDiv = document.createElement('div');
+        bcDiv.className = 'stcm_folders_breadcrumb';
+        bcDiv.textContent = ".../Cards not in Folder";
+        container.appendChild(bcDiv);
+
+        // --- Back Button ---
+        const backBtn = document.createElement('div');
+        backBtn.className = "sidebar-folder-back";
+        backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
+        backBtn.style.cursor = 'pointer';
+        backBtn.onclick = () => {
+            currentSidebarFolderId = 'root';
+            renderSidebarFolderContents(folders, allEntities, 'root');
+        };
+        container.appendChild(backBtn);
+
+        // --- Orphaned card grid ---
+        const orphanedEntities = getEntitiesNotInAnyFolder(folders);
+        const grid = document.createElement('div');
+        grid.className = 'stcm_folder_contents';
+        orphanedEntities.forEach(entity => {
+            const entityCard = renderSidebarCharacterCard(entity);
+            grid.appendChild(entityCard);
+        });
+        container.appendChild(grid);
+
+        // Don't render any children/folders/other stuff
+        return;
+    }
+
 
     const folder = folders.find(f => f.id === folderId);
     if (!folder && folderId !== 'root') return;
