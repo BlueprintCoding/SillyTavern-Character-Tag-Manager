@@ -351,6 +351,41 @@ function isTagFolderDiveActive() {
 }
 
 
+function hideFolderedCharactersOutsideSidebar(folders) {
+    const globalList = document.getElementById('rm_print_characters_block');
+    if (!globalList) return;
+
+    // Hide all by default
+    for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
+        el.classList.add('stcm_force_hidden');
+    }
+
+    // If we are in a tag folder dive, UNHIDE the right characters
+    if (isTagFolderDiveActive()) {
+        // All character/group cards after the #stcm_no_folder_label, until the next .bogus_folder_select (or end of block)
+        let label = document.getElementById('stcm_no_folder_label');
+        if (label) {
+            let el = label.nextElementSibling;
+            while (el && !el.classList.contains('bogus_folder_select')) {
+                if (el.classList.contains('character_select') || el.classList.contains('group_select')) {
+                    el.classList.remove('stcm_force_hidden');
+                }
+                el = el.nextElementSibling;
+            }
+        }
+    }
+
+    // Never hide the bogus folders
+    for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
+        el.classList.remove('stcm_force_hidden');
+    }
+
+    // Optionally: never hide the label
+    let label = document.getElementById('stcm_no_folder_label');
+    if (label) label.classList.remove('stcm_force_hidden');
+}
+
+
 function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return false;
