@@ -377,13 +377,16 @@ function hideFolderedCharactersOutsideSidebar(folders) {
         console.log("isDIVE?");
         let label = document.getElementById('stcm_no_folder_label');
         if (label) {
+            console.log("islabel?");
             let el = label.nextElementSibling;
             // Skip all back buttons
             while (el && el.classList.contains('bogus_folder_select_back')) {
                 el = el.nextElementSibling;
             }
             while (el && !el.classList.contains('bogus_folder_select')) {
+                console.log("isDIVEFolder?");
                 if (el.classList.contains('character_select') || el.classList.contains('group_select')) {
+                    console.log("isDIVEFolderChar?");
                     el.classList.remove('stcm_force_hidden');
                     el.classList.add('FoundDiveFolder');
                 }
