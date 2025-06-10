@@ -371,13 +371,13 @@ function hideFolderedCharactersOutsideSidebar(folders) {
         el.classList.add('stcm_force_hidden');
     }
 
-    // If we are in a tag folder dive, UNHIDE the right characters
+
+        // If we are in a tag folder dive, UNHIDE the right characters
     if (isTagFolderDiveActive()) {
-        // All character/group cards after the #stcm_no_folder_label, until the next .bogus_folder_select (or end of block)
         let label = document.getElementById('stcm_no_folder_label');
         if (label) {
             let el = label.nextElementSibling;
-            // SKIP any .bogus_folder_select_back (the back button)
+            // Skip all back buttons
             while (el && el.classList.contains('bogus_folder_select_back')) {
                 el = el.nextElementSibling;
             }
@@ -387,7 +387,6 @@ function hideFolderedCharactersOutsideSidebar(folders) {
                 }
                 el = el.nextElementSibling;
             }
-            
         }
     }
 
