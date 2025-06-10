@@ -234,9 +234,7 @@ async function renderCharacterList() {
             // --- Font Awesome icon ---
             const folderIcon = document.createElement('i');
             folderIcon.className = 'fa-solid fa-folder-open';
-            folderIcon.style.fontSize = '1em';
-            folderIcon.style.opacity = '0.8';
-            folderIcon.style.color = '#c6b48d';
+            folderIcon.style.fontSize = '1.5em';
         
             // --- Dropdown ---
             folderDropdown = document.createElement('select');
