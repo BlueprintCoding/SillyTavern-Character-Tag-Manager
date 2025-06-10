@@ -415,15 +415,16 @@ function getEntitiesNotInAnyFolder(folders) {
         }
     });
     return allEntities.filter(e => {
-        if (e.type === "character" && e.avatar) {
-            return !assigned.has(e.avatar);
+        if (e.type === "character" && e.item && e.item.avatar) {
+            // Use avatar filename for characters
+            return !assigned.has(e.item.avatar);
         }
         if (e.type === "group" && e.id) {
+            // Use id for groups
             return !assigned.has(e.id);
         }
         return false;
     });
-    
 }
 
 
