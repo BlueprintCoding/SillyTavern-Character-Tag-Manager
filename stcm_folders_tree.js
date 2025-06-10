@@ -41,7 +41,7 @@ import { groups }               from "../../../../scripts/group-chats.js";
 
 // If you keep the global STCM object (as in index.js) you can re-use it here:
 export const STCM_TREE = { renderFoldersTree: null };
-
+const collapsedFolders = {};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -125,6 +125,32 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     });
 
     row.prepend(dragHandle);
+
+    // Only show toggle if this folder has children
+    const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
+    if (hasChildren) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'stcm-folder-toggle-btn';
+        toggleBtn.style.marginRight = '2px';
+        toggleBtn.style.background = 'none';
+        toggleBtn.style.border = 'none';
+        toggleBtn.style.cursor = 'pointer';
+        toggleBtn.style.padding = '0 4px';
+        toggleBtn.title = collapsedFolders[folder.id] ? 'Expand' : 'Collapse';
+
+        // Use a FontAwesome caret (down for open, right for collapsed)
+        toggleBtn.innerHTML = `<i class="fa-solid fa-caret-${collapsedFolders[folder.id] ? 'right' : 'down'}"></i>`;
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            collapsedFolders[folder.id] = !collapsedFolders[folder.id];
+            // Rerender just this node and its children for simplicity
+            const newNode = renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContainer);
+            node.replaceWith(newNode);
+        });
+
+        row.appendChild(toggleBtn);
+    }
+
 
     // ── icon (click → icon picker) ────────────────────────────────────────
     const iconBg = document.createElement('div');
@@ -278,6 +304,8 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
         const childrenContainer = document.createElement('div');
         childrenContainer.className = 'stcm_folder_children';
         childrenContainer.style.display = 'block';
+
+        childrenContainer.style.display = collapsedFolders[folder.id] ? 'none' : 'block';
 
         // drop-line before first child
         childrenContainer.appendChild(

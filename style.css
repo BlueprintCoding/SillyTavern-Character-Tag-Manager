@@ -783,6 +783,20 @@
     gap: 7px;
 }
 
+.stcm-folder-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+    line-height: 1;
+    margin-left: -8px; /* line up nicely with indents */
+    color: var(--ac-style-color-text, #ccc);
+}
+.stcm-folder-toggle-btn:focus {
+    outline: none;
+}
+
+
 /* Drag ghost is handled by the browser using cloneNode */
 .stcm-drop-hover {
     outline: 2px dashed var(--ac-style-color-accent, #6ec0ff);
