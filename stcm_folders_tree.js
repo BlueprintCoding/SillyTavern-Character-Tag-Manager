@@ -131,7 +131,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     if (hasChildren) {
         const toggleBtn = document.createElement('button');
         toggleBtn.className = 'stcm-folder-toggle-btn';
-        toggleBtn.style.marginRight = '2px';
+        toggleBtn.style.marginLeft = '2px';
         toggleBtn.style.background = 'none';
         toggleBtn.style.border = 'none';
         toggleBtn.style.cursor = 'pointer';
@@ -895,10 +895,36 @@ if (folderSearchInput) {
             }
         }
 
-        // (Optional: If you want to update other UI elsewhere when searching, do it here)
     }, 180));
 }
     
+    // collapse/expand all folders
+    const collapseAllBtn = modalRoot.querySelector('#collapseAllFoldersBtn');
+    const expandAllBtn = modalRoot.querySelector('#expandAllFoldersBtn');
+
+    if (collapseAllBtn && expandAllBtn) {
+        collapseAllBtn.addEventListener('click', async () => {
+            const folders = await stcmFolders.loadFolders();
+            folders.forEach(f => {
+                if (f.id !== 'root' && Array.isArray(f.children) && f.children.length > 0)
+                    collapsedFolders[f.id] = true;
+            });
+            // Rerender
+            const treeContainer = modalRoot.querySelector('#foldersTreeContainer');
+            await renderFoldersTree(treeContainer, { onTreeChanged: (folders) => refreshFolderUI(treeContainer, folders) });
+        });
+        expandAllBtn.addEventListener('click', async () => {
+            const folders = await stcmFolders.loadFolders();
+            folders.forEach(f => {
+                if (f.id !== 'root' && Array.isArray(f.children) && f.children.length > 0)
+                    collapsedFolders[f.id] = false;
+            });
+            // Rerender
+            const treeContainer = modalRoot.querySelector('#foldersTreeContainer');
+            await renderFoldersTree(treeContainer, { onTreeChanged: (folders) => refreshFolderUI(treeContainer, folders) });
+        });
+    }
+
 }
 
 
