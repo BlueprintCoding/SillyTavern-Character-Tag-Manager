@@ -269,22 +269,18 @@ function characterMatchesTerm(char, term) {
 }
 
 function buildCharacterToFolderMap(folders) {
-    // Returns: Map (characterAvatar/id => folderId)
+    // Returns: Map (characterAvatar => folderId)
     const map = new Map();
 
     function walk(folder) {
-        // Characters (by avatar)
         (folder.characters || []).forEach(chid => {
-            // Prefer first assignment (closest to root wins)
-            if (!map.has(chid)) map.set(chid, folder.id);
+            if (!map.has(chid)) map.set(chid, folder.id); // chid is avatar
         });
-        // Recurse children
         (folder.children || []).forEach(childId => {
             const child = folders.find(f => f.id === childId);
             if (child) walk(child);
         });
     }
-    // Start from root
     const root = folders.find(f => f.id === "root");
     if (root) walk(root);
     else folders.forEach(f => walk(f));
@@ -329,7 +325,7 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         // Look up both id and avatar in the map (cover all cases)
         let folderId = null;
         if (type === "character") {
-            folderId = charToFolder.get(avatar) || charToFolder.get(id);
+            folderId = charToFolder.get(avatar);
         } else if (type === "group") {
             folderId = charToFolder.get(id);
         }
