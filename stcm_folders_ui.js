@@ -147,7 +147,7 @@ export function injectSidebarFolders(folders) {
     parent.insertBefore(sidebar, parent.firstChild);
 
     const allEntities = getEntitiesList();
-    console.log(allEntities);
+    // console.log(allEntities);
     if (stcmSearchActive && stcmSearchResults && stcmSearchTerm) {
         renderSidebarFolderSearchResult(folders, allEntities, stcmSearchResults, stcmSearchTerm);
     } else {
@@ -362,7 +362,7 @@ function isTagFolderDiveActive() {
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
-    console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
+    // console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
@@ -392,7 +392,7 @@ function hideFolderedCharactersOutsideSidebar(folders) {
                         el.classList.add('FoundDiveFolder');
                         document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
                         // For debugging:
-                        console.log('UNHIDING:', el);
+                        // console.log('UNHIDING:', el);
                     }
                     el = el.nextElementSibling;
                 }
