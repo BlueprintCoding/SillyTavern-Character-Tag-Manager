@@ -23,9 +23,10 @@ import {
         characters,
         selectCharacterById,
         eventSource, 
-        event_types
+        event_types,
+        getEntitiesList
     } from "../../../../script.js";
-    
+
     import { STCM } from './index.js';
     
     import {
@@ -396,17 +397,17 @@ function getVisibleDescendantCharacterCount(folderId, folders) {
     return total;
 }
 
-function getCharactersNotInAnyFolder(allCharacters, folders) {
-    // Build set of all character IDs in any folder
+function getEntitiesNotInAnyFolder(allEntities, folders) {
+    // allEntities = characters.concat(groups)
     const assigned = new Set();
     folders.forEach(f => {
         if (Array.isArray(f.characters)) {
             f.characters.forEach(id => assigned.add(id));
         }
     });
-    // Return characters/groups not present in any folder
-    return allCharacters.filter(c => !assigned.has(c.avatar));
+    return allEntities.filter(e => !assigned.has(e.avatar));
 }
+
 
 
 export function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
@@ -522,7 +523,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
 
     // ====== Top of Folder List: Orphan Cards ======
     if (folderId === 'root') {
-        const orphanedChars = getCharactersNotInAnyFolder(allCharacters, folders);
+        const orphanedChars = getEntitiesNotInAnyFolder(allCharacters, folders);
         if (orphanedChars.length > 0) {
             // Folder-like row for orphans
             const orphanDiv = document.createElement('div');
