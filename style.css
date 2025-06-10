@@ -442,6 +442,17 @@
     font-size: 0.9em;
 }
 
+.charFolderDropdown {
+    font-size: 0.99em;
+    border-radius: 4px;
+    border: 1px solid #bbb;
+    background: var(--ac-style-color-background, #23232b);
+    color: var(--ac-style-color-text, #ccc);
+    padding: 2px 7px;
+    margin-left: 8px;
+}
+
+
 /* === Tag List, Tag Groups, Tag Chips === */
 .tagNameEditable {
     display: flex;

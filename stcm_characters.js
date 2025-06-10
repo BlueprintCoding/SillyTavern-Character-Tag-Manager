@@ -12,11 +12,13 @@ import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
 import { callSaveandReload } from "./index.js";
 import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
+import * as stcmFolders from './stcm_folders.js';
 
 
-function renderCharacterList() {
+async function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
     if (!wrapper) return;
+    const folders = await stcmFolders.loadFolders(); 
 
     // Remove all old content
     wrapper.innerHTML = '';
@@ -215,6 +217,52 @@ function renderCharacterList() {
         noteBtn.style.marginLeft = '8px';
 
         nameRow.appendChild(noteBtn);
+        
+        // --- FOLDER DROPDOWN ---
+        let folderDropdown;
+        let assignedFolder = null;
+
+        if (entity.type === 'character') {
+            assignedFolder = stcmFolders.getCharacterAssignedFolder(entity.id, folders);
+
+            folderDropdown = document.createElement('select');
+            folderDropdown.className = 'charFolderDropdown';
+            folderDropdown.style.marginLeft = '8px';
+
+            // Add option for "No Folder"
+            const optNone = document.createElement('option');
+            optNone.value = '';
+            optNone.textContent = '-- No Folder --';
+            folderDropdown.appendChild(optNone);
+
+            // Add all folders as options
+            folders.forEach(folder => {
+                if (folder.id === 'root') return; // skip root as assignable
+                const opt = document.createElement('option');
+                opt.value = folder.id;
+                opt.textContent = folder.name;
+                if (assignedFolder && folder.id === assignedFolder.id) opt.selected = true;
+                folderDropdown.appendChild(opt);
+            });
+
+            // Show which folder, allow removal or change
+            folderDropdown.addEventListener('change', async (e) => {
+                const newFolderId = e.target.value;
+                // Remove from old folder first
+                if (assignedFolder) {
+                    await stcmFolders.removeCharacterFromFolder(assignedFolder.id, entity.id);
+                }
+                if (newFolderId) {
+                    await stcmFolders.assignCharactersToFolder(newFolderId, [entity.id]);
+                }
+                toastr.success('Folder assignment updated.');
+                callSaveandReload();
+                renderCharacterList();
+                renderTagSection && renderTagSection();
+            });
+            nameRow.appendChild(folderDropdown);
+        }
+
         rightContent.appendChild(nameRow);
 
         // Note editor wrapper
