@@ -275,10 +275,13 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents_search'; // or your native grid class
 
-        chars.forEach(entity => {
-            const entityCard = renderSidebarCharacterCard(entity);  
-            grid.appendChild(entityCard);
-        });
+        chars
+            .filter(e => e.type === "character" || e.type === "group")
+            .forEach(entity => {
+                const entityCard = renderSidebarCharacterCard(entity);  
+                grid.appendChild(entityCard);
+            });
+
         
         container.appendChild(grid);
     });
@@ -410,7 +413,9 @@ function getEntitiesNotInAnyFolder(folders) {
             f.characters.forEach(id => assigned.add(id));
         }
     });
-    return allEntities.filter(e => !assigned.has(e.id));
+    return allEntities.filter(
+        e => (e.type === "character" || e.type === "group") && !assigned.has(e.id)
+    );
 }
 
 
@@ -563,10 +568,13 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             if (window.STCM_orphanFolderExpanded) {
                 const grid = document.createElement('div');
                 grid.className = 'stcm_folder_contents';
-                orphanedEntities.forEach(entity => {
+                orphanedEntities
+                .filter(e => e.type === "character" || e.type === "group")
+                .forEach(entity => {
                     const entityCard = renderSidebarCharacterCard(entity);  
                     grid.appendChild(entityCard);
                 });
+
                 container.appendChild(grid);
             }
         }
@@ -682,12 +690,13 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         (folder.characters || []).forEach(entityId => {
             const entity = allEntities.find(e => e.id === entityId);
-            if (entity) {
+            if (entity && (entity.type === "character" || entity.type === "group")) {
                 const tagsForEntity = getTagsForChar(entity.id, tagsById);
                 const entityCard = renderSidebarCharacterCard(entity); 
                 contentDiv.appendChild(entityCard);
             }
         });
+        
         container.appendChild(contentDiv);
 }
 
