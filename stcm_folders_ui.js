@@ -93,7 +93,7 @@ export async function updateSidebar(forceReload = false) {
             hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
             suppressSidebarObserver = false; 
             watchSidebarFolderInjection(); // This will recreate the observer
-        }, 0);
+        }, 100);
     } catch (e) {
         suppressSidebarObserver = false; 
         console.error("Sidebar update failed:", e);
