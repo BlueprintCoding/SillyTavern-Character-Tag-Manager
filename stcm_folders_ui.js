@@ -321,19 +321,19 @@ function hideFolderedCharactersOutsideSidebar(folders) {
     }
 
     // Hide avatars in bogus folder previews
-    for (const container of document.querySelectorAll('.bogus_folder_avatars_block')) {
-        for (const el of container.querySelectorAll('.avatar[data-type="character"]')) {
-            const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-            if (!img) continue;
+    // for (const container of document.querySelectorAll('.bogus_folder_avatars_block')) {
+    //     for (const el of container.querySelectorAll('.avatar[data-type="character"]')) {
+    //         const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
+    //         if (!img) continue;
 
-            const url = new URL(img.src, window.location.origin);
-            const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
+    //         const url = new URL(img.src, window.location.origin);
+    //         const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
 
-            if (folderedCharAvatars.has(avatarFile)) {
-                el.style.display = 'none';
-            }
-        }
-    }
+    //         if (folderedCharAvatars.has(avatarFile)) {
+    //             el.style.display = 'none';
+    //         }
+    //     }
+    // }
 }
 
 
