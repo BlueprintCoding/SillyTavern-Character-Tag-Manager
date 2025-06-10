@@ -104,17 +104,15 @@ function insertNoFolderLabelIfNeeded() {
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
 
-    // Find any visible character not in a folder
-    // They have data-stcm-hidden-by-folder != "true"
-    const firstUnfoldered = Array.from(parent.children).find(child =>
-        child.classList?.contains('character_select') &&
-        child.dataset.stcmHiddenByFolder !== 'true'
+    // Find the first bogus folder block
+    const firstBogusFolder = Array.from(parent.children).find(child =>
+        child.classList?.contains('bogus_folder_select')
     );
-    if (firstUnfoldered) {
+    if (firstBogusFolder) {
         // Create label
         const label = document.createElement('div');
         label.id = 'stcm_no_folder_label';
-        label.textContent = 'Characters Not in Folders';
+        label.textContent = 'Tag Folders';
         label.style.cssText = `
             margin: 18px 0 7px 0;
             font-weight: 700;
@@ -123,7 +121,7 @@ function insertNoFolderLabelIfNeeded() {
             padding-left: 2px;
             color: var(--ac-style-color-text, #bbb);
         `;
-        parent.insertBefore(label, firstUnfoldered);
+        parent.insertBefore(label, firstBogusFolder);
     }
 }
 
