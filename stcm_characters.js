@@ -226,32 +226,41 @@ async function renderCharacterList() {
 
         if (entity.type === 'character') {
             assignedFolder = stcmFolders.getCharacterAssignedFolder(entity.id, folders);
-
+        
+            // --- Create container for icon + dropdown ---
+            const folderDropdownWrapper = document.createElement('span');
+            folderDropdownWrapper.className = 'charFolderDropdownWrapper';
+        
+            // --- Font Awesome icon ---
+            const folderIcon = document.createElement('i');
+            folderIcon.className = 'fa-solid fa-folder-open';
+            folderIcon.style.fontSize = '1em';
+            folderIcon.style.opacity = '0.8';
+            folderIcon.style.color = '#c6b48d';
+        
+            // --- Dropdown ---
             folderDropdown = document.createElement('select');
             folderDropdown.className = 'charFolderDropdown';
-            folderDropdown.style.marginLeft = '8px';
-            // Make sure indents work visually!
-            folderDropdown.style.fontFamily = "'Fira Mono', 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace";
             folderDropdown.style.whiteSpace = 'pre';
-
+        
             // Add option for "No Folder"
             const optNone = document.createElement('option');
             optNone.value = '';
             optNone.textContent = '-- No Folder --';
             folderDropdown.appendChild(optNone);
-
+        
             // Use indented tree
             const folderOptions = getFolderOptionsTree(folders, [], 'root', 0)
                 .filter(opt => opt.id !== 'root'); // Don't allow root as assignable
-
+        
             folderOptions.forEach(opt => {
                 const option = document.createElement('option');
                 option.value = opt.id;
-                option.innerHTML = opt.name; // opt.name includes &nbsp; for indentation
+                option.innerHTML = opt.name; // .name contains indents (&nbsp;)
                 if (assignedFolder && opt.id === assignedFolder.id) option.selected = true;
                 folderDropdown.appendChild(option);
             });
-
+        
             // Folder assignment change handler
             folderDropdown.addEventListener('change', async (e) => {
                 const newFolderId = e.target.value;
@@ -267,10 +276,15 @@ async function renderCharacterList() {
                 renderCharacterList();
                 renderTagSection && renderTagSection();
             });
-
-            nameRow.appendChild(folderDropdown);
+        
+            // --- Put icon and dropdown together ---
+            folderDropdownWrapper.appendChild(folderIcon);
+            folderDropdownWrapper.appendChild(folderDropdown);
+        
+            // --- Insert into the row ---
+            nameRow.appendChild(folderDropdownWrapper);
         }
-
+        
 
         rightContent.appendChild(nameRow);
 
