@@ -906,21 +906,21 @@ eventSource.on(event_types.APP_READY, async () => {
     watchSidebarFolderInjection(); 
     hookFolderSidebarEvents();
     injectStcmSettingsPanel();    
-// hard char refresh
-    const charBtn = document.getElementById('rm_button_characters');
-    if (charBtn) {
-        charBtn.addEventListener('click', () => {
-            console.log("return fired");
-            accountStorage.setItem('SelectedNavTab', 'rm_button_selected_ch');
-            accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
-            setActiveCharacter(null)
-            setActiveGroup(null);
-            openWelcomeScreen();
-            const input = document.getElementById('character_search_bar');
-            if (input) input.value = '';
-            injectSidebarFolders(STCM.sidebarFolders);
-        });
-    }
+// // hard char refresh
+//     const charBtn = document.getElementById('rm_button_characters');
+//     if (charBtn) {
+//         charBtn.addEventListener('click', () => {
+//             console.log("return fired");
+//             accountStorage.setItem('SelectedNavTab', 'rm_button_selected_ch');
+//             accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
+//             setActiveCharacter(null)
+//             setActiveGroup(null);
+//             openWelcomeScreen();
+//             const input = document.getElementById('character_search_bar');
+//             if (input) input.value = '';
+//             injectSidebarFolders(STCM.sidebarFolders);
+//         });
+//     }
 
 });
 
