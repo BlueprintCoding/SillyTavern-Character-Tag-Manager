@@ -405,18 +405,22 @@ function getVisibleDescendantCharacterCount(folderId, folders) {
     return total;
 }
 
-function getEntitiesNotInAnyFolder(folders) {
-    const allEntities = getEntitiesList();
-    const assigned = new Set();
-    folders.forEach(f => {
-        if (Array.isArray(f.characters)) {
-            f.characters.forEach(id => assigned.add(id));
-        }
-    });
-    return allEntities.filter(
-        e => (e.type === "character" || e.type === "group") && !assigned.has(e.id)
-    );
-}
+const assigned = new Set();
+folders.forEach(f => {
+    if (Array.isArray(f.characters)) {
+        f.characters.forEach(val => assigned.add(val));
+    }
+});
+return allEntities.filter(e => {
+    if (e.type === "character" && e.avatar) {
+        return !assigned.has(e.avatar);
+    }
+    if (e.type === "group" && e.id) {
+        return !assigned.has(e.id);
+    }
+    return false;
+});
+
 
 
 
@@ -687,15 +691,18 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
    
 
         // Show characters in this folder (full card style)
-
-        (folder.characters || []).forEach(entityId => {
-            const entity = allEntities.find(e => e.id === entityId);
-            if (entity && (entity.type === "character" || entity.type === "group")) {
-                const tagsForEntity = getTagsForChar(entity.id, tagsById);
-                const entityCard = renderSidebarCharacterCard(entity); 
-                contentDiv.appendChild(entityCard);
+        (folder.characters || []).forEach(folderVal => {
+            // Try to match by avatar for characters, id for groups
+            const entity = allEntities.find(e => {
+                if (e.type === "character") return e.avatar === folderVal;
+                if (e.type === "group") return e.id === folderVal;
+                return false;
+            });
+            if (entity) {
+                // render
             }
         });
+        
         
         container.appendChild(contentDiv);
 }
