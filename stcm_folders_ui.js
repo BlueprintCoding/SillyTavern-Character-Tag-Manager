@@ -754,6 +754,12 @@ export function renderSidebarCharacterCard(entity) {
     let desc = ent.description || ent.creatorcomment || "";
     let isGroup = ent.type === 'group';
     let avatarHtml;
+
+    const div = document.createElement('div');
+    div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
+    div.setAttribute('chid', ent.id);
+    div.setAttribute('data-chid', ent.id);
+    div.tabIndex = 0;
     
     if (isGroup && Array.isArray(ent.members) && ent.members.length > 0) {
         // Use up to 3 member avatars for the collage
