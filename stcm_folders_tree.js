@@ -331,7 +331,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
                     });
                 }
             }
-        }, 20); // Small delay for UI painting
+        }, 100); // Small delay for UI painting
     });
     row.appendChild(charBtn);
 
