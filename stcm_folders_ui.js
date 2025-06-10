@@ -866,13 +866,8 @@ export function showFolderColorPicker(folder, rerender) {
 
 // entity can be a top-level {item, id, type} or just an item
 function getEntityChid(entity) {
-    // Prefer top-level id if present (for character and group)
-    if (entity.id !== undefined && entity.type) return entity.id;
-    // If it's just the inner item (not recommended), fallback to avatar or id
-    if (entity.avatar) return entity.avatar;
-    if (entity.item && entity.item.id) return entity.item.id;
-    if (entity.item && entity.item.avatar) return entity.item.avatar;
-    return undefined;
+    // Use the top-level id if present
+    return entity && entity.id !== undefined ? entity.id : undefined;
 }
 
 
