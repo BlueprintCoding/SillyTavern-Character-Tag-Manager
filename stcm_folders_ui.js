@@ -38,14 +38,13 @@ let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
 let sidebarUpdateInProgress = false;
 let stcmSearchActive = false;
-let stcmLastSearchFolderId = null;
 let stcmSearchResults = null;
 let stcmSearchTerm = '';
 let stcmObserver = null;
-let lastInjectedAt = 0;
-let lastSidebarInjection = 0;
 let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
+let orphanFolderExpanded = false;
+
 
 const debouncedUpdateSidebar = debounce(() => updateSidebar(true), 100);
 
@@ -521,17 +520,18 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
     container.appendChild(controlRow);
 
 
-    // ===== CARDS NOT IN FOLDER SECTION =====
     // ====== Top of Folder List: Orphan Cards ======
     if (folderId === 'root') {
         const orphanedChars = getCharactersNotInAnyFolder(allCharacters, folders);
         if (orphanedChars.length > 0) {
-            // Label
+            // Label (clickable)
             const orphanLabel = document.createElement('div');
-            orphanLabel.className = 'stcm_search_folder_label';
+            orphanLabel.className = 'stcm_search_folder_label stcm_folder_row_clickable';
+            orphanLabel.style.cursor = "pointer";
+            orphanLabel.style.fontWeight = orphanFolderExpanded ? "bold" : "normal";
             // Folder icon
             const icon = document.createElement('i');
-            icon.className = 'fa-solid fa-folder-open';
+            icon.className = 'fa-solid fa-folder' + (orphanFolderExpanded ? '-open' : '');
             icon.style.marginRight = "7px";
             icon.style.fontSize = "0.93em";
             icon.style.opacity = "0.92";
@@ -539,18 +539,27 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             orphanLabel.appendChild(icon);
             // Name
             orphanLabel.appendChild(document.createTextNode("Cards not in Folder"));
-            container.appendChild(orphanLabel);
-
-            // Card grid
-            const grid = document.createElement('div');
-            grid.className = 'stcm_folder_contents'; // matches normal grid style
-            orphanedChars.forEach(char => {
-                const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
-                grid.appendChild(charCard);
+    
+            orphanLabel.addEventListener("click", () => {
+                orphanFolderExpanded = !orphanFolderExpanded;
+                renderSidebarFolderContents(folders, allCharacters, folderId);
             });
-            container.appendChild(grid);
+    
+            container.appendChild(orphanLabel);
+    
+            // Only show cards if expanded
+            if (orphanFolderExpanded) {
+                const grid = document.createElement('div');
+                grid.className = 'stcm_folder_contents';
+                orphanedChars.forEach(char => {
+                    const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
+                    grid.appendChild(charCard);
+                });
+                container.appendChild(grid);
+            }
         }
     }
+    
 
 
     const folder = folders.find(f => f.id === folderId);
