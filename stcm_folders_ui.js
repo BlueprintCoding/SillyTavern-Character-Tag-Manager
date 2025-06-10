@@ -287,6 +287,17 @@ function buildCharacterToFolderMap(folders) {
     return map;
 }
 
+function isInPrivateFolder(folderId, folders) {
+    let current = folders.find(f => f.id === folderId);
+    while (current) {
+        if (current.private) return true;
+        // Find parent
+        current = folders.find(f => Array.isArray(f.children) && f.children.includes(current.id));
+    }
+    return false;
+}
+
+
 function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
@@ -325,8 +336,8 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
             // 🚩 Hide if assigned to private folder and private folders are hidden
             if (
                 folder &&
-                folder.private &&
-                privateFolderVisibilityMode === 0
+                privateFolderVisibilityMode === 0 &&
+                isInPrivateFolder(folderId, folders)
             ) {
                 return; // Skip this character in search view
             }
@@ -344,9 +355,9 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
 
             // 🚩 Hide if assigned to private folder and private folders are hidden
             if (
-                folder &&
-                folder.private &&
-                privateFolderVisibilityMode === 0
+                folderId &&
+                privateFolderVisibilityMode === 0 &&
+                isInPrivateFolder(folderId, folders)
             ) {
                 return; // Skip this group in search view
             }
