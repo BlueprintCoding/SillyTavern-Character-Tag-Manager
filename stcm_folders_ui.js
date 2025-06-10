@@ -604,6 +604,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         document.getElementById('rm_button_characters')?.addEventListener('click', () => {
             // Reset to root
+            accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
             currentSidebarFolderId = 'root';
             // You should also clear any search or orphan views if needed:
             stcmSearchActive = false;
@@ -613,13 +614,8 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             orphanFolderExpanded = false; // if used
             const input = document.getElementById('character_search_bar');
             if (input) input.value = '';
-            
-            accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
-        
             // Redraw the sidebar folder UI
-            if (typeof injectSidebarFolders === 'function') {
                 injectSidebarFolders(STCM.sidebarFolders); // or whatever triggers the folder UI rerender
-            }
         });
     
         renderSidebarFolderContents(folders, allEntities, folderId);
