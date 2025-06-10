@@ -82,7 +82,7 @@ export function hookFolderSidebarEvents() {
 export async function updateSidebar(forceReload = false) {
     if (sidebarUpdateInProgress) return;
     sidebarUpdateInProgress = true;
-    suppressSidebarObserver = true; /
+    suppressSidebarObserver = true; 
     try {
         if (forceReload || !STCM.sidebarFolders?.length) {
             STCM.sidebarFolders = await stcmFolders.loadFolders();
