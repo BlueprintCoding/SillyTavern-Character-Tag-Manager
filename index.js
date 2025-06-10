@@ -899,7 +899,6 @@ eventSource.on(event_types.APP_READY, async () => {
     hookFolderSidebarEvents();
     injectStcmSettingsPanel();    
 // hard char refresh
-document.addEventListener('DOMContentLoaded', function() {
     const charBtn = document.getElementById('rm_button_characters');
     if (charBtn) {
         charBtn.addEventListener('click', () => {
@@ -920,7 +919,6 @@ document.addEventListener('DOMContentLoaded', function() {
             injectSidebarFolders(STCM.sidebarFolders);
         });
     }
-});
 
 });
 
