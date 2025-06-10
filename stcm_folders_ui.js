@@ -192,6 +192,7 @@ function hookIntoCharacterSearchBar(folders, allEntities) {
     
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
+            accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
             stcmSearchActive = false;
             stcmSearchResults = null;
             stcmSearchTerm = '';
