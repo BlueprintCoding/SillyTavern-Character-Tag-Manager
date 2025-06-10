@@ -147,7 +147,7 @@ export function injectSidebarFolders(folders) {
     parent.insertBefore(sidebar, parent.firstChild);
 
     const allEntities = getEntitiesList();
-    // console.log(allEntities);
+    console.log(allEntities);
     if (stcmSearchActive && stcmSearchResults && stcmSearchTerm) {
         renderSidebarFolderSearchResult(folders, allEntities, stcmSearchResults, stcmSearchTerm);
     } else {
@@ -881,7 +881,7 @@ function getEntityChid(entity) {
 export function renderSidebarCharacterCard(entity) {
     // Flatten
     let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
-    console.log(ent);
+
     let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
     let desc = ent.description || ent.creatorcomment || "";
     let isGroup = ent.type === 'group';
