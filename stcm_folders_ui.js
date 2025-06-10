@@ -312,14 +312,12 @@ function buildCharacterToFolderMap(folders) {
     return map;
 }
 
-function isInPrivateFolder(folderId, folders, parentMap) {
-    let currentId = folderId;
-    const foldersById = {};
-    folders.forEach(f => { foldersById[f.id] = f; });
-
-    while (currentId && foldersById[currentId]) {
-        if (foldersById[currentId].private) return true;
-        currentId = parentMap[currentId];
+function isInPrivateFolder(folderId, folders) {
+    let current = folders.find(f => f.id === folderId);
+    while (current) {
+        if (current.private) return true;
+        if (!current.parentId) break;
+        current = folders.find(f => f.id === current.parentId);
     }
     return false;
 }
