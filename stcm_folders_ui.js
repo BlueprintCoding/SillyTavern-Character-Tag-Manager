@@ -7,33 +7,35 @@ import {
     hashPin,
     promptInput
     } from './utils.js';
-    
-    import * as stcmFolders from './stcm_folders.js';
-    
-    import {
-        tags,
-        tag_map,
-    } from "../../../tags.js";
-    
-    import {
-        fuzzySearchCharacters
-    } from "../../../power-user.js";
-    
-    import {
-        characters,
-        selectCharacterById,
-        eventSource, 
-        event_types,
-        getEntitiesList
-    } from "../../../../script.js";
 
-    import { STCM } from './index.js';
-    
-    import {
-        POPUP_RESULT,
-        POPUP_TYPE,
-        callGenericPopup
-    } from "../../../popup.js"
+import { accountStorage } from '../../../util/AccountStorage.js';
+
+import * as stcmFolders from './stcm_folders.js';
+
+import {
+    tags,
+    tag_map,
+} from "../../../tags.js";
+
+import {
+    fuzzySearchCharacters
+} from "../../../power-user.js";
+
+import {
+    characters,
+    selectCharacterById,
+    eventSource, 
+    event_types,
+    getEntitiesList
+} from "../../../../script.js";
+
+import { STCM } from './index.js';
+
+import {
+    POPUP_RESULT,
+    POPUP_TYPE,
+    callGenericPopup
+} from "../../../popup.js"
 
 let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
