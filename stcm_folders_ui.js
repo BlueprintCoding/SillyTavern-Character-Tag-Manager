@@ -405,22 +405,25 @@ function getVisibleDescendantCharacterCount(folderId, folders) {
     return total;
 }
 
-const assigned = new Set();
-folders.forEach(f => {
-    if (Array.isArray(f.characters)) {
-        f.characters.forEach(val => assigned.add(val));
-    }
-});
-return allEntities.filter(e => {
-    if (e.type === "character" && e.avatar) {
-        return !assigned.has(e.avatar);
-    }
-    if (e.type === "group" && e.id) {
-        return !assigned.has(e.id);
-    }
-    return false;
-});
-
+function getEntitiesNotInAnyFolder(folders) {
+    const allEntities = getEntitiesList();
+    const assigned = new Set();
+    folders.forEach(f => {
+        if (Array.isArray(f.characters)) {
+            f.characters.forEach(val => assigned.add(val));
+        }
+    });
+    return allEntities.filter(e => {
+        if (e.type === "character" && e.avatar) {
+            return !assigned.has(e.avatar);
+        }
+        if (e.type === "group" && e.id) {
+            return !assigned.has(e.id);
+        }
+        return false;
+    });
+    
+}
 
 
 
@@ -691,6 +694,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
    
 
         // Show characters in this folder (full card style)
+
         (folder.characters || []).forEach(folderVal => {
             // Try to match by avatar for characters, id for groups
             const entity = allEntities.find(e => {
@@ -699,10 +703,11 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 return false;
             });
             if (entity) {
-                // render
+                const tagsForEntity = getTagsForChar(entity.id, tagsById);
+                const entityCard = renderSidebarCharacterCard(entity); 
+                contentDiv.appendChild(entityCard);
             }
         });
-        
         
         container.appendChild(contentDiv);
 }
