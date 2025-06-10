@@ -614,7 +614,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 <div class="stcm_folder_main">
                     <div class="avatar flex alignitemscenter textAlignCenter"
                         style="background-color: #8887c2; color: #fff;">
-                        <i class="bogus_folder_icon fa-solid fa-xl fa-folder"></i>
+                        <i class="bogus_folder_icon fa-solid fa-xl fa-stack-overflow"></i>
                     </div>
                     <span class="ch_name stcm_folder_name" title="[Folder] Cards not in Folder">Cards not in Folder</span>
                     <div class="stcm_folder_counts">
