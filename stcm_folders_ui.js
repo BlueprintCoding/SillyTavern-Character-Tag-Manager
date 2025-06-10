@@ -864,25 +864,26 @@ export function showFolderColorPicker(folder, rerender) {
     });
 }
 
-// entity can be a top-level {item, id, type} or just an item
 function getEntityChid(entity) {
-    // Use the top-level id if present
-    return entity && entity.id !== undefined ? entity.id : undefined;
+    if (!entity) return undefined;
+    // Top-level id is always preferred
+    if ('id' in entity && entity.id !== undefined) return entity.id;
+    // Sometimes passed a flattened { ...item }
+    if ('avatar' in entity) return entity.avatar;
+    // Defensive fallback
+    return undefined;
 }
 
-
-
-
 export function renderSidebarCharacterCard(entity) {
-    // Flatten
+    // ALWAYS pass the full entity, not just ent
+    const chid = getEntityChid(entity);
+        // Flatten
     let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
 
     let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
     let desc = ent.description || ent.creatorcomment || "";
     let isGroup = ent.type === 'group';
 
-    const chid = getEntityChid(entity); 
-    
     // Escape dangerous fields
     const escapedName = escapeHtml(ent.name || "");
     const escapedDesc = escapeHtml(desc || "");
