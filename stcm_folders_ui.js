@@ -925,8 +925,13 @@ export function renderSidebarCharacterCard(entity) {
     `;
 
     div.addEventListener('click', function(e) {
-        const allEntities = getEntitiesList();
-        const id = allEntities.findIndex(ent2 => ent2.id === ent.id);
+        let id = -1;
+        if (ent.type === "character" && ent.avatar) {
+            id = characters.findIndex(c => c.avatar === ent.avatar);
+        } else if (ent.type === "group" && ent.id) {
+            const allEntities = getEntitiesList();
+            id = allEntities.findIndex(ent2 => ent2.id === ent.id);
+        }
         if (id !== -1 && typeof selectCharacterById === 'function') {
             selectCharacterById(id);
             if (typeof setActiveGroup === 'function') setActiveGroup(null);
@@ -935,6 +940,7 @@ export function renderSidebarCharacterCard(entity) {
             toastr.warning('Unable to activate entity: not found.');
         }
     });
+    
 
     return div;
 }
