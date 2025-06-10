@@ -414,17 +414,22 @@ function getEntitiesNotInAnyFolder(folders) {
             f.characters.forEach(val => assigned.add(val));
         }
     });
-    return allEntities.filter(e => {
-        if (e.type === "character" && e.item && e.item.avatar) {
-            // Use avatar filename for characters
-            return !assigned.has(e.item.avatar);
-        }
-        if (e.type === "group" && e.id) {
-            // Use id for groups
-            return !assigned.has(e.id);
-        }
-        return false;
-    });
+    return allEntities
+        .filter(e => {
+            if (e.type === "character" && e.item && e.item.avatar) {
+                return !assigned.has(e.item.avatar);
+            }
+            if (e.type === "group" && e.id) {
+                return !assigned.has(e.id);
+            }
+            return false;
+        })
+        .sort((a, b) => {
+            // Characters come first
+            if (a.type === b.type) return 0;
+            if (a.type === "character") return -1;
+            return 1;
+        });
 }
 
 
