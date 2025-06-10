@@ -864,23 +864,37 @@ export function showFolderColorPicker(folder, rerender) {
     });
 }
 
+function getEntityChid(entity) {
+    // Entity can be full or .item, or a mix
+    if (entity.type === "character") {
+        if (entity.item && entity.item.id) return entity.item.id;
+        if (entity.avatar) return entity.avatar;
+        if (entity.item && entity.item.avatar) return entity.item.avatar;
+        if (entity.id) return entity.id;
+        return undefined; // Should never happen
+    }
+    if (entity.type === "group" || entity.type === "tag" || entity.type === "folder") {
+        return entity.id;
+    }
+    // Fallback
+    return entity.id || (entity.item && entity.item.id) || entity.avatar || (entity.item && entity.item.avatar);
+}
+
+
 
 export function renderSidebarCharacterCard(entity) {
-    // Flatten
     let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
 
-    let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
-    let desc = ent.description || ent.creatorcomment || "";
-    let isGroup = ent.type === 'group';
-
-    // Escape dangerous fields
+    // (escape fields etc...)
     const escapedName = escapeHtml(ent.name || "");
-    const escapedDesc = escapeHtml(desc || "");
+    const escapedDesc = escapeHtml(ent.description || ent.creatorcomment || "");
+
+    const chid = getEntityChid(entity);
 
     const div = document.createElement('div');
     div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
-    div.setAttribute('chid', ent.id);
-    div.setAttribute('data-chid', ent.id);
+    div.setAttribute('chid', chid);
+    div.setAttribute('data-chid', chid);
     div.tabIndex = 0;
     
     let avatarHtml;
@@ -924,22 +938,22 @@ export function renderSidebarCharacterCard(entity) {
         </div>
     `;
 
-    div.addEventListener('click', function(e) {
-        // Try avatar-based lookup for all characters (always works for folder or non-folder)
-        let id = -1;
-        if (char.avatar) {
-            id = characters.findIndex(c => c.avatar === char.avatar);
-        }
-        // Optionally: add group support here with a separate function
+    // div.addEventListener('click', function(e) {
+    //     // Try avatar-based lookup for all characters (always works for folder or non-folder)
+    //     let id = -1;
+    //     if (char.avatar) {
+    //         id = characters.findIndex(c => c.avatar === char.avatar);
+    //     }
+    //     // Optionally: add group support here with a separate function
     
-        if (id !== -1 && typeof selectCharacterById === 'function') {
-            selectCharacterById(id);
-            if (typeof setActiveGroup === 'function') setActiveGroup(null);
-            if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-        } else {
-            toastr.warning('Unable to activate character: not found.');
-        }
-    });
+    //     if (id !== -1 && typeof selectCharacterById === 'function') {
+    //         selectCharacterById(id);
+    //         if (typeof setActiveGroup === 'function') setActiveGroup(null);
+    //         if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
+    //     } else {
+    //         toastr.warning('Unable to activate character: not found.');
+    //     }
+    // });
     
 
     return div;
