@@ -162,37 +162,68 @@ export function injectSidebarFolders(folders) {
         renderSidebarFolderContents(folders, allEntities, currentSidebarFolderId);
     }
     
+    replaceCharacterSearchBar();
+    insertStcmCharacterSearchBar();
     hookIntoCharacterSearchBar(folders, allEntities);
     insertNoFolderLabelIfNeeded();
 }
 
 
+function replaceCharacterSearchBar() {
+    // Remove original search input if present
+    const oldInput = document.getElementById('character_search_bar');
+    if (oldInput) oldInput.remove();
+
+    // Remove original select if present
+    const oldSelect = document.getElementById('character_sort_order');
+    if (oldSelect) oldSelect.remove();
+
+    // Optionally, also remove any labels/wrappers if needed:
+    // oldInput.closest('.some-parent-class')?.remove();
+}
+
+function insertStcmCharacterSearchBar() {
+    const parent = document.getElementById('rm_print_characters_block');
+    if (!parent) return;
+
+    // Prevent duplicate
+    if (document.getElementById('character_search_bar_stcm')) return;
+
+    // Create your new search bar
+    const stcmInput = document.createElement('input');
+    stcmInput.id = 'character_search_bar_stcm';
+    stcmInput.className = 'stcm_text_pole width100p'; // Use your styling
+    stcmInput.type = 'search';
+    stcmInput.placeholder = 'Search...';
+
+    // Insert at top
+    parent.insertBefore(stcmInput, parent.firstChild);
+}
 
 
-function hookIntoCharacterSearchBar(folders, allEntities) {
-    const input = document.getElementById('character_search_bar');
+function hookIntoCharacterSearchBar() {
+    const input = document.getElementById('character_search_bar_stcm');
     if (!input || input.dataset.stcmHooked) return;
     input.dataset.stcmHooked = "true";
 
     input.addEventListener('input', debounce(() => {
+        const currentFolders = window.STCM?.sidebarFolders || [];
+        const allEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
+
         const term = input.value.trim();
         stcmSearchActive = !!term;
-    
-        // --- ALWAYS grab the freshest folders/entities!
-        const currentFolders = window.STCM?.sidebarFolders || [];
-        const currentEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
-    
+
         if (term) {
             stcmSearchTerm = term;
             stcmSearchResults = fuzzySearchCharacters(term);
-            injectSidebarFolders(currentFolders, currentEntities);
+            injectSidebarFolders(currentFolders);
         } else {
             stcmSearchActive = false;
             stcmSearchResults = null;
             stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
             currentSidebarFolderId = 'root';
-            injectSidebarFolders(currentFolders, currentEntities);
+            injectSidebarFolders(currentFolders);
         }
         setTimeout(() => {
             document.querySelectorAll('.text_block.hidden_block').forEach(block => {
@@ -202,7 +233,6 @@ function hookIntoCharacterSearchBar(folders, allEntities) {
     }, 150));
     
     
-    
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
             accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
@@ -210,7 +240,7 @@ function hookIntoCharacterSearchBar(folders, allEntities) {
             stcmSearchResults = null;
             stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
-            const input = document.getElementById('character_search_bar');
+            const input = document.getElementById('character_search_bar_stcm');
             if (input) input.value = '';
             currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
             injectSidebarFolders(folders);
