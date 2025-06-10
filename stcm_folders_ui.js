@@ -42,6 +42,8 @@ let stcmSearchActive = false;
 let stcmSearchResults = null;
 let stcmSearchTerm = '';
 let stcmObserver = null;
+let lastInjectedAt = 0;
+let lastSidebarInjection = 0;
 let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
 let orphanFolderExpanded = false;
@@ -750,20 +752,33 @@ export function renderSidebarCharacterCard(entity) {
 
     let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
     let desc = ent.description || ent.creatorcomment || "";
-
-    const div = document.createElement('div');
-    div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
-    div.setAttribute('chid', ent.id);
-    div.setAttribute('data-chid', ent.id);
-    div.tabIndex = 0;
-
+    let isGroup = ent.type === 'group';
+    let avatarHtml;
+    
+    if (isGroup && Array.isArray(ent.members) && ent.members.length > 0) {
+        // Use up to 3 member avatars for the collage
+        let members = ent.members.slice(0, 3);
+        avatarHtml = `
+            <div class="avatar avatar_collage collage_${members.length}" title="[Group] ${ent.name}">
+                ${members.map((mem, i) => `
+                    <img alt="img${i+1}" class="img_${i+1}" src="/thumbnail?type=avatar&file=${encodeURIComponent(mem)}">
+                `).join('')}
+            </div>
+        `;
+    } else {
+        // Single avatar for character
+        avatarHtml = `
+            <div class="avatar" title="[Character] ${ent.name}\nFile: ${avatarUrl}">
+                <img src="${avatarUrl.startsWith('img/') ? avatarUrl : '/thumbnail?type=avatar&file=' + encodeURIComponent(avatarUrl)}" alt="${ent.name}">
+            </div>
+        `;
+    }
+    
     div.innerHTML = `
-        <div class="avatar" title="[${ent.type === 'group' ? 'Group' : 'Character'}] ${ent.name}\nFile: ${avatarUrl}">
-            <img src="${avatarUrl.startsWith('img/') ? avatarUrl : '/thumbnail?type=avatar&file=' + encodeURIComponent(avatarUrl)}" alt="${ent.name}">
-        </div>
+        ${avatarHtml}
         <div class="flex-container wide100pLess70px character_select_container">
             <div class="wide100p character_name_block">
-                <span class="ch_name" title="[${ent.type === 'group' ? 'Group' : 'Character'}] ${ent.name}">${ent.name}</span>
+                <span class="ch_name" title="[${isGroup ? 'Group' : 'Character'}] ${ent.name}">${ent.name}</span>
                 <small class="ch_additional_info ch_add_placeholder">+++</small>
                 <small class="ch_additional_info ch_avatar_url"></small>
             </div>
@@ -779,6 +794,7 @@ export function renderSidebarCharacterCard(entity) {
             </div>
         </div>
     `;
+    
 
     div.addEventListener('click', function(e) {
         const allEntities = getEntitiesList();
