@@ -872,54 +872,58 @@ export function renderSidebarCharacterCard(entity) {
     let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
     let desc = ent.description || ent.creatorcomment || "";
     let isGroup = ent.type === 'group';
-    let avatarHtml;
 
-    const div = document.createElement('div');
-    div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
-    div.setAttribute('chid', ent.id);
-    div.setAttribute('data-chid', ent.id);
-    div.tabIndex = 0;
-    
+    // ⬇ Escape all fields that might be set by users or files!
+    const escapedName = escapeHtml(ent.name || "");
+    const escapedDesc = escapeHtml(desc || "");
+    const escapedAvatarUrl = escapeHtml(avatarUrl);
+    // Tags may be undefined, so always escape
+    const safeTags = (ent.tags || []).map(tag => ({
+        color: tag.color || '',
+        color2: tag.color2 || '',
+        name: escapeHtml(tag.name || "")
+    }));
+
+    let avatarHtml;
     if (isGroup && Array.isArray(ent.members) && ent.members.length > 0) {
         // Use up to 3 member avatars for the collage
         let members = ent.members.slice(0, 3);
         avatarHtml = `
-            <div class="avatar avatar_collage collage_${members.length}" title="[Group] ${ent.name}">
-                ${members.map((mem, i) => `
-                    <img alt="img${i+1}" class="img_${i+1}" src="/thumbnail?type=avatar&file=${encodeURIComponent(mem)}">
-                `).join('')}
+            <div class="avatar avatar_collage collage_${members.length}" title="[Group] ${escapedName}">
+                ${members.map((mem, i) =>
+                    `<img alt="img${i+1}" class="img_${i+1}" src="/thumbnail?type=avatar&file=${encodeURIComponent(mem)}">`
+                ).join('')}
             </div>
         `;
     } else {
         // Single avatar for character
         avatarHtml = `
-            <div class="avatar" title="[Character] ${ent.name}\nFile: ${avatarUrl}">
-                <img src="${avatarUrl.startsWith('img/') ? avatarUrl : '/thumbnail?type=avatar&file=' + encodeURIComponent(avatarUrl)}" alt="${ent.name}">
+            <div class="avatar" title="[Character] ${escapedName}\nFile: ${escapedAvatarUrl}">
+                <img src="${avatarUrl.startsWith('img/') ? avatarUrl : '/thumbnail?type=avatar&file=' + encodeURIComponent(avatarUrl)}" alt="${escapedName}">
             </div>
         `;
     }
-    
+
     div.innerHTML = `
         ${avatarHtml}
         <div class="flex-container wide100pLess70px character_select_container">
             <div class="wide100p character_name_block">
-                <span class="ch_name" title="[${isGroup ? 'Group' : 'Character'}] ${ent.name}">${ent.name}</span>
+                <span class="ch_name" title="[${isGroup ? 'Group' : 'Character'}] ${escapedName}">${escapedName}</span>
                 <small class="ch_additional_info ch_add_placeholder">+++</small>
                 <small class="ch_additional_info ch_avatar_url"></small>
             </div>
             <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
             <input class="ch_fav" value="" hidden="" keeper-ignore="">
-            <div class="ch_description">${desc}</div>
+            <div class="ch_description">${escapedDesc}</div>
             <div class="tags tags_inline">
-                ${(ent.tags || []).map(tag =>
-                    `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
+                ${safeTags.map(tag =>
+                    `<span class="tag" style="background-color: ${tag.color}; color: ${tag.color2};">
                         <span class="tag_name">${tag.name}</span>
                     </span>`
                 ).join('')}
             </div>
         </div>
     `;
-    
 
     div.addEventListener('click', function(e) {
         const allEntities = getEntitiesList();
@@ -935,6 +939,7 @@ export function renderSidebarCharacterCard(entity) {
 
     return div;
 }
+
 
 
 
