@@ -16,6 +16,10 @@ import {
     } from "../../../tags.js";
     
     import {
+        fuzzySearchCharacters
+    } from "../../../power-user.js";
+    
+    import {
         characters,
         selectCharacterById,
         eventSource, 
@@ -149,53 +153,27 @@ function hookIntoCharacterSearchBar(folders, allCharacters) {
     input.dataset.stcmHooked = "true";
 
     input.addEventListener('input', debounce(() => {
-        const term = input.value.trim().toLowerCase();
+        const term = input.value.trim();
         stcmSearchActive = !!term;
-        stcmLastSearchFolderId = null;
     
-        let match = null, matchFolder = null;
         if (term) {
-            for (const folder of folders) {
-                for (const charAvatar of (folder.characters || [])) {
-                    const char = allCharacters.find(c => c.avatar === charAvatar);
-                    if (char && characterMatchesTerm(char, term)) {
-                        match = char;
-                        matchFolder = folder;
-                        break;
-                    }
-                }
-                if (match) break;
-            }
-
-            if (match && matchFolder) {
-                stcmLastSearchFolderId = matchFolder.id;
-                stcmSearchActive = true;
-                currentSidebarFolderId = matchFolder.id;
-                renderSidebarFolderSearchResult(folders, allCharacters, matchFolder.id, term);
-            } else {
-                // No match: show sidebar with all folders from root (or you could show a "no results" message)
-                stcmLastSearchFolderId = null;
-                stcmSearchActive = true;
-                currentSidebarFolderId = 'root';
-                renderSidebarFolderContents(folders, allCharacters, 'root');
-            }
+            // Use fuzzy search for results
+            const results = fuzzySearchCharacters(term);
+            renderSidebarAllFolderSearchResults(folders, allCharacters, results, term);
         } else {
-            // Search is empty; reset view and folder state
             stcmSearchActive = false;
             stcmLastSearchFolderId = null;
             currentSidebarFolderId = 'root';
             renderSidebarFolderContents(folders, allCharacters, 'root');
         }
-
         // Hide or show the "characters hidden" info block based on search state
         setTimeout(() => {
             document.querySelectorAll('.text_block.hidden_block').forEach(block => {
                 block.style.display = stcmSearchActive ? 'none' : '';
             });
         }, 1);
-
-
     }, 150));
+    
     
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
@@ -244,64 +222,44 @@ function characterMatchesTerm(char, term) {
 
 
 // Only shows the folder open with matches highlighted inside
-function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term) {
+function renderSidebarFolderSearchResult(folders, allCharacters, results, term) {
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
 
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder) return;
+    const contentDiv = document.createElement('div');
+    contentDiv.id = 'stcm_folder_contents';
+    contentDiv.className = 'stcm_folder_contents';
 
-    // --- Breadcrumb Label ---
-    const breadcrumbDiv = document.createElement('div');
-    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
-    const chain = getFolderChain(folderId, folders);
-    if (chain.length > 0) {
-        const names = chain.map(f => f.name);
-        names[0] = '.../' + names[0];
-        breadcrumbDiv.textContent = names.join(' / ');
-    } else {
-        breadcrumbDiv.textContent = ".../";
+    // Map: folderId -> [matching characters]
+    const folderMatches = {};
+    for (const res of results) {
+        const char = res.item;
+        // Find the folder(s) this character belongs to:
+        const folder = folders.find(f => (f.characters || []).includes(char.avatar));
+        const folderId = folder ? folder.id : 'no_folder';
+        if (!folderMatches[folderId]) folderMatches[folderId] = { folder, chars: [] };
+        folderMatches[folderId].chars.push(char);
     }
 
-    const controlRow = document.createElement('div');
-    controlRow.className = 'stcm_folders_header_controls';
-    controlRow.style.display = 'flex';
-    controlRow.style.alignItems = 'center';
-    controlRow.style.gap = '8px';
-    controlRow.appendChild(breadcrumbDiv);
-    container.appendChild(controlRow);
+    // Order: by folder name, then show characters
+    Object.values(folderMatches).forEach(({ folder, chars }) => {
+        // Folder label
+        const folderLabel = document.createElement('div');
+        folderLabel.className = 'stcm_search_folder_label';
+        folderLabel.textContent = folder ? folder.name : "Not in a Folder";
+        folderLabel.style = 'margin: 18px 0 7px 0; font-weight: 700; font-size: 1.04em; color: var(--ac-style-color-text, #bbb);';
+        contentDiv.appendChild(folderLabel);
 
-    let contentDiv = document.getElementById('stcm_folder_contents');
-    if (contentDiv) {
-        contentDiv.innerHTML = "";
-    } else {
-        contentDiv = document.createElement('div');
-        contentDiv.id = 'stcm_folder_contents';
-        contentDiv.className = 'stcm_folder_contents';
-    }
-
-    // Show child folders as usual (optional: could collapse them for less confusion)
-    (folder.children || []).forEach(childId => {
-        const child = folders.find(f => f.id === childId);
-        if (child) {
-            // Could display, or not, as you prefer for search mode
-        }
-    });
-
-    // Show only matching characters in this folder
-    (folder.characters || []).forEach(charId => {
-        const char = allCharacters.find(c => c.avatar === charId);
-        if (char && characterMatchesTerm(char, term)) {
+        chars.forEach(char => {
             const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
-            charCard.style.background = 'rgba(100, 200, 250, 0.17)'; // optional: highlight
+            charCard.style.background = 'rgba(100, 200, 250, 0.15)'; // highlight
             contentDiv.appendChild(charCard);
-        }
+        });
     });
 
     container.appendChild(contentDiv);
 }
-
 
 
 function hideFolderedCharactersOutsideSidebar(folders) {
