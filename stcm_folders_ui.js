@@ -397,6 +397,19 @@ function getVisibleDescendantCharacterCount(folderId, folders) {
     return total;
 }
 
+function getCharactersNotInAnyFolder(allCharacters, folders) {
+    // Build set of all character IDs in any folder
+    const assigned = new Set();
+    folders.forEach(f => {
+        if (Array.isArray(f.characters)) {
+            f.characters.forEach(id => assigned.add(id));
+        }
+    });
+    // Return characters/groups not present in any folder
+    return allCharacters.filter(c => !assigned.has(c.avatar));
+}
+
+
 export function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
