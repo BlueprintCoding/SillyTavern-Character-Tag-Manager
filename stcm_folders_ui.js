@@ -274,7 +274,7 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         grid.className = 'stcm_folder_contents_search'; // or your native grid class
 
         chars.forEach(entity => {
-            const entityCard = renderSidebarCharacterCard({ ...entity, tags: getTagsForChar(entity.id) });
+            const entityCard = renderSidebarCharacterCard(entity);  
             grid.appendChild(entityCard);
         });
         
@@ -562,7 +562,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 const grid = document.createElement('div');
                 grid.className = 'stcm_folder_contents';
                 orphanedEntities.forEach(entity => {
-                    const entityCard = renderSidebarCharacterCard({ ...entity, tags: getTagsForChar(entity.id) });
+                    const entityCard = renderSidebarCharacterCard(entity);  
                     grid.appendChild(entityCard);
                 });
                 container.appendChild(grid);
@@ -682,7 +682,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             const entity = allEntities.find(e => e.id === entityId);
             if (entity) {
                 const tagsForEntity = getTagsForChar(entity.id, tagsById);
-                const entityCard = renderSidebarCharacterCard({ ...entity, tags: tagsForEntity });
+                const entityCard = renderSidebarCharacterCard(entity); 
                 contentDiv.appendChild(entityCard);
             }
         });
@@ -745,21 +745,25 @@ export function showFolderColorPicker(folder, rerender) {
 
 
 export function renderSidebarCharacterCard(entity) {
+    // Flatten
+    let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
+
+    let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
+    let desc = ent.description || ent.creatorcomment || "";
+
     const div = document.createElement('div');
     div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
-    div.setAttribute('chid', entity.id);
-    div.setAttribute('data-chid', entity.id);
+    div.setAttribute('chid', ent.id);
+    div.setAttribute('data-chid', ent.id);
     div.tabIndex = 0;
 
-    let desc = entity.description || entity.creatorcomment || "";
-
     div.innerHTML = `
-        <div class="avatar" title="[${entity.type === 'group' ? 'Group' : 'Character'}] ${entity.name}\nFile: ${entity.avatar}">
-            <img src="/thumbnail?type=avatar&file=${encodeURIComponent(entity.avatar)}" alt="${entity.name}">
+        <div class="avatar" title="[${ent.type === 'group' ? 'Group' : 'Character'}] ${ent.name}\nFile: ${avatarUrl}">
+            <img src="${avatarUrl.startsWith('img/') ? avatarUrl : '/thumbnail?type=avatar&file=' + encodeURIComponent(avatarUrl)}" alt="${ent.name}">
         </div>
         <div class="flex-container wide100pLess70px character_select_container">
             <div class="wide100p character_name_block">
-                <span class="ch_name" title="[${entity.type === 'group' ? 'Group' : 'Character'}] ${entity.name}">${entity.name}</span>
+                <span class="ch_name" title="[${ent.type === 'group' ? 'Group' : 'Character'}] ${ent.name}">${ent.name}</span>
                 <small class="ch_additional_info ch_add_placeholder">+++</small>
                 <small class="ch_additional_info ch_avatar_url"></small>
             </div>
@@ -767,7 +771,7 @@ export function renderSidebarCharacterCard(entity) {
             <input class="ch_fav" value="" hidden="" keeper-ignore="">
             <div class="ch_description">${desc}</div>
             <div class="tags tags_inline">
-                ${(entity.tags || []).map(tag =>
+                ${(ent.tags || []).map(tag =>
                     `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
                         <span class="tag_name">${tag.name}</span>
                     </span>`
@@ -776,13 +780,9 @@ export function renderSidebarCharacterCard(entity) {
         </div>
     `;
 
-    // Make the entire card clickable for activation:
- // Make the entire card clickable for activation:
     div.addEventListener('click', function(e) {
-        // Activation logic, you can adjust as needed:
-        // You may want separate logic for group select if needed!
         const allEntities = getEntitiesList();
-        const id = allEntities.findIndex(ent => ent.id === entity.id);
+        const id = allEntities.findIndex(ent2 => ent2.id === ent.id);
         if (id !== -1 && typeof selectCharacterById === 'function') {
             selectCharacterById(id);
             if (typeof setActiveGroup === 'function') setActiveGroup(null);
@@ -794,6 +794,7 @@ export function renderSidebarCharacterCard(entity) {
 
     return div;
 }
+
 
 
 export function watchSidebarFolderInjection() {
