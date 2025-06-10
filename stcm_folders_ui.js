@@ -337,14 +337,11 @@ function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
         });
 
         display.forEach(entity => {
-            const tagsById = buildTagMap(tags);
-            const tagsForEntity = getTagsForChar(entity.id || entity.item?.avatar, tagsById);
-            const cardObj = entity.type === "character"
-                ? { ...entity.item, tags: tagsForEntity }
-                : { ...entity, tags: tagsForEntity };
-            grid.appendChild(renderSidebarCharacterCard(cardObj));
+            // Attach tags at the top level, but keep the entity structure intact
+            entity.tags = getTagsForChar(entity.id || entity.item?.avatar, buildTagMap(tags));
+            grid.appendChild(renderSidebarCharacterCard(entity));
         });
-
+        
         container.appendChild(grid);
     }
 }
@@ -368,6 +365,8 @@ function hideFolderedCharactersOutsideSidebar(folders) {
 
     // Hide all by default
     for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
+        // Don't hide if this element is in the sidebar nav!
+        if (el.closest('#stcm_sidebar_folder_nav')) continue;
         el.classList.add('stcm_force_hidden');
     }
 
@@ -928,7 +927,22 @@ export function renderSidebarCharacterCard(entity) {
         </div>
     `;
 
-    
+    document.getElementById('rm_button_characters')?.addEventListener('click', () => {
+    // Reset to root
+    currentSidebarFolderId = 'root';
+    // You should also clear any search or orphan views if needed:
+    stcmSearchActive = false;
+    stcmSearchResults = null;
+    stcmSearchTerm = '';
+    stcmLastSearchFolderId = null;
+    orphanFolderExpanded = false; // if used
+
+    // Redraw the sidebar folder UI
+    if (typeof injectSidebarFolders === 'function') {
+        injectSidebarFolders(STCM.sidebarFolders); // or whatever triggers the folder UI rerender
+    }
+});
+
 
     return div;
 }
