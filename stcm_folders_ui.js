@@ -259,7 +259,6 @@ function renderSidebarFolderSearchResult(folders, allCharacters, results, term) 
 
         chars.forEach(char => {
             const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
-            charCard.style.background = 'rgba(100, 200, 250, 0.15)'; // highlight
             contentDiv.appendChild(charCard);
         });
     });
