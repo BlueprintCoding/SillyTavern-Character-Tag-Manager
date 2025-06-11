@@ -172,7 +172,7 @@ export function injectSidebarFolders(folders) {
         const tagResults   = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
     
         console.log("entityMap keys:", [...entityMap.keys()]);
-        console.log("charResults sample:", charResults.slice(0,3));
+        console.log("charResults sample:", charResults.slice(0,20));
 
         // --- Filter and prepare Character & Group results (privacy-aware) ---
         const filteredCharEntities = charResults
