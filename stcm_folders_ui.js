@@ -197,7 +197,9 @@ export function injectSidebarFolders(folders) {
     removeCharacterSortSelect();
     setupSortOrderListener();
     insertNoFolderLabelIfNeeded();
-    injectResetViewButton();
+    setTimeout(() => {
+        injectResetViewButton();
+    }, 1500);
 }
 
 function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
@@ -980,7 +982,9 @@ export function watchSidebarFolderInjection() {
             lastSidebarInjection = Date.now();
         }
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
-        injectResetViewButton();
+        setTimeout(() => {
+            injectResetViewButton();
+        }, 150);
     }, 150);
 
     if (stcmObserver) stcmObserver.disconnect();
@@ -1629,15 +1633,17 @@ function findShowTagListSpan() {
 
 
 function injectResetViewButton() {
-    if (!shouldShowResetButton()) return;
-
-    // Use better selector
-    const showTagListSpan = findShowTagListSpan();
-    if (!showTagListSpan) {
-        console.log('Show Tag List span not found!');
+    console.log("[STCM] injectResetViewButton CALLED");
+    if (!shouldShowResetButton()) {
+        console.log("[STCM] shouldShowResetButton: FALSE");
         return;
     }
-
+    const showTagListSpan = findShowTagListSpan();
+    console.log("[STCM] showTagListSpan found:", showTagListSpan);
+    if (!showTagListSpan) {
+        console.log("[STCM] Show Tag List span not found!");
+        return;
+    }
     // Remove old button if present
     const existing = document.getElementById('stcm_reset_view_btn');
     if (existing) existing.remove();
