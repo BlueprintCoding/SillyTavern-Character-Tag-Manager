@@ -7,7 +7,7 @@ import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import { escapeHtml, flushExtSettings, buildTagMap } from "./utils.js";
 import { STCM, callSaveandReload } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
-import { updateSidebar, getEntityChid } from "./stcm_folders_ui.js";
+import { updateSidebar } from "./stcm_folders_ui.js";
 import { renderTagSection } from "./stcm_tags_ui.js"
 import {
     getEntitiesList,
@@ -17,6 +17,16 @@ const EXT_KEY = 'stcm_folders_v2'; // a single key in ext-settings that holds th
 
 function ctx() {
     return SillyTavern.getContext();
+}
+
+function getEntityChidMaster(entity) {
+    if (!entity) return undefined;
+    // If entity.item exists, try that first
+    if (entity.item && typeof entity.item.id !== "undefined") return entity.item.id;
+    if (entity.id !== undefined) return entity.id;
+    if (entity.item && entity.item.avatar !== undefined) return entity.item.avatar;
+    if (entity.avatar !== undefined) return entity.avatar;
+    return undefined;
 }
 
 export function buildEntityMap() {
@@ -45,19 +55,16 @@ export function buildEntityMap() {
     for (const entity of allEntities) {
         let id, idType, type, name, avatar;
         if (entity.type === "character") {
-            // Try chid logic
-            if (typeof getEntityChid === "function") {
-                id = getEntityChid(entity.item ?? entity);
-                if (id === (entity.item?.avatar ?? entity.avatar)) {
-                    idType = "chid";
-                } else if (id === entity.avatar) {
-                    idType = "avatar";
-                } else {
-                    idType = "unknown";
-                }
+            id = getEntityChidMaster(entity); // entity (not entity.item)
+            // Determine what was used
+            if (entity.item && typeof entity.item.id !== "undefined" && id === entity.item.id) {
+                idType = "chid";
+            } else if (entity.item && typeof entity.item.avatar !== "undefined" && id === entity.item.avatar) {
+                idType = "avatar";
+            } else if (typeof entity.avatar !== "undefined" && id === entity.avatar) {
+                idType = "avatar";
             } else {
-                id = entity.item?.avatar || entity.avatar || entity.id;
-                idType = entity.item?.avatar ? "chid" : (entity.avatar ? "avatar" : "id");
+                idType = "unknown";
             }
             type = "character";
             name = entity.item?.name || entity.name;
@@ -79,7 +86,7 @@ export function buildEntityMap() {
 
         entityMap.set(id, {
             id,
-            idType, // <--- include type of ID used
+            idType,
             type,
             name,
             avatar,
