@@ -56,28 +56,30 @@ export function buildEntityMap() {
     // Build the entity map
     const entityMap = new Map();
     for (const entity of allEntities) {
+        if (!entity) continue;
+    
         let id, idType, type, name, avatar, chid = undefined;
-
         if (entity.type === "character") {
-            // Prefer avatar as ID for characters
+            // Your master getter or whatever logic you use:
+            id = entity.item?.avatar || entity.avatar || entity.item?.id || entity.id;
             avatar = entity.item?.avatar || entity.avatar;
-            id = avatar; // Main map key
-            type = "character";
+            chid = entity.item?.id || entity.id;  // For logging
             name = entity.item?.name || entity.name;
-
-            // Find the true character ID (chid) if it exists
-            chid = entity.item?.id !== undefined ? entity.item.id
-                  : entity.id !== undefined ? entity.id
-                  : undefined;
-
-            idType = "avatar";
+            idType = avatar ? "avatar" : (chid ? "chid" : "unknown");
+            type = "character";
         } else if (entity.type === "group") {
-            // Groups: use their numeric id
             id = entity.id;
-            type = "group";
+            avatar = (entity.members || []).slice(0, 3); // collage or whatever you use
             name = entity.name;
-            avatar = (entity.members || []).slice(0, 3); // group collage
             idType = "id";
+            type = "group";
+        } else {
+            continue; // skip unknown types
+        }
+    
+        // **Skip any entity missing any required identifier**
+        if (typeof id === "undefined" || typeof avatar === "undefined" || typeof idType === "undefined" || idType === "unknown") {
+            continue;
         }
 
         // Folder assignment
