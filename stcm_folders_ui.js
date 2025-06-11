@@ -134,9 +134,9 @@ function insertNoFolderLabelIfNeeded() {
 }
 
 export function injectSidebarFolders(folders) {
-    console.log("ST Entities List:", getEntitiesList());
+    // console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
-    // console.log("STCM Entity Map:", Array.from(entityMap.values()));
+    console.log("STCM Entity Map:", Array.from(entityMap.values()));
 
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
@@ -654,13 +654,20 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         // --- Orphaned card grid ---
         const orphanedEntities = getEntitiesNotInAnyFolder(folders);
+        const entityMap = stcmFolders.buildEntityMap(); // make sure it's in scope here
+
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents';
         orphanedEntities.forEach(entity => {
-            const entityCard = renderSidebarCharacterCard(entity);
-            grid.appendChild(entityCard);
+            // For characters: entity.item.avatar (avatar filename) is the key; for groups: entity.id
+            let key = entity.type === "character" ? entity.item?.avatar : entity.id;
+            const normalized = entityMap.get(key);
+            if (normalized) {
+                grid.appendChild(renderSidebarCharacterCard(normalized));
+            }
         });
         container.appendChild(grid);
+
 
         // Don't render any children/folders/other stuff
         return;
