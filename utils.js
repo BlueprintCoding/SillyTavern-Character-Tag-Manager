@@ -55,12 +55,18 @@ function isNullColor(color) {
     return !c || c === '#' || c === 'rgba(0, 0, 0, 1)';
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    return text.replace(/[&<>"']/g, (m) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[m]));
+export function escapeHtml(text) {
+    if (typeof text !== 'string') {
+        return text == null ? '' : String(text);
+    }
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
+
 
 function getCharacterNameById(id, charNameMap) {
     return charNameMap.get(id) || null;
