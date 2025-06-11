@@ -275,30 +275,30 @@ function hookIntoCharacterSearchBar() {
     }, 150));
     
     
-    input.addEventListener('blur', () => {
-        if (!input.value.trim()) {
-            currentSidebarFolderId = 'root';
-            accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
-            stcmSearchActive = false;
-            stcmSearchResults = null;
-            stcmSearchTerm = '';
-            stcmLastSearchFolderId = null;
-            const input = document.getElementById('character_search_bar_stcm');
-            if (input) input.value = '';
-            if (!STCM.sidebarFolders || !STCM.sidebarFolders.length || !STCM.sidebarFolders.find(f => f.id === 'root')) {
-                // Defensive: reload folders if missing or corrupted
-                stcmFolders.loadFolders().then(folders => {
-                    STCM.sidebarFolders = folders;
-                    injectSidebarFolders(folders);
-                });
-            } else {
-                injectSidebarFolders(STCM.sidebarFolders);
-            }
-        }
-        document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-            block.style.display = stcmSearchActive ? 'none' : '';
-        });
-    });
+    // input.addEventListener('blur', () => {
+    //     if (!input.value.trim()) {
+    //         currentSidebarFolderId = 'root';
+    //         accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
+    //         stcmSearchActive = false;
+    //         stcmSearchResults = null;
+    //         stcmSearchTerm = '';
+    //         stcmLastSearchFolderId = null;
+    //         const input = document.getElementById('character_search_bar_stcm');
+    //         if (input) input.value = '';
+    //         if (!STCM.sidebarFolders || !STCM.sidebarFolders.length || !STCM.sidebarFolders.find(f => f.id === 'root')) {
+    //             // Defensive: reload folders if missing or corrupted
+    //             stcmFolders.loadFolders().then(folders => {
+    //                 STCM.sidebarFolders = folders;
+    //                 injectSidebarFolders(folders);
+    //             });
+    //         } else {
+    //             injectSidebarFolders(STCM.sidebarFolders);
+    //         }
+    //     }
+    //     document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+    //         block.style.display = stcmSearchActive ? 'none' : '';
+    //     });
+    // });
     
     
 }
