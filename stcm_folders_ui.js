@@ -780,10 +780,14 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 (e.type === "group" && e.id === folderVal)
             );
             if (entity) {
-                // Just pass the entity as-is!
+                // Patch in chid for character cards if missing
+                if (entity.type === "character" && (entity.chid === undefined || entity.chid === null)) {
+                    entity.chid = entity.item?.avatar || entity.item?.chid || entity.id;
+                }
                 const entityCard = renderSidebarCharacterCard(entity);
                 contentDiv.appendChild(entityCard);
             }
+            
         });
         
         
