@@ -145,9 +145,9 @@ function insertNoFolderLabelIfNeeded() {
 
 
 export function injectSidebarFolders(folders) {
-    console.log("ST Entities List:", getEntitiesList());
+    // console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
-    console.log("STCM Entity Map:", Array.from(entityMap.values()));
+    // console.log("STCM Entity Map:", Array.from(entityMap.values()));
 
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
@@ -171,8 +171,8 @@ export function injectSidebarFolders(folders) {
         const groupResults = fuzzySearchGroups(stcmSearchTerm);     // array of Fuse results
         const tagResults   = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
     
-        console.log("entityMap keys:", [...entityMap.keys()]);
-        console.log("charResults sample:", charResults.slice(0,20));
+        // console.log("entityMap keys:", [...entityMap.keys()]);
+        // console.log("charResults sample:", charResults.slice(0,20));
 
         // --- Filter and prepare Character & Group results (privacy-aware) ---
         const filteredCharEntities = charResults
@@ -582,7 +582,7 @@ export async function renderSidebarFolderContents(folders, allEntities, folderId
             return renderSidebarFolderContents(folders, allEntities, 'root');
         } else if (folderId === 'root') {
             // Root missing! Force reload folders from storage.
-            console.warn('[STCM] Root folder missing, refetching folders...');
+            // console.warn('[STCM] Root folder missing, refetching folders...');
             const newFolders = await stcmFolders.loadFolders();
             // Avoid infinite reload loop: only retry once!
             if (newFolders && newFolders.find(f => f.id === 'root')) {
