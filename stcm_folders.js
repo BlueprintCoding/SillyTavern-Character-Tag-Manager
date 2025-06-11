@@ -7,7 +7,7 @@ import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import { escapeHtml, flushExtSettings, buildTagMap } from "./utils.js";
 import { STCM, callSaveandReload } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
-import { updateSidebar  } from "./stcm_folders_ui.js";
+import { updateSidebar, getEntityChid } from "./stcm_folders_ui.js";
 import { renderTagSection } from "./stcm_tags_ui.js"
 import {
     getEntitiesList,
@@ -20,7 +20,6 @@ function ctx() {
 }
 
 export function buildEntityMap() {
-    // Get the latest data from global state
     const folders = STCM?.sidebarFolders || [];
     const allEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
     const tagsById = buildTagMap(tags);
@@ -44,14 +43,28 @@ export function buildEntityMap() {
     // Build the entity map
     const entityMap = new Map();
     for (const entity of allEntities) {
-        let id, type, name, avatar;
+        let id, idType, type, name, avatar;
         if (entity.type === "character") {
-            id = entity.item?.avatar || entity.avatar || entity.id;
+            // Try chid logic
+            if (typeof getEntityChid === "function") {
+                id = getEntityChid(entity.item ?? entity);
+                if (id === (entity.item?.avatar ?? entity.avatar)) {
+                    idType = "chid";
+                } else if (id === entity.avatar) {
+                    idType = "avatar";
+                } else {
+                    idType = "unknown";
+                }
+            } else {
+                id = entity.item?.avatar || entity.avatar || entity.id;
+                idType = entity.item?.avatar ? "chid" : (entity.avatar ? "avatar" : "id");
+            }
             type = "character";
             name = entity.item?.name || entity.name;
             avatar = entity.item?.avatar || entity.avatar;
         } else if (entity.type === "group") {
             id = entity.id;
+            idType = "id";
             type = "group";
             name = entity.name;
             avatar = (entity.members || []).slice(0, 3); // group collage
@@ -66,6 +79,7 @@ export function buildEntityMap() {
 
         entityMap.set(id, {
             id,
+            idType, // <--- include type of ID used
             type,
             name,
             avatar,
@@ -77,6 +91,7 @@ export function buildEntityMap() {
     }
     return entityMap;
 }
+
 
 function readExtFolders() {
     const set = ctx().extensionSettings || {};
