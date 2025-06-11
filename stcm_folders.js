@@ -4,7 +4,7 @@ import {
     tag_map,
 } from "../../../tags.js";
 import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
-import { escapeHtml, flushExtSettings  } from "./utils.js";
+import { escapeHtml, flushExtSettings, buildTagMap } from "./utils.js";
 import { STCM, callSaveandReload } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
 import { updateSidebar  } from "./stcm_folders_ui.js";
