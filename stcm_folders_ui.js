@@ -199,7 +199,7 @@ export function injectSidebarFolders(folders) {
     insertNoFolderLabelIfNeeded();
     setTimeout(() => {
         injectResetViewButton();
-    }, 50);
+    }, 10);
 }
 
 function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
@@ -984,7 +984,7 @@ export function watchSidebarFolderInjection() {
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
         setTimeout(() => {
             injectResetViewButton();
-        }, 50);
+        }, 10);
     }, 150);
 
     if (stcmObserver) stcmObserver.disconnect();
