@@ -287,7 +287,7 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     if (!globalList) return;
 
      // --- NEW: Check for tag selection and short-circuit hiding ---
-     if (isAnyTagSelected()) {
+     if (isAnyRealTagActive()) {
         // If a tag is selected, do NOT hide any characters; just unhide all.
         for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
             el.classList.remove('stcm_force_hidden');
@@ -347,26 +347,27 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     if (label) label.classList.remove('stcm_force_hidden');
 }
 
-function isAnyTagSelected() {
- // Classes that indicate a control tag, not a real user tag
- const controlTagClasses = [
-    'manageTags',
-    'showTagList',
-    'clearAllFilters'
-];
-const tagControls = document.querySelector('.rm_tag_controls .tags.rm_tag_filter');
-if (!tagControls) return false;
+function isAnyRealTagActive() {
+    // Control tag classes to ignore
+    const controlTagClasses = [
+        'manageTags',
+        'showTagList',
+        'clearAllFilters'
+    ];
+    const tagControls = document.querySelector('.rm_tag_controls .tags.rm_tag_filter');
+    if (!tagControls) return false;
 
-// Find all selected tags
-const selectedTags = tagControls.querySelectorAll('.tag.selected');
-for (const tag of selectedTags) {
-    // Ignore tags that have any of the control classes
-    if (!controlTagClasses.some(cls => tag.classList.contains(cls))) {
-        return true; // Found a REAL tag selected
+    // Find all tags with either 'selected' OR 'excluded'
+    const activeTags = tagControls.querySelectorAll('.tag.selected, .tag.excluded');
+    for (const tag of activeTags) {
+        // Ignore if this tag is a control tag
+        if (!controlTagClasses.some(cls => tag.classList.contains(cls))) {
+            return true; // Found a real, active tag
+        }
     }
+    return false;
 }
-return false;
-}
+
 
 function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
