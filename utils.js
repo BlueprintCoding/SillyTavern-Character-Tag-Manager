@@ -55,7 +55,7 @@ function isNullColor(color) {
     return !c || c === '#' || c === 'rgba(0, 0, 0, 1)';
 }
 
-export function escapeHtml(text) {
+function escapeHtml(text) {
     if (typeof text !== 'string') {
         return text == null ? '' : String(text);
     }
