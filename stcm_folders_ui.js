@@ -931,7 +931,9 @@ export function renderSidebarCharacterCard(entity) {
         // Flatten
     let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
 
-    let avatarUrl = ent.avatar || ent.avatar_url || 'img/unknown.png';
+    let avatarUrl = ent.avatar || ent.avatar_url || 'img/ai4.png';
+    if (typeof avatarUrl !== 'string') avatarUrl = String(avatarUrl ?? 'img/ai4.png');
+
     let desc = ent.description || ent.creatorcomment || "";
     let isGroup = ent.type === 'group';
 
