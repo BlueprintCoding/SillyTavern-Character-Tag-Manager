@@ -145,7 +145,7 @@ function insertNoFolderLabelIfNeeded() {
 
 
 export function injectSidebarFolders(folders) {
-
+    console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
     console.log("STCM Entity Map:", Array.from(entityMap.values()));
 
@@ -173,7 +173,7 @@ export function injectSidebarFolders(folders) {
     
         console.log("entityMap keys:", [...entityMap.keys()]);
         console.log("charResults sample:", charResults.slice(0,3));
-        
+
         // --- Filter and prepare Character & Group results (privacy-aware) ---
         const filteredCharEntities = charResults
         .sort((a, b) => a.score - b.score)
