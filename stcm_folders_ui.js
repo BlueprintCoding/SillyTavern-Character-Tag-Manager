@@ -8,8 +8,6 @@ import {
     promptInput
     } from './utils.js';
 
-import { accountStorage } from '../../../util/AccountStorage.js';
-
 import * as stcmFolders from './stcm_folders.js';
 
 import {
@@ -24,17 +22,9 @@ import {
 } from "../../../power-user.js";
 
 import {
-    openWelcomeScreen
-} from "../../../welcome-screen.js"
-
-import {
-    characters,
-    selectCharacterById,
     eventSource, 
     event_types,
     getEntitiesList,
-    setActiveCharacter,
-    setActiveGroup
 } from "../../../../script.js";
 
 import { STCM } from './index.js';
@@ -204,8 +194,6 @@ export function injectSidebarFolders(folders) {
         renderSidebarFolderContents(folders, getEntitiesList(), currentSidebarFolderId);
     }
     
-    
-    
     replaceCharacterSearchBar();
     removeCharacterSortSelect();
     hookIntoCharacterSearchBar(folders, allEntities);
@@ -274,35 +262,7 @@ function hookIntoCharacterSearchBar() {
         }, 1);
     }, 150));
     
-    
-    // input.addEventListener('blur', () => {
-    //     if (!input.value.trim()) {
-    //         currentSidebarFolderId = 'root';
-    //         accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
-    //         stcmSearchActive = false;
-    //         stcmSearchResults = null;
-    //         stcmSearchTerm = '';
-    //         stcmLastSearchFolderId = null;
-    //         const input = document.getElementById('character_search_bar_stcm');
-    //         if (input) input.value = '';
-    //         if (!STCM.sidebarFolders || !STCM.sidebarFolders.length || !STCM.sidebarFolders.find(f => f.id === 'root')) {
-    //             // Defensive: reload folders if missing or corrupted
-    //             stcmFolders.loadFolders().then(folders => {
-    //                 STCM.sidebarFolders = folders;
-    //                 injectSidebarFolders(folders);
-    //             });
-    //         } else {
-    //             injectSidebarFolders(STCM.sidebarFolders);
-    //         }
-    //     }
-    //     document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-    //         block.style.display = stcmSearchActive ? 'none' : '';
-    //     });
-    // });
-    
-    
 }
-
 
 function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
     const container = document.getElementById('stcm_sidebar_folder_nav');
@@ -377,8 +337,6 @@ function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, fold
     }
 }
 
-
-
 function isTagFolderDiveActive() {
     const backs = Array.from(document.querySelectorAll('.bogus_folder_select_back'));
     return backs.some(back =>
@@ -388,8 +346,6 @@ function isTagFolderDiveActive() {
         !back.closest('#bogus_folder_back_template')  // ...but NOT in template
     );
 }
-
-
 
 function hideFolderedCharactersOutsideSidebar(folders) {
     // console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
@@ -527,8 +483,6 @@ function getEntitiesNotInAnyFolder(folders) {
             return 1;
         });
 }
-
-
 
 export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
     // Only update our sidebar
@@ -848,7 +802,6 @@ function hasPrivateDescendant(folderId, folders) {
     return false;
 }
 
-
 // Helper to build parent/ancestor folder chain
 export function getFolderChain(folderId, folders) {
     const chain = [];
@@ -988,7 +941,6 @@ export function renderSidebarCharacterCard(entity) {
     }
 }
 
-
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
@@ -1035,8 +987,6 @@ export function watchSidebarFolderInjection() {
     lastKnownCharacterAvatars = getCurrentAvatars();
 }
 
-
-
 export function makeFolderNameEditable(span, folder, rerender) {
     const input = document.createElement('input');
     input.type = 'text';
@@ -1071,7 +1021,6 @@ export function makeFolderNameEditable(span, folder, rerender) {
     input.focus();
     input.select();
 }
-
 
 export function showIconPicker(folder, parentNode, rerender) {
     const icons = [
@@ -1496,8 +1445,6 @@ function getFolderDepth(folderId, folders) {
     return depth;
 }
 
-
-
 export async function reorderChildren(parentId, orderedChildIds) {
     const folders = await stcmFolders.loadFolders();
     const parent = folders.find(f => f.id === parentId);
@@ -1512,62 +1459,3 @@ export async function reorderChildren(parentId, orderedChildIds) {
     parent.children = orderedChildIds;
     return await stcmFolders.saveFolders(folders); // persist and return new array
 }
-
-
-// function characterMatchesTerm(char, term) {
-//     // 1. Check all string/number/array fields
-//     for (const key in char) {
-//         if (!char.hasOwnProperty(key)) continue;
-//         let val = char[key];
-//         if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
-//         if (typeof val === 'number' && val.toString().includes(term)) return true;
-//         if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
-//     }
-
-//     // 2. Check tags assigned to this character
-//     // You'll need access to tag_map and tags (already imported at the top)
-//     const tagIds = tag_map[char.avatar] || [];
-//     if (tagIds.length) {
-//         // Build tagsById map just once per render ideally, but it's fine here for clarity
-//         const tagsById = buildTagMap(tags);
-//         for (const tagId of tagIds) {
-//             const tag = tagsById.get(tagId);
-//             if (tag && tag.name && tag.name.toLowerCase().includes(term)) {
-//                 return true;
-//             }
-//         }
-//     }
-
-//     return false;
-// }
-
-
-
-// function buildCharacterToFolderMap(folders) {
-//     // Returns: Map (characterAvatar => folderId)
-//     const map = new Map();
-
-//     function walk(folder) {
-//         (folder.characters || []).forEach(chid => {
-//             if (!map.has(chid)) map.set(chid, folder.id); // chid is avatar
-//         });
-//         (folder.children || []).forEach(childId => {
-//             const child = folders.find(f => f.id === childId);
-//             if (child) walk(child);
-//         });
-//     }
-//     const root = folders.find(f => f.id === "root");
-//     if (root) walk(root);
-//     else folders.forEach(f => walk(f));
-//     return map;
-// }
-
-// function isInPrivateFolder(folderId, folders) {
-//     let current = folders.find(f => f.id === folderId);
-//     while (current) {
-//         if (current.private) return true;
-//         if (!current.parentId) break;
-//         current = folders.find(f => f.id === current.parentId);
-//     }
-//     return false;
-// }
