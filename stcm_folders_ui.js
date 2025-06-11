@@ -1655,25 +1655,27 @@ function injectResetViewButton() {
     resetBtn.textContent = 'Reset View';
     resetBtn.className = 'stcm_reset_view_btn stcm_menu_button stcm_view_btn interactable';
     resetBtn.style.marginLeft = '8px';
-    resetBtn.addEventListener('click', async function() {
+    resetBtn.addEventListener('click', function() {
         // 1. Unselect all tags in the global filter bar
+        document.querySelectorAll('.tags.rm_tag_bogus_drilldown .tag_remove').forEach(xBtn => {
+            // If it's visible (not display:none) and not disabled
+            if (xBtn.offsetParent !== null && !xBtn.disabled) {
+                xBtn.click();
+            }
+        });
+
         document.querySelectorAll('.tags.rm_tag_filter .tag.selected, .tags.rm_tag_filter .tag.excluded').forEach(tag => {
             tag.classList.remove('selected', 'excluded');
-            // If you have any event listeners or triggers, you may want to fire a click here instead:
-            // tag.click();
         });
     
         // 2. Clear search bar
         const searchInput = document.getElementById('character_search_bar_stcm');
         if (searchInput) {
             searchInput.value = '';
-            // If using a wrapper with a clear button, trigger the clear
             const clearBtn = searchInput.parentNode.querySelector('.stcm_search_clear_btn');
             if (clearBtn) clearBtn.click();
-            // Or fire input event to trigger your search logic
             searchInput.dispatchEvent(new Event('input', {bubbles: true}));
         }
-        // Also clear your search state variables if set directly:
         stcmSearchActive = false;
         stcmSearchTerm = '';
         stcmSearchResults = null;
@@ -1682,7 +1684,6 @@ function injectResetViewButton() {
         // 3. Reset sort order to "STCM"
         const sortSelect = document.getElementById('character_sort_order');
         if (sortSelect) {
-            // Make sure an option exists
             let stcmOpt = [...sortSelect.options].find(opt => opt.value === 'stcm' || opt.getAttribute('data-field') === 'stcm');
             if (stcmOpt) {
                 stcmOpt.selected = true;
@@ -1691,17 +1692,20 @@ function injectResetViewButton() {
             }
         }
     
-        // 4. Reset folders to root
-        currentSidebarFolderId = 'root';
-                // --- **Fix: forcibly re-inject folder nav if needed** ---
-        const rmBlock = document.getElementById('rm_print_characters_block');
-        if (rmBlock && !document.getElementById('stcm_sidebar_folder_nav')) {
-            injectSidebarFolders(STCM.sidebarFolders || []);
-        }
+        // 4. Wait for DOM to settle, then re-inject sidebar
+        setTimeout(async () => {
+            currentSidebarFolderId = 'root';
     
-        // 5. Re-render everything
-        await updateSidebar(true);
+            // If sidebar nav is missing (wiped by sort), forcibly re-inject and then update
+            const rmBlock = document.getElementById('rm_print_characters_block');
+            if (rmBlock && !document.getElementById('stcm_sidebar_folder_nav')) {
+                injectSidebarFolders(STCM.sidebarFolders || []);
+            }
+    
+            await updateSidebar(true);
+        }, 10); // 10ms is enough, adjust if needed
     });
+    
     
     showTag.parentNode.insertBefore(resetBtn, showTag.nextSibling);
 }
