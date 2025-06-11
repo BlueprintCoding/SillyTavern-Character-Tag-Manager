@@ -231,7 +231,7 @@ function hookIntoCharacterSearchBar() {
                 block.style.display = stcmSearchActive ? 'none' : '';
             });
         }, 1);
-    }, 300));
+    }, 1000));
     
     
     
