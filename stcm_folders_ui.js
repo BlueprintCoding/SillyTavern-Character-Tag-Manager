@@ -1639,28 +1639,25 @@ function findAllShowTagListSpansInCharacters() {
 
 function injectResetViewButton() {
     if (!shouldShowResetButton()) return;
-    // For global tag filter bar:
-    // const showTagListSpan = findShowTagListSpan();
 
-    // For per-character:
-    const spans = findAllShowTagListSpansInCharacters();
-    spans.forEach(showTagListSpan => {
-        // Prevent duplicate
-        if (showTagListSpan.nextElementSibling && showTagListSpan.nextElementSibling.id === 'stcm_reset_view_btn') {
-            return;
-        }
-        // Remove any old button before inserting
-        const existing = showTagListSpan.parentNode.querySelector('#stcm_reset_view_btn');
-        if (existing) existing.remove();
+    const charPanel = document.getElementById('rm_characters_block');
+    if (!charPanel) return;
+    const tagBar = charPanel.querySelector('.tags.rm_tag_filter');
+    if (!tagBar) return;
+    const showTag = tagBar.querySelector('.tag.showTagList');
+    if (!showTag) return;
 
-        const resetBtn = document.createElement('button');
-        resetBtn.id = 'stcm_reset_view_btn';
-        resetBtn.textContent = 'Reset View';
-        resetBtn.className = 'stcm_reset_view_btn';
-        resetBtn.style.marginLeft = '8px';
-        resetBtn.addEventListener('click', function() {
-            // TODO: Reset logic
-        });
-        showTagListSpan.parentNode.insertBefore(resetBtn, showTagListSpan.nextSibling);
+    // Prevent duplicate
+    if (showTag.nextElementSibling && showTag.nextElementSibling.id === 'stcm_reset_view_btn') return;
+
+    const resetBtn = document.createElement('button');
+    resetBtn.id = 'stcm_reset_view_btn';
+    resetBtn.textContent = 'Reset View';
+    resetBtn.className = 'stcm_reset_view_btn';
+    resetBtn.style.marginLeft = '8px';
+    resetBtn.addEventListener('click', function() {
+        // TODO: Reset logic
     });
+
+    showTag.parentNode.insertBefore(resetBtn, showTag.nextSibling);
 }
