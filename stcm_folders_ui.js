@@ -937,7 +937,7 @@ export function renderSidebarCharacterCard(entity) {
     // Determine if it's a group or character
     const isGroup = ent.type === "group";
     const groupId = isGroup ? ent.id : null;
-    const chid = !isGroup ? stcmFolders.getEntityChidMaster(entity) : undefined;
+    const chid = (!isGroup && typeof entity.chid !== "undefined") ? entity.chid : undefined;
 
     // Group name & count
     const name = ent.name || "";
