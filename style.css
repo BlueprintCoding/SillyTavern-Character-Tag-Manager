@@ -296,6 +296,31 @@
     margin-bottom: -3px;
 }
 
+.stcm_search_bar_wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.stcm_search_bar_wrapper input[type="search"] {
+    padding-right: 2.2em !important; /* Room for the X */
+}
+
+.stcm_search_clear_btn {
+    position: absolute;
+    right: 6px;
+    background: none;
+    border: none;
+    color: var(--ac-style-color-text, #888);
+    font-size: 1.18em;
+    cursor: pointer;
+    padding: 0;
+    z-index: 2;
+    top: 50%;
+    transform: translateY(-50%);
+    line-height: 1;
+}
+
+
 .menu_input {
     padding: 6px;
     border-radius: 4px;

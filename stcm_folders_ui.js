@@ -205,15 +205,60 @@ function replaceCharacterSearchBar() {
     const oldInput = document.getElementById('character_search_bar');
     if (!oldInput) return;
 
-    // Create your new search bar
+    // Wrapper for styling/input/X button
+    const wrapper = document.createElement('div');
+    wrapper.className = 'stcm_search_bar_wrapper';
+    wrapper.style.position = 'relative';
+    wrapper.style.display = 'flex';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.width = '100%';
+
+    // Search input
     const stcmInput = document.createElement('input');
     stcmInput.id = 'character_search_bar_stcm';
-    stcmInput.className = 'text_pole width100p'; // Use your styling
+    stcmInput.className = 'text_pole width100p'; // or your preferred class
     stcmInput.type = 'search';
     stcmInput.placeholder = 'Search...';
-    // Replace in place
-    oldInput.parentNode.replaceChild(stcmInput, oldInput);
+    stcmInput.autocomplete = 'off';
+    stcmInput.style.flex = '1 1 auto';
+
+    // Clear ("x") button
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.tabIndex = -1;
+    clearBtn.className = 'stcm_search_clear_btn';
+    clearBtn.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
+    clearBtn.style.position = 'absolute';
+    clearBtn.style.right = '6px';
+    clearBtn.style.background = 'none';
+    clearBtn.style.border = 'none';
+    clearBtn.style.color = 'var(--ac-style-color-text, #888)';
+    clearBtn.style.fontSize = '1.18em';
+    clearBtn.style.cursor = 'pointer';
+    clearBtn.style.padding = '0';
+    clearBtn.style.display = 'none'; // Hidden initially
+
+    // Show/hide clear button based on input
+    stcmInput.addEventListener('input', () => {
+        clearBtn.style.display = stcmInput.value.length ? 'block' : 'none';
+    });
+
+    // Clicking the X clears and unfocuses
+    clearBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Prevents focus from returning to input after blur
+        stcmInput.value = '';
+        // Fire input event so your logic resets the sidebar
+        stcmInput.dispatchEvent(new Event('input', { bubbles: true }));
+        stcmInput.blur();
+    });
+
+    wrapper.appendChild(stcmInput);
+    wrapper.appendChild(clearBtn);
+
+    // Replace old input with the wrapper
+    oldInput.parentNode.replaceChild(wrapper, oldInput);
 }
+
 
 function removeCharacterSortSelect() {
     const oldSelect = document.getElementById('character_sort_order');
