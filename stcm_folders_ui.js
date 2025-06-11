@@ -776,18 +776,13 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         // Show characters in this folder (full card style)
         (folder.characters || []).forEach(folderVal => {
             const entity = allEntities.find(e =>
-                (e.type === "character" && e.item.avatar === folderVal) ||
+                (e.type === "character" && e.chid === folderVal) ||
                 (e.type === "group" && e.id === folderVal)
             );
             if (entity) {
-                // Patch in chid for character cards if missing
-                if (entity.type === "character" && (entity.chid === undefined || entity.chid === null)) {
-                    entity.chid = entity.item?.avatar || entity.item?.chid || entity.id;
-                }
                 const entityCard = renderSidebarCharacterCard(entity);
                 contentDiv.appendChild(entityCard);
             }
-            
         });
         
         
