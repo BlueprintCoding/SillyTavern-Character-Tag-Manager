@@ -246,6 +246,24 @@ function hookIntoCharacterSearchBar() {
         stcmSearchActive = !!term;
         stcmSearchTerm = term;
     
+        // *** Here is the key: ***
+        if (!term) {
+            // When search is cleared, ensure we show default folder view
+            currentSidebarFolderId = 'root';
+            stcmSearchActive = false;
+            stcmSearchTerm = '';
+            stcmSearchResults = null;
+            stcmLastSearchFolderId = null;
+            injectSidebarFolders(currentFolders);
+            setTimeout(() => {
+                document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+                    block.style.display = '';
+                });
+            }, 1);
+            return;
+        }
+    
+        // Otherwise, do normal search
         injectSidebarFolders(currentFolders);
         setTimeout(() => {
             document.querySelectorAll('.text_block.hidden_block').forEach(block => {
@@ -253,6 +271,7 @@ function hookIntoCharacterSearchBar() {
             });
         }, 1);
     }, 150));
+    
     
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
