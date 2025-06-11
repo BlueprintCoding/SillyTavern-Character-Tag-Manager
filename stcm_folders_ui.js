@@ -1435,8 +1435,8 @@ export async function reorderChildren(parentId, orderedChildIds) {
 
 function removeCharacterSortSelect() {
     // Remove the sort dropdown if present
-    const oldSelect = document.getElementById('character_sort_order');
-    if (oldSelect) oldSelect.remove();
+    // const oldSelect = document.getElementById('character_sort_order');
+    // if (oldSelect) oldSelect.remove();
 
     // // Remove the filter tags by their known classes
     // // All have both .tag and .actionable, and one of: filterByFavorites, filterByGroups, filterByFolder
