@@ -857,17 +857,17 @@ export function getEntityChid(entity) {
 }
 
 export function renderSidebarCharacterCard(entity) {
-    // Flatten out entity (either .item or just entity)
+    // Flatten out entity
     const ent = entity.item
-        ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags }
+        ? { ...entity.item, ...entity } // <-- merge all fields for safety
         : entity;
 
     // Determine if it's a group or character
     const isGroup = ent.type === "group";
     const groupId = isGroup ? ent.id : null;
-    const chid = (!isGroup && typeof entity.chid !== "undefined") ? entity.chid : undefined;
+    const chid = (!isGroup && typeof ent.chid !== "undefined") ? ent.chid : undefined;
 
-    // Group name & count
+    // Common
     const name = ent.name || "";
     const escapedName = escapeHtml(name);
     const tagHtml = (ent.tags || []).map(tag =>
@@ -878,13 +878,16 @@ export function renderSidebarCharacterCard(entity) {
     ).join('');
 
     if (isGroup) {
-        // Use avatar array for group collage
-        let memberFiles = Array.isArray(ent.avatar) ? ent.avatar : [];
+        // --- GROUP CARD ---
+        // member avatars: ent.avatar (top 3), all members: ent.members
+        const memberFiles = Array.isArray(ent.members) && ent.members.length ? ent.members : (Array.isArray(ent.avatar) ? ent.avatar : []);
+        const memberNames = memberFiles.map(f => (typeof f === "string" ? f.replace(/\.[^/.]+$/, "") : f)).join(", ");
+
         const div = document.createElement('div');
         div.className = 'group_select entity_block flex-container wide100p alignitemsflexstart interactable';
         div.setAttribute('tabindex', '0');
         div.setAttribute('data-grid', groupId);
-    
+
         // Collage avatars (up to 3)
         const avatarHtml = `
             <div class="avatar avatar_collage collage_${memberFiles.length}" title="[Group] ${escapedName}">
@@ -893,11 +896,10 @@ export function renderSidebarCharacterCard(entity) {
                 ).join('')}
             </div>
         `;
-        // Names
-        const memberNames = memberFiles.map(f =>
-            (typeof f === "string" ? f.replace(/\.[^/.]+$/, "") : f)
-        ).join(", ");
-    
+
+        // Group description (show as subtext if present, otherwise show member names)
+        const groupDesc = ent.description ? escapeHtml(ent.description) : memberNames;
+
         div.innerHTML = `
             ${avatarHtml}
             <div class="flex-container wide100pLess70px gap5px group_select_container">
@@ -908,13 +910,12 @@ export function renderSidebarCharacterCard(entity) {
                 <small class="character_name_block_sub_line" data-i18n="in this group">in this group</small>
                 <i class="group_fav_icon fa-solid fa-star" style="display: none;"></i>
                 <input class="ch_fav" value="" hidden="" keeper-ignore="">
-                <div class="group_select_block_list ch_description">${memberNames}</div>
+                <div class="group_select_block_list ch_description">${groupDesc}</div>
                 <div class="tags tags_inline">${tagHtml}</div>
             </div>
         `;
         return div;
-    }
-     else {
+    } else {
         // --- CHARACTER CARD ---
         let avatarUrl = ent.avatar || ent.avatar_url || 'img/ai4.png';
         if (typeof avatarUrl !== 'string') avatarUrl = String(avatarUrl ?? 'img/ai4.png');
@@ -945,6 +946,7 @@ export function renderSidebarCharacterCard(entity) {
         return div;
     }
 }
+
 
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');

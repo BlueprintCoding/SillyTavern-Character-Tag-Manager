@@ -38,11 +38,9 @@ export function buildEntityMap() {
     const charToFolder = new Map();
     function walk(folder, parentPrivate = false) {
         const isPrivate = !!folder.private || parentPrivate;
-        // Characters: this should always be avatar strings!
         (folder.characters || []).forEach(charAvatar => {
             charToFolder.set(charAvatar, { folderId: folder.id, isPrivate });
         });
-        // Children folders
         (folder.children || []).forEach(childId => {
             const child = folders.find(f => f.id === childId);
             if (child) walk(child, isPrivate);
@@ -53,31 +51,34 @@ export function buildEntityMap() {
     if (root) walk(root);
     else folders.forEach(f => walk(f));
 
-    // Build the entity map
     const entityMap = new Map();
     for (const entity of allEntities) {
         if (!entity) continue;
-    
-        let id, idType, type, name, avatar, chid = undefined;
+
+        let id, idType, type, name, avatar, chid, description, members, avatar_url;
         if (entity.type === "character") {
-            // Your master getter or whatever logic you use:
+            // Character
             id = entity.item?.avatar || entity.avatar || entity.item?.id || entity.id;
             avatar = entity.item?.avatar || entity.avatar;
-            chid = entity.item?.id || entity.id;  // For logging
+            chid = entity.item?.id || entity.id;
             name = entity.item?.name || entity.name;
             idType = avatar ? "avatar" : (chid ? "chid" : "unknown");
             type = "character";
+            description = entity.item?.description || entity.description || "";
         } else if (entity.type === "group") {
+            // Group
             let groupObj = entity.item ? entity.item : entity;
             id = entity.id || groupObj.id;
             name = groupObj.name;
             avatar = Array.isArray(groupObj.members) ? groupObj.members.slice(0, 3) : [];
             idType = "id";
             type = "group";
+            members = groupObj.members || [];
+            avatar_url = groupObj.avatar_url || "";
         } else {
             continue; // skip unknown types
         }
-    
+
         // **Skip any entity missing any required identifier**
         if (typeof id === "undefined" || typeof avatar === "undefined" || typeof idType === "undefined" || idType === "unknown") {
             continue;
@@ -96,7 +97,10 @@ export function buildEntityMap() {
             type,
             name,
             avatar,
-            chid, // <--- Only present for characters
+            chid,             // For characters
+            description,      // For characters
+            members,          // For groups
+            avatar_url,       // For groups
             folderId: folderInfo.folderId,
             folderIsPrivate: folderInfo.isPrivate,
             tagIds,
