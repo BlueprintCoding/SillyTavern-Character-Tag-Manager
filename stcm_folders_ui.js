@@ -281,6 +281,7 @@ function isTagFolderDiveActive() {
     );
 }
 function hideFolderedCharactersOutsideSidebar(folders) {
+    console.log("hideFolderedCharactersOutsideSidebar called, folders:", folders);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
