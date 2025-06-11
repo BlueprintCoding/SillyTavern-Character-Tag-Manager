@@ -1617,18 +1617,30 @@ function shouldShowResetButton() {
     return searchActive || tagActive || sortActive;
 }
 
+function findShowTagListSpan() {
+    // Selects all tags
+    const spans = document.querySelectorAll('.tag.showTagList');
+    for (const span of spans) {
+        // Extra check: Make sure this is the right one by looking for the fa-tags icon
+        if (span.querySelector('.fa-tags')) return span;
+    }
+    return null;
+}
+
+
 function injectResetViewButton() {
-    // Only inject if necessary
     if (!shouldShowResetButton()) return;
 
-    // Locate the "Show Tag List" span by ID
-    const showTagListSpan = document.querySelectorAll('.tag.showTagList');
-    if (!showTagListSpan) return;
-
-    // Prevent duplicate button
-    if (showTagListSpan.nextElementSibling && showTagListSpan.nextElementSibling.id === 'stcm_reset_view_btn') {
+    // Use better selector
+    const showTagListSpan = findShowTagListSpan();
+    if (!showTagListSpan) {
+        console.log('Show Tag List span not found!');
         return;
     }
+
+    // Remove old button if present
+    const existing = document.getElementById('stcm_reset_view_btn');
+    if (existing) existing.remove();
 
     // Create the button
     const resetBtn = document.createElement('button');
@@ -1636,13 +1648,12 @@ function injectResetViewButton() {
     resetBtn.textContent = 'Reset View';
     resetBtn.className = 'stcm_reset_view_btn';
     resetBtn.style.marginLeft = '8px';
-    // Add any styling you want
 
-    // Empty click handler
     resetBtn.addEventListener('click', function() {
-        // TODO: Reset logic goes here
+        // TODO: Reset logic
     });
 
-    // Insert after the tag
+    // Insert right after the tag span
     showTagListSpan.parentNode.insertBefore(resetBtn, showTagListSpan.nextSibling);
 }
+
