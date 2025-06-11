@@ -74,8 +74,7 @@ export function buildEntityMap() {
             avatar = Array.isArray(groupObj.members) ? groupObj.members.slice(0, 3) : [];
             idType = "id";
             type = "group";
-        }
-         else {
+        } else {
             continue; // skip unknown types
         }
     
