@@ -143,6 +143,10 @@ function insertNoFolderLabelIfNeeded() {
 
 
 export function injectSidebarFolders(folders) {
+
+    const entityMap = stcmFolders.buildEntityMap();
+    console.log("STCM Entity Map:", Array.from(entityMap.values()));
+    
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
 

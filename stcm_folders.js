@@ -9,11 +9,73 @@ import { STCM, callSaveandReload } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
 import { updateSidebar  } from "./stcm_folders_ui.js";
 import { renderTagSection } from "./stcm_tags_ui.js"
+import {
+    getEntitiesList,
+} from "../../../../script.js";
 
 const EXT_KEY = 'stcm_folders_v2'; // a single key in ext-settings that holds the folder array
 
 function ctx() {
     return SillyTavern.getContext();
+}
+
+export function buildEntityMap() {
+    // Get the latest data from global state
+    const folders = STCM?.sidebarFolders || [];
+    const allEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
+    const tagsById = buildTagMap(tags);
+
+    // Map folder assignment (character/group ID => folder ID and privacy)
+    const charToFolder = new Map();
+    function walk(folder, parentPrivate = false) {
+        const isPrivate = !!folder.private || parentPrivate;
+        (folder.characters || []).forEach(chid => {
+            charToFolder.set(chid, { folderId: folder.id, isPrivate });
+        });
+        (folder.children || []).forEach(childId => {
+            const child = folders.find(f => f.id === childId);
+            if (child) walk(child, isPrivate);
+        });
+    }
+    const root = folders.find(f => f.id === "root");
+    if (root) walk(root);
+    else folders.forEach(f => walk(f));
+
+    // Build the entity map
+    const entityMap = new Map();
+    for (const entity of allEntities) {
+        let id, type, name, avatar;
+        if (entity.type === "character") {
+            id = entity.item?.avatar || entity.avatar || entity.id;
+            type = "character";
+            name = entity.item?.name || entity.name;
+            avatar = entity.item?.avatar || entity.avatar;
+        } else if (entity.type === "group") {
+            id = entity.id;
+            type = "group";
+            name = entity.name;
+            avatar = (entity.members || []).slice(0, 3); // group collage
+        }
+
+        // Folder assignment
+        const folderInfo = charToFolder.get(id) || { folderId: null, isPrivate: false };
+
+        // Tags for this entity
+        const tagIds = tag_map[id] || [];
+        const tagNames = tagIds.map(tid => tagsById.get(tid)?.name).filter(Boolean);
+
+        entityMap.set(id, {
+            id,
+            type,
+            name,
+            avatar,
+            folderId: folderInfo.folderId,
+            folderIsPrivate: folderInfo.isPrivate,
+            tagIds,
+            tagNames
+        });
+    }
+    return entityMap;
 }
 
 function readExtFolders() {
