@@ -134,9 +134,9 @@ function insertNoFolderLabelIfNeeded() {
 }
 
 export function injectSidebarFolders(folders) {
-    console.log("ST Entities List:", getEntitiesList());
+    // console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
-    console.log("STCM Entity Map:", Array.from(entityMap.values()));
+    // console.log("STCM Entity Map:", Array.from(entityMap.values()));
 
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
