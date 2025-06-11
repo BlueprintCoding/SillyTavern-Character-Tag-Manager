@@ -133,6 +133,7 @@ function insertNoFolderLabelIfNeeded() {
     }
 }
 
+
 export function injectSidebarFolders(folders) {
     console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
@@ -193,9 +194,119 @@ export function injectSidebarFolders(folders) {
         renderSidebarFolderContents(folders, getEntitiesList(), currentSidebarFolderId);
     }
     
-    injectSidebarSearchBox();
+    replaceCharacterSearchBar();
     removeCharacterSortSelect();
+    hookIntoCharacterSearchBar(folders, allEntities);
     insertNoFolderLabelIfNeeded();
+}
+
+
+function replaceCharacterSearchBar() {
+    const oldInput = document.getElementById('character_search_bar');
+    if (!oldInput) return;
+
+    // Wrapper for styling/input/X button
+    const wrapper = document.createElement('div');
+    wrapper.className = 'stcm_search_bar_wrapper';
+    wrapper.style.position = 'relative';
+    wrapper.style.display = 'flex';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.width = '100%';
+
+    // Search input
+    const stcmInput = document.createElement('input');
+    stcmInput.id = 'character_search_bar_stcm';
+    stcmInput.className = 'text_pole width100p'; // or your preferred class
+    stcmInput.type = 'search';
+    stcmInput.placeholder = 'Search...';
+    stcmInput.autocomplete = 'off';
+    stcmInput.style.flex = '1 1 auto';
+
+    // Clear ("x") button
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.tabIndex = -1;
+    clearBtn.className = 'stcm_search_clear_btn';
+    clearBtn.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
+    clearBtn.style.position = 'absolute';
+    clearBtn.style.right = '6px';
+    clearBtn.style.background = 'none';
+    clearBtn.style.border = 'none';
+    clearBtn.style.color = 'var(--ac-style-color-text, #888)';
+    clearBtn.style.fontSize = '1.18em';
+    clearBtn.style.cursor = 'pointer';
+    clearBtn.style.padding = '0';
+    clearBtn.style.display = 'none'; // Hidden initially
+
+    // Show/hide clear button based on input
+    stcmInput.addEventListener('input', () => {
+        clearBtn.style.display = stcmInput.value.length ? 'block' : 'none';
+    });
+
+    // Clicking the X clears and unfocuses
+    clearBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Prevents focus from returning to input after blur
+        stcmInput.value = '';
+        // Fire input event so your logic resets the sidebar
+        stcmInput.dispatchEvent(new Event('input', { bubbles: true }));
+        stcmInput.blur();
+    });
+
+    wrapper.appendChild(stcmInput);
+    wrapper.appendChild(clearBtn);
+
+    // Replace old input with the wrapper
+    oldInput.parentNode.replaceChild(wrapper, oldInput);
+}
+
+
+function removeCharacterSortSelect() {
+    const oldSelect = document.getElementById('character_sort_order');
+    if (oldSelect) oldSelect.remove();
+}
+
+
+function hookIntoCharacterSearchBar() {
+    const input = document.getElementById('character_search_bar_stcm');
+    if (!input || input.dataset.stcmHooked) return;
+    input.dataset.stcmHooked = "true";
+
+    input.addEventListener('input', debounce(async () => {
+        const term = input.value.trim();
+    
+        if (!term) {
+            // Always reload folders to ensure fresh/consistent state
+            currentSidebarFolderId = 'root';
+            stcmSearchActive = false;
+            stcmSearchTerm = '';
+            stcmSearchResults = null;
+            stcmLastSearchFolderId = null;
+    
+            // Force fresh folder data
+            const folders = await stcmFolders.loadFolders();
+            STCM.sidebarFolders = folders;
+    
+            injectSidebarFolders(folders);
+    
+            setTimeout(() => {
+                document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+                    block.style.display = '';
+                });
+            }, 1);
+            return;
+        }
+    
+        // Otherwise, do normal search with current in-memory folders
+        stcmSearchActive = true;
+        stcmSearchTerm = term;
+        injectSidebarFolders(STCM.sidebarFolders);
+        setTimeout(() => {
+            document.querySelectorAll('.text_block.hidden_block').forEach(block => {
+                block.style.display = stcmSearchActive ? 'none' : '';
+            });
+        }, 1);
+    }, 150));
+    
 }
 
 function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
@@ -1392,116 +1503,4 @@ export async function reorderChildren(parentId, orderedChildIds) {
 
     parent.children = orderedChildIds;
     return await stcmFolders.saveFolders(folders); // persist and return new array
-}
-
-// Replacement Search Functionality
-
-function removeCharacterSortSelect() {
-    // Remove the sort dropdown if present
-    const oldSelect = document.getElementById('character_sort_order');
-    if (oldSelect) oldSelect.remove();
-
-    // Remove the filter tags by their known classes
-    // All have both .tag and .actionable, and one of: filterByFavorites, filterByGroups, filterByFolder
-    const filters = document.querySelectorAll(
-        '.tags.rm_tag_filter .tag.filterByFavorites,' +
-        '.tags.rm_tag_filter .tag.filterByGroups,' +
-        '.tags.rm_tag_filter .tag.filterByFolder'
-    );
-    filters.forEach(el => el.remove());
-}
-
-
-class SidebarSearchBox {
-    constructor(onSearch) {
-        this.onSearch = onSearch;
-        this.input = document.createElement('input');
-        this.input.type = 'search';
-        this.input.id = 'character_search_bar_stcm';
-        this.input.className = 'text_pole width100p';
-        this.input.placeholder = 'Search...';
-        this.input.autocomplete = 'off';
-
-        this.clearBtn = document.createElement('button');
-        this.clearBtn.type = 'button';
-        this.clearBtn.tabIndex = -1;
-        this.clearBtn.className = 'stcm_search_clear_btn';
-        this.clearBtn.innerHTML = '<i class="fa fa-times"></i>';
-        this.clearBtn.style.display = 'none';
-
-        // Show/hide the clear button
-        this.input.addEventListener('input', () => {
-            this.clearBtn.style.display = this.input.value ? 'block' : 'none';
-            this.triggerSearch();
-        });
-
-        // Clear button behavior
-        this.clearBtn.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            this.input.value = '';
-            this.clearBtn.style.display = 'none';
-            this.triggerSearch();
-            this.input.blur();
-        });
-
-        // Compose wrapper
-        this.wrapper = document.createElement('div');
-        this.wrapper.className = 'stcm_search_bar_wrapper';
-        this.wrapper.style.position = 'relative';
-        this.wrapper.style.display = 'flex';
-        this.wrapper.style.alignItems = 'center';
-        this.wrapper.style.width = '100%';
-        this.input.style.flex = '1 1 auto';
-
-        this.wrapper.appendChild(this.input);
-        this.wrapper.appendChild(this.clearBtn);
-    }
-
-    attachTo(parentNode, replaceNode) {
-        if (replaceNode) parentNode.replaceChild(this.wrapper, replaceNode);
-        else parentNode.appendChild(this.wrapper);
-    }
-
-    focus() { this.input.focus(); }
-    blur() { this.input.blur(); }
-    get value() { return this.input.value.trim(); }
-    set value(val) { this.input.value = val; this.clearBtn.style.display = val ? 'block' : 'none'; }
-
-    triggerSearch() {
-        this.triggerSearch = debounce(() => {
-            if (this.onSearch) this.onSearch(this.value);
-        }, 150);
-    }
-}
-
-let sidebarSearchBox = null;
-
-function injectSidebarSearchBox() {
-    const oldInput = document.getElementById('character_search_bar');
-    if (!oldInput) return;
-
-    if (sidebarSearchBox && sidebarSearchBox.wrapper.parentNode) {
-        sidebarSearchBox.wrapper.parentNode.removeChild(sidebarSearchBox.wrapper);
-    }
-
-    sidebarSearchBox = new SidebarSearchBox(async (searchTerm) => {
-        if (!searchTerm) {
-            // Always reload folders fresh if search is empty
-            currentSidebarFolderId = 'root';
-            stcmSearchActive = false;
-            stcmSearchTerm = '';
-            stcmSearchResults = null;
-            stcmLastSearchFolderId = null;
-
-            const folders = await stcmFolders.loadFolders();
-            STCM.sidebarFolders = folders;
-            injectSidebarFolders(folders);
-        } else {
-            stcmSearchActive = true;
-            stcmSearchTerm = searchTerm;
-            injectSidebarFolders(STCM.sidebarFolders);
-        }
-    });
-
-    oldInput.parentNode.replaceChild(sidebarSearchBox.wrapper, oldInput);
 }
