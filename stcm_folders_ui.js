@@ -1395,6 +1395,13 @@ export async function reorderChildren(parentId, orderedChildIds) {
 }
 
 // Replacement Search Functionality
+
+function removeCharacterSortSelect() {
+    const oldSelect = document.getElementById('character_sort_order');
+    if (oldSelect) oldSelect.remove();
+}
+
+
 class SidebarSearchBox {
     constructor(onSearch) {
         this.onSearch = onSearch;
