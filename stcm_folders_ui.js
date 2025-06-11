@@ -348,11 +348,25 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
 }
 
 function isAnyTagSelected() {
-    const tagControls = document.querySelector('.rm_tag_controls .tags.rm_tag_filter');
-    if (!tagControls) return false;
-    return !!tagControls.querySelector('.tag.selected');
-}
+ // Classes that indicate a control tag, not a real user tag
+ const controlTagClasses = [
+    'manageTags',
+    'showTagList',
+    'clearAllFilters'
+];
+const tagControls = document.querySelector('.rm_tag_controls .tags.rm_tag_filter');
+if (!tagControls) return false;
 
+// Find all selected tags
+const selectedTags = tagControls.querySelectorAll('.tag.selected');
+for (const tag of selectedTags) {
+    // Ignore tags that have any of the control classes
+    if (!controlTagClasses.some(cls => tag.classList.contains(cls))) {
+        return true; // Found a REAL tag selected
+    }
+}
+return false;
+}
 
 function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
