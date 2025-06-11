@@ -133,7 +133,6 @@ function insertNoFolderLabelIfNeeded() {
     }
 }
 
-
 export function injectSidebarFolders(folders) {
     console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
@@ -194,74 +193,9 @@ export function injectSidebarFolders(folders) {
         renderSidebarFolderContents(folders, getEntitiesList(), currentSidebarFolderId);
     }
     
-    replaceCharacterSearchBar();
+    injectSidebarSearchBox();
     removeCharacterSortSelect();
-    hookIntoCharacterSearchBar(folders, allEntities);
     insertNoFolderLabelIfNeeded();
-}
-
-
-function replaceCharacterSearchBar() {
-    const oldInput = document.getElementById('character_search_bar');
-    if (!oldInput) return;
-
-    // Create your new search bar
-    const stcmInput = document.createElement('input');
-    stcmInput.id = 'character_search_bar_stcm';
-    stcmInput.className = 'text_pole width100p'; // Use your styling
-    stcmInput.type = 'search';
-    stcmInput.placeholder = 'Search...';
-    // Replace in place
-    oldInput.parentNode.replaceChild(stcmInput, oldInput);
-}
-
-function removeCharacterSortSelect() {
-    const oldSelect = document.getElementById('character_sort_order');
-    if (oldSelect) oldSelect.remove();
-}
-
-
-function hookIntoCharacterSearchBar() {
-    const input = document.getElementById('character_search_bar_stcm');
-    if (!input || input.dataset.stcmHooked) return;
-    input.dataset.stcmHooked = "true";
-
-    input.addEventListener('input', debounce(async () => {
-        const term = input.value.trim();
-    
-        if (!term) {
-            // Always reload folders to ensure fresh/consistent state
-            currentSidebarFolderId = 'root';
-            stcmSearchActive = false;
-            stcmSearchTerm = '';
-            stcmSearchResults = null;
-            stcmLastSearchFolderId = null;
-    
-            // Force fresh folder data
-            const folders = await stcmFolders.loadFolders();
-            STCM.sidebarFolders = folders;
-    
-            injectSidebarFolders(folders);
-    
-            setTimeout(() => {
-                document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-                    block.style.display = '';
-                });
-            }, 1);
-            return;
-        }
-    
-        // Otherwise, do normal search with current in-memory folders
-        stcmSearchActive = true;
-        stcmSearchTerm = term;
-        injectSidebarFolders(STCM.sidebarFolders);
-        setTimeout(() => {
-            document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-                block.style.display = stcmSearchActive ? 'none' : '';
-            });
-        }, 1);
-    }, 150));
-    
 }
 
 function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
@@ -346,47 +280,51 @@ function isTagFolderDiveActive() {
         !back.closest('#bogus_folder_back_template')  // ...but NOT in template
     );
 }
-
 function hideFolderedCharactersOutsideSidebar(folders) {
-    // console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
+    console.log("hideFolderedCharactersOutsideSidebar called, folders:", folders);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
-    // Hide all by default
-    for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
-        // Don't hide if this element is in the sidebar nav!
-        if (el.closest('#stcm_sidebar_folder_nav')) continue;
-        el.classList.add('stcm_force_hidden');
+    // Detect active tag filter in SillyTavern
+    const tagFilterRow = document.querySelector('.tags.rm_tag_filter');
+    const isTagFilterActive = tagFilterRow && !!tagFilterRow.querySelector('.tag.selected');
+
+    if (!isTagFilterActive) {
+        // Only apply our force-hide if NO native tag filter is active
+        for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
+            if (el.closest('#stcm_sidebar_folder_nav')) continue;
+            el.classList.add('stcm_force_hidden');
+        }
+    } else {
+        // If a native tag filter is active, REMOVE stcm_force_hidden so default ST filtering works
+        for (const el of globalList.querySelectorAll('.character_select.stcm_force_hidden, .group_select.stcm_force_hidden')) {
+            el.classList.remove('stcm_force_hidden');
+        }
+        // When tag filter is active, don't run the rest of this logic!
+        // So return early:
+        return;
     }
 
-
-        // If we are in a tag folder dive, UNHIDE the right characters
-        if (isTagFolderDiveActive()) {
-            // 1. Find the back button (start of dive area)
-            let backBtn = document.getElementById('BogusFolderBack');
-            // 2. Find the block marking the end (the "hidden" info)
-            let endBlock = document.querySelector('.text_block.hidden_block');
-        
-            if (backBtn && endBlock) {
-                let el = backBtn.nextElementSibling;
-                while (el && el !== endBlock) {
-                    // Unhide all characters, groups, and nested bogus folders in this "dive"
-                    if (
-                        el.classList.contains('character_select') ||
-                        el.classList.contains('group_select') ||
-                        el.classList.contains('bogus_folder_select')
-                    ) {
-                        el.classList.remove('stcm_force_hidden');
-                        el.classList.add('FoundDiveFolder');
-                        document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
-                        // For debugging:
-                        // console.log('UNHIDING:', el);
-                    }
-                    el = el.nextElementSibling;
+    // folder dives (only needed if *no* native tag filter is active)
+    if (isTagFolderDiveActive()) {
+        let backBtn = document.getElementById('BogusFolderBack');
+        let endBlock = document.querySelector('.text_block.hidden_block');
+        if (backBtn && endBlock) {
+            let el = backBtn.nextElementSibling;
+            while (el && el !== endBlock) {
+                if (
+                    el.classList.contains('character_select') ||
+                    el.classList.contains('group_select') ||
+                    el.classList.contains('bogus_folder_select')
+                ) {
+                    el.classList.remove('stcm_force_hidden');
+                    el.classList.add('FoundDiveFolder');
+                    document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
                 }
+                el = el.nextElementSibling;
             }
         }
-        
+    }
 
     // Never hide the bogus folders
     for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
@@ -977,6 +915,7 @@ export function watchSidebarFolderInjection() {
             lastKnownCharacterAvatars = getCurrentAvatars();
             lastSidebarInjection = Date.now();
         }
+        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
     }, 150);
 
     if (stcmObserver) stcmObserver.disconnect();
@@ -1460,3 +1399,114 @@ export async function reorderChildren(parentId, orderedChildIds) {
     return await stcmFolders.saveFolders(folders); // persist and return new array
 }
 
+// Replacement Search Functionality
+
+function removeCharacterSortSelect() {
+    // Remove the sort dropdown if present
+    const oldSelect = document.getElementById('character_sort_order');
+    if (oldSelect) oldSelect.remove();
+
+    // Remove the filter tags by their known classes
+    // All have both .tag and .actionable, and one of: filterByFavorites, filterByGroups, filterByFolder
+    const filters = document.querySelectorAll(
+        '.tags.rm_tag_filter .tag.filterByFavorites,' +
+        '.tags.rm_tag_filter .tag.filterByGroups,' +
+        '.tags.rm_tag_filter .tag.filterByFolder'
+    );
+    filters.forEach(el => el.remove());
+}
+
+
+class SidebarSearchBox {
+    constructor(onSearch) {
+        this.onSearch = onSearch;
+        this.input = document.createElement('input');
+        this.input.type = 'search';
+        this.input.id = 'character_search_bar_stcm';
+        this.input.className = 'text_pole width100p';
+        this.input.placeholder = 'Search...';
+        this.input.autocomplete = 'off';
+
+        this.clearBtn = document.createElement('button');
+        this.clearBtn.type = 'button';
+        this.clearBtn.tabIndex = -1;
+        this.clearBtn.className = 'stcm_search_clear_btn';
+        this.clearBtn.innerHTML = '<i class="fa fa-times"></i>';
+        this.clearBtn.style.display = 'none';
+
+        // Show/hide the clear button
+        this.input.addEventListener('input', () => {
+            this.clearBtn.style.display = this.input.value ? 'block' : 'none';
+            this.triggerSearch();
+        });
+
+        // Clear button behavior
+        this.clearBtn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            this.input.value = '';
+            this.clearBtn.style.display = 'none';
+            this.triggerSearch();
+            this.input.blur();
+        });
+
+        // Compose wrapper
+        this.wrapper = document.createElement('div');
+        this.wrapper.className = 'stcm_search_bar_wrapper';
+        this.wrapper.style.position = 'relative';
+        this.wrapper.style.display = 'flex';
+        this.wrapper.style.alignItems = 'center';
+        this.wrapper.style.width = '100%';
+        this.input.style.flex = '1 1 auto';
+
+        this.wrapper.appendChild(this.input);
+        this.wrapper.appendChild(this.clearBtn);
+    }
+
+    attachTo(parentNode, replaceNode) {
+        if (replaceNode) parentNode.replaceChild(this.wrapper, replaceNode);
+        else parentNode.appendChild(this.wrapper);
+    }
+
+    focus() { this.input.focus(); }
+    blur() { this.input.blur(); }
+    get value() { return this.input.value.trim(); }
+    set value(val) { this.input.value = val; this.clearBtn.style.display = val ? 'block' : 'none'; }
+
+    triggerSearch() {
+        this.triggerSearch = debounce(() => {
+            if (this.onSearch) this.onSearch(this.value);
+        }, 150);
+    }
+}
+
+let sidebarSearchBox = null;
+
+function injectSidebarSearchBox() {
+    const oldInput = document.getElementById('character_search_bar');
+    if (!oldInput) return;
+
+    if (sidebarSearchBox && sidebarSearchBox.wrapper.parentNode) {
+        sidebarSearchBox.wrapper.parentNode.removeChild(sidebarSearchBox.wrapper);
+    }
+
+    sidebarSearchBox = new SidebarSearchBox(async (searchTerm) => {
+        if (!searchTerm) {
+            // Always reload folders fresh if search is empty
+            currentSidebarFolderId = 'root';
+            stcmSearchActive = false;
+            stcmSearchTerm = '';
+            stcmSearchResults = null;
+            stcmLastSearchFolderId = null;
+
+            const folders = await stcmFolders.loadFolders();
+            STCM.sidebarFolders = folders;
+            injectSidebarFolders(folders);
+        } else {
+            stcmSearchActive = true;
+            stcmSearchTerm = searchTerm;
+            injectSidebarFolders(STCM.sidebarFolders);
+        }
+    });
+
+    oldInput.parentNode.replaceChild(sidebarSearchBox.wrapper, oldInput);
+}
