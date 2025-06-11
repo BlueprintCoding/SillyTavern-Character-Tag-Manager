@@ -1438,14 +1438,14 @@ function removeCharacterSortSelect() {
     const oldSelect = document.getElementById('character_sort_order');
     if (oldSelect) oldSelect.remove();
 
-    // Remove the filter tags by their known classes
-    // All have both .tag and .actionable, and one of: filterByFavorites, filterByGroups, filterByFolder
-    const filters = document.querySelectorAll(
-        '.tags.rm_tag_filter .tag.filterByFavorites,' +
-        '.tags.rm_tag_filter .tag.filterByGroups,' +
-        '.tags.rm_tag_filter .tag.filterByFolder'
-    );
-    filters.forEach(el => el.remove());
+    // // Remove the filter tags by their known classes
+    // // All have both .tag and .actionable, and one of: filterByFavorites, filterByGroups, filterByFolder
+    // const filters = document.querySelectorAll(
+    //     '.tags.rm_tag_filter .tag.filterByFavorites,' +
+    //     '.tags.rm_tag_filter .tag.filterByGroups,' +
+    //     '.tags.rm_tag_filter .tag.filterByFolder'
+    // );
+    // filters.forEach(el => el.remove());
 }
 
 
