@@ -286,7 +286,11 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     // console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
-
+    console.log(
+        "shouldShowAllCharacters:", shouldShowAllCharacters(),
+        "isAnyRealTagActive:", isAnyRealTagActive(),
+        "isSTCMSortActive:", isSTCMSortActive()
+      );
      // --- NEW: Check for tag selection and short-circuit hiding ---
      if (shouldShowAllCharacters()) {
         // If a tag is selected, do NOT hide any characters; just unhide all.
@@ -376,11 +380,15 @@ function isAnyRealTagActive() {
 
 function isSTCMSortActive() {
     const sortSelect = document.getElementById('character_sort_order');
-    if (!sortSelect) return false;
-    const selected = sortSelect.selectedOptions[0];
+    if (!sortSelect) {
+        console.log("sortSelect not found!");
+        return false;
+    }
+    const selected = sortSelect.selectedOptions ? sortSelect.selectedOptions[0] : sortSelect.options[sortSelect.selectedIndex];
     console.log("Selected sort value:", selected?.value, "data-field:", selected?.getAttribute('data-field'));
     return selected && (selected.value === "stcm" || selected.getAttribute('data-field') === 'stcm');
 }
+
 
 function setupSortOrderListener() {
     const sortSelect = document.getElementById('character_sort_order');
