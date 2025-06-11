@@ -145,9 +145,9 @@ function insertNoFolderLabelIfNeeded() {
 
 
 export function injectSidebarFolders(folders) {
-    // console.log("ST Entities List:", getEntitiesList());
+    console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
-    // console.log("STCM Entity Map:", Array.from(entityMap.values()));
+    console.log("STCM Entity Map:", Array.from(entityMap.values()));
 
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
@@ -171,8 +171,8 @@ export function injectSidebarFolders(folders) {
         const groupResults = fuzzySearchGroups(stcmSearchTerm);     // array of Fuse results
         const tagResults   = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
     
-        // console.log("entityMap keys:", [...entityMap.keys()]);
-        // console.log("charResults sample:", charResults.slice(0,20));
+        console.log("entityMap keys:", [...entityMap.keys()]);
+        console.log("charResults sample:", charResults.slice(0,20));
 
         // --- Filter and prepare Character & Group results (privacy-aware) ---
         const filteredCharEntities = charResults
@@ -567,7 +567,7 @@ function getEntitiesNotInAnyFolder(folders) {
 }
 
 
-export async function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
+export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
@@ -575,29 +575,18 @@ export async function renderSidebarFolderContents(folders, allEntities, folderId
 
         // Defensive: if folderId is invalid, fallback to root
     const folder = folders.find(f => f.id === folderId);
-    // Defensive: if folderId is invalid, fallback to root; if root missing, force reload ONCE
+    // Defensive: if folderId is invalid, fallback to root, and if root is missing, bail
     if (!folder) {
         if (folderId !== 'root' && folderId !== 'orphans') {
             // Fallback to root
             return renderSidebarFolderContents(folders, allEntities, 'root');
         } else if (folderId === 'root') {
-            // Root missing! Force reload folders from storage.
-            // console.warn('[STCM] Root folder missing, refetching folders...');
-            const newFolders = await stcmFolders.loadFolders();
-            // Avoid infinite reload loop: only retry once!
-            if (newFolders && newFolders.find(f => f.id === 'root')) {
-                STCM.sidebarFolders = newFolders;
-                // Use .call(this,...) so async/await context is preserved
-                return renderSidebarFolderContents.call(this, newFolders, allEntities, 'root');
-            } else {
-                // Still missing: show error and give up
-                container.innerHTML = '<div class="stcm_folder_error">Failed to load folders. Please reload the page.</div>';
-                console.error('[STCM] FATAL: Root folder missing after reload!', newFolders);
-                return;
-            }
+            // Bail: root is missing! Avoid infinite recursion
+            console.error('Sidebar render error: root folder is missing from folder list!', folders);
+            return;
         } else if (folderId === 'orphans') {
-            // You can't reload 'orphans', just bail gracefully.
-            container.innerHTML = '<div class="stcm_folder_error">Could not display orphans – please reload the page.</div>';
+            // Bail: should not get here without orphans, but avoid error
+            console.error('Sidebar render error: "orphans" pseudo-folder not present!', folders);
             return;
         }
     }
