@@ -1449,25 +1449,31 @@ export async function reorderChildren(parentId, orderedChildIds) {
 // Replacement Search Functionality
 
 function removeCharacterSortSelect() {
-        const sortSelect = document.getElementById('character_sort_order');
-        if (!sortSelect) return;
-    
-        // Check if already injected to avoid duplicates
-        if (sortSelect.querySelector('option[data-field="stcm"]')) return;
-    
-        // Create new option
-        const stcmOption = document.createElement('option');
-        stcmOption.value = 'stcm'; // You can set this to anything unique
-        stcmOption.textContent = 'STCM';
-        stcmOption.setAttribute('data-field', 'stcm');
-        stcmOption.setAttribute('data-order', 'desc');
-        stcmOption.setAttribute('data-i18n', 'STCM');
-    
-        // Insert as the first option
-        sortSelect.insertBefore(stcmOption, sortSelect.firstChild);
-    
-        // Set as selected by default
-        stcmOption.selected = true;
+    const sortSelect = document.getElementById('character_sort_order');
+    if (!sortSelect) return;
+
+    // Already injected? (by value or data-field)
+    if ([...sortSelect.options].some(opt => opt.value === 'stcm' || opt.getAttribute('data-field') === 'stcm')) {
+        return;
+    }
+
+    // Create new option
+    const stcmOption = document.createElement('option');
+    stcmOption.value = 'stcm';
+    stcmOption.textContent = 'STCM';
+    stcmOption.setAttribute('data-field', 'stcm');
+    stcmOption.setAttribute('data-order', 'desc');
+    stcmOption.setAttribute('data-i18n', 'STCM');
+
+    // Insert as first option
+    sortSelect.insertBefore(stcmOption, sortSelect.firstChild);
+
+    // Set as selected both in the DOM and in the JS API
+    stcmOption.selected = true;
+    sortSelect.value = 'stcm';
+
+    // Fire a change event to notify listeners
+    sortSelect.dispatchEvent(new Event('change', {bubbles: true}));
 
     // Remove the sort dropdown if present
     // const oldSelect = document.getElementById('character_sort_order');
