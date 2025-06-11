@@ -386,6 +386,7 @@ function setupSortOrderListener() {
     if (!sortSelect) return;
     sortSelect.addEventListener('change', () => {
         // Re-run your show/hide logic on sort change
+        console.log("hidecharsfired");
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
     });
 }
