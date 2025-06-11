@@ -920,6 +920,7 @@ export function getEntityChid(entity) {
 export function renderSidebarCharacterCard(entity) {
     // ALWAYS pass the full entity, not just ent
     const chid = getEntityChid(entity);
+    console.log(chid);
         // Flatten
     let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
 
