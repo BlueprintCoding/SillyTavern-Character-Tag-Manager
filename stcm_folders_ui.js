@@ -197,6 +197,7 @@ export function injectSidebarFolders(folders) {
     removeCharacterSortSelect();
     setupSortOrderListener();
     insertNoFolderLabelIfNeeded();
+    injectResetViewButton();
 }
 
 function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
@@ -1599,4 +1600,48 @@ function injectSidebarSearchBox() {
     });
 
     oldInput.parentNode.replaceChild(sidebarSearchBox.wrapper, oldInput);
+}
+
+function shouldShowResetButton() {
+    // Search bar
+    const searchBar = document.getElementById('character_search_bar_stcm');
+    const searchActive = searchBar && searchBar.value && searchBar.value.trim() !== '';
+
+    // Any real tag selected
+    const tagActive = isAnyRealTagActive();
+
+    // Any sort except STCM active
+    const sortActive = !isSTCMSortActive();
+
+    return searchActive || tagActive || sortActive;
+}
+
+function injectResetViewButton() {
+    // Only inject if necessary
+    if (!shouldShowResetButton()) return;
+
+    // Locate the "Show Tag List" span by ID
+    const showTagListSpan = document.getElementById('3');
+    if (!showTagListSpan) return;
+
+    // Prevent duplicate button
+    if (showTagListSpan.nextElementSibling && showTagListSpan.nextElementSibling.id === 'stcm_reset_view_btn') {
+        return;
+    }
+
+    // Create the button
+    const resetBtn = document.createElement('button');
+    resetBtn.id = 'stcm_reset_view_btn';
+    resetBtn.textContent = 'Reset View';
+    resetBtn.className = 'stcm_reset_view_btn';
+    resetBtn.style.marginLeft = '8px';
+    // Add any styling you want
+
+    // Empty click handler
+    resetBtn.addEventListener('click', function() {
+        // TODO: Reset logic goes here
+    });
+
+    // Insert after the tag
+    showTagListSpan.parentNode.insertBefore(resetBtn, showTagListSpan.nextSibling);
 }
