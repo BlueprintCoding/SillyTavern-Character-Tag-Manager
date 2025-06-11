@@ -567,7 +567,7 @@ function getEntitiesNotInAnyFolder(folders) {
 }
 
 
-export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
+export async function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
