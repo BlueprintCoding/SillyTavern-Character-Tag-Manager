@@ -68,12 +68,14 @@ export function buildEntityMap() {
             idType = avatar ? "avatar" : (chid ? "chid" : "unknown");
             type = "character";
         } else if (entity.type === "group") {
-            id = entity.id;
-            avatar = (entity.members || []).slice(0, 3); // collage or whatever you use
-            name = entity.name;
+            let groupObj = entity.item ? entity.item : entity;
+            id = entity.id || groupObj.id;
+            name = groupObj.name;
+            avatar = Array.isArray(groupObj.members) ? groupObj.members.slice(0, 3) : [];
             idType = "id";
             type = "group";
-        } else {
+        }
+         else {
             continue; // skip unknown types
         }
     
