@@ -242,6 +242,7 @@ function hookIntoCharacterSearchBar() {
     input.addEventListener('blur', () => {
         if (!input.value.trim()) {
             accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
+            const currentFolders = window.STCM?.sidebarFolders || [];
             stcmSearchActive = false;
             stcmSearchResults = null;
             stcmSearchTerm = '';
@@ -249,7 +250,7 @@ function hookIntoCharacterSearchBar() {
             const input = document.getElementById('character_search_bar_stcm');
             if (input) input.value = '';
             currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
-            injectSidebarFolders(folders);
+            injectSidebarFolders(currentFolders);
         }
         document.querySelectorAll('.text_block.hidden_block').forEach(block => {
             block.style.display = stcmSearchActive ? 'none' : '';
