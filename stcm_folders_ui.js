@@ -348,11 +348,8 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
 }
 
 function shouldShowAllCharacters() {
-    // Show all if a real tag is active (selected or excluded)
-    if (isAnyRealTagActive()) return true;
-    // Show all if STCM sort option is active
-    if (isSTCMSortActive()) return true;
-    return false;
+    // Only force-show if a real tag is active AND STCM is *not* selected
+    return isAnyRealTagActive() && !isSTCMSortActive();
 }
 
 
@@ -1475,7 +1472,7 @@ function removeCharacterSortSelect() {
     // Fire a change event to notify listeners
     sortSelect.dispatchEvent(new Event('change', {bubbles: true}));
     hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
-    
+
     // Remove the sort dropdown if present
     // const oldSelect = document.getElementById('character_sort_order');
     // if (oldSelect) oldSelect.remove();
