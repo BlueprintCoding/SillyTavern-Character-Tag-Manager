@@ -353,8 +353,7 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
 }
 
 function shouldShowAllCharacters() {
-    // Only force-show if a real tag is active AND STCM is *not* selected
-    return isAnyRealTagActive() && !isSTCMSortActive();
+    return isAnyRealTagActive() || !isSTCMSortActive();
 }
 
 function isAnyRealTagActive() {
