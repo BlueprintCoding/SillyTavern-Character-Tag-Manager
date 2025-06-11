@@ -929,70 +929,95 @@ export function getEntityChid(entity) {
 }
 
 export function renderSidebarCharacterCard(entity) {
-    // ALWAYS pass the full entity, not just ent
-    const chid = getEntityChid(entity);
-        // Flatten
-    let ent = entity.item ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags } : entity;
+    // Flatten out entity (either .item or just entity)
+    const ent = entity.item
+        ? { ...entity.item, id: entity.id, type: entity.type, tags: entity.tags }
+        : entity;
 
-    let avatarUrl = ent.avatar || ent.avatar_url || 'img/ai4.png';
-    if (typeof avatarUrl !== 'string') avatarUrl = String(avatarUrl ?? 'img/ai4.png');
+    // Determine if it's a group or character
+    const isGroup = ent.type === "group";
+    const groupId = isGroup ? ent.id : null;
+    const chid = !isGroup ? getEntityChid(entity) : undefined;
+    // For group: list of member avatars
+    let memberFiles = isGroup
+        ? Array.isArray(ent.members) ? ent.members : []
+        : null;
 
-    let desc = ent.description || ent.creatorcomment || "";
-    let isGroup = ent.type === 'group';
+    // Group name & count
+    const name = ent.name || "";
+    const escapedName = escapeHtml(name);
+    const tagHtml = (ent.tags || []).map(tag =>
+        `<span id="${tag.id}" class="tag">
+            <span class="tag_name">${tag.name}</span>
+            <i class="fa-solid fa-circle-xmark tag_remove interactable" tabindex="0" style="display: none;"></i>
+        </span>`
+    ).join('');
 
-    // Escape dangerous fields
-    const escapedName = escapeHtml(ent.name || "");
-    const escapedDesc = escapeHtml(desc || "");
+    if (isGroup) {
+        // --- GROUP CARD ---
+        const div = document.createElement('div');
+        div.className = 'group_select entity_block flex-container wide100p alignitemsflexstart interactable';
+        div.setAttribute('tabindex', '0');
+        div.setAttribute('data-grid', groupId);
 
-    const div = document.createElement('div');
-    div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
-    div.setAttribute('chid', chid);
-    div.setAttribute('data-chid', chid);
-    
-    div.tabIndex = 0;
-    
-    let avatarHtml;
-    if (isGroup && Array.isArray(ent.members) && ent.members.length > 0) {
-        // Use up to 3 member avatars for the collage
-        let members = ent.members.slice(0, 3);
-        avatarHtml = `
-            <div class="avatar avatar_collage collage_${members.length}" title="[Group] ${escapedName}">
-                ${members.map((mem, i) =>
-                    `<img alt="img${i+1}" class="img_${i+1}" src="/thumbnail?type=avatar&file=${encodeURIComponent(mem)}">`
+        // Collage avatars
+        const avatarHtml = `
+            <div class="avatar avatar_collage collage_${memberFiles.length}" title="[Group] ${escapedName}">
+                ${memberFiles.slice(0, 3).map((file, i) =>
+                    `<img alt="img${i+1}" class="img_${i+1}" src="/thumbnail?type=avatar&file=${encodeURIComponent(file)}">`
                 ).join('')}
             </div>
         `;
+        // Names
+        const memberNames = memberFiles.map(f =>
+            (typeof f === "string" ? f.replace(/\.[^/.]+$/, "") : f)
+        ).join(", ");
+
+        div.innerHTML = `
+            ${avatarHtml}
+            <div class="flex-container wide100pLess70px gap5px group_select_container">
+                <div class="wide100p group_name_block character_name_block">
+                    <div class="ch_name" title="[Group] ${escapedName}">${escapedName}</div>
+                    <small class="ch_additional_info group_select_counter">${memberFiles.length} character${memberFiles.length === 1 ? "" : "s"}</small>
+                </div>
+                <small class="character_name_block_sub_line" data-i18n="in this group">in this group</small>
+                <i class="group_fav_icon fa-solid fa-star" style="display: none;"></i>
+                <input class="ch_fav" value="" hidden="" keeper-ignore="">
+                <div class="group_select_block_list ch_description">${memberNames}</div>
+                <div class="tags tags_inline">${tagHtml}</div>
+            </div>
+        `;
+        return div;
     } else {
-        // Single avatar for character
-        avatarHtml = `
+        // --- CHARACTER CARD ---
+        let avatarUrl = ent.avatar || ent.avatar_url || 'img/ai4.png';
+        if (typeof avatarUrl !== 'string') avatarUrl = String(avatarUrl ?? 'img/ai4.png');
+        const escapedDesc = escapeHtml(ent.description || ent.creatorcomment || "");
+
+        const div = document.createElement('div');
+        div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
+        div.setAttribute('chid', chid);
+        div.setAttribute('data-chid', chid);
+        div.tabIndex = 0;
+
+        div.innerHTML = `
             <div class="avatar" title="[Character] ${escapedName}\nFile: ${escapeHtml(avatarUrl)}">
                 <img src="${avatarUrl.startsWith('img/') ? avatarUrl : '/thumbnail?type=avatar&file=' + encodeURIComponent(avatarUrl)}" alt="${escapedName}">
             </div>
+            <div class="flex-container wide100pLess70px character_select_container">
+                <div class="wide100p character_name_block">
+                    <span class="ch_name" title="[Character] ${escapedName}">${escapedName}</span>
+                    <small class="ch_additional_info ch_add_placeholder">+++</small>
+                    <small class="ch_additional_info ch_avatar_url"></small>
+                </div>
+                <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
+                <input class="ch_fav" value="" hidden="" keeper-ignore="">
+                <div class="ch_description">${escapedDesc}</div>
+                <div class="tags tags_inline">${tagHtml}</div>
+            </div>
         `;
+        return div;
     }
-    
-    div.innerHTML = `
-        ${avatarHtml}
-        <div class="flex-container wide100pLess70px character_select_container">
-            <div class="wide100p character_name_block">
-                <span class="ch_name" title="[${isGroup ? 'Group' : 'Character'}] ${escapedName}">${escapedName}</span>
-                <small class="ch_additional_info ch_add_placeholder">+++</small>
-                <small class="ch_additional_info ch_avatar_url"></small>
-            </div>
-            <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
-            <input class="ch_fav" value="" hidden="" keeper-ignore="">
-            <div class="ch_description">${escapedDesc}</div>
-            <div class="tags tags_inline">
-                ${(ent.tags || []).map(tag =>
-                    `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
-                        <span class="tag_name">${tag.name}</span>
-                    </span>`
-                ).join('')}
-            </div>
-        </div>
-    `;
-
-    return div;
 }
 
 
