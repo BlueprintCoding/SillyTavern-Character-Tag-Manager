@@ -575,18 +575,29 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         // Defensive: if folderId is invalid, fallback to root
     const folder = folders.find(f => f.id === folderId);
-    // Defensive: if folderId is invalid, fallback to root, and if root is missing, bail
+    // Defensive: if folderId is invalid, fallback to root; if root missing, force reload ONCE
     if (!folder) {
         if (folderId !== 'root' && folderId !== 'orphans') {
             // Fallback to root
             return renderSidebarFolderContents(folders, allEntities, 'root');
         } else if (folderId === 'root') {
-            // Bail: root is missing! Avoid infinite recursion
-            console.error('Sidebar render error: root folder is missing from folder list!', folders);
-            return;
+            // Root missing! Force reload folders from storage.
+            console.warn('[STCM] Root folder missing, refetching folders...');
+            const newFolders = await stcmFolders.loadFolders();
+            // Avoid infinite reload loop: only retry once!
+            if (newFolders && newFolders.find(f => f.id === 'root')) {
+                STCM.sidebarFolders = newFolders;
+                // Use .call(this,...) so async/await context is preserved
+                return renderSidebarFolderContents.call(this, newFolders, allEntities, 'root');
+            } else {
+                // Still missing: show error and give up
+                container.innerHTML = '<div class="stcm_folder_error">Failed to load folders. Please reload the page.</div>';
+                console.error('[STCM] FATAL: Root folder missing after reload!', newFolders);
+                return;
+            }
         } else if (folderId === 'orphans') {
-            // Bail: should not get here without orphans, but avoid error
-            console.error('Sidebar render error: "orphans" pseudo-folder not present!', folders);
+            // You can't reload 'orphans', just bail gracefully.
+            container.innerHTML = '<div class="stcm_folder_error">Could not display orphans – please reload the page.</div>';
             return;
         }
     }
