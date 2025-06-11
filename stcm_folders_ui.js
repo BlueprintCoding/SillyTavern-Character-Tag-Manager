@@ -18,7 +18,9 @@ import {
 } from "../../../tags.js";
 
 import {
-    fuzzySearchCharacters
+    fuzzySearchCharacters,
+    fuzzySearchGroups,
+    fuzzySearchTags
 } from "../../../power-user.js";
 
 import {
@@ -159,34 +161,46 @@ export function injectSidebarFolders(folders) {
     parent.insertBefore(sidebar, parent.firstChild);
 
     const allEntities = getEntitiesList();
-    console.log(allEntities);
     if (stcmSearchActive && stcmSearchTerm) {
-        // Always get a fresh result set on each render
-        let rawResults = fuzzySearchCharacters(stcmSearchTerm);
+        // Entity map keyed by both character CHID and group ID for convenience
+        const entityMap = stcmFolders.buildEntityMap();
+        const entitiesById = Object.fromEntries([...entityMap].map(([id, ent]) => [id, ent]));
     
-        let charToFolder = buildCharacterToFolderMap(folders);
-        let filteredResults = rawResults.filter(res => {
-            let folderId;
-            if (res.type === "character" || (res.item && res.item.spec)) {
-                let entity = res.item ? res.item : res;
-                let avatar = (entity.avatar || entity.avatar_url || "").trim();
-                folderId = charToFolder.get(avatar);
-            } else if (res.type === "group" || (res.item && res.item.members)) {
-                let entity = res.item ? res.item : res;
-                let id = res.id || entity.id;
-                folderId = charToFolder.get(id);
-            }
-            if (folderId && privateFolderVisibilityMode === 0 && isInPrivateFolder(folderId, folders)) {
-                return false;
-            }
-            return true;
-        });
-        
-        
-        renderSidebarFolderSearchResult(folders, allEntities, filteredResults, stcmSearchTerm);
-    } else {
-        renderSidebarFolderContents(folders, allEntities, currentSidebarFolderId);
+        // --- Fuzzy search ---
+        const charResults  = fuzzySearchCharacters(stcmSearchTerm); // array of Fuse results
+        const groupResults = fuzzySearchGroups(stcmSearchTerm);     // array of Fuse results
+        const tagResults   = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
+    
+        // --- Filter and prepare Character & Group results (privacy-aware) ---
+        const filteredCharEntities = charResults
+        .sort((a, b) => a.score - b.score)
+        .map(r => entityMap.get(r.item.avatar || r.item.id))
+        .filter(ent => ent && (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate));
+        const filteredGroupEntities = groupResults
+        .sort((a, b) => a.score - b.score)
+        .map(r => entityMap.get(r.item.id))
+        .filter(ent => ent && (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate));
+
+    
+        // --- Tags are different: display only tags, but show privacy marker if all characters/groups with that tag are private ---
+        const filteredTags = tagResults
+            .map(r => r.item)
+            .filter(tag => {
+                // Find all entities with this tag and check privacy
+                const hasVisibleEntity = [...entityMap.values()].some(ent =>
+                    ent.tagIds?.includes(tag.id) &&
+                    (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate)
+                );
+                return hasVisibleEntity;
+            });
+    
+        // --- Render Unified Search Results ---
+        renderSidebarUnifiedSearchResults(filteredCharEntities, filteredGroupEntities, filteredTags, stcmSearchTerm, folders, entityMap);
     }
+    else {
+        renderSidebarFolderContents(folders, getEntitiesList(), currentSidebarFolderId);
+    }
+    
     
     
     replaceCharacterSearchBar();
@@ -317,83 +331,77 @@ function isInPrivateFolder(folderId, folders) {
     return false;
 }
 
-
-
-function renderSidebarFolderSearchResult(folders, allEntities, results, term) {
+function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
 
-    // Map: character avatar -> folderId
-    const charToFolder = buildCharacterToFolderMap(folders);
+    // Deduplicate (in case an entity appears as both char & group)
+    const shownChids = new Set();
 
-    // Map: folderId -> folder object (for quick lookup)
-    const foldersById = {};
-    folders.forEach(f => foldersById[f.id] = f);
+    // Characters
+    if (chars.length) {
+        const header = document.createElement('div');
+        header.className = 'stcm_search_section_header';
+        header.textContent = "Characters";
+        container.appendChild(header);
+        const charGrid = document.createElement('div');
+        charGrid.className = 'stcm_folder_contents_search';
+        chars.forEach(entity => {
+            if (!entity || shownChids.has(entity.id)) return;
+            charGrid.appendChild(renderSidebarCharacterCard(entity));
+            shownChids.add(entity.id);
+        });
+        container.appendChild(charGrid);
+    }
 
-    // Entity lookups (character/group)
-    const entityByAvatar = {};
-    const entityById = {};
-    allEntities.forEach(e => {
-        if (e.type === "character" && e.item && e.item.avatar) entityByAvatar[e.item.avatar] = e;
-        if (e.type === "group" && e.id) entityById[e.id] = e;
-    });
+    // Groups
+    if (groups.length) {
+        const header = document.createElement('div');
+        header.className = 'stcm_search_section_header';
+        header.textContent = "Groups";
+        container.appendChild(header);
+        const groupGrid = document.createElement('div');
+        groupGrid.className = 'stcm_folder_contents_search';
+        groups.forEach(entity => {
+            if (!entity || shownChids.has(entity.id)) return;
+            groupGrid.appendChild(renderSidebarCharacterCard(entity));
+            shownChids.add(entity.id);
+        });
+        container.appendChild(groupGrid);
+    }
 
-    const alreadyAdded = new Set();
-    const grid = document.createElement('div');
-    grid.className = 'stcm_folder_contents_search';
-
-    results.forEach(res => {
-        let entity, avatar, id, uniqueKey, folderId, folder;
-        if (res.type === "character" || (res.item && res.item.spec)) {
-            entity = res.item ? res.item : res;
-            avatar = (entity.avatar || entity.avatar_url || "").trim();
-            uniqueKey = avatar;
-            if (!avatar || alreadyAdded.has(uniqueKey)) return;
-
-            folderId = charToFolder.get(avatar);
-            folder = folderId ? foldersById[folderId] : null;
-
-            // 🚩 Hide if assigned to private folder and private folders are hidden
-            if (
-                folder &&
-                privateFolderVisibilityMode === 0 &&
-                isInPrivateFolder(folderId, folders)
-            ) {
-                return; // Skip this character in search view
+    // Tags
+    if (tags.length) {
+        const header = document.createElement('div');
+        header.className = 'stcm_search_section_header';
+        header.textContent = "Tags";
+        container.appendChild(header);
+        const tagGrid = document.createElement('div');
+        tagGrid.className = 'stcm_folder_contents_search';
+        tags.forEach(tag => {
+            const div = document.createElement('div');
+            div.className = 'tag_select entity_block flex-container wide100p alignitemsflexstart stcm_sidebar_tag_card';
+            div.textContent = tag.name;
+            div.style.background = tag.color || '#333';
+            div.style.color = tag.color2 || '#fff';
+            const allPrivate = [...entityMap.values()].filter(ent =>
+                ent.tagIds?.includes(tag.id)
+            ).every(ent => ent.folderIsPrivate);
+            if (allPrivate) {
+                div.innerHTML += ` <i class="fa-solid fa-lock" title="All assignments are private"></i>`;
             }
+            tagGrid.appendChild(div);
+        });
+        container.appendChild(tagGrid);
+    }
 
-            alreadyAdded.add(uniqueKey);
-            entity = entityByAvatar[avatar] || entity;
-        } else if (res.type === "group" || (res.item && res.item.members)) {
-            entity = res.item ? res.item : res;
-            id = res.id || entity.id;
-            uniqueKey = id;
-            if (!id || alreadyAdded.has(uniqueKey)) return;
-
-            folderId = charToFolder.get(id);
-            folder = folderId ? foldersById[folderId] : null;
-
-            // 🚩 Hide if assigned to private folder and private folders are hidden
-            if (
-                folderId &&
-                privateFolderVisibilityMode === 0 &&
-                isInPrivateFolder(folderId, folders)
-            ) {
-                return; // Skip this group in search view
-            }
-
-            alreadyAdded.add(uniqueKey);
-            entity = entityById[id] || entity;
-        } else {
-            return; // Unknown type, skip
-        }
-        // Attach tags for rendering
-        entity.tags = getTagsForChar(entity.id || entity.item?.avatar, buildTagMap(tags));
-        grid.appendChild(renderSidebarCharacterCard(entity));
-    });
-
-    container.appendChild(grid);
+    if (!chars.length && !groups.length && !tags.length) {
+        const nothing = document.createElement('div');
+        nothing.className = "stcm_search_no_results";
+        nothing.textContent = `No matches for "${searchTerm}"`;
+        container.appendChild(nothing);
+    }
 }
 
 
