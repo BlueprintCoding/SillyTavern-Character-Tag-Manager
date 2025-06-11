@@ -1653,11 +1653,50 @@ function injectResetViewButton() {
     const resetBtn = document.createElement('button');
     resetBtn.id = 'stcm_reset_view_btn';
     resetBtn.textContent = 'Reset View';
-    resetBtn.className = 'stcm_reset_view_btn';
+    resetBtn.className = 'stcm_reset_view_btn stcm_menu_button stcm_view_btn interactable';
     resetBtn.style.marginLeft = '8px';
-    resetBtn.addEventListener('click', function() {
-        // TODO: Reset logic
+    resetBtn.addEventListener('click', async function() {
+        // 1. Unselect all tags in the global filter bar
+        document.querySelectorAll('.tags.rm_tag_filter .tag.selected, .tags.rm_tag_filter .tag.excluded').forEach(tag => {
+            tag.classList.remove('selected', 'excluded');
+            // If you have any event listeners or triggers, you may want to fire a click here instead:
+            // tag.click();
+        });
+    
+        // 2. Clear search bar
+        const searchInput = document.getElementById('character_search_bar_stcm');
+        if (searchInput) {
+            searchInput.value = '';
+            // If using a wrapper with a clear button, trigger the clear
+            const clearBtn = searchInput.parentNode.querySelector('.stcm_search_clear_btn');
+            if (clearBtn) clearBtn.click();
+            // Or fire input event to trigger your search logic
+            searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+        }
+        // Also clear your search state variables if set directly:
+        stcmSearchActive = false;
+        stcmSearchTerm = '';
+        stcmSearchResults = null;
+        stcmLastSearchFolderId = null;
+    
+        // 3. Reset sort order to "STCM"
+        const sortSelect = document.getElementById('character_sort_order');
+        if (sortSelect) {
+            // Make sure an option exists
+            let stcmOpt = [...sortSelect.options].find(opt => opt.value === 'stcm' || opt.getAttribute('data-field') === 'stcm');
+            if (stcmOpt) {
+                stcmOpt.selected = true;
+                sortSelect.value = stcmOpt.value;
+                sortSelect.dispatchEvent(new Event('change', {bubbles: true}));
+            }
+        }
+    
+        // 4. Reset folders to root
+        currentSidebarFolderId = 'root';
+    
+        // 5. Re-render everything
+        await updateSidebar(true);
     });
-
+    
     showTag.parentNode.insertBefore(resetBtn, showTag.nextSibling);
 }
