@@ -771,27 +771,16 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         contentDiv.appendChild(folderDiv);
     }
 });
-   
 
         // Show characters in this folder (full card style)
+        const entityMap = stcmFolders.buildEntityMap();
         (folder.characters || []).forEach(folderVal => {
-            // For characters, folderVal is supposed to be the character's chid
-            let entity = allEntities.find(e =>
-                (e.type === "character" && (e.chid === folderVal || e.id === folderVal)) ||
-                (e.type === "group" && e.id === folderVal)
-            );
-            if (entity && entity.type === "character") {
-                // Ensure entity.chid is set to folderVal (which is the chid from folder.characters)
-                entity = { ...entity, chid: folderVal };
-            }
+            const entity = entityMap.get(folderVal);
             if (entity) {
-                const entityCard = renderSidebarCharacterCard(entity);
+                const entityCard = renderSidebarCharacterCard({ ...entity, chid: folderVal });
                 contentDiv.appendChild(entityCard);
             }
         });
-        
-        
-        
         
         container.appendChild(contentDiv);
 }
