@@ -313,34 +313,34 @@ function characterMatchesTerm(char, term) {
 
 
 
-function buildCharacterToFolderMap(folders) {
-    // Returns: Map (characterAvatar => folderId)
-    const map = new Map();
+// function buildCharacterToFolderMap(folders) {
+//     // Returns: Map (characterAvatar => folderId)
+//     const map = new Map();
 
-    function walk(folder) {
-        (folder.characters || []).forEach(chid => {
-            if (!map.has(chid)) map.set(chid, folder.id); // chid is avatar
-        });
-        (folder.children || []).forEach(childId => {
-            const child = folders.find(f => f.id === childId);
-            if (child) walk(child);
-        });
-    }
-    const root = folders.find(f => f.id === "root");
-    if (root) walk(root);
-    else folders.forEach(f => walk(f));
-    return map;
-}
+//     function walk(folder) {
+//         (folder.characters || []).forEach(chid => {
+//             if (!map.has(chid)) map.set(chid, folder.id); // chid is avatar
+//         });
+//         (folder.children || []).forEach(childId => {
+//             const child = folders.find(f => f.id === childId);
+//             if (child) walk(child);
+//         });
+//     }
+//     const root = folders.find(f => f.id === "root");
+//     if (root) walk(root);
+//     else folders.forEach(f => walk(f));
+//     return map;
+// }
 
-function isInPrivateFolder(folderId, folders) {
-    let current = folders.find(f => f.id === folderId);
-    while (current) {
-        if (current.private) return true;
-        if (!current.parentId) break;
-        current = folders.find(f => f.id === current.parentId);
-    }
-    return false;
-}
+// function isInPrivateFolder(folderId, folders) {
+//     let current = folders.find(f => f.id === folderId);
+//     while (current) {
+//         if (current.private) return true;
+//         if (!current.parentId) break;
+//         current = folders.find(f => f.id === current.parentId);
+//     }
+//     return false;
+// }
 
 function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
     const container = document.getElementById('stcm_sidebar_folder_nav');
@@ -567,12 +567,21 @@ function getEntitiesNotInAnyFolder(folders) {
 }
 
 
-
 export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
+
+        // Defensive: if folderId is invalid, fallback to root
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder && folderId !== 'root' && folderId !== 'orphans') {
+        // fallback to root, and stop recursion if we're already at root
+        if (folderId !== 'root') {
+            return renderSidebarFolderContents(folders, allEntities, 'root');
+        }
+        return;
+    }
 
     // --- Breadcrumb Label ---
     const breadcrumbDiv = document.createElement('div');
@@ -746,10 +755,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         return;
     }
 
-
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder && folderId !== 'root') return;
-
     // Show "Back" if not root
     if (folderId !== 'root') {
         const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
@@ -852,7 +857,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     }
 });
    
-
         // Show characters in this folder (full card style)
         (folder.characters || []).forEach(folderVal => {
             const entity = allEntities.find(e =>
@@ -865,10 +869,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 contentDiv.appendChild(entityCard);
             }
         });
-        
-        
-        
-        
         container.appendChild(contentDiv);
 }
 
