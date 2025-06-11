@@ -249,7 +249,7 @@ function hookIntoCharacterSearchBar() {
                 block.style.display = stcmSearchActive ? 'none' : '';
             });
         }, 1);
-    }, 1000));
+    }, 150));
     
     
     
