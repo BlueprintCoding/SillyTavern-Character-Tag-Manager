@@ -575,20 +575,12 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         // Defensive: if folderId is invalid, fallback to root
     const folder = folders.find(f => f.id === folderId);
-    // Defensive: if folderId is invalid, fallback to root, and if root is missing, bail
-    if (!folder) {
-        if (folderId !== 'root' && folderId !== 'orphans') {
-            // Fallback to root
+    if (!folder && folderId !== 'root' && folderId !== 'orphans') {
+        // fallback to root, and stop recursion if we're already at root
+        if (folderId !== 'root') {
             return renderSidebarFolderContents(folders, allEntities, 'root');
-        } else if (folderId === 'root') {
-            // Bail: root is missing! Avoid infinite recursion
-            console.error('Sidebar render error: root folder is missing from folder list!', folders);
-            return;
-        } else if (folderId === 'orphans') {
-            // Bail: should not get here without orphans, but avoid error
-            console.error('Sidebar render error: "orphans" pseudo-folder not present!', folders);
-            return;
         }
+        return;
     }
 
     // --- Breadcrumb Label ---
