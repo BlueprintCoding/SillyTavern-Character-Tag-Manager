@@ -286,6 +286,21 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
+     // --- NEW: Check for tag selection and short-circuit hiding ---
+     if (isAnyTagSelected()) {
+        // If a tag is selected, do NOT hide any characters; just unhide all.
+        for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
+            el.classList.remove('stcm_force_hidden');
+        }
+        // Also never hide bogus folders or the label
+        for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
+            el.classList.remove('stcm_force_hidden');
+        }
+        let label = document.getElementById('stcm_no_folder_label');
+        if (label) label.classList.remove('stcm_force_hidden');
+        return;
+    }
+
     // Hide all by default
     for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
         // Don't hide if this element is in the sidebar nav!
@@ -332,6 +347,11 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     if (label) label.classList.remove('stcm_force_hidden');
 }
 
+function isAnyTagSelected() {
+    const tagControls = document.querySelector('.rm_tag_controls .tags.rm_tag_filter');
+    if (!tagControls) return false;
+    return !!tagControls.querySelector('.tag.selected');
+}
 
 
 function hasVisibleChildrenOrCharacters(folderId, folders) {
