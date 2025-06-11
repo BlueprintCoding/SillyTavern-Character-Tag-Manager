@@ -567,21 +567,12 @@ function getEntitiesNotInAnyFolder(folders) {
 }
 
 
+
 export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
-
-        // Defensive: if folderId is invalid, fallback to root
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder && folderId !== 'root' && folderId !== 'orphans') {
-        // fallback to root, and stop recursion if we're already at root
-        if (folderId !== 'root') {
-            return renderSidebarFolderContents(folders, allEntities, 'root');
-        }
-        return;
-    }
 
     // --- Breadcrumb Label ---
     const breadcrumbDiv = document.createElement('div');
@@ -755,6 +746,10 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         return;
     }
 
+
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder && folderId !== 'root') return;
+
     // Show "Back" if not root
     if (folderId !== 'root') {
         const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
@@ -857,6 +852,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     }
 });
    
+
         // Show characters in this folder (full card style)
         (folder.characters || []).forEach(folderVal => {
             const entity = allEntities.find(e =>
@@ -869,6 +865,10 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 contentDiv.appendChild(entityCard);
             }
         });
+        
+        
+        
+        
         container.appendChild(contentDiv);
 }
 
