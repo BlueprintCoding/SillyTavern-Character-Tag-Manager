@@ -287,7 +287,7 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     if (!globalList) return;
 
      // --- NEW: Check for tag selection and short-circuit hiding ---
-     if (isAnyRealTagActive()) {
+     if (shouldShowAllCharacters()) {
         // If a tag is selected, do NOT hide any characters; just unhide all.
         for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
             el.classList.remove('stcm_force_hidden');
@@ -347,6 +347,15 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     if (label) label.classList.remove('stcm_force_hidden');
 }
 
+function shouldShowAllCharacters() {
+    // Show all if a real tag is active (selected or excluded)
+    if (isAnyRealTagActive()) return true;
+    // Show all if STCM sort option is active
+    if (isSTCMSortActive()) return true;
+    return false;
+}
+
+
 function isAnyRealTagActive() {
     // Control tag classes to ignore
     const controlTagClasses = [
@@ -366,6 +375,15 @@ function isAnyRealTagActive() {
         }
     }
     return false;
+}
+
+function isSTCMSortActive() {
+    const sortSelect = document.getElementById('character_sort_order');
+    if (!sortSelect) return false;
+
+    // Check if STCM option is selected
+    const selectedOption = sortSelect.options[sortSelect.selectedIndex];
+    return selectedOption && selectedOption.getAttribute('data-field') === 'stcm';
 }
 
 
@@ -1434,6 +1452,26 @@ export async function reorderChildren(parentId, orderedChildIds) {
 // Replacement Search Functionality
 
 function removeCharacterSortSelect() {
+        const sortSelect = document.getElementById('character_sort_order');
+        if (!sortSelect) return;
+    
+        // Check if already injected to avoid duplicates
+        if (sortSelect.querySelector('option[data-field="stcm"]')) return;
+    
+        // Create new option
+        const stcmOption = document.createElement('option');
+        stcmOption.value = 'stcm'; // You can set this to anything unique
+        stcmOption.textContent = 'STCM';
+        stcmOption.setAttribute('data-field', 'stcm');
+        stcmOption.setAttribute('data-order', 'desc');
+        stcmOption.setAttribute('data-i18n', 'STCM');
+    
+        // Insert as the first option
+        sortSelect.insertBefore(stcmOption, sortSelect.firstChild);
+    
+        // Set as selected by default
+        stcmOption.selected = true;
+
     // Remove the sort dropdown if present
     // const oldSelect = document.getElementById('character_sort_order');
     // if (oldSelect) oldSelect.remove();
