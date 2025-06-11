@@ -772,6 +772,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     }
 });
    
+        const entityMap = stcmFolders.buildEntityMap();
         // Show characters in this folder (full card style)
         (folder.characters || []).forEach(folderVal => {
             // entityMap keys are avatar filenames, so folderVal is avatar filename
