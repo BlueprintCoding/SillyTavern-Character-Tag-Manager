@@ -380,12 +380,9 @@ function isAnyRealTagActive() {
 function isSTCMSortActive() {
     const sortSelect = document.getElementById('character_sort_order');
     if (!sortSelect) return false;
-
-    // Check if STCM option is selected
-    const selectedOption = sortSelect.options[sortSelect.selectedIndex];
-    return selectedOption && selectedOption.getAttribute('data-field') === 'stcm';
+    const selected = sortSelect.selectedOptions[0];
+    return selected && (selected.value === "stcm" || selected.getAttribute('data-field') === 'stcm');
 }
-
 
 function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
