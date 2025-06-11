@@ -286,24 +286,6 @@ function hideFolderedCharactersOutsideSidebar(folders) {
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
-        // NEW: Detect active tag filter in SillyTavern
-        const tagFilterRow = document.querySelector('.tags.rm_tag_filter');
-        const isTagFilterActive = tagFilterRow && !!tagFilterRow.querySelector('.tag.selected');
-    
-        // Only apply our force-hide if NO native tag filter is active
-        if (!isTagFilterActive) {
-            for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
-                // Don't hide if this element is in the sidebar nav!
-                if (el.closest('#stcm_sidebar_folder_nav')) continue;
-                el.classList.add('stcm_force_hidden');
-            }
-        } else {
-            // If a native tag filter is active, REMOVE stcm_force_hidden so default ST filtering works
-            for (const el of globalList.querySelectorAll('.character_select.stcm_force_hidden, .group_select.stcm_force_hidden')) {
-                el.classList.remove('stcm_force_hidden');
-            }
-        }
-
     // Hide all by default
     for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
         // Don't hide if this element is in the sidebar nav!
