@@ -164,6 +164,8 @@ export function injectSidebarFolders(folders) {
     if (stcmSearchActive && stcmSearchTerm) {
         // Entity map keyed by both character CHID and group ID for convenience
         const entityMap = stcmFolders.buildEntityMap();
+        console.log("entityMap keys:", [...entityMap.keys()]);
+        console.log("charResults sample:", charResults.slice(0,3));
         const entitiesById = Object.fromEntries([...entityMap].map(([id, ent]) => [id, ent]));
     
         // --- Fuzzy search ---
