@@ -238,23 +238,23 @@ function hookIntoCharacterSearchBar() {
     if (!input || input.dataset.stcmHooked) return;
     input.dataset.stcmHooked = "true";
 
-    input.addEventListener('input', debounce(() => {
-        const currentFolders = window.STCM?.sidebarFolders || [];
-        const allEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
-    
+    input.addEventListener('input', debounce(async () => {
         const term = input.value.trim();
-        stcmSearchActive = !!term;
-        stcmSearchTerm = term;
     
-        // *** Here is the key: ***
         if (!term) {
-            // When search is cleared, ensure we show default folder view
+            // Always reload folders to ensure fresh/consistent state
             currentSidebarFolderId = 'root';
             stcmSearchActive = false;
             stcmSearchTerm = '';
             stcmSearchResults = null;
             stcmLastSearchFolderId = null;
-            injectSidebarFolders(currentFolders);
+    
+            // Force fresh folder data
+            const folders = await stcmFolders.loadFolders();
+            STCM.sidebarFolders = folders;
+    
+            injectSidebarFolders(folders);
+    
             setTimeout(() => {
                 document.querySelectorAll('.text_block.hidden_block').forEach(block => {
                     block.style.display = '';
@@ -263,8 +263,10 @@ function hookIntoCharacterSearchBar() {
             return;
         }
     
-        // Otherwise, do normal search
-        injectSidebarFolders(currentFolders);
+        // Otherwise, do normal search with current in-memory folders
+        stcmSearchActive = true;
+        stcmSearchTerm = term;
+        injectSidebarFolders(STCM.sidebarFolders);
         setTimeout(() => {
             document.querySelectorAll('.text_block.hidden_block').forEach(block => {
                 block.style.display = stcmSearchActive ? 'none' : '';
