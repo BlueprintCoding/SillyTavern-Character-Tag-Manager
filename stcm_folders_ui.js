@@ -199,7 +199,7 @@ export function injectSidebarFolders(folders) {
     insertNoFolderLabelIfNeeded();
     setTimeout(() => {
         injectResetViewButton();
-    }, 1500);
+    }, 50);
 }
 
 function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
@@ -984,7 +984,7 @@ export function watchSidebarFolderInjection() {
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
         setTimeout(() => {
             injectResetViewButton();
-        }, 150);
+        }, 50);
     }, 150);
 
     if (stcmObserver) stcmObserver.disconnect();
@@ -1620,21 +1620,6 @@ function shouldShowResetButton() {
 
     return searchActive || tagActive || sortActive;
 }
-
-function findAllShowTagListSpansInCharacters() {
-    // Find all character blocks
-    const charBlocks = document.querySelectorAll('#rm_characters_block .character_select');
-    const spans = [];
-    charBlocks.forEach(char => {
-        // Find the .tags_inline inside this character
-        const tags = char.querySelector('.tags.tags_inline');
-        if (!tags) return;
-        const showTag = tags.querySelector('.tag.showTagList');
-        if (showTag) spans.push(showTag);
-    });
-    return spans;
-}
-
 
 
 function injectResetViewButton() {
