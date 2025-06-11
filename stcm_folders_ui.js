@@ -161,7 +161,6 @@ export function injectSidebarFolders(folders) {
         let rawResults = fuzzySearchCharacters(stcmSearchTerm);
     
         let charToFolder = buildCharacterToFolderMap(folders);
-        let parentMap = buildParentMap(folders);
         let filteredResults = rawResults.filter(res => {
             let folderId;
             if (res.type === "character" || (res.item && res.item.spec)) {
@@ -173,11 +172,12 @@ export function injectSidebarFolders(folders) {
                 let id = res.id || entity.id;
                 folderId = charToFolder.get(id);
             }
-            if (folderId && privateFolderVisibilityMode === 0 && isInPrivateFolder(folderId, folders, parentMap)) {
+            if (folderId && privateFolderVisibilityMode === 0 && isInPrivateFolder(folderId, folders)) {
                 return false;
             }
             return true;
         });
+        
         
         renderSidebarFolderSearchResult(folders, allEntities, filteredResults, stcmSearchTerm);
     } else {
@@ -231,7 +231,7 @@ function hookIntoCharacterSearchBar() {
                 block.style.display = stcmSearchActive ? 'none' : '';
             });
         }, 1);
-    }, 150));
+    }, 300));
     
     
     
@@ -282,15 +282,6 @@ function characterMatchesTerm(char, term) {
     return false;
 }
 
-function buildParentMap(folders) {
-    const parentMap = {};
-    folders.forEach(folder => {
-        (folder.children || []).forEach(childId => {
-            parentMap[childId] = folder.id;
-        });
-    });
-    return parentMap;
-}
 
 
 function buildCharacterToFolderMap(folders) {
