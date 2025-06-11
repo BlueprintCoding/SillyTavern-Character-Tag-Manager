@@ -1693,6 +1693,11 @@ function injectResetViewButton() {
     
         // 4. Reset folders to root
         currentSidebarFolderId = 'root';
+                // --- **Fix: forcibly re-inject folder nav if needed** ---
+        const rmBlock = document.getElementById('rm_print_characters_block');
+        if (rmBlock && !document.getElementById('stcm_sidebar_folder_nav')) {
+            injectSidebarFolders(STCM.sidebarFolders || []);
+        }
     
         // 5. Re-render everything
         await updateSidebar(true);
