@@ -1474,7 +1474,8 @@ function removeCharacterSortSelect() {
 
     // Fire a change event to notify listeners
     sortSelect.dispatchEvent(new Event('change', {bubbles: true}));
-
+    hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+    
     // Remove the sort dropdown if present
     // const oldSelect = document.getElementById('character_sort_order');
     // if (oldSelect) oldSelect.remove();
