@@ -914,7 +914,7 @@ export function watchSidebarFolderInjection() {
             lastKnownCharacterAvatars = getCurrentAvatars();
             lastSidebarInjection = Date.now();
         }
-        hideFolderedCharactersOutsideSidebar();
+        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
     }, 150);
 
     if (stcmObserver) stcmObserver.disconnect();
