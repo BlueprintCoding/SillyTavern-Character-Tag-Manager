@@ -980,6 +980,7 @@ export function watchSidebarFolderInjection() {
             lastSidebarInjection = Date.now();
         }
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+        injectResetViewButton();
     }, 150);
 
     if (stcmObserver) stcmObserver.disconnect();
