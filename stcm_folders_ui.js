@@ -164,8 +164,6 @@ export function injectSidebarFolders(folders) {
     if (stcmSearchActive && stcmSearchTerm) {
         // Entity map keyed by both character CHID and group ID for convenience
         const entityMap = stcmFolders.buildEntityMap();
-        console.log("entityMap keys:", [...entityMap.keys()]);
-        console.log("charResults sample:", charResults.slice(0,3));
         const entitiesById = Object.fromEntries([...entityMap].map(([id, ent]) => [id, ent]));
     
         // --- Fuzzy search ---
@@ -173,6 +171,9 @@ export function injectSidebarFolders(folders) {
         const groupResults = fuzzySearchGroups(stcmSearchTerm);     // array of Fuse results
         const tagResults   = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
     
+        console.log("entityMap keys:", [...entityMap.keys()]);
+        console.log("charResults sample:", charResults.slice(0,3));
+        
         // --- Filter and prepare Character & Group results (privacy-aware) ---
         const filteredCharEntities = charResults
         .sort((a, b) => a.score - b.score)
