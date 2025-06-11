@@ -195,6 +195,7 @@ export function injectSidebarFolders(folders) {
     
     injectSidebarSearchBox();
     removeCharacterSortSelect();
+    setupSortOrderListener();
     insertNoFolderLabelIfNeeded();
 }
 
@@ -352,7 +353,6 @@ function shouldShowAllCharacters() {
     return isAnyRealTagActive() && !isSTCMSortActive();
 }
 
-
 function isAnyRealTagActive() {
     // Control tag classes to ignore
     const controlTagClasses = [
@@ -380,6 +380,16 @@ function isSTCMSortActive() {
     const selected = sortSelect.selectedOptions[0];
     return selected && (selected.value === "stcm" || selected.getAttribute('data-field') === 'stcm');
 }
+
+function setupSortOrderListener() {
+    const sortSelect = document.getElementById('character_sort_order');
+    if (!sortSelect) return;
+    sortSelect.addEventListener('change', () => {
+        // Re-run your show/hide logic on sort change
+        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+    });
+}
+
 
 function hasVisibleChildrenOrCharacters(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
