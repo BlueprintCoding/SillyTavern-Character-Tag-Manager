@@ -774,13 +774,27 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         // Show characters in this folder (full card style)
         const entityMap = stcmFolders.buildEntityMap();
+        const avatarToEntity = new Map();
+        for (const [id, ent] of entityMap.entries()) {
+            if (ent.type === "character" && ent.item && ent.item.avatar) {
+                avatarToEntity.set(ent.item.avatar, { ...ent, chid: id });
+            }
+        }
+        
         (folder.characters || []).forEach(folderVal => {
-            const entity = entityMap.get(folderVal);
+            let entity = entityMap.get(folderVal);
+            if (!entity) {
+                entity = avatarToEntity.get(folderVal);
+                if (entity) entity = { ...entity, chid: entity.id };
+            } else {
+                entity = { ...entity, chid: entity.id };
+            }
             if (entity) {
-                const entityCard = renderSidebarCharacterCard({ ...entity, chid: folderVal });
+                const entityCard = renderSidebarCharacterCard(entity);
                 contentDiv.appendChild(entityCard);
             }
         });
+        
         
         container.appendChild(contentDiv);
 }
