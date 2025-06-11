@@ -378,6 +378,7 @@ function isSTCMSortActive() {
     const sortSelect = document.getElementById('character_sort_order');
     if (!sortSelect) return false;
     const selected = sortSelect.selectedOptions[0];
+    console.log("Selected sort value:", selected?.value, "data-field:", selected?.getAttribute('data-field'));
     return selected && (selected.value === "stcm" || selected.getAttribute('data-field') === 'stcm');
 }
 
