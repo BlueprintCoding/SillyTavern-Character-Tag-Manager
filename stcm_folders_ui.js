@@ -775,10 +775,15 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         // Show characters in this folder (full card style)
         (folder.characters || []).forEach(folderVal => {
-            const entity = allEntities.find(e =>
-                (e.type === "character" && e.chid === folderVal) ||
+            // For characters, folderVal is supposed to be the character's chid
+            let entity = allEntities.find(e =>
+                (e.type === "character" && (e.chid === folderVal || e.id === folderVal)) ||
                 (e.type === "group" && e.id === folderVal)
             );
+            if (entity && entity.type === "character") {
+                // Ensure entity.chid is set to folderVal (which is the chid from folder.characters)
+                entity = { ...entity, chid: folderVal };
+            }
             if (entity) {
                 const entityCard = renderSidebarCharacterCard(entity);
                 contentDiv.appendChild(entityCard);
