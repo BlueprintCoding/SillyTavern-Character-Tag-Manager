@@ -1622,7 +1622,7 @@ function injectResetViewButton() {
     if (!shouldShowResetButton()) return;
 
     // Locate the "Show Tag List" span by ID
-    const showTagListSpan = document.getElementById('3');
+    const showTagListSpan = document.querySelectorAll('.tag.showTagList');
     if (!showTagListSpan) return;
 
     // Prevent duplicate button
