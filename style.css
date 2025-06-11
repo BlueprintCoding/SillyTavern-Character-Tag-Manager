@@ -307,6 +307,13 @@
     margin-top: 0;
 }
 
+#character_search_bar_stcm {
+  margin: 0;
+  flex: 1;
+  padding-left: 0.75em;
+  height: auto;
+}
+
 .stcm_search_clear_btn {
     position: absolute;
     right: 6px;
@@ -322,6 +329,9 @@
     line-height: 1;
 }
 
+#character_sort_order{
+    min-width: 110px!important;
+}
 
 .menu_input {
     padding: 6px;
