@@ -136,7 +136,7 @@ function insertNoFolderLabelIfNeeded() {
 export function injectSidebarFolders(folders) {
     // console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
-    console.log("STCM Entity Map:", Array.from(entityMap.values()));
+    // console.log("STCM Entity Map:", Array.from(entityMap.values()));
 
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
@@ -771,30 +771,23 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         contentDiv.appendChild(folderDiv);
     }
 });
-
+   
         // Show characters in this folder (full card style)
-        const entityMap = stcmFolders.buildEntityMap();
-        const avatarToEntity = new Map();
-        for (const [id, ent] of entityMap.entries()) {
-            if (ent.type === "character" && ent.item && ent.item.avatar) {
-                avatarToEntity.set(ent.item.avatar, { ...ent, chid: id });
-            }
-        }
-        
         (folder.characters || []).forEach(folderVal => {
+            // entityMap keys are avatar filenames, so folderVal is avatar filename
             let entity = entityMap.get(folderVal);
-            if (!entity) {
-                entity = avatarToEntity.get(folderVal);
-                if (entity) entity = { ...entity, chid: entity.id };
-            } else {
-                entity = { ...entity, chid: entity.id };
-            }
-            if (entity) {
-                const entityCard = renderSidebarCharacterCard(entity);
+        
+            // If found, force the DOM to use the true SillyTavern chid, not the avatar as the chid!
+            if (entity && typeof entity.chid !== "undefined") {
+                // Copy entity, but override id with the chid for DOM attributes
+                const entityCard = renderSidebarCharacterCard({
+                    ...entity,
+                    id: entity.chid,    // id is now the numeric or string SillyTavern ID
+                    chid: entity.chid,  // explicitly include
+                });
                 contentDiv.appendChild(entityCard);
             }
         });
-        
         
         container.appendChild(contentDiv);
 }
