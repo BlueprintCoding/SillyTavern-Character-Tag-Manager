@@ -280,47 +280,50 @@ function isTagFolderDiveActive() {
         !back.closest('#bogus_folder_back_template')  // ...but NOT in template
     );
 }
-
 function hideFolderedCharactersOutsideSidebar(folders) {
-    // console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
 
-    // Hide all by default
-    for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
-        // Don't hide if this element is in the sidebar nav!
-        if (el.closest('#stcm_sidebar_folder_nav')) continue;
-        el.classList.add('stcm_force_hidden');
+    // Detect active tag filter in SillyTavern
+    const tagFilterRow = document.querySelector('.tags.rm_tag_filter');
+    const isTagFilterActive = tagFilterRow && !!tagFilterRow.querySelector('.tag.selected');
+
+    if (!isTagFilterActive) {
+        // Only apply our force-hide if NO native tag filter is active
+        for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
+            if (el.closest('#stcm_sidebar_folder_nav')) continue;
+            el.classList.add('stcm_force_hidden');
+        }
+    } else {
+        // If a native tag filter is active, REMOVE stcm_force_hidden so default ST filtering works
+        for (const el of globalList.querySelectorAll('.character_select.stcm_force_hidden, .group_select.stcm_force_hidden')) {
+            el.classList.remove('stcm_force_hidden');
+        }
+        // When tag filter is active, don't run the rest of this logic!
+        // So return early:
+        return;
     }
 
-
-        // If we are in a tag folder dive, UNHIDE the right characters
-        if (isTagFolderDiveActive()) {
-            // 1. Find the back button (start of dive area)
-            let backBtn = document.getElementById('BogusFolderBack');
-            // 2. Find the block marking the end (the "hidden" info)
-            let endBlock = document.querySelector('.text_block.hidden_block');
-        
-            if (backBtn && endBlock) {
-                let el = backBtn.nextElementSibling;
-                while (el && el !== endBlock) {
-                    // Unhide all characters, groups, and nested bogus folders in this "dive"
-                    if (
-                        el.classList.contains('character_select') ||
-                        el.classList.contains('group_select') ||
-                        el.classList.contains('bogus_folder_select')
-                    ) {
-                        el.classList.remove('stcm_force_hidden');
-                        el.classList.add('FoundDiveFolder');
-                        document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
-                        // For debugging:
-                        // console.log('UNHIDING:', el);
-                    }
-                    el = el.nextElementSibling;
+    // folder dives (only needed if *no* native tag filter is active)
+    if (isTagFolderDiveActive()) {
+        let backBtn = document.getElementById('BogusFolderBack');
+        let endBlock = document.querySelector('.text_block.hidden_block');
+        if (backBtn && endBlock) {
+            let el = backBtn.nextElementSibling;
+            while (el && el !== endBlock) {
+                if (
+                    el.classList.contains('character_select') ||
+                    el.classList.contains('group_select') ||
+                    el.classList.contains('bogus_folder_select')
+                ) {
+                    el.classList.remove('stcm_force_hidden');
+                    el.classList.add('FoundDiveFolder');
+                    document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
                 }
+                el = el.nextElementSibling;
             }
         }
-        
+    }
 
     // Never hide the bogus folders
     for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
