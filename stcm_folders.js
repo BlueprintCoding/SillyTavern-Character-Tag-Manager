@@ -19,7 +19,7 @@ function ctx() {
     return SillyTavern.getContext();
 }
 
-function getEntityChidMaster(entity) {
+export function getEntityChidMaster(entity) {
     if (!entity) return undefined;
     // If entity.item exists, try that first
     if (entity.item && typeof entity.item.id !== "undefined") return entity.item.id;

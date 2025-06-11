@@ -937,11 +937,7 @@ export function renderSidebarCharacterCard(entity) {
     // Determine if it's a group or character
     const isGroup = ent.type === "group";
     const groupId = isGroup ? ent.id : null;
-    const chid = !isGroup ? getEntityChid(entity) : undefined;
-    // For group: list of member avatars
-    let memberFiles = isGroup
-        ? Array.isArray(ent.members) ? ent.members : []
-        : null;
+    const chid = !isGroup ? stcmFolders.getEntityChidMaster(entity) : undefined;
 
     // Group name & count
     const name = ent.name || "";
@@ -954,13 +950,14 @@ export function renderSidebarCharacterCard(entity) {
     ).join('');
 
     if (isGroup) {
-        // --- GROUP CARD ---
+        // Use avatar array for group collage
+        let memberFiles = Array.isArray(ent.avatar) ? ent.avatar : [];
         const div = document.createElement('div');
         div.className = 'group_select entity_block flex-container wide100p alignitemsflexstart interactable';
         div.setAttribute('tabindex', '0');
         div.setAttribute('data-grid', groupId);
-
-        // Collage avatars
+    
+        // Collage avatars (up to 3)
         const avatarHtml = `
             <div class="avatar avatar_collage collage_${memberFiles.length}" title="[Group] ${escapedName}">
                 ${memberFiles.slice(0, 3).map((file, i) =>
@@ -972,7 +969,7 @@ export function renderSidebarCharacterCard(entity) {
         const memberNames = memberFiles.map(f =>
             (typeof f === "string" ? f.replace(/\.[^/.]+$/, "") : f)
         ).join(", ");
-
+    
         div.innerHTML = `
             ${avatarHtml}
             <div class="flex-container wide100pLess70px gap5px group_select_container">
@@ -988,7 +985,8 @@ export function renderSidebarCharacterCard(entity) {
             </div>
         `;
         return div;
-    } else {
+    }
+     else {
         // --- CHARACTER CARD ---
         let avatarUrl = ent.avatar || ent.avatar_url || 'img/ai4.png';
         if (typeof avatarUrl !== 'string') avatarUrl = String(avatarUrl ?? 'img/ai4.png');
