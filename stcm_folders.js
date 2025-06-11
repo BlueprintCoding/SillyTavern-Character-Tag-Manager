@@ -38,14 +38,17 @@ export function buildEntityMap() {
     const charToFolder = new Map();
     function walk(folder, parentPrivate = false) {
         const isPrivate = !!folder.private || parentPrivate;
-        (folder.characters || []).forEach(chid => {
-            charToFolder.set(chid, { folderId: folder.id, isPrivate });
+        // Characters: this should always be avatar strings!
+        (folder.characters || []).forEach(charAvatar => {
+            charToFolder.set(charAvatar, { folderId: folder.id, isPrivate });
         });
+        // Children folders
         (folder.children || []).forEach(childId => {
             const child = folders.find(f => f.id === childId);
             if (child) walk(child, isPrivate);
         });
     }
+
     const root = folders.find(f => f.id === "root");
     if (root) walk(root);
     else folders.forEach(f => walk(f));
@@ -53,34 +56,34 @@ export function buildEntityMap() {
     // Build the entity map
     const entityMap = new Map();
     for (const entity of allEntities) {
-        let id, idType, type, name, avatar;
+        let id, idType, type, name, avatar, chid = undefined;
+
         if (entity.type === "character") {
-            id = getEntityChidMaster(entity); // entity (not entity.item)
-            // Determine what was used
-            if (entity.item && typeof entity.item.id !== "undefined" && id === entity.item.id) {
-                idType = "chid";
-            } else if (entity.item && typeof entity.item.avatar !== "undefined" && id === entity.item.avatar) {
-                idType = "avatar";
-            } else if (typeof entity.avatar !== "undefined" && id === entity.avatar) {
-                idType = "avatar";
-            } else {
-                idType = "unknown";
-            }
+            // Prefer avatar as ID for characters
+            avatar = entity.item?.avatar || entity.avatar;
+            id = avatar; // Main map key
             type = "character";
             name = entity.item?.name || entity.name;
-            avatar = entity.item?.avatar || entity.avatar;
+
+            // Find the true character ID (chid) if it exists
+            chid = entity.item?.id !== undefined ? entity.item.id
+                  : entity.id !== undefined ? entity.id
+                  : undefined;
+
+            idType = "avatar";
         } else if (entity.type === "group") {
+            // Groups: use their numeric id
             id = entity.id;
-            idType = "id";
             type = "group";
             name = entity.name;
             avatar = (entity.members || []).slice(0, 3); // group collage
+            idType = "id";
         }
 
         // Folder assignment
         const folderInfo = charToFolder.get(id) || { folderId: null, isPrivate: false };
 
-        // Tags for this entity
+        // Tags for this entity (characters: use avatar as key; groups: use id)
         const tagIds = tag_map[id] || [];
         const tagNames = tagIds.map(tid => tagsById.get(tid)?.name).filter(Boolean);
 
@@ -90,6 +93,7 @@ export function buildEntityMap() {
             type,
             name,
             avatar,
+            chid, // <--- Only present for characters
             folderId: folderInfo.folderId,
             folderIsPrivate: folderInfo.isPrivate,
             tagIds,
@@ -98,6 +102,7 @@ export function buildEntityMap() {
     }
     return entityMap;
 }
+
 
 
 function readExtFolders() {
