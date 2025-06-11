@@ -1621,45 +1621,46 @@ function shouldShowResetButton() {
     return searchActive || tagActive || sortActive;
 }
 
-function findShowTagListSpan() {
-    // Selects all tags
-    const spans = document.querySelectorAll('.tag.showTagList');
-    for (const span of spans) {
-        // Extra check: Make sure this is the right one by looking for the fa-tags icon
-        if (span.querySelector('.fa-tags')) return span;
-    }
-    return null;
+function findAllShowTagListSpansInCharacters() {
+    // Find all character blocks
+    const charBlocks = document.querySelectorAll('#rm_characters_block .character_select');
+    const spans = [];
+    charBlocks.forEach(char => {
+        // Find the .tags_inline inside this character
+        const tags = char.querySelector('.tags.tags_inline');
+        if (!tags) return;
+        const showTag = tags.querySelector('.tag.showTagList');
+        if (showTag) spans.push(showTag);
+    });
+    return spans;
 }
+
 
 
 function injectResetViewButton() {
-    console.log("[STCM] injectResetViewButton CALLED");
-    if (!shouldShowResetButton()) {
-        console.log("[STCM] shouldShowResetButton: FALSE");
-        return;
-    }
-    const showTagListSpan = findShowTagListSpan();
-    console.log("[STCM] showTagListSpan found:", showTagListSpan);
-    if (!showTagListSpan) {
-        console.log("[STCM] Show Tag List span not found!");
-        return;
-    }
-    // Remove old button if present
-    const existing = document.getElementById('stcm_reset_view_btn');
-    if (existing) existing.remove();
+    if (!shouldShowResetButton()) return;
+    // For global tag filter bar:
+    // const showTagListSpan = findShowTagListSpan();
 
-    // Create the button
-    const resetBtn = document.createElement('button');
-    resetBtn.id = 'stcm_reset_view_btn';
-    resetBtn.textContent = 'Reset View';
-    resetBtn.className = 'stcm_reset_view_btn';
-    resetBtn.style.marginLeft = '8px';
+    // For per-character:
+    const spans = findAllShowTagListSpansInCharacters();
+    spans.forEach(showTagListSpan => {
+        // Prevent duplicate
+        if (showTagListSpan.nextElementSibling && showTagListSpan.nextElementSibling.id === 'stcm_reset_view_btn') {
+            return;
+        }
+        // Remove any old button before inserting
+        const existing = showTagListSpan.parentNode.querySelector('#stcm_reset_view_btn');
+        if (existing) existing.remove();
 
-    resetBtn.addEventListener('click', function() {
-        // TODO: Reset logic
+        const resetBtn = document.createElement('button');
+        resetBtn.id = 'stcm_reset_view_btn';
+        resetBtn.textContent = 'Reset View';
+        resetBtn.className = 'stcm_reset_view_btn';
+        resetBtn.style.marginLeft = '8px';
+        resetBtn.addEventListener('click', function() {
+            // TODO: Reset logic
+        });
+        showTagListSpan.parentNode.insertBefore(resetBtn, showTagListSpan.nextSibling);
     });
-
-    // Insert right after the tag span
-    showTagListSpan.parentNode.insertBefore(resetBtn, showTagListSpan.nextSibling);
 }
-
