@@ -1703,7 +1703,7 @@ function injectResetViewButton() {
             }
     
             await updateSidebar(true);
-        }, 150); // 10ms is enough, adjust if needed
+        }, 100); // 10ms is enough, adjust if needed
     });
     
     
