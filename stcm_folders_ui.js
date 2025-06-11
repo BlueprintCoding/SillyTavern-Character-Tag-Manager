@@ -239,77 +239,69 @@ function hookIntoCharacterSearchBar() {
     input.dataset.stcmHooked = "true";
 
     input.addEventListener('input', debounce(() => {
-        const currentFolders = window.STCM?.sidebarFolders || [];
-        const allEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
-    
         const term = input.value.trim();
         stcmSearchActive = !!term;
         stcmSearchTerm = term;
-    
-        injectSidebarFolders(currentFolders);
+        // If searching, show search results; if not, show folder tree at root!
+        if (stcmSearchActive) {
+            injectSidebarFolders(window.STCM?.sidebarFolders || []);
+        } else {
+            currentSidebarFolderId = 'root';
+            stcmSearchResults = null;
+            stcmLastSearchFolderId = null;
+            injectSidebarFolders(window.STCM?.sidebarFolders || []);
+        }
         setTimeout(() => {
             document.querySelectorAll('.text_block.hidden_block').forEach(block => {
                 block.style.display = stcmSearchActive ? 'none' : '';
             });
         }, 1);
     }, 150));
-    
-    
-    
+
     input.addEventListener('blur', () => {
+        // When the search loses focus, if it's empty, fully reset to folders root state
         if (!input.value.trim()) {
             currentSidebarFolderId = 'root';
-            accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
             stcmSearchActive = false;
             stcmSearchResults = null;
             stcmSearchTerm = '';
             stcmLastSearchFolderId = null;
-            const input = document.getElementById('character_search_bar_stcm');
-            if (input) input.value = '';
-            if (!STCM.sidebarFolders || !STCM.sidebarFolders.length || !STCM.sidebarFolders.find(f => f.id === 'root')) {
-                // Defensive: reload folders if missing or corrupted
-                stcmFolders.loadFolders().then(folders => {
-                    STCM.sidebarFolders = folders;
-                    injectSidebarFolders(folders);
-                });
-            } else {
-                injectSidebarFolders(STCM.sidebarFolders);
-            }
+            input.value = '';
+            injectSidebarFolders(window.STCM?.sidebarFolders || []);
         }
         document.querySelectorAll('.text_block.hidden_block').forEach(block => {
             block.style.display = stcmSearchActive ? 'none' : '';
         });
     });
-    
-    
 }
 
-function characterMatchesTerm(char, term) {
-    // 1. Check all string/number/array fields
-    for (const key in char) {
-        if (!char.hasOwnProperty(key)) continue;
-        let val = char[key];
-        if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
-        if (typeof val === 'number' && val.toString().includes(term)) return true;
-        if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
-    }
 
-    // 2. Check tags assigned to this character
-    // You'll need access to tag_map and tags (already imported at the top)
-    const tagIds = tag_map[char.avatar] || [];
-    if (tagIds.length) {
-        // Build tagsById map just once per render ideally, but it's fine here for clarity
-        const tagsById = buildTagMap(tags);
-        for (const tagId of tagIds) {
-            const tag = tagsById.get(tagId);
-            if (tag && tag.name && tag.name.toLowerCase().includes(term)) {
-                return true;
-            }
-        }
-    }
+// function characterMatchesTerm(char, term) {
+//     // 1. Check all string/number/array fields
+//     for (const key in char) {
+//         if (!char.hasOwnProperty(key)) continue;
+//         let val = char[key];
+//         if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
+//         if (typeof val === 'number' && val.toString().includes(term)) return true;
+//         if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
+//     }
 
-    return false;
-}
+//     // 2. Check tags assigned to this character
+//     // You'll need access to tag_map and tags (already imported at the top)
+//     const tagIds = tag_map[char.avatar] || [];
+//     if (tagIds.length) {
+//         // Build tagsById map just once per render ideally, but it's fine here for clarity
+//         const tagsById = buildTagMap(tags);
+//         for (const tagId of tagIds) {
+//             const tag = tagsById.get(tagId);
+//             if (tag && tag.name && tag.name.toLowerCase().includes(term)) {
+//                 return true;
+//             }
+//         }
+//     }
+
+//     return false;
+// }
 
 
 
