@@ -499,6 +499,11 @@
     margin-bottom: 0;
 }
 
+.removeFolderBtn:hover {
+    color: #e33;
+    text-shadow: 0 0 2px #fff;
+}
+
 /* === Tag List, Tag Groups, Tag Chips === */
 .tagNameEditable {
     display: flex;

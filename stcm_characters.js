@@ -292,6 +292,36 @@ async function renderCharacterList() {
             // --- Put icon and dropdown together ---
             folderDropdownWrapper.appendChild(folderIcon);
             folderDropdownWrapper.appendChild(folderDropdown);
+
+            // --- Add the remove (x) button ---
+            const removeFolderBtn = document.createElement('span');
+            removeFolderBtn.className = 'removeFolderBtn';
+            removeFolderBtn.textContent = '✕';
+            removeFolderBtn.title = 'Remove from folder (set to No Folder)';
+            removeFolderBtn.style.cssText = `
+                display: ${assignedFolder ? 'inline-block' : 'none'};
+                cursor: pointer;
+                margin-left: 8px;
+                color: #b55;
+                font-size: 1.1em;
+                font-weight: bold;
+            `;
+
+            // --- Remove logic ---
+            removeFolderBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // Set dropdown to "No Folder" and trigger change
+                folderDropdown.value = '';
+                folderDropdown.dispatchEvent(new Event('change', {bubbles:true}));
+            });
+
+            // Add ✕ to the wrapper
+            folderDropdownWrapper.appendChild(removeFolderBtn);
+
+            // Listen for dropdown changes to show/hide ✕ appropriately
+            folderDropdown.addEventListener('change', (e) => {
+                removeFolderBtn.style.display = folderDropdown.value ? 'inline-block' : 'none';
+            });
         
             // --- Insert into the row ---
             nameRow.appendChild(folderDropdownWrapper);
