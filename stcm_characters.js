@@ -50,7 +50,6 @@ async function renderCharacterList() {
     const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIdsArr.length > 0;
 
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
-    document.getElementById('assignFoldersBar').style.display = showCheckboxes ? 'block' : 'none';
 
 
         const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
