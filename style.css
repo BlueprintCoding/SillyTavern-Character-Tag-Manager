@@ -567,6 +567,15 @@
     margin-top: -2px;
 }
 
+.stcm_folder_assign_bar {
+    display: flex;
+    gap: 5px;
+}
+
+#bulkAssignFolderBtn {
+    text-wrap: nowrap;
+}
+
 .tagBox {
     display: inline-flex;
     align-items: center;
