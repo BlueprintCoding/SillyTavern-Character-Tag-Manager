@@ -217,7 +217,7 @@
 }
 
 .bulkDelChar {
-    min-width: 150px;
+    min-width: 135px;
     margin-left: 5px;
 }
 
@@ -261,11 +261,13 @@
 
 .charNotesToggle:hover,
 .stcm_save_note_btn:hover,
-#assignTagsButton:hover {
+#assignTagsButton:hover,
+#bulkAssignFolderBtn:hover {
     background-color: #2e7035;
 }
 
-#assignTagsButton {
+#assignTagsButton,
+#bulkAssignFolderBtn {
     background-color: #3d8b44;
     color: white;
     min-width: 125px;
@@ -348,6 +350,7 @@
 
 #charSortMode {
     margin-left:4px;
+    min-width: 170px;
 }
 
 /* === Scroll Areas & Banding (Lists) === */
@@ -570,6 +573,8 @@
 .stcm_folder_assign_bar {
     display: flex;
     gap: 5px;
+    border-left: 2px solid #242424;
+    padding-left: 5px;
 }
 
 #bulkAssignFolderBtn {
