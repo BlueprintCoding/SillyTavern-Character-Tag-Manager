@@ -186,7 +186,7 @@ function openCharacterTagManagerModal() {
                             <input type="text" id="assignTagSearchInput" class="menu_input stcm_fullwidth_input stcm_margin_bottom-sm" placeholder="Filter tags..." />
                                                                      <button id="assignTagsButton" class="stcm_menu_button interactable green">Assign Tag(s)</button>
                             <div id="assignFoldersBar" class="stcm_folder_assign_bar">
-                            <select id="bulkFolderSelect" class="charFolderDropdown"></select>
+                            <i class="fa-solid fa-folder-open" style="font-size: 1.5em;"></i><select id="bulkFolderSelect" class="charFolderDropdown"></select>
                             <button id="bulkAssignFolderBtn" class="stcm_menu_button small">Assign Folder</button>
                             </div>
                             </div>
