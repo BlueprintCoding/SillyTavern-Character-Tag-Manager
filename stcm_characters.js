@@ -121,6 +121,19 @@ async function renderCharacterList() {
         visible = filtered.filter(e =>
             !(notes.charNotes[e.id] || '').trim()
         );
+    } else if (sortMode === 'no_folder') {
+        visible = filtered.filter(e => {
+            // Only apply to characters, not groups!
+            if (e.type !== 'character') return false;
+            const folder = stcmFolders.getCharacterAssignedFolder(e.id, folders);
+            return !folder; // Not assigned to any folder
+        });
+    } else if (sortMode === 'with_folder') {
+        visible = filtered.filter(e => {
+            if (e.type !== 'character') return false;
+            const folder = stcmFolders.getCharacterAssignedFolder(e.id, folders);
+            return !!folder; // Assigned to a folder
+        });
     }
 
     visible.sort((a, b) => {

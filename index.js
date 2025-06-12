@@ -207,6 +207,8 @@ function openCharacterTagManagerModal() {
                             <option value="only_zero">Only 0 Tags</option>
                             <option value="with_notes">With Notes</option>
                             <option value="without_notes">Without Notes</option>
+                            <option value="no_folder">No Folder Assigned</option>
+                            <option value="with_folder">Folder Assigned</option>
                         </select>
                             <input type="text" id="charSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search characters/groups..." />
                             <button id="startBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable bulkDelChar" tabindex="0">
