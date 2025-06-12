@@ -470,32 +470,31 @@ if (bulkFolderSelect) {
     // Assign button handler
     document.getElementById('bulkAssignFolderBtn').onclick = async function() {
         const selectedFolderId = bulkFolderSelect.value;
-        if (!selectedFolderId) {
-            toastr.warning('Please select a folder to assign.');
-            return;
-        }
         const charIds = Array.from(stcmCharState.selectedCharacterIds);
         if (charIds.length === 0) {
             toastr.warning('No characters selected.');
             return;
         }
+        // Always remove from any existing folder
         for (const charId of charIds) {
             const currentFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
             if (currentFolder) {
                 await stcmFolders.removeCharacterFromFolder(currentFolder.id, charId);
             }
         }
+        // Only assign to new folder if a folder was picked (not root)
         if (selectedFolderId) {
             await stcmFolders.assignCharactersToFolder(selectedFolderId, charIds);
+            toastr.success(`Assigned ${charIds.length} character${charIds.length !== 1 ? 's' : ''} to folder.`);
+        } else {
+            toastr.success(`Removed ${charIds.length} character${charIds.length !== 1 ? 's' : ''} from all folders (moved to root).`);
         }
-        toastr.success(selectedFolderId
-            ? `Assigned ${charIds.length} characters to folder.`
-            : `Removed ${charIds.length} characters from all folders (moved to root).`);
         stcmCharState.selectedCharacterIds.clear();
         callSaveandReload();
         renderCharacterList();
         renderTagSection && renderTagSection();
     };
+    
 }
 
 }
