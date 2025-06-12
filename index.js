@@ -187,7 +187,7 @@ function openCharacterTagManagerModal() {
                                                                      <button id="assignTagsButton" class="stcm_menu_button interactable green">Assign Tag(s)</button>
 
                             </div>
-                            <div id="assignFoldersBar" class="stcm_assign_bar">
+                            <div id="assignFoldersBar" class="stcm_folder_assign_bar">
                             <select id="bulkFolderSelect" class="charFolderDropdown"></select>
                             <button id="bulkAssignFolderBtn" class="stcm_menu_button small">Assign Folder</button>
                             </div>
