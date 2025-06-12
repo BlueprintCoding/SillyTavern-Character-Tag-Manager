@@ -50,6 +50,8 @@ async function renderCharacterList() {
     const showCheckboxes = stcmCharState.isBulkDeleteCharMode || selectedTagIdsArr.length > 0;
 
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
+    document.getElementById('assignFoldersBar').style.display = showCheckboxes ? 'block' : 'none';
+
 
         const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
         const sortMode = document.getElementById('charSortMode')?.value || 'alpha_asc';
@@ -431,6 +433,56 @@ async function renderCharacterList() {
 
 
     container.appendChild(list);
+
+    // ===== BULK FOLDER ASSIGN BAR (ONE TIME) =====
+const bulkFolderSelect = document.getElementById('bulkFolderSelect');
+if (bulkFolderSelect) {
+    bulkFolderSelect.innerHTML = ''; // Clear previous
+
+    // "-- No Folder --" option
+    const optNone = document.createElement('option');
+    optNone.value = '';
+    optNone.textContent = '-- No Folder --';
+    bulkFolderSelect.appendChild(optNone);
+
+    // Populate with folder tree
+    const folderOptions = getFolderOptionsTree(folders, [], 'root', 0)
+        .filter(opt => opt.id !== 'root');
+    folderOptions.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.id;
+        option.innerHTML = opt.name; // name contains indents
+        bulkFolderSelect.appendChild(option);
+    });
+
+    // Assign button handler
+    document.getElementById('bulkAssignFolderBtn').onclick = async function() {
+        const selectedFolderId = bulkFolderSelect.value;
+        if (!selectedFolderId) {
+            toastr.warning('Please select a folder to assign.');
+            return;
+        }
+        const charIds = Array.from(stcmCharState.selectedCharacterIds);
+        if (charIds.length === 0) {
+            toastr.warning('No characters selected.');
+            return;
+        }
+        // Remove characters from current folders if needed
+        for (const charId of charIds) {
+            const currentFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
+            if (currentFolder && currentFolder.id !== selectedFolderId) {
+                await stcmFolders.removeCharacterFromFolder(currentFolder.id, charId);
+            }
+        }
+        await stcmFolders.assignCharactersToFolder(selectedFolderId, charIds);
+        toastr.success(`Assigned ${charIds.length} characters to folder.`);
+        stcmCharState.selectedCharacterIds.clear();
+        callSaveandReload();
+        renderCharacterList();
+        renderTagSection && renderTagSection();
+    };
+}
+
 }
 
 function toggleCharacterList(container, group) {
