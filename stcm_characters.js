@@ -466,15 +466,18 @@ if (bulkFolderSelect) {
             toastr.warning('No characters selected.');
             return;
         }
-        // Remove characters from current folders if needed
         for (const charId of charIds) {
             const currentFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
-            if (currentFolder && currentFolder.id !== selectedFolderId) {
+            if (currentFolder) {
                 await stcmFolders.removeCharacterFromFolder(currentFolder.id, charId);
             }
         }
-        await stcmFolders.assignCharactersToFolder(selectedFolderId, charIds);
-        toastr.success(`Assigned ${charIds.length} characters to folder.`);
+        if (selectedFolderId) {
+            await stcmFolders.assignCharactersToFolder(selectedFolderId, charIds);
+        }
+        toastr.success(selectedFolderId
+            ? `Assigned ${charIds.length} characters to folder.`
+            : `Removed ${charIds.length} characters from all folders (moved to root).`);
         stcmCharState.selectedCharacterIds.clear();
         callSaveandReload();
         renderCharacterList();
