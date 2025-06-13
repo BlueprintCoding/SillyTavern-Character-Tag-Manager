@@ -1551,6 +1551,7 @@ dialog.popup #stcm-popup-pin-input:focus {
 
       .stcm_folder_type_row {
         margin-left: 0px !important;
+        font-size: .7em;
       }
 
       .tagActionButtons {
@@ -1560,6 +1561,22 @@ dialog.popup #stcm-popup-pin-input:focus {
       #toggleImportExport {
         width: 100%;
         margin-left: -5px;
+      }
+
+      .foldersSectionControls{
+        flex-direction: column;
+      }
+
+      .stcm_folder_node .stcm_folder_row {
+        gap: 7px;
+        margin-left: 0px;
+        flex-wrap: wrap;
+        padding: 5px;
+        justify-content: end;
+        }   
+
+      .stcm_menu_button.tiny {
+        margin-left: 0px;
       }
 
     .tagGroupHeader {

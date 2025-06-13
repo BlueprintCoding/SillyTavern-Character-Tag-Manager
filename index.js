@@ -148,7 +148,7 @@ function openCharacterTagManagerModal() {
         <div class="accordionSection stcm_accordion_section stcm_folders_section">
             <button class="accordionToggle stcm_text_left" data-target="foldersSection">▶ Folders</button>
             <div id="foldersSection" class="accordionContent">
-                <div style="padding: .2em 0; display: flex; align-items: flex-start; gap: 3px;">
+                <div class="foldersSectionControls" style="padding: .2em 0; display: flex; align-items: flex-start; gap: 3px;">
                 <div style="display: flex; gap: 3px;">
                     <button id="collapseAllFoldersBtn" class="stcm_menu_button tiny interactable collapseExpandAllFoldersBtn" title="Collapse All Folders">
                         <i class="fa-solid fa-caret-up"></i> Collapse All
