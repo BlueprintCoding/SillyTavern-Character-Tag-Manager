@@ -331,9 +331,9 @@ function applyFolderNavHeightMode() {
     if (settings.folderNavHeightMode === 'custom') {
         style.textContent = `
 #stcm_sidebar_folder_nav {
-    max-height: ${settings.folderNavMaxHeight}vh !important;
-    min-height: ${settings.folderNavMaxHeight}vh !important;
-    overflow-y: auto !important;
+    max-height: ${settings.folderNavMaxHeight}vh;
+    min-height: ${settings.folderNavMaxHeight}vh;
+    overflow-y: auto;
 }
 `;
     } else {
@@ -343,16 +343,16 @@ function applyFolderNavHeightMode() {
 #rm_print_characters_block,
 #rm_characters_block,
 #right-nav-panel.drawer-content > .scrollableInner {
-    overflow-y: visible !important;
-    height: auto !important;
-    max-height: none !important;
+    overflow-y: visible;
+    height: auto;
+    max-height: none;
 }
 nav#right-nav-panel.drawer-content {
-    overflow-y: auto !important;
-    height: 100% !important;
+    overflow-y: auto;
+    height: 100%;
 }
 div#rightNavHolder.drawer {
-    overflow: hidden !important;
+    overflow: hidden;
 }
 `;
     }
