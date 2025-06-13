@@ -122,7 +122,7 @@ export async function addFolder(name, parentId = 'root', color = '#8b2ae6') {
     const parent  = getFolder(parentId, folders);
     if (!parent) throw new Error('Parent folder not found');
 
-    const id = crypto.randomUUID();
+    const id = uuidv4();
     parent.children.push(id);
 
     folders.push({
