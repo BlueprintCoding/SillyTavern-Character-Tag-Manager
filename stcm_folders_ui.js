@@ -971,8 +971,9 @@ export function renderSidebarCharacterCard(entity) {
         // --- CHARACTER CARD ---
         let avatarUrl = ent.avatar || ent.avatar_url || 'img/ai4.png';
         if (typeof avatarUrl !== 'string') avatarUrl = String(avatarUrl ?? 'img/ai4.png');
-        const escapedDesc = escapeHtml(ent.description || ent.creatorcomment || "");
-
+        const descriptionToShow = ent.creator_notes && ent.creator_notes.trim() !== "" ? ent.creator_notes : (ent.description || ent.creatorcomment || "");
+        const escapedDesc = escapeHtml(descriptionToShow);
+        
         const div = document.createElement('div');
         div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
         div.setAttribute('chid', chid);

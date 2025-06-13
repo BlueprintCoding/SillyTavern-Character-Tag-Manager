@@ -54,8 +54,8 @@ export function buildEntityMap() {
     const entityMap = new Map();
     for (const entity of allEntities) {
         if (!entity) continue;
-
-        let id, idType, type, name, avatar, chid, description, members, avatar_url;
+    
+        let id, idType, type, name, avatar, chid, description, members, avatar_url, creator_notes;
         if (entity.type === "character") {
             // Character
             id = entity.item?.avatar || entity.avatar || entity.item?.id || entity.id;
@@ -65,6 +65,14 @@ export function buildEntityMap() {
             idType = avatar ? "avatar" : (chid ? "chid" : "unknown");
             type = "character";
             description = entity.item?.description || entity.description || "";
+    
+            // ----- ADD THIS -----
+            creator_notes =
+                entity.item?.creator_notes ??
+                entity.item?.creatorcomment ??
+                entity.creatorcomment ??
+                null;
+            // --------------------
         } else if (entity.type === "group") {
             // Group
             let groupObj = entity.item ? entity.item : entity;
@@ -75,22 +83,25 @@ export function buildEntityMap() {
             type = "group";
             members = groupObj.members || [];
             avatar_url = groupObj.avatar_url || "";
+    
+            // For groups, likely no creator notes
+            creator_notes = null;
         } else {
             continue; // skip unknown types
         }
-
+    
         // **Skip any entity missing any required identifier**
         if (typeof id === "undefined" || typeof avatar === "undefined" || typeof idType === "undefined" || idType === "unknown") {
             continue;
         }
-
+    
         // Folder assignment
         const folderInfo = charToFolder.get(id) || { folderId: null, isPrivate: false };
-
+    
         // Tags for this entity (characters: use avatar as key; groups: use id)
         const tagIds = tag_map[id] || [];
         const tagNames = tagIds.map(tid => tagsById.get(tid)?.name).filter(Boolean);
-
+    
         entityMap.set(id, {
             id,
             idType,
@@ -104,9 +115,10 @@ export function buildEntityMap() {
             folderId: folderInfo.folderId,
             folderIsPrivate: folderInfo.isPrivate,
             tagIds,
-            tagNames
+            tagNames,
+            creator_notes     // <<< ADD THIS FIELD TO ENTITY MAP
         });
-    }
+    }    
     return entityMap;
 }
 
