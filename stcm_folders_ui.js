@@ -540,9 +540,11 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         sessionStorage.removeItem("stcm_pin_okay");
         toastr.info("Private folder access has been locked.");
         logoutBtn.style.display = 'none';
+    
+        // Reset visibility mode to hidden and update view
+        privateFolderVisibilityMode = 0;
         renderSidebarFolderContents(folders, allEntities, folderId);
     });
-
 
     function updateToggleIcon() {
         toggleBtn.classList.remove('fa-eye', 'fa-eye-slash', 'fa-user-secret');
