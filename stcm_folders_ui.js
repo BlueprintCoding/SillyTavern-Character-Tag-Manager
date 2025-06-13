@@ -220,7 +220,15 @@ function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, fold
         charGrid.className = 'stcm_folder_contents_search';
         chars.forEach(entity => {
             if (!entity || shownChids.has(entity.id)) return;
-            charGrid.appendChild(renderSidebarCharacterCard(entity));
+            const entityId = entity.chid || entity.id;
+            const tagsForChar = getTagsForChar(entityId);
+            charGrid.appendChild(renderSidebarCharacterCard({
+                ...entity,
+                id: entityId,
+                chid: entityId,
+                tags: tagsForChar
+            }));
+
             shownChids.add(entity.id);
         });
         container.appendChild(charGrid);
@@ -236,7 +244,12 @@ function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, fold
         groupGrid.className = 'stcm_folder_contents_search';
         groups.forEach(entity => {
             if (!entity || shownChids.has(entity.id)) return;
-            groupGrid.appendChild(renderSidebarCharacterCard(entity));
+            const groupTags = getTagsForChar(entity.id); // or entity.chid if groups have that
+            groupGrid.appendChild(renderSidebarCharacterCard({
+                ...entity,
+                tags: groupTags
+            }));
+
             shownChids.add(entity.id);
         });
         container.appendChild(groupGrid);
@@ -661,13 +674,20 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents';
         orphanedEntities.forEach(entity => {
-            // For characters: entity.item.avatar (avatar filename) is the key; for groups: entity.id
             let key = entity.type === "character" ? entity.item?.avatar : entity.id;
             const normalized = entityMap.get(key);
             if (normalized) {
-                grid.appendChild(renderSidebarCharacterCard(normalized));
+                const entityId = normalized.chid;
+                const tagsForChar = getTagsForChar(entityId);
+                grid.appendChild(renderSidebarCharacterCard({
+                    ...normalized,
+                    id: entityId,
+                    chid: entityId,
+                    tags: tagsForChar
+                }));
             }
         });
+        
         container.appendChild(grid);
 
 
