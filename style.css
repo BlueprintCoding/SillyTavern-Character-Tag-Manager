@@ -1521,6 +1521,10 @@ dialog.popup #stcm-popup-pin-input:focus {
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {
 
+    nav#right-nav-panel.drawer-content {
+        height: auto!important;
+    }
+
     .stcm_modal_main {
         width: 100vw !important;
         max-width: 100vw !important;
