@@ -1576,11 +1576,25 @@ dialog.popup #stcm-popup-pin-input:focus {
         margin-left: 0px;
         flex-wrap: wrap;
         padding: 5px;
-        justify-content: end;
+        justify-content: start;
         }   
 
       .stcm_menu_button.tiny {
         margin-left: 0px;
+      }
+
+      #charactersSection .stcm_sort_row, #charactersSection .stcm_flex  {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .charNameRow {
+        flex-direction: column;
+      }
+
+      .charRowRightFixed {
+        bottom: 0!important;
+        top: auto;
       }
 
     .tagGroupHeader {
