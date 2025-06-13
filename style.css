@@ -1583,9 +1583,14 @@ dialog.popup #stcm-popup-pin-input:focus {
         margin-left: 0px;
       }
 
-      #charactersSection .stcm_sort_row, #charactersSection .stcm_flex, #charactersSection .assignFoldersBar  {
+      #charactersSection .stcm_sort_row, #charactersSection .stcm_flex  {
         flex-direction: column;
-        gap: 10px;
+        gap: 5px;
+      }
+
+      .assignFoldersBar {
+        flex-direction: column;
+        gap: 5px;
       }
 
       .charNameRow {
