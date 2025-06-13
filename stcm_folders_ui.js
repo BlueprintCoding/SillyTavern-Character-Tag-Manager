@@ -543,7 +543,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     
         // Reset visibility mode to hidden and update view
         privateFolderVisibilityMode = 0;
-        renderSidebarFolderContents(folders, allEntities, folderId);
+        renderSidebarFolderContents(folders, allEntities, 'root');
     });
 
     function updateToggleIcon() {
