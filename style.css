@@ -1550,7 +1550,11 @@ dialog.popup #stcm-popup-pin-input:focus {
       }
 
       .stcm_folder_type_row {
-        margin-left:0px;
+        margin-left: 0px !important;
+      }
+
+      .tagActionButtons {
+        margin-left: 0px!important;
       }
 
       #toggleImportExport {
