@@ -1520,6 +1520,44 @@ dialog.popup #stcm-popup-pin-input:focus {
   
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {
+
+    .stcm_modal_main {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        height: 100vh !important;
+        }
+
+    .modalBody {
+        padding: 0px;
+    }
+
+    .accordionContent {
+        padding: .5em;
+    }
+    
+
+    .modalHeader {
+        font-size: 1em;
+    }
+
+    .stcm_align-right {
+        display: flex;
+        justify-content: center;
+        padding: 0.5em;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .stcm_folder_type_row {
+        margin-left:0px;
+      }
+
+      #toggleImportExport {
+        width: 100%;
+        margin-left: -5px;
+      }
+
     .tagGroupHeader {
         grid-template-columns: 1fr;
         gap: 6px;
@@ -1529,8 +1567,9 @@ dialog.popup #stcm-popup-pin-input:focus {
         justify-content: flex-start;
     }
 
-    .stcm_menu_button {
-        width: 100%;
-        margin-top: 5px;
-    }
+
+    .drawer-toggle .drawer-icon {
+        font-size: 1.1em !important;
+      }
+
 }
