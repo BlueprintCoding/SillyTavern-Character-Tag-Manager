@@ -784,20 +784,21 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         const entityMap = stcmFolders.buildEntityMap();
         // Show characters in this folder (full card style)
         (folder.characters || []).forEach(folderVal => {
-            // entityMap keys are avatar filenames, so folderVal is avatar filename
             let entity = entityMap.get(folderVal);
-        
-            // If found, force the DOM to use the true SillyTavern chid, not the avatar as the chid!
             if (entity && typeof entity.chid !== "undefined") {
-                // Copy entity, but override id with the chid for DOM attributes
+                const entityId = entity.chid;
+                // Add tag info
+                const tagsForChar = getTagsForChar(entityId);
                 const entityCard = renderSidebarCharacterCard({
                     ...entity,
-                    id: entity.chid,    // id is now the numeric or string SillyTavern ID
-                    chid: entity.chid,  // explicitly include
+                    id: entityId,
+                    chid: entityId,
+                    tags: tagsForChar
                 });
                 contentDiv.appendChild(entityCard);
             }
         });
+        
         
         container.appendChild(contentDiv);
 }
