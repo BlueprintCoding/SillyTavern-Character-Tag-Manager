@@ -27,7 +27,7 @@ import {
     getEntitiesList,
 } from "../../../../script.js";
 
-import { STCM } from './index.js';
+import { STCM, injectTagManagerControlButton } from './index.js';
 
 import {
     POPUP_RESULT,
@@ -201,6 +201,7 @@ export function injectSidebarFolders(folders) {
     removeCharacterSortSelect();
     setupSortOrderListener();
     insertNoFolderLabelIfNeeded();
+    injectTagManagerControlButton();
     setTimeout(() => {
         injectResetViewButton();
     }, 10);
