@@ -221,7 +221,7 @@ function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, fold
         chars.forEach(entity => {
             if (!entity || shownChids.has(entity.id)) return;
             const entityId = entity.chid || entity.id;
-            const tagsForChar = getTagsForChar(entityId);
+            const tagsForChar = getTagsForChar(entity);
             charGrid.appendChild(renderSidebarCharacterCard({
                 ...entity,
                 id: entityId,
@@ -678,7 +678,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             const normalized = entityMap.get(key);
             if (normalized) {
                 const entityId = normalized.chid;
-                const tagsForChar = getTagsForChar(entityId);
+                const tagsForChar = getTagsForChar(entity);
                 grid.appendChild(renderSidebarCharacterCard({
                     ...normalized,
                     id: entityId,
@@ -808,7 +808,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             if (entity && typeof entity.chid !== "undefined") {
                 const entityId = entity.chid;
                 // Add tag info
-                const tagsForChar = getTagsForChar(entityId);
+                const tagsForChar = getTagsForChar(entity);
                 const entityCard = renderSidebarCharacterCard({
                     ...entity,
                     id: entityId,
@@ -850,11 +850,22 @@ export function getFolderChain(folderId, folders) {
     return chain;
 }
 
-export function getTagsForChar(entityId) {
-    const tagIds = tag_map[entityId] || [];
+export function getTagsForChar(entity) {
+    // Accept entity object or entityId (backwards compatible)
+    let tagIds = [];
+    if (typeof entity === "object" && entity !== null) {
+        // Prefer tagIds property if it exists
+        if (Array.isArray(entity.tagIds)) tagIds = entity.tagIds;
+        // Fall back to tag_map[entity.chid || entity.id]
+        else if (entity.chid && tag_map[entity.chid]) tagIds = tag_map[entity.chid];
+        else if (entity.id && tag_map[entity.id]) tagIds = tag_map[entity.id];
+    } else if (typeof entity === "string" || typeof entity === "number") {
+        tagIds = tag_map[entity] || [];
+    }
     const tagsById = buildTagMap(tags);
-    return tagIds.map(id => tagsById.get(id)).filter(Boolean);
+    return (tagIds || []).map(id => tagsById.get(id)).filter(Boolean);
 }
+
 
 
 export function showFolderColorPicker(folder, rerender) {
