@@ -1583,7 +1583,7 @@ dialog.popup #stcm-popup-pin-input:focus {
         margin-left: 0px;
       }
 
-      #charactersSection .stcm_sort_row, #charactersSection .stcm_flex  {
+      #charactersSection .stcm_sort_row, #charactersSection .stcm_flex, #charactersSection .assignFoldersBar  {
         flex-direction: column;
         gap: 10px;
       }
@@ -1592,6 +1592,7 @@ dialog.popup #stcm-popup-pin-input:focus {
         flex-direction: column;
         align-items: start;
       }
+      
 
       .charRowRightFixed {
         bottom: 0!important;
