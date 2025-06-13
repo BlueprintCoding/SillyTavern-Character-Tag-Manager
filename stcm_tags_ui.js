@@ -469,7 +469,7 @@ export function promptCreateTag() {
     }).then(res => {
         if (res !== POPUP_RESULT.AFFIRMATIVE) return;
         tags.push({
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             name: nameIn.value.trim() || defaultName,
             color: selectedBg,
             color2: selectedFg,
