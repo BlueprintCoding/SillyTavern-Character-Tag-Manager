@@ -911,12 +911,17 @@ export function renderSidebarCharacterCard(entity) {
     // Common
     const name = ent.name || "";
     const escapedName = escapeHtml(name);
-    const tagHtml = (ent.tags || []).map(tag =>
-        `<span id="${tag.id}" class="tag">
+    const tagHtml = (ent.tags || []).map(tag => {
+        let style = '';
+        if (tag.color || tag.color2) {
+            style = ` style="${tag.color ? `background:${tag.color};` : ''}${tag.color2 ? `color:${tag.color2};` : ''}"`;
+        }
+        return `<span id="${tag.id}" class="tag"${style}>
             <span class="tag_name">${tag.name}</span>
             <i class="fa-solid fa-circle-xmark tag_remove interactable" tabindex="0" style="display: none;"></i>
-        </span>`
-    ).join('');
+        </span>`;
+    }).join('');
+    
 
     if (isGroup) {
         // --- GROUP CARD ---
