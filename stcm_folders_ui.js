@@ -80,6 +80,7 @@ export function hookFolderSidebarEvents() {
 }
 
 export async function updateSidebar(forceReload = false) {
+    const folders = STCM.sidebarFolders;
     if (!folders || folders.filter(f => f.id !== 'root').length === 0) return;
     if (sidebarUpdateInProgress) return;
     sidebarUpdateInProgress = true;
