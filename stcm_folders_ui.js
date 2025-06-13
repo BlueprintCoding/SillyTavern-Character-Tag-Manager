@@ -80,6 +80,7 @@ export function hookFolderSidebarEvents() {
 }
 
 export async function updateSidebar(forceReload = false) {
+    if (!STCM.sidebarFolders?.length) return;
     if (sidebarUpdateInProgress) return;
     sidebarUpdateInProgress = true;
     suppressSidebarObserver = true; 
@@ -134,6 +135,8 @@ function insertNoFolderLabelIfNeeded() {
 }
 
 export function injectSidebarFolders(folders) {
+    if (!folders || !folders.length) return;
+
     // console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
     console.log("STCM Entity Map:", Array.from(entityMap.values()));
@@ -299,6 +302,7 @@ function isTagFolderDiveActive() {
 }
 
 export function hideFolderedCharactersOutsideSidebar(folders) {
+    if (!folders || !folders.length) return;
     // console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
@@ -502,6 +506,7 @@ function getEntitiesNotInAnyFolder(folders) {
 }
 
 export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
+    if (!folders || !folders.length) return;
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
