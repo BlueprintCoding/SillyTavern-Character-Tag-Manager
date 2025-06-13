@@ -1588,7 +1588,7 @@ dialog.popup #stcm-popup-pin-input:focus {
         gap: 5px;
       }
 
-      .assignFoldersBar {
+      .stcm_folder_assign_bar {
         flex-direction: column;
         gap: 5px;
       }
