@@ -3,6 +3,9 @@ import {
     tags,
     tag_map,
 } from "../../../tags.js";
+import {
+    uuidv4 
+} from "../../../utils.js"
 import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import { escapeHtml, flushExtSettings, buildTagMap } from "./utils.js";
 import { STCM, callSaveandReload } from "./index.js";
@@ -230,7 +233,7 @@ export async function addFolder(name, parentId = 'root', color = '#8b2ae6') {
     const parent  = getFolder(parentId, folders);
     if (!parent) throw new Error('Parent folder not found');
 
-    const id = crypto.randomUUID();
+    const id = uuidv4();
     parent.children.push(id);
 
     folders.push({
