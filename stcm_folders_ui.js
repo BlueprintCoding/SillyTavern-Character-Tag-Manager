@@ -53,8 +53,7 @@ let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
 let orphanFolderExpanded = false;
 
-let FA_ICONS = FA_ICON_LIST.data.allIcons.icons;
-
+let FA_ICONS = FA_ICON_LIST;
 
 
 
@@ -1107,7 +1106,7 @@ export function showIconPicker(folder, parentNode, rerender) {
 
     // Helper: Build candidate icon array (only free solid icons)
     const freeIcons = Array.isArray(FA_ICONS) ? FA_ICONS : [];
-    
+
     const ICONS_PER_PAGE = 120; // Adjust as needed (12 x 10 grid)
 
     // --- Icon picker popup ---
