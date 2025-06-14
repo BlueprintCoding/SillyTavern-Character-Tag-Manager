@@ -1829,22 +1829,19 @@ function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
     return out;
 }
 
-// --- The core injection logic ---
-function injectCharacterFolderDropdownIfNeeded() {
-    // Only inject if the character form is actually present and visible
+function injectFolderDropdownAfterTagsDiv() {
     const tagsDiv = document.getElementById('tags_div');
     if (!tagsDiv) return;
-    // Prevent duplicate injection
+    // Prevent duplicate
     if (document.getElementById('stcm-folder-dropdown-row')) return;
 
-    // Get folders (use your source of truth)
+    // --- GET FOLDER DATA ---
     const folders = window.STCM?.sidebarFolders || [];
+    // If no folders, skip
     if (!folders.length) return;
 
-    // Find the current character being edited, if possible (you may need to hook this from your global state)
+    // (Customize this part: get character's current folder assignment, if editing)
     let charFolderId = null;
-    // Try to get from a global, or from a hidden field, etc.
-    // For demo, leave as null for "new" char
 
     // Build options
     const options = [
@@ -1876,41 +1873,43 @@ function injectCharacterFolderDropdownIfNeeded() {
         select.appendChild(o);
     });
 
-    // Change handler (update the hidden field or character object as needed)
+    // Add change handler as needed
     select.addEventListener('change', e => {
-        // Save to your in-memory object or hidden field as needed
-        // Example: set character.folderId = e.target.value
+        // Example: save folder assignment
+        // window.currentEditingCharacter.folderId = e.target.value;
     });
 
     row.appendChild(label);
     row.appendChild(select);
 
-    // Inject after tagsDiv
+    // Insert AFTER tagsDiv
     tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
 }
 
-// --- The observer setup ---
-export function observeCharacterEditPanel() {
+// --- Robust Observer ---
+export function startRightNavPanelObserver() {
     const rightNav = document.getElementById('right-nav-panel');
-    if (!rightNav) return; // Wait for DOM
+    if (!rightNav) {
+        setTimeout(startRightNavPanelObserver, 500); // Wait for DOM if needed
+        return;
+    }
 
-    // Use a MutationObserver to watch for content changes
-    const observer = new MutationObserver(() => {
-        // Only inject when character_edit form is visible
-        if (rightNav.getAttribute('data-menu-type') === 'character_edit' && rightNav.style.display !== 'none') {
-            injectCharacterFolderDropdownIfNeeded();
+    // Use one global observer to avoid multiple attachments
+    if (rightNav._stcmFolderObsAttached) return;
+    rightNav._stcmFolderObsAttached = true;
+
+    const obs = new MutationObserver(() => {
+        // Only inject when in character_edit mode, visible, and the #tags_div exists
+        if (
+            rightNav.getAttribute('data-menu-type') === 'character_edit' &&
+            rightNav.style.display !== 'none'
+        ) {
+            injectFolderDropdownAfterTagsDiv();
         }
     });
 
-    observer.observe(rightNav, {
+    obs.observe(rightNav, {
         childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['data-menu-type', 'style'],
+        subtree: true
     });
-
-    // Initial check (in case already open)
-    if (rightNav.getAttribute('data-menu-type') === 'character_edit' && rightNav.style.display !== 'none') {
-        injectCharacterFolderDropdownIfNeeded();
-    }
 }
