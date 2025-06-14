@@ -1814,23 +1814,26 @@ function injectResetViewButton() {
     showTag.parentNode.insertBefore(resetBtn, showTag.nextSibling);
 }
 
-function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
+function buildFolderDropdownOptionsWithIndents(folders, parentId = 'root', depth = 0) {
     const out = [];
     // Find the parent folder
     const parentFolder = folders.find(f => f.id === parentId);
     if (!parentFolder || !Array.isArray(parentFolder.children)) return out;
-    // For each child (in children array order)
     parentFolder.children.forEach(childId => {
         const folder = folders.find(f => f.id === childId);
         if (!folder || folder.id === 'root') return;
         out.push({
             id: folder.id,
-            name: (depth ? '—'.repeat(depth) + ' ' : '') + folder.name,
+            // Use 4 non-breaking spaces per depth for proper indent in HTML select
+            name: (depth ? '&nbsp;&nbsp;&nbsp;&nbsp;'.repeat(depth) : '') + folder.name,
+            depth,
         });
-        out.push(...buildFolderDropdownOptions(folders, folder.id, depth + 1));
+        out.push(...buildFolderDropdownOptionsWithIndents(folders, folder.id, depth + 1));
     });
     return out;
 }
+
+
 async function injectOrUpdateFolderDropdownAfterTagsDiv() {
     const tagsDiv = document.getElementById('tags_div');
     if (!tagsDiv) return;
@@ -1857,8 +1860,9 @@ async function injectOrUpdateFolderDropdownAfterTagsDiv() {
     // Prepare options
     const options = [
         { id: '', name: 'No Folder (Top Level)' },
-        ...buildFolderDropdownOptions(folders)
+        ...buildFolderDropdownOptionsWithIndents(folders)
     ];
+    
 
     let row = document.getElementById('stcm-folder-dropdown-row');
     let select;
@@ -1910,7 +1914,7 @@ async function injectOrUpdateFolderDropdownAfterTagsDiv() {
     options.forEach(opt => {
         const o = document.createElement('option');
         o.value = opt.id;
-        o.textContent = opt.name;
+        o.innerHTML = opt.name;
         if (opt.id === charFolderId) o.selected = true;
         select.appendChild(o);
     });
