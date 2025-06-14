@@ -1619,6 +1619,11 @@ dialog.popup #stcm-popup-pin-input:focus {
       .stcm_folder_assign_bar {
         flex-direction: column;
         gap: 5px;
+        width:98%;
+      }
+
+      .assignFoldersBar i {
+        display: none;
       }
 
       .charNameRow {
@@ -1643,6 +1648,10 @@ dialog.popup #stcm-popup-pin-input:focus {
 
     .mergeOptions {
         justify-content: flex-start;
+    }
+
+    .char_sort_row {
+        flex-direction: column-reverse;
     }
 
 
