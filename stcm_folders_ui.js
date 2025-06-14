@@ -51,7 +51,7 @@ const SIDEBAR_INJECTION_THROTTLE_MS = 500;
 let orphanFolderExpanded = false;
 
 let FA_ICONS = null;
-fetch('./fa-icon-list.json')
+fetch('/fa-icon-list.json')
   .then(res => res.json())
   .then(data => { FA_ICONS = data.data.allIcons.icons; });
 
