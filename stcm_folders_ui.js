@@ -1,49 +1,61 @@
 // stcm_folders_ui.js
-import { 
-    debounce, 
-    buildTagMap, 
+import {
+    debounce,
+    buildTagMap,
     escapeHtml,
-    getStoredPinHash, 
+    getStoredPinHash,
     hashPin,
     promptInput
-    } from './utils.js';
+} from './utils.js';
+
+import * as stcmFolders from './stcm_folders.js';
 
 import {
-    uuidv4 
-} from "../../../utils.js"
-    
-    import * as stcmFolders from './stcm_folders.js';
-    
-    import {
-        tags,
-        tag_map,
-    } from "../../../tags.js";
-    
-    import {
-        characters,
-        selectCharacterById,
-        eventSource, 
-        event_types
-    } from "../../../../script.js";
-    
-    import { STCM } from './index.js';
-    
-    import {
-        POPUP_RESULT,
-        POPUP_TYPE,
-        callGenericPopup
-    } from "../../../popup.js"
+    tags,
+    tag_map,
+} from "../../../tags.js";
+
+import {
+    fuzzySearchCharacters,
+    fuzzySearchGroups,
+    fuzzySearchTags
+} from "../../../power-user.js";
+
+import {
+    eventSource,
+    event_types,
+    getEntitiesList,
+} from "../../../../script.js";
+
+import { STCM, injectTagManagerControlButton } from './index.js';
+
+import {
+    POPUP_RESULT,
+    POPUP_TYPE,
+    callGenericPopup
+} from "../../../popup.js"
+
+import { FA_ICON_LIST } from './fa-icon-list.js'; // path may need adjustment
+
 
 let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
 let sidebarUpdateInProgress = false;
 let stcmSearchActive = false;
-let stcmLastSearchFolderId = null;
+let stcmSearchResults = null;
+let stcmSearchTerm = '';
 let stcmObserver = null;
+let stcmLastSearchFolderId = null;
 let lastInjectedAt = 0;
 let lastSidebarInjection = 0;
+let suppressSidebarObserver = false;
 let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
+let orphanFolderExpanded = false;
+
+let FA_ICONS = FA_ICON_LIST;
+
+
 
 const debouncedUpdateSidebar = debounce(() => updateSidebar(true), 100);
 
@@ -74,22 +86,31 @@ export function hookFolderSidebarEvents() {
 }
 
 export async function updateSidebar(forceReload = false) {
+    const folders = STCM.sidebarFolders;
+    if (!folders || folders.filter(f => f.id !== 'root').length === 0) return;
     if (sidebarUpdateInProgress) return;
     sidebarUpdateInProgress = true;
-
+    suppressSidebarObserver = true;
+    if (stcmObserver) stcmObserver.disconnect();
     try {
         if (forceReload || !STCM.sidebarFolders?.length) {
             STCM.sidebarFolders = await stcmFolders.loadFolders();
         }
-        injectSidebarFolders(STCM.sidebarFolders, characters);
-        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
-
+        injectSidebarFolders(STCM.sidebarFolders);
+        setTimeout(() => {
+            hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+            suppressSidebarObserver = false;
+            watchSidebarFolderInjection(); // This will recreate the observer
+        }, 100);
     } catch (e) {
+        suppressSidebarObserver = false;
         console.error("Sidebar update failed:", e);
+        watchSidebarFolderInjection(); // This will recreate the observer
     } finally {
         sidebarUpdateInProgress = false;
     }
 }
+
 
 function insertNoFolderLabelIfNeeded() {
     // Remove existing if any (prevents duplicates)
@@ -99,17 +120,15 @@ function insertNoFolderLabelIfNeeded() {
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
 
-    // Find any visible character not in a folder
-    // They have data-stcm-hidden-by-folder != "true"
-    const firstUnfoldered = Array.from(parent.children).find(child =>
-        child.classList?.contains('character_select') &&
-        child.dataset.stcmHiddenByFolder !== 'true'
+    // Find the first bogus folder block
+    const firstBogusFolder = Array.from(parent.children).find(child =>
+        child.classList?.contains('bogus_folder_select')
     );
-    if (firstUnfoldered) {
+    if (firstBogusFolder) {
         // Create label
         const label = document.createElement('div');
         label.id = 'stcm_no_folder_label';
-        label.textContent = 'Characters Not in Folders';
+        label.textContent = 'Tag Folders';
         label.style.cssText = `
             margin: 18px 0 7px 0;
             font-weight: 700;
@@ -118,16 +137,20 @@ function insertNoFolderLabelIfNeeded() {
             padding-left: 2px;
             color: var(--ac-style-color-text, #bbb);
         `;
-        parent.insertBefore(label, firstUnfoldered);
+        parent.insertBefore(label, firstBogusFolder);
     }
 }
 
+export function injectSidebarFolders(folders) {
+    if (!folders || folders.filter(f => f.id !== 'root').length === 0) return;
 
-export function injectSidebarFolders(folders, allCharacters) {
+    // console.log("ST Entities List:", getEntitiesList());
+    const entityMap = stcmFolders.buildEntityMap();
+    // console.log("STCM Entity Map:", Array.from(entityMap.values()));
+
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
 
-    // Remove any previous instance in case DOM was wiped
     let existingSidebar = document.getElementById('stcm_sidebar_folder_nav');
     if (existingSidebar) existingSidebar.remove();
 
@@ -136,233 +159,273 @@ export function injectSidebarFolders(folders, allCharacters) {
     sidebar.className = 'stcm_sidebar_folder_nav';
     parent.insertBefore(sidebar, parent.firstChild);
 
-    hideFolderedCharactersOutsideSidebar(folders);
-    if (stcmSearchActive && stcmLastSearchFolderId) {
-        renderSidebarFolderSearchResult(folders, allCharacters, stcmLastSearchFolderId, document.getElementById('character_search_bar').value.trim().toLowerCase());
-    } else {
-        renderSidebarFolderContents(folders, allCharacters, currentSidebarFolderId);
-    }
-    hookIntoCharacterSearchBar(folders, allCharacters);
-    insertNoFolderLabelIfNeeded();
-}
+    const allEntities = getEntitiesList();
+    if (stcmSearchActive && stcmSearchTerm) {
+        // Entity map keyed by both character CHID and group ID for convenience
+        const entityMap = stcmFolders.buildEntityMap();
+        const entitiesById = Object.fromEntries([...entityMap].map(([id, ent]) => [id, ent]));
+
+        // --- Fuzzy search ---
+        const charResults = fuzzySearchCharacters(stcmSearchTerm); // array of Fuse results
+        const groupResults = fuzzySearchGroups(stcmSearchTerm);     // array of Fuse results
+        const tagResults = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
+
+        // console.log("entityMap keys:", [...entityMap.keys()]);
+        // console.log("charResults sample:", charResults.slice(0,20));
+
+        // --- Filter and prepare Character & Group results (privacy-aware) ---
+        const filteredCharEntities = charResults
+            .sort((a, b) => a.score - b.score)
+            .map(r => entityMap.get(r.item.avatar || r.item.id))
+            .filter(ent => ent && (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate));
+        const filteredGroupEntities = groupResults
+            .sort((a, b) => a.score - b.score)
+            .map(r => entityMap.get(r.item.id))
+            .filter(ent => ent && (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate));
 
 
-function hookIntoCharacterSearchBar(folders, allCharacters) {
-    const input = document.getElementById('character_search_bar');
-    if (!input || input.dataset.stcmHooked) return;
-    input.dataset.stcmHooked = "true";
-
-    input.addEventListener('input', debounce(() => {
-        const term = input.value.trim().toLowerCase();
-        stcmSearchActive = !!term;
-        stcmLastSearchFolderId = null;
-    
-        let match = null, matchFolder = null;
-        if (term) {
-            for (const folder of folders) {
-                for (const charAvatar of (folder.characters || [])) {
-                    const char = allCharacters.find(c => c.avatar === charAvatar);
-                    if (char && characterMatchesTerm(char, term)) {
-                        match = char;
-                        matchFolder = folder;
-                        break;
-                    }
-                }
-                if (match) break;
-            }
-
-            if (match && matchFolder) {
-                stcmLastSearchFolderId = matchFolder.id;
-                stcmSearchActive = true;
-                currentSidebarFolderId = matchFolder.id;
-                renderSidebarFolderSearchResult(folders, allCharacters, matchFolder.id, term);
-            } else {
-                // No match: show sidebar with all folders from root (or you could show a "no results" message)
-                stcmLastSearchFolderId = null;
-                stcmSearchActive = true;
-                currentSidebarFolderId = 'root';
-                renderSidebarFolderContents(folders, allCharacters, 'root');
-            }
-        } else {
-            // Search is empty; reset view and folder state
-            stcmSearchActive = false;
-            stcmLastSearchFolderId = null;
-            currentSidebarFolderId = 'root';
-            renderSidebarFolderContents(folders, allCharacters, 'root');
-        }
-
-        // Hide or show the "characters hidden" info block based on search state
-        setTimeout(() => {
-            document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-                block.style.display = stcmSearchActive ? 'none' : '';
+        // --- Tags are different: display only tags, but show privacy marker if all characters/groups with that tag are private ---
+        const filteredTags = tagResults
+            .map(r => r.item)
+            .filter(tag => {
+                // Find all entities with this tag and check privacy
+                const hasVisibleEntity = [...entityMap.values()].some(ent =>
+                    ent.tagIds?.includes(tag.id) &&
+                    (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate)
+                );
+                return hasVisibleEntity;
             });
-        }, 1);
 
-
-    }, 150));
-    
-    input.addEventListener('blur', () => {
-        if (!input.value.trim()) {
-            stcmSearchActive = false;
-            stcmLastSearchFolderId = null;
-            currentSidebarFolderId = 'root';  // <--- Fix: reset on clear
-            renderSidebarFolderContents(folders, allCharacters, 'root');
-        }
-
-            // HIDE the "characters hidden" info block if searching
-    document.querySelectorAll('.text_block.hidden_block').forEach(block => {
-        block.style.display = stcmSearchActive ? 'none' : '';
-    });
-    });
-    
-}
-
-function characterMatchesTerm(char, term) {
-    // 1. Check all string/number/array fields
-    for (const key in char) {
-        if (!char.hasOwnProperty(key)) continue;
-        let val = char[key];
-        if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
-        if (typeof val === 'number' && val.toString().includes(term)) return true;
-        if (Array.isArray(val) && val.join(',').toLowerCase().includes(term)) return true;
+        // --- Render Unified Search Results ---
+        renderSidebarUnifiedSearchResults(filteredCharEntities, filteredGroupEntities, filteredTags, stcmSearchTerm, folders, entityMap);
+    }
+    else {
+        renderSidebarFolderContents(folders, getEntitiesList(), currentSidebarFolderId);
     }
 
-    // 2. Check tags assigned to this character
-    // You'll need access to tag_map and tags (already imported at the top)
-    const tagIds = tag_map[char.avatar] || [];
-    if (tagIds.length) {
-        // Build tagsById map just once per render ideally, but it's fine here for clarity
-        const tagsById = buildTagMap(tags);
-        for (const tagId of tagIds) {
-            const tag = tagsById.get(tagId);
-            if (tag && tag.name && tag.name.toLowerCase().includes(term)) {
-                return true;
-            }
-        }
-    }
-
-    return false;
+    injectSidebarSearchBox();
+    removeCharacterSortSelect();
+    setupSortOrderListener();
+    insertNoFolderLabelIfNeeded();
+    injectTagManagerControlButton();
+    setTimeout(() => {
+        injectResetViewButton();
+    }, 10);
 }
 
-
-
-
-// Only shows the folder open with matches highlighted inside
-function renderSidebarFolderSearchResult(folders, allCharacters, folderId, term) {
+function renderSidebarUnifiedSearchResults(chars, groups, tags, searchTerm, folders, entityMap) {
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
 
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder) return;
+    // Deduplicate (in case an entity appears as both char & group)
+    const shownChids = new Set();
 
-    // --- Breadcrumb Label ---
-    const breadcrumbDiv = document.createElement('div');
-    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
-    const chain = getFolderChain(folderId, folders);
-    if (chain.length > 0) {
-        const names = chain.map(f => f.name);
-        names[0] = '.../' + names[0];
-        breadcrumbDiv.textContent = names.join(' / ');
-    } else {
-        breadcrumbDiv.textContent = ".../";
+    // Characters
+    if (chars.length) {
+        const header = document.createElement('div');
+        header.className = 'stcm_search_section_header';
+        header.textContent = "Characters";
+        container.appendChild(header);
+        const charGrid = document.createElement('div');
+        charGrid.className = 'stcm_folder_contents_search';
+        chars.forEach(entity => {
+            if (!entity || shownChids.has(entity.id)) return;
+            const entityId = entity.chid || entity.id;
+            const tagsForChar = getTagsForChar(entity);
+            charGrid.appendChild(renderSidebarCharacterCard({
+                ...entity,
+                id: entityId,
+                chid: entityId,
+                tags: tagsForChar
+            }));
+
+            shownChids.add(entity.id);
+        });
+        container.appendChild(charGrid);
     }
 
-    const controlRow = document.createElement('div');
-    controlRow.className = 'stcm_folders_header_controls';
-    controlRow.style.display = 'flex';
-    controlRow.style.alignItems = 'center';
-    controlRow.style.gap = '8px';
-    controlRow.appendChild(breadcrumbDiv);
-    container.appendChild(controlRow);
+    // Groups
+    if (groups.length) {
+        const header = document.createElement('div');
+        header.className = 'stcm_search_section_header';
+        header.textContent = "Groups";
+        container.appendChild(header);
+        const groupGrid = document.createElement('div');
+        groupGrid.className = 'stcm_folder_contents_search';
+        groups.forEach(entity => {
+            if (!entity || shownChids.has(entity.id)) return;
+            const groupTags = getTagsForChar(entity.id); // or entity.chid if groups have that
+            groupGrid.appendChild(renderSidebarCharacterCard({
+                ...entity,
+                tags: groupTags
+            }));
 
-    let contentDiv = document.getElementById('stcm_folder_contents');
-    if (contentDiv) {
-        contentDiv.innerHTML = "";
-    } else {
-        contentDiv = document.createElement('div');
-        contentDiv.id = 'stcm_folder_contents';
-        contentDiv.className = 'stcm_folder_contents';
+            shownChids.add(entity.id);
+        });
+        container.appendChild(groupGrid);
     }
 
-    // Show child folders as usual (optional: could collapse them for less confusion)
-    (folder.children || []).forEach(childId => {
-        const child = folders.find(f => f.id === childId);
-        if (child) {
-            // Could display, or not, as you prefer for search mode
-        }
-    });
+    // Tags
+    if (tags.length) {
+        const header = document.createElement('div');
+        header.className = 'stcm_search_section_header';
+        header.textContent = "Tags";
+        container.appendChild(header);
+        const tagGrid = document.createElement('div');
+        tagGrid.className = 'stcm_folder_contents_search';
+        tags.forEach(tag => {
+            const div = document.createElement('div');
+            div.className = 'tag_select entity_block flex-container wide100p alignitemsflexstart stcm_sidebar_tag_card';
+            div.textContent = tag.name;
+            div.style.background = tag.color || '#333';
+            div.style.color = tag.color2 || '#fff';
+            const allPrivate = [...entityMap.values()].filter(ent =>
+                ent.tagIds?.includes(tag.id)
+            ).every(ent => ent.folderIsPrivate);
+            if (allPrivate) {
+                div.innerHTML += ` <i class="fa-solid fa-lock" title="All assignments are private"></i>`;
+            }
+            tagGrid.appendChild(div);
+        });
+        container.appendChild(tagGrid);
+    }
 
-    // Show only matching characters in this folder
-    (folder.characters || []).forEach(charId => {
-        const char = allCharacters.find(c => c.avatar === charId);
-        if (char && characterMatchesTerm(char, term)) {
-            const charCard = renderSidebarCharacterCard({ ...char, tags: getTagsForChar(char.avatar) });
-            charCard.style.background = 'rgba(100, 200, 250, 0.17)'; // optional: highlight
-            contentDiv.appendChild(charCard);
-        }
-    });
-
-    container.appendChild(contentDiv);
+    if (!chars.length && !groups.length && !tags.length) {
+        const nothing = document.createElement('div');
+        nothing.className = "stcm_search_no_results";
+        nothing.textContent = `No matches for "${searchTerm}"`;
+        container.appendChild(nothing);
+    }
 }
 
+function isTagFolderDiveActive() {
+    const backs = Array.from(document.querySelectorAll('.bogus_folder_select_back'));
+    return backs.some(back =>
+        // Only true if inside the real character block, NOT inside template
+        back.offsetParent !== null &&
+        back.closest('#rm_print_characters_block') && // Must be in main block
+        !back.closest('#bogus_folder_back_template')  // ...but NOT in template
+    );
+}
 
-
-function hideFolderedCharactersOutsideSidebar(folders) {
-    const folderedCharAvatars = new Set();
-    for (const folder of folders) {
-        if (Array.isArray(folder.characters)) {
-            for (const charAvatar of folder.characters) {
-                folderedCharAvatars.add(charAvatar);
-            }
-        }
-    }
-
+export function hideFolderedCharactersOutsideSidebar(folders) {
+    if (!folders || folders.filter(f => f.id !== 'root').length === 0) return;
+    // console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
-
-    const sidebar = document.getElementById('stcm_sidebar_folder_nav');
-    if (!sidebar) return;
-
-    // Hide main character cards
-    for (const el of globalList.querySelectorAll('.character_select')) {
-        if (sidebar.contains(el)) continue;
-
-        const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-        if (!img) continue;
-
-        const url = new URL(img.src, window.location.origin);
-        const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
-
-        if (folderedCharAvatars.has(avatarFile)) {
-            // Always hide in the main list if this avatar is in ANY folder
-            el.dataset.stcmHiddenByFolder = 'true';
-            el.classList.add('stcm_force_hidden');
-        } else {
-            // Show only if not in a folder
-            el.dataset.stcmHiddenByFolder = 'false';
+    // console.log(
+    //     "shouldShowAllCharacters:", shouldShowAllCharacters(),
+    //     "isAnyRealTagActive:", isAnyRealTagActive(),
+    //     "isSTCMSortActive:", isSTCMSortActive()
+    //   );
+    // --- NEW: Check for tag selection and short-circuit hiding ---
+    if (shouldShowAllCharacters()) {
+        // If a tag is selected, do NOT hide any characters; just unhide all.
+        for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
             el.classList.remove('stcm_force_hidden');
         }
-        
-        
+        // Also never hide bogus folders or the label
+        for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
+            el.classList.remove('stcm_force_hidden');
+        }
+        let label = document.getElementById('stcm_no_folder_label');
+        if (label) label.classList.remove('stcm_force_hidden');
+        return;
     }
 
-    // Hide avatars in bogus folder previews
-    for (const container of document.querySelectorAll('.bogus_folder_avatars_block')) {
-        for (const el of container.querySelectorAll('.avatar[data-type="character"]')) {
-            const img = el.querySelector('img[src*="/thumbnail?type=avatar&file="]');
-            if (!img) continue;
+    // Hide all by default
+    for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
+        // Don't hide if this element is in the sidebar nav!
+        if (el.closest('#stcm_sidebar_folder_nav')) continue;
+        el.classList.add('stcm_force_hidden');
+    }
 
-            const url = new URL(img.src, window.location.origin);
-            const avatarFile = decodeURIComponent(url.searchParams.get("file") || "");
 
-            if (folderedCharAvatars.has(avatarFile)) {
-                el.style.display = 'none';
+    // If we are in a tag folder dive, UNHIDE the right characters
+    if (isTagFolderDiveActive()) {
+        // 1. Find the back button (start of dive area)
+        let backBtn = document.getElementById('BogusFolderBack');
+        // 2. Find the block marking the end (the "hidden" info)
+        let endBlock = document.querySelector('.text_block.hidden_block');
+
+        if (backBtn && endBlock) {
+            let el = backBtn.nextElementSibling;
+            while (el && el !== endBlock) {
+                // Unhide all characters, groups, and nested bogus folders in this "dive"
+                if (
+                    el.classList.contains('character_select') ||
+                    el.classList.contains('group_select') ||
+                    el.classList.contains('bogus_folder_select')
+                ) {
+                    el.classList.remove('stcm_force_hidden');
+                    el.classList.add('FoundDiveFolder');
+                    document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
+                    // For debugging:
+                    // console.log('UNHIDING:', el);
+                }
+                el = el.nextElementSibling;
             }
         }
     }
+
+
+    // Never hide the bogus folders
+    for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
+        el.classList.remove('stcm_force_hidden');
+    }
+
+    // Optionally: never hide the label
+    let label = document.getElementById('stcm_no_folder_label');
+    if (label) label.classList.remove('stcm_force_hidden');
 }
 
+function shouldShowAllCharacters() {
+    return isAnyRealTagActive() || !isSTCMSortActive();
+}
+
+function isAnyRealTagActive() {
+    // Control tag classes to ignore
+    const controlTagClasses = [
+        'manageTags',
+        'showTagList',
+        'clearAllFilters'
+    ];
+    const tagControls = document.querySelector('.rm_tag_controls .tags.rm_tag_filter');
+    if (!tagControls) return false;
+
+    // Find all tags with either 'selected' OR 'excluded'
+    const activeTags = tagControls.querySelectorAll('.tag.selected, .tag.excluded');
+    for (const tag of activeTags) {
+        // Ignore if this tag is a control tag
+        if (!controlTagClasses.some(cls => tag.classList.contains(cls))) {
+            return true; // Found a real, active tag
+        }
+    }
+    return false;
+}
+
+function isSTCMSortActive() {
+    const sortSelect = document.getElementById('character_sort_order');
+    if (!sortSelect) {
+        // console.log("sortSelect not found!");
+        return false;
+    }
+    const selected = sortSelect.selectedOptions ? sortSelect.selectedOptions[0] : sortSelect.options[sortSelect.selectedIndex];
+    // console.log("Selected sort value:", selected?.value, "data-field:", selected?.getAttribute('data-field'));
+    return selected && (selected.value === "stcm" || selected.getAttribute('data-field') === 'stcm');
+}
+
+
+function setupSortOrderListener() {
+    const sortSelect = document.getElementById('character_sort_order');
+    if (!sortSelect) return;
+    sortSelect.addEventListener('change', () => {
+        // Re-run your show/hide logic on sort change
+        // console.log("hidecharsfired");
+        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+    });
+}
 
 
 function hasVisibleChildrenOrCharacters(folderId, folders) {
@@ -424,37 +487,47 @@ function getVisibleDescendantCharacterCount(folderId, folders) {
     return total;
 }
 
-export function renderSidebarFolderContents(folders, allCharacters, folderId = currentSidebarFolderId) {
+function getEntitiesNotInAnyFolder(folders) {
+    const allEntities = getEntitiesList();
+    const assigned = new Set();
+    folders.forEach(f => {
+        if (Array.isArray(f.characters)) {
+            f.characters.forEach(val => assigned.add(val));
+        }
+    });
+    return allEntities
+        .filter(e => {
+            if (e.type === "character" && e.item && e.item.avatar) {
+                return !assigned.has(e.item.avatar);
+            }
+            if (e.type === "group" && e.id) {
+                return !assigned.has(e.id);
+            }
+            return false;
+        })
+        .sort((a, b) => {
+            // Characters come first
+            if (a.type === b.type) return 0;
+            if (a.type === "character") return -1;
+            return 1;
+        });
+}
+
+export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
+    if (!folders || folders.filter(f => f.id !== 'root').length === 0) return;
     // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
 
-    // --- Breadcrumb Label ---
-    const breadcrumbDiv = document.createElement('div');
-    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
-
-    if (folderId === 'root') {
-        breadcrumbDiv.textContent = "FOLDERS";
-    } else {
-        const chain = getFolderChain(folderId, folders);
-        if (chain.length > 0) {
-            // Add .../ before the first folder
-            const names = chain.map(f => f.name);
-            names[0] = '.../' + names[0];
-            breadcrumbDiv.textContent = names.join(' / ');
-        } else {
-            breadcrumbDiv.textContent = ".../"; // fallback
-        }
-    }
-
-    // === Private Folder Toggle Icon ===
+    // === Private Folder Toggle Icon + Logout + Back + Breadcrumbs ===
     const controlRow = document.createElement('div');
     controlRow.className = 'stcm_folders_header_controls';
     controlRow.style.display = 'flex';
     controlRow.style.alignItems = 'center';
     controlRow.style.gap = '8px';
 
+    // -- Toggle
     const toggleBtn = document.createElement('i');
     toggleBtn.className = 'fa-solid fa-eye-slash stcm_private_toggle_icon';
     toggleBtn.style.cursor = 'pointer';
@@ -463,6 +536,7 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
     toggleBtn.style.padding = '4px';
     toggleBtn.style.borderRadius = '6px';
 
+    // -- Logout
     const logoutBtn = document.createElement('i');
     logoutBtn.className = 'fa-solid fa-right-from-bracket stcm_private_logout_icon';
     logoutBtn.style.cursor = 'pointer';
@@ -476,13 +550,65 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
         sessionStorage.removeItem("stcm_pin_okay");
         toastr.info("Private folder access has been locked.");
         logoutBtn.style.display = 'none';
-        renderSidebarFolderContents(folders, allCharacters, folderId);
+        // Reset visibility mode to hidden and update view
+        privateFolderVisibilityMode = 0;
+        renderSidebarFolderContents(folders, allEntities, 'root');
     });
 
+    // -- Back Button (icon only), only if not root
+    let showBack = false;
+    let backTarget = 'root';
+    if (folderId !== 'root') {
+        if (folderId === 'orphans') {
+            showBack = true;
+            backTarget = 'root';
+        } else {
+            // For normal folders, find parent
+            const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
+            if (parent) {
+                showBack = true;
+                backTarget = parent.id;
+            }
+        }
+    }
+    let backBtn = null;
+    if (showBack) {
+        backBtn = document.createElement('i');
+        backBtn.className = "sidebar-folder-back fa-solid fa-arrow-left";
+        backBtn.title = "Back";
+        backBtn.style.cursor = "pointer";
+        backBtn.style.fontSize = "1.1em";
+        backBtn.style.padding = "4px";
+        backBtn.style.borderRadius = "6px";
+        backBtn.style.marginRight = "4px";
+        backBtn.onclick = () => {
+            currentSidebarFolderId = backTarget;
+            renderSidebarFolderContents(folders, allEntities, backTarget);
+        };
+    }
 
+    // -- Breadcrumb Label
+    const breadcrumbDiv = document.createElement('div');
+    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
+    if (folderId === 'orphans') {
+        breadcrumbDiv.textContent = ".../Cards not in Folder";
+    } else if (folderId === 'root') {
+        breadcrumbDiv.textContent = "FOLDERS";
+    } else {
+        const chain = getFolderChain(folderId, folders);
+        if (chain.length > 0) {
+            // Add .../ before the first folder
+            const names = chain.map(f => f.name);
+            names[0] = '.../' + names[0];
+            breadcrumbDiv.textContent = names.join(' / ');
+        } else {
+            breadcrumbDiv.textContent = ".../"; // fallback
+        }
+    }
+
+    // -- Order: toggle, logout, back, breadcrumbs
     function updateToggleIcon() {
         toggleBtn.classList.remove('fa-eye', 'fa-eye-slash', 'fa-user-secret');
-
         if (privateFolderVisibilityMode === 0) {
             toggleBtn.classList.add('fa-eye-slash');
             toggleBtn.title = 'Private folders hidden';
@@ -497,7 +623,6 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
 
     toggleBtn.addEventListener('click', async () => {
         privateFolderVisibilityMode = (privateFolderVisibilityMode + 1) % 3;
-    
         if (privateFolderVisibilityMode !== 0) {
             const pinHash = getStoredPinHash();
             if (pinHash && !sessionStorage.getItem("stcm_pin_okay")) {
@@ -507,13 +632,11 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
                     ok: 'Unlock',
                     cancel: 'Cancel'
                 });
-                
                 if (!input) {
                     privateFolderVisibilityMode = 0;
                     return;
                 }
-                
-                const enteredHash = await hashPin(input);                
+                const enteredHash = await hashPin(input);
                 if (enteredHash !== pinHash) {
                     toastr.error("Incorrect PIN.");
                     privateFolderVisibilityMode = 0;
@@ -524,88 +647,125 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
                 toastr.success("Private folders unlocked.");
             }
         }
-    
-        renderSidebarFolderContents(folders, allCharacters, folderId);
+        renderSidebarFolderContents(folders, allEntities, folderId);
     });
-    
+
     updateToggleIcon();
     controlRow.appendChild(toggleBtn);
     controlRow.appendChild(logoutBtn);
-    controlRow.appendChild(breadcrumbDiv); // Breadcrumb goes to the right of icon
+    if (backBtn) controlRow.appendChild(backBtn); // Only append if defined
+    controlRow.appendChild(breadcrumbDiv);
     container.appendChild(controlRow);
 
-
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder) return;
-
-    // Show "Back" if not root
-    if (folderId !== 'root') {
-        const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
-        if (parent) {
-            const backBtn = document.createElement('div');
-            backBtn.className = "sidebar-folder-back";
-            backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
-            backBtn.style.cursor = 'pointer';
-            backBtn.onclick = () => {
-                currentSidebarFolderId = parent.id;
-                renderSidebarFolderContents(folders, allCharacters, parent.id);
+    // ====== Top of Folder List: Orphan Cards ======
+    if (folderId === 'root') {
+        const orphanedEntities = getEntitiesNotInAnyFolder(folders);
+        if (orphanedEntities.length > 0) {
+            const orphanDiv = document.createElement('div');
+            orphanDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+            orphanDiv.setAttribute('data-folder-id', 'orphans');
+            orphanDiv.style.cursor = 'pointer';
+            orphanDiv.innerHTML = `
+                <div class="stcm_folder_main">
+                    <div class="avatar flex alignitemscenter textAlignCenter"
+                        style="background-color: #8887c2; color: #fff;">
+                        <i class="bogus_folder_icon fa-solid fa-cubes-stacked"></i>
+                    </div>
+                    <span class="ch_name stcm_folder_name" title="[Folder] Cards not in Folder">Cards not in Folder</span>
+                    <div class="stcm_folder_counts">
+                        <div class="stcm_folder_char_count">${orphanedEntities.length} Card${orphanedEntities.length === 1 ? '' : 's'}</div>
+                        <div class="stcm_folder_folder_count" style="opacity:0.5;">0 folders</div>
+                    </div>
+                </div>
+            `;
+            orphanDiv.onclick = () => {
+                currentSidebarFolderId = 'orphans';
+                renderSidebarFolderContents(folders, allEntities, 'orphans');
             };
-            container.appendChild(backBtn);
+            container.appendChild(orphanDiv);
         }
+        // ... regular children display below
     }
 
-        // === NEW: Create folder contents wrapper ===
-        let contentDiv = document.getElementById('stcm_folder_contents');
-        if (contentDiv) {
-            contentDiv.innerHTML = "";
-        } else {
-            contentDiv = document.createElement('div');
-            contentDiv.id = 'stcm_folder_contents';
-            contentDiv.className = 'stcm_folder_contents';
-        }
+    // --- If in "orphans" pseudo-folder, show just orphans with a back button
+    if (folderId === 'orphans') {
+        const orphanedEntities = getEntitiesNotInAnyFolder(folders);
+        const entityMap = stcmFolders.buildEntityMap();
+        const grid = document.createElement('div');
+        grid.className = 'stcm_folder_contents';
+        orphanedEntities.forEach(entity => {
+            let key = entity.type === "character" ? entity.item?.avatar : entity.id;
+            const normalized = entityMap.get(key);
+            if (normalized) {
+                const entityId = normalized.chid;
+                const tagsForChar = getTagsForChar(entity);
+                grid.appendChild(renderSidebarCharacterCard({
+                    ...normalized,
+                    id: entityId,
+                    chid: entityId,
+                    tags: tagsForChar
+                }));
+            }
+        });
+        container.appendChild(grid);
+        // Don't render any children/folders/other stuff
+        return;
+    }
+
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder && folderId !== 'root') return;
+
+    // === NEW: Create folder contents wrapper ===
+    let contentDiv = document.getElementById('stcm_folder_contents');
+    if (contentDiv) {
+        contentDiv.innerHTML = "";
+    } else {
+        contentDiv = document.createElement('div');
+        contentDiv.id = 'stcm_folder_contents';
+        contentDiv.className = 'stcm_folder_contents';
+    }
 
     const tagsById = buildTagMap(tags);
     // Show folders (children)
-   (folder.children || []).forEach(childId => {
-    const child = folders.find(f => f.id === childId);
-    if (child) {
-        const isPrivate = !!child.private;
+    (folder.children || []).forEach(childId => {
+        const child = folders.find(f => f.id === childId);
+        if (child) {
+            const isPrivate = !!child.private;
 
-        // Count characters and subfolders
-        const charCount = child.characters?.length || 0;
-        const visibleChildren = (child.children || []).filter(cid => {
-            const f = folders.find(f => f.id === cid);
-            if (!f) return false;
-            if (privateFolderVisibilityMode === 0 && f.private) return false;
-            if (privateFolderVisibilityMode === 2 && !f.private) return false;
-            return true;
-        });
-        const folderCount = visibleChildren.length;
-        const totalCharCount = getVisibleDescendantCharacterCount(child.id, folders);
-        
+            // Count characters and subfolders
+            const charCount = child.characters?.length || 0;
+            const visibleChildren = (child.children || []).filter(cid => {
+                const f = folders.find(f => f.id === cid);
+                if (!f) return false;
+                if (privateFolderVisibilityMode === 0 && f.private) return false;
+                if (privateFolderVisibilityMode === 2 && !f.private) return false;
+                return true;
+            });
+            const folderCount = visibleChildren.length;
+            const totalCharCount = getVisibleDescendantCharacterCount(child.id, folders);
 
-        const folderDiv = document.createElement('div');
-        folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
-        folderDiv.setAttribute('data-folder-id', child.id);
+            const folderDiv = document.createElement('div');
+            folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+            folderDiv.setAttribute('data-folder-id', child.id);
 
-        if (isPrivate) {
-            folderDiv.classList.add('stcm_folder_private');
-            folderDiv.setAttribute('data-private', 'true');
-        }
+            if (isPrivate) {
+                folderDiv.classList.add('stcm_folder_private');
+                folderDiv.setAttribute('data-private', 'true');
+            }
 
-        let shouldHide = false;
-        if (child.id !== folderId) {
-            shouldHide =
-                (privateFolderVisibilityMode === 0 && isPrivate) || 
-                (privateFolderVisibilityMode === 2 && !isPrivate && !hasPrivateDescendant(child.id, folders));
-        }
-        
-        if (shouldHide) {
-            folderDiv.style.display = 'none';
-        }
+            let shouldHide = false;
+            if (child.id !== folderId) {
+                shouldHide =
+                    (privateFolderVisibilityMode === 0 && isPrivate) ||
+                    (privateFolderVisibilityMode === 2 && !isPrivate && !hasPrivateDescendant(child.id, folders));
+            }
 
-        folderDiv.style.cursor = 'pointer';
-        folderDiv.innerHTML = `
+            if (shouldHide) {
+                folderDiv.style.display = 'none';
+            }
+
+            folderDiv.style.cursor = 'pointer';
+            folderDiv.innerHTML = `
             <div class="stcm_folder_main">
                 <div class="avatar flex alignitemscenter textAlignCenter"
                     style="background-color: ${child.color || '#8b2ae6'}; color: #fff;">
@@ -622,38 +782,45 @@ export function renderSidebarFolderContents(folders, allCharacters, folderId = c
             </div>
         `;
 
-        const folderIsVisible = hasVisibleChildrenOrCharacters(child.id, folders);
+            const folderIsVisible = hasVisibleChildrenOrCharacters(child.id, folders);
 
-        if (folderIsVisible) {
-            folderDiv.onclick = () => {
-                currentSidebarFolderId = child.id;
-                renderSidebarFolderContents(folders, allCharacters, child.id);
-            };
-        } else {
-            folderDiv.style.cursor = 'default';
-            folderDiv.classList.add('stcm_folder_disabled');
-            folderDiv.title = 'Empty folder';
-            folderDiv.onclick = null;
-        }
-
-        contentDiv.appendChild(folderDiv);
-    }
-});
-   
-
-        // Show characters in this folder (full card style)
-
-        (folder.characters || []).forEach(charId => {
-            const char = allCharacters.find(c => c.avatar === charId);
-            if (char) {
-                const tagsForChar = getTagsForChar(char.avatar, tagsById);
-                // Pass tags explicitly to avoid global mutation:
-                const charCard = renderSidebarCharacterCard({ ...char, tags: tagsForChar });
-                contentDiv.appendChild(charCard);
+            if (folderIsVisible) {
+                folderDiv.onclick = () => {
+                    currentSidebarFolderId = child.id;
+                    renderSidebarFolderContents(folders, getEntitiesList(), child.id);
+                };
+            } else {
+                folderDiv.style.cursor = 'default';
+                folderDiv.classList.add('stcm_folder_disabled');
+                folderDiv.title = 'Empty folder';
+                folderDiv.onclick = null;
             }
-        });
-        container.appendChild(contentDiv);
+
+            contentDiv.appendChild(folderDiv);
+        }
+    });
+
+    const entityMap = stcmFolders.buildEntityMap();
+    // Show characters in this folder (full card style)
+    (folder.characters || []).forEach(folderVal => {
+        let entity = entityMap.get(folderVal);
+        if (entity && typeof entity.chid !== "undefined") {
+            const entityId = entity.chid;
+            // Add tag info
+            const tagsForChar = getTagsForChar(entity);
+            const entityCard = renderSidebarCharacterCard({
+                ...entity,
+                id: entityId,
+                chid: entityId,
+                tags: tagsForChar
+            });
+            contentDiv.appendChild(entityCard);
+        }
+    });
+
+    container.appendChild(contentDiv);
 }
+
 
 function hasPrivateDescendant(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
@@ -669,7 +836,6 @@ function hasPrivateDescendant(folderId, folders) {
     return false;
 }
 
-
 // Helper to build parent/ancestor folder chain
 export function getFolderChain(folderId, folders) {
     const chain = [];
@@ -683,11 +849,23 @@ export function getFolderChain(folderId, folders) {
     return chain;
 }
 
-export function getTagsForChar(charId) {
-    const tagIds = tag_map[charId] || [];
-    const tagsById = buildTagMap(tags); // Only build this once per render if you can
-    return tagIds.map(id => tagsById.get(id)).filter(Boolean);
+export function getTagsForChar(entity) {
+    // Accept entity object or entityId (backwards compatible)
+    let tagIds = [];
+    if (typeof entity === "object" && entity !== null) {
+        // Prefer tagIds property if it exists
+        if (Array.isArray(entity.tagIds)) tagIds = entity.tagIds;
+        // Fall back to tag_map[entity.chid || entity.id]
+        else if (entity.chid && tag_map[entity.chid]) tagIds = tag_map[entity.chid];
+        else if (entity.id && tag_map[entity.id]) tagIds = tag_map[entity.id];
+    } else if (typeof entity === "string" || typeof entity === "number") {
+        tagIds = tag_map[entity] || [];
+    }
+    const tagsById = buildTagMap(tags);
+    return (tagIds || []).map(id => tagsById.get(id)).filter(Boolean);
 }
+
+
 
 export function showFolderColorPicker(folder, rerender) {
     const container = document.createElement('div');
@@ -708,57 +886,118 @@ export function showFolderColorPicker(folder, rerender) {
     });
 }
 
+export function getEntityChid(entity) {
+    if (!entity) return undefined;
+    // Top-level id is always preferred
+    if ('id' in entity && entity.id !== undefined) return entity.id;
+    // Sometimes passed a flattened { ...item }
+    if ('avatar' in entity) return entity.avatar;
+    // Defensive fallback
+    return undefined;
+}
 
-export function renderSidebarCharacterCard(char) {
-    // Build character card using standard classes + a custom sidebar marker
-    const div = document.createElement('div');
-    div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
-    div.setAttribute('chid', char.avatar);
-    div.setAttribute('data-chid', char.avatar);
-    div.tabIndex = 0;
+export function renderSidebarCharacterCard(entity) {
+    // Flatten out entity
+    const ent = entity.item
+        ? { ...entity.item, ...entity } // <-- merge all fields for safety
+        : entity;
 
-    // Card avatar
-    div.innerHTML = `
-        <div class="avatar" title="[Character] ${char.name}\nFile: ${char.avatar}">
-            <img src="/thumbnail?type=avatar&file=${encodeURIComponent(char.avatar)}" alt="${char.name}">
-        </div>
-        <div class="flex-container wide100pLess70px character_select_container">
-            <div class="wide100p character_name_block">
-                <span class="ch_name" title="[Character] ${char.name}">${char.name}</span>
-                <small class="ch_additional_info ch_add_placeholder">+++</small>
-                <small class="ch_additional_info ch_avatar_url"></small>
-            </div>
-            <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
-            <input class="ch_fav" value="" hidden="" keeper-ignore="">
-            <div class="ch_description">  ${char.creatorcomment || char.description || ""}</div>
-            <div class="tags tags_inline">
-                ${(char.tags || []).map(tag =>
-                    `<span class="tag" style="background-color: ${tag.color || ''}; color: ${tag.color2 || ''};">
-                        <span class="tag_name">${tag.name}</span>
-                    </span>`
-                ).join('')}
-            </div>
-        </div>
-    `;
-    // Make the entire card clickable for activation:
-    div.addEventListener('click', function(e) {
-        const id = char.avatar ? characters.findIndex(c => c.avatar === char.avatar) : -1;
-        if (id !== -1 && typeof selectCharacterById === 'function') {
-            selectCharacterById(id);
-            if (typeof setActiveGroup === 'function') setActiveGroup(null);
-            if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();
-        } else {
-            toastr.warning('Unable to activate character: not found.');
+    // Determine if it's a group or character
+    const isGroup = ent.type === "group";
+    const groupId = isGroup ? ent.id : null;
+    const chid = (!isGroup && typeof ent.chid !== "undefined") ? ent.chid : undefined;
+
+    // Common
+    const name = ent.name || "";
+    const escapedName = escapeHtml(name);
+    const tagHtml = (ent.tags || []).map(tag => {
+        let style = '';
+        if (tag.color || tag.color2) {
+            style = ` style="${tag.color ? `background:${tag.color};` : ''}${tag.color2 ? `color:${tag.color2};` : ''}"`;
         }
-    });
+        return `<span id="${tag.id}" class="tag"${style}>
+            <span class="tag_name">${tag.name}</span>
+            <i class="fa-solid fa-circle-xmark tag_remove interactable" tabindex="0" style="display: none;"></i>
+        </span>`;
+    }).join('');
 
-    return div;
+
+    if (isGroup) {
+        // --- GROUP CARD ---
+        // member avatars: ent.avatar (top 3), all members: ent.members
+        const memberFiles = Array.isArray(ent.members) && ent.members.length ? ent.members : (Array.isArray(ent.avatar) ? ent.avatar : []);
+        const memberNames = memberFiles.map(f => (typeof f === "string" ? f.replace(/\.[^/.]+$/, "") : f)).join(", ");
+
+        const div = document.createElement('div');
+        div.className = 'group_select entity_block flex-container wide100p alignitemsflexstart interactable';
+        div.setAttribute('tabindex', '0');
+        div.setAttribute('data-grid', groupId);
+
+        // Collage avatars (up to 3)
+        const avatarHtml = `
+            <div class="avatar avatar_collage collage_${memberFiles.length}" title="[Group] ${escapedName}">
+                ${memberFiles.slice(0, 3).map((file, i) =>
+            `<img alt="img${i + 1}" class="img_${i + 1}" src="/thumbnail?type=avatar&file=${encodeURIComponent(file)}">`
+        ).join('')}
+            </div>
+        `;
+
+        // Group description (show as subtext if present, otherwise show member names)
+        const groupDesc = ent.description ? escapeHtml(ent.description) : memberNames;
+
+        div.innerHTML = `
+            ${avatarHtml}
+            <div class="flex-container wide100pLess70px gap5px group_select_container">
+                <div class="wide100p group_name_block character_name_block">
+                    <div class="ch_name" title="[Group] ${escapedName}">${escapedName}</div>
+                    <small class="ch_additional_info group_select_counter">${memberFiles.length} character${memberFiles.length === 1 ? "" : "s"}</small>
+                </div>
+                <small class="character_name_block_sub_line" data-i18n="in this group">in this group</small>
+                <i class="group_fav_icon fa-solid fa-star" style="display: none;"></i>
+                <input class="ch_fav" value="" hidden="" keeper-ignore="">
+                <div class="group_select_block_list ch_description">${groupDesc}</div>
+                <div class="tags tags_inline">${tagHtml}</div>
+            </div>
+        `;
+        return div;
+    } else {
+        // --- CHARACTER CARD ---
+        let avatarUrl = ent.avatar || ent.avatar_url || 'img/ai4.png';
+        if (typeof avatarUrl !== 'string') avatarUrl = String(avatarUrl ?? 'img/ai4.png');
+        const descriptionToShow = ent.creator_notes && ent.creator_notes.trim() !== "" ? ent.creator_notes : (ent.description || ent.creatorcomment || "");
+        const escapedDesc = escapeHtml(descriptionToShow);
+
+        const div = document.createElement('div');
+        div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
+        div.setAttribute('chid', chid);
+        div.setAttribute('data-chid', chid);
+        div.tabIndex = 0;
+
+        div.innerHTML = `
+            <div class="avatar" title="[Character] ${escapedName}\nFile: ${escapeHtml(avatarUrl)}">
+                <img src="${avatarUrl.startsWith('img/') ? avatarUrl : '/thumbnail?type=avatar&file=' + encodeURIComponent(avatarUrl)}" alt="${escapedName}">
+            </div>
+            <div class="flex-container wide100pLess70px character_select_container">
+                <div class="wide100p character_name_block">
+                    <span class="ch_name" title="[Character] ${escapedName}">${escapedName}</span>
+                    <small class="ch_additional_info ch_add_placeholder">+++</small>
+                    <small class="ch_additional_info ch_avatar_url"></small>
+                </div>
+                <i class="ch_fav_icon fa-solid fa-star" style="display: none;"></i>
+                <input class="ch_fav" value="" hidden="" keeper-ignore="">
+                <div class="ch_description">${escapedDesc}</div>
+                <div class="tags tags_inline">${tagHtml}</div>
+            </div>
+        `;
+        return div;
+    }
 }
 
 
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
+    if (stcmObserver) stcmObserver.disconnect();
 
     const getCurrentAvatars = () => {
         return Array.from(container.querySelectorAll('.character_select img[src*="/thumbnail?type=avatar&file="]'))
@@ -774,6 +1013,7 @@ export function watchSidebarFolderInjection() {
     );
 
     const debouncedInject = debounce(async () => {
+        if (suppressSidebarObserver) return;
         const sidebar = container.querySelector('#stcm_sidebar_folder_nav');
         const currentAvatars = getCurrentAvatars();
 
@@ -790,6 +1030,10 @@ export function watchSidebarFolderInjection() {
             lastKnownCharacterAvatars = getCurrentAvatars();
             lastSidebarInjection = Date.now();
         }
+        hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+        setTimeout(() => {
+            injectResetViewButton();
+        }, 10);
     }, 150);
 
     if (stcmObserver) stcmObserver.disconnect();
@@ -799,8 +1043,6 @@ export function watchSidebarFolderInjection() {
     // Initial state
     lastKnownCharacterAvatars = getCurrentAvatars();
 }
-
-
 
 export function makeFolderNameEditable(span, folder, rerender) {
     const input = document.createElement('input');
@@ -837,117 +1079,178 @@ export function makeFolderNameEditable(span, folder, rerender) {
     input.select();
 }
 
-
 export function showIconPicker(folder, parentNode, rerender) {
-    const icons = [
-        // === Utility/Folders ===
-        'fa-folder', 'fa-folder-open', 'fa-archive', 'fa-box', 'fa-boxes-stacked',
-        'fa-book', 'fa-book-bookmark', 'fa-book-skull', 'fa-journal-whills', 'fa-address-book',
-    
-        // === People / Avatars ===
-        'fa-users', 'fa-user', 'fa-user-astronaut', 'fa-user-ninja', 'fa-user-gear', 'fa-user-secret', 'fa-user-nurse', 'fa-person', 'fa-person-dress', 
-    
-        // === Gaming Icons ===
-        'fa-dice-six',            // only one dice
-        'fa-chess-knight', 'fa-chess-rook', 'fa-chess-queen', 'fa-chess-bishop', 'fa-chess-pawn',
-        'fa-chess',               // classic board
-        'fa-gamepad',             // generic gamepad
-        'fa-dungeon', 'fa-dragon', // fantasy
-        'fa-tower-cell', 'fa-tower-observation',
+    // Wait until FA_ICONS is loaded
+    if (!FA_ICONS) {
+        if (window.FA_ICONS_LOADED) {
+            window.FA_ICONS_LOADED.then(() => showIconPicker(folder, parentNode, rerender));
+            return;
+        }
+        setTimeout(() => showIconPicker(folder, parentNode, rerender), 200);
+        return;
+    }
 
-        // === Emoji Icons ===
-        'fa-face-smile', 'fa-face-meh', 'fa-face-frown', 'fa-face-laugh', 'fa-face-surprise',
-        'fa-face-grin', 'fa-face-grin-stars', 'fa-face-grin-beam', 'fa-face-grin-squint',
-        'fa-face-grin-wink', 'fa-face-grin-wide', 'fa-face-grin-tears', 'fa-face-kiss',
-        'fa-face-kiss-wink-heart', 'fa-face-dizzy', 'fa-face-tired', 'fa-face-angry',
-        'fa-face-sad-cry', 'fa-face-sad-tear', 'fa-face-grin-hearts', 'fa-face-grin-tongue',
-        'fa-face-grin-tongue-wink', 'fa-face-grin-tongue-squint', 'fa-face-grin-beam-sweat',
-        
-        // === Halloween Icons ===
-        'fa-ghost', 'fa-hat-wizard', 'fa-skull', 'fa-skull-crossbones', 'fa-spider', 'fa-spaghetti-monster-flying',
-        'fa-broom', 'fa-candy-cane', 'fa-bone', 'fa-mask', 'fa-moon', 'fa-star-half-stroke', 'fa-icicles',
-    
-        // === Animal Icons ===
-        'fa-dog', 'fa-cat', 'fa-crow', 'fa-frog', 'fa-dove', 'fa-otter', 'fa-fish', 'fa-horse', 'fa-spider', 'fa-hippo', 'fa-feather', 'fa-feather-pointed', 'fa-paw', 
-        'fa-dragon', 'fa-dove', 'fa-cow', 'fa-dove', 'fa-bug', 'fa-worm', 'fa-shrimp',
-    
-        // === Nature / Elements ===
-        'fa-leaf', 'fa-tree', 'fa-mountain', 'fa-fire', 'fa-icicles', 'fa-cloud', 'fa-cloud-sun', 'fa-cloud-moon', 'fa-moon', 'fa-sun', 'fa-gem', 'fa-heart',
-    
-        // === Fantasy / Magic ===
-        'fa-wand-magic', 'fa-wand-magic-sparkles', 'fa-hat-wizard', 'fa-flask', 'fa-flask-vial', 'fa-microscope', 'fa-brain', 'fa-lightbulb',
-    
-        // === Security ===
-        'fa-shield', 'fa-shield-halved', 'fa-lock', 'fa-unlock', 'fa-key',
-    
-        // === Miscellaneous/Science/Tech ===
-        'fa-robot', 'fa-rocket', 'fa-gears', 'fa-screwdriver-wrench', 'fa-anchor', 'fa-compass', 'fa-globe', 'fa-map', 'fa-location-dot',
-    
-        // === Other fun or thematic ===
-        'fa-star', 'fa-bolt', 'fa-broom', 'fa-anchor', 'fa-candy-cane'
-    ];
-    
+    // Helper: Build candidate icon array (only free solid icons)
+    const freeIcons = Array.isArray(FA_ICONS) ? FA_ICONS : [];
 
+    const ICONS_PER_PAGE = 120; // Adjust as needed (12 x 10 grid)
+
+    // --- Icon picker popup ---
     const popup = document.createElement('div');
     popup.className = 'stcm-icon-picker-popup';
     popup.style.position = 'fixed';
     popup.style.background = '#222';
     popup.style.border = '1px solid #444';
     popup.style.borderRadius = '8px';
-    popup.style.padding = '16px 12px 10px 12px';
+    popup.style.padding = '16px 12px 12px 12px';
     popup.style.zIndex = 10000;
-    popup.style.minWidth = '270px';
+    popup.style.minWidth = '420px';
     popup.style.maxHeight = '80vh';
     popup.style.overflowY = 'auto';
     popup.style.overflowX = 'hidden';
 
-    // --- Instructions & custom field ---
+    // --- Instructions and search ---
     const instr = document.createElement('div');
     instr.innerHTML = `
         <div style="margin-bottom:8px; font-size: 0.97em;">
-            <b>Choose an icon below</b> or type your own Font Awesome icon class.
-            <br>
+            <b>Choose an icon below </b> or search all Font Awesome Free icons.<br>
             <a href="https://fontawesome.com/search?m=free" target="_blank" style="color:#6ec0ff; text-decoration:underline; font-size: 0.96em;">
                 Browse all free icons
             </a>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:7px;">
-            <input type="text" id="stcmCustomIconInput" placeholder="e.g. fa-dragon" style="flex:1;min-width:0;padding:4px 8px;border-radius:4px;border:1px solid #444;background:#181818;color:#eee;">
-            <button class="stcm_menu_button tiny" id="stcmSetCustomIconBtn" style="padding:3px 8px;">Set</button>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+            <input type="text" id="stcmIconSearch" placeholder="Search icon name/category..." style="flex:1;min-width:0;padding:4px 8px;border-radius:4px;border:1px solid #444;background:#181818;color:#eee;">
         </div>
-        <div id="stcmIconError" style="color:#fa7878;font-size:0.93em;min-height:18px;"></div>
     `;
     popup.appendChild(instr);
+
+    // --- Pagination controls ---
+    const paginationDiv = document.createElement('div');
+    paginationDiv.style.display = 'flex';
+    paginationDiv.style.justifyContent = 'center';
+    paginationDiv.style.alignItems = 'center';
+    paginationDiv.style.gap = '18px';
+    paginationDiv.style.marginBottom = '6px';
+    popup.appendChild(paginationDiv);
 
     // --- Icon grid ---
     const grid = document.createElement('div');
     grid.className = 'stcm-icon-grid';
     grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(11, 32px)';
+    grid.style.gridTemplateColumns = 'repeat(12, 32px)';
     grid.style.gap = '8px';
-
-    icons.forEach(ico => {
-        const btn = document.createElement('button');
-        btn.className = 'stcm-icon-btn stcm_menu_button tiny';
-        btn.innerHTML = `<i class="fa-solid ${ico} fa-fw"></i>`;
-        btn.title = ico.replace('fa-', '').replace(/-/g, ' ');
-        btn.style.background = 'none';
-        btn.style.border = 'none';
-        btn.style.cursor = 'pointer';
-        btn.addEventListener('click', async () => {
-            const folders = await stcmFolders.setFolderIcon(folder.id, ico);
-            await updateSidebar(true);
-            rerender && rerender(folders);
-            popup.remove();
-        });
-        grid.appendChild(btn);
-    });
+    grid.style.marginBottom = '18px';
     popup.appendChild(grid);
 
-    // --- Custom icon logic ---
-    const customInput = instr.querySelector('#stcmCustomIconInput');
-    const customBtn = instr.querySelector('#stcmSetCustomIconBtn');
-    const errorDiv = instr.querySelector('#stcmIconError');
+    // --- Manual entry at bottom (UNCHANGED) ---
+    const manualDiv = document.createElement('div');
+    manualDiv.innerHTML = `
+        <div style="margin-top:12px; font-size: 0.95em; color:#fff;">
+            Or manually enter a Font Awesome icon class or &lt;i&gt; tag:
+                        <br>
+            <a href="https://fontawesome.com/search?m=free" target="_blank" style="color:#6ec0ff; text-decoration:underline; font-size: 0.96em;">
+                Browse all free icons
+            </a>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin:8px 0 0 0;">
+            <input type="text" id="stcmCustomIconInput" placeholder="e.g. fa-dragon" style="flex:1;min-width:0;padding:4px 8px;border-radius:4px;border:1px solid #444;background:#181818;color:#eee;">
+            <button class="stcm_menu_button tiny" id="stcmSetCustomIconBtn" style="padding:3px 8px;">Set</button>
+        </div>
+        <div id="stcmIconError" style="color:#fa7878;font-size:0.93em;min-height:18px;"></div>
+    `;
+    popup.appendChild(manualDiv);
+
+    // ---- Pagination State and Logic ----
+    let lastSearch = "";
+    let currentIcons = freeIcons;
+    let currentPage = 1;
+
+    function updatePagination() {
+        paginationDiv.innerHTML = "";
+        const totalPages = Math.max(1, Math.ceil(currentIcons.length / ICONS_PER_PAGE));
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = 'Prev';
+        prevBtn.className = 'stcm_menu_button tiny';
+        prevBtn.disabled = (currentPage === 1);
+        prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderIcons(); } };
+        paginationDiv.appendChild(prevBtn);
+
+        const pageInfo = document.createElement('span');
+        pageInfo.style.color = '#aaa';
+        pageInfo.textContent = `Page ${currentPage} / ${totalPages}`;
+        paginationDiv.appendChild(pageInfo);
+
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next';
+        nextBtn.className = 'stcm_menu_button tiny';
+        nextBtn.disabled = (currentPage === totalPages);
+        nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderIcons(); } };
+        paginationDiv.appendChild(nextBtn);
+    }
+
+    function renderIcons() {
+        grid.innerHTML = "";
+        const totalPages = Math.max(1, Math.ceil(currentIcons.length / ICONS_PER_PAGE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+        updatePagination();
+
+        const startIdx = (currentPage - 1) * ICONS_PER_PAGE;
+        const iconsToShow = currentIcons.slice(startIdx, startIdx + ICONS_PER_PAGE);
+
+        iconsToShow.forEach(icon => {
+            const ico = 'fa-' + icon; // icon is already a string!
+            const btn = document.createElement('button');
+            btn.className = 'stcm-icon-btn stcm_menu_button tiny';
+            btn.title = icon; // just use the string for title
+            btn.style.background = 'none';
+            btn.style.border = 'none';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = `<i class="fa-solid ${ico} fa-fw"></i>`;
+            btn.addEventListener('click', async () => {
+                const folders = await stcmFolders.setFolderIcon(folder.id, ico);
+                await updateSidebar(true);
+                rerender && rerender(folders);
+                popup.remove();
+            });
+            grid.appendChild(btn);
+        });
+
+        if (iconsToShow.length === 0) {
+            const nores = document.createElement('div');
+            nores.style.gridColumn = 'span 12';
+            nores.style.textAlign = 'center';
+            nores.style.color = '#aaa';
+            nores.textContent = "No icons found.";
+            grid.appendChild(nores);
+        }
+    }
+
+    // ---- Search functionality ----
+    const searchInput = instr.querySelector('#stcmIconSearch');
+    function searchIcons(term) {
+        if (!term) return freeIcons;
+        term = term.toLowerCase();
+        return freeIcons.filter(icon =>
+            icon.toLowerCase().includes(term)
+        );
+    }
+
+    searchInput.addEventListener('input', () => {
+        lastSearch = searchInput.value.trim();
+        currentIcons = searchIcons(lastSearch);
+        currentPage = 1; // Reset to first page on new search
+        renderIcons();
+    });
+
+    // Initial: show all icons (first page)
+    renderIcons();
+
+    // --- Manual custom icon logic (UNCHANGED) ---
+    const customInput = manualDiv.querySelector('#stcmCustomIconInput');
+    const customBtn = manualDiv.querySelector('#stcmSetCustomIconBtn');
+    const errorDiv = manualDiv.querySelector('#stcmIconError');
 
     customBtn.addEventListener('click', async () => {
         let val = customInput.value.trim();
@@ -955,9 +1258,7 @@ export function showIconPicker(folder, parentNode, rerender) {
             errorDiv.textContent = 'Please enter a Font Awesome icon class or tag.';
             return;
         }
-    
         let classStr = '';
-    
         if (val.startsWith('<i') && val.includes('class=')) {
             try {
                 const temp = document.createElement('div');
@@ -972,19 +1273,16 @@ export function showIconPicker(folder, parentNode, rerender) {
         } else {
             classStr = val;
         }
-    
         // Split and normalize
         const parts = classStr.trim().split(/\s+/);
         const iconClass = parts.find(c =>
             c.startsWith('fa-') &&
             !['fa-solid', 'fa-regular', 'fa-brands', 'fa-light', 'fa-thin', 'fa-duotone', 'fa-sharp'].includes(c)
         );
-    
         if (!iconClass) {
             errorDiv.textContent = 'No valid Font Awesome icon class found (e.g. fa-dragon).';
             return;
         }
-    
         try {
             const folders = await stcmFolders.setFolderIcon(folder.id, iconClass);
             await updateSidebar(true);
@@ -994,8 +1292,6 @@ export function showIconPicker(folder, parentNode, rerender) {
             errorDiv.textContent = 'Failed to apply icon: ' + (err.message || err);
         }
     });
-    
-
     customInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') customBtn.click();
     });
@@ -1008,33 +1304,27 @@ export function showIconPicker(folder, parentNode, rerender) {
 
     document.body.appendChild(popup);
     const rect = parentNode.getBoundingClientRect();
-    
-    // Default placement
     popup.style.left = (rect.left + 60) + "px";
     popup.style.top = rect.top + "px";
-    
-    // Wait for popup to render to measure
+    // Clamp popup to viewport
     requestAnimationFrame(() => {
         const popupRect = popup.getBoundingClientRect();
         const margin = 10;
-    
-        // Clamp to right edge
         if (popupRect.right > window.innerWidth - margin) {
             popup.style.left = `${window.innerWidth - popupRect.width - margin}px`;
         }
-    
-        // Clamp to bottom edge
         if (popupRect.bottom > window.innerHeight - margin) {
             popup.style.top = `${window.innerHeight - popupRect.height - margin}px`;
         }
     });
 }
 
-
 export function confirmDeleteFolder(folder, rerender) {
     const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
+    const hasRealParent = folder.parentId && folder.parentId !== 'root';
+
     // Compute character assignments:
-    const folders = window.STCM?.sidebarFolders || []; // or however you have access to all folders
+    const folders = window.STCM?.sidebarFolders || [];
     const getDescendants = (f, all) => {
         let result = [];
         if (!Array.isArray(f.children)) return result;
@@ -1075,25 +1365,33 @@ export function confirmDeleteFolder(folder, rerender) {
         ${(hasChildren && cascadeCharCount > 0) || (!hasChildren && directCharCount > 0) ? `
             <p style="margin-top: 10px;">
                 <b>
-                    ${
-                        hasChildren
-                            ? (`
+                    ${hasChildren
+                ? (`
                                 <span class="cascadeCharCount" style="display: ${'cascade'};">This folder and its subfolders have ${cascadeCharCount} characters assigned.</span>
                                 <span class="directCharCount" style="display: ${'none'};">This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.</span>
                             `)
-                            : `This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.`
-                    }
+                : `This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.`
+            }
                 </b>
             </p>
-            <label style="display:block;margin:4px 0 0 12px;">
-                <input type="radio" name="moveMode" value="move" checked>
-                Move assigned characters to parent folder
-            </label>
-            <label style="display:block;margin:4px 0 0 12px;">
-                <input type="radio" name="moveMode" value="unassign">
-                Remove all assigned characters from folders
-            </label>
+            ${hasRealParent ? `
+                <label style="display:block;margin:4px 0 0 12px;">
+                    <input type="radio" name="moveMode" value="move" checked>
+                    Move assigned characters to parent folder
+                </label>
+                <label style="display:block;margin:4px 0 0 12px;">
+                    <input type="radio" name="moveMode" value="unassign">
+                    Remove all assigned characters from folders
+                </label>
+                ` : `
+                <label style="display:block;margin:4px 0 0 12px;">
+                    <input type="radio" name="moveMode" value="unassign" checked>
+                    Remove all assigned characters from folders
+                </label>
+                `
+            }
         ` : ''}
+        
         <p style="color:#e57373;">This cannot be undone.</p>
     `;
 
@@ -1211,7 +1509,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         return (destDepth + subtreeDepth - 1) < MAX_DEPTH;
     });
 
-        // Build hierarchical option list
+    // Build hierarchical option list
     const optionsTree = getFolderOptionsTree(allFolders, descendants);
 
     // Now, only include those in validFolders
@@ -1223,8 +1521,8 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         <label><b>Choose New Parent Folder</b></label><br>
         <select style="width:100%;margin:12px 0;" id="stcmMoveFolderSelect">
         ${validOptions.map(f =>
-            `<option value="${f.id}" ${f.id === folder.parentId ? 'selected' : ''}>${f.name}</option>`
-        ).join('')}
+        `<option value="${f.id}" ${f.id === folder.parentId ? 'selected' : ''}>${f.name}</option>`
+    ).join('')}
         </select>
         <div style="font-size:0.93em;color:#fa7878;" id="stcmMoveFolderError"></div>
     `;
@@ -1246,7 +1544,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
             errDiv.textContent = e.message || "Failed to move folder.";
         }
     });
-    
+
 }
 
 function getFolderDepth(folderId, folders) {
@@ -1260,8 +1558,6 @@ function getFolderDepth(folderId, folders) {
     }
     return depth;
 }
-
-
 
 export async function reorderChildren(parentId, orderedChildIds) {
     const folders = await stcmFolders.loadFolders();
@@ -1277,3 +1573,375 @@ export async function reorderChildren(parentId, orderedChildIds) {
     parent.children = orderedChildIds;
     return await stcmFolders.saveFolders(folders); // persist and return new array
 }
+
+// Replacement Search Functionality
+
+function removeCharacterSortSelect() {
+    const sortSelect = document.getElementById('character_sort_order');
+    if (!sortSelect) return;
+
+    // Already injected? (by value or data-field)
+    if ([...sortSelect.options].some(opt => opt.value === 'stcm' || opt.getAttribute('data-field') === 'stcm')) {
+        return;
+    }
+
+    // Create new option
+    const stcmOption = document.createElement('option');
+    stcmOption.value = 'stcm';
+    stcmOption.textContent = 'STCM';
+    stcmOption.setAttribute('data-field', 'stcm');
+    stcmOption.setAttribute('data-order', 'desc');
+    stcmOption.setAttribute('data-i18n', 'STCM');
+
+    // Insert as first option
+    sortSelect.insertBefore(stcmOption, sortSelect.firstChild);
+
+    // Set as selected both in the DOM and in the JS API
+    stcmOption.selected = true;
+    sortSelect.value = 'stcm';
+
+    // Fire a change event to notify listeners
+    sortSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+
+    // Remove the sort dropdown if present
+    // const oldSelect = document.getElementById('character_sort_order');
+    // if (oldSelect) oldSelect.remove();
+
+    // // Remove the filter tags by their known classes
+    // // All have both .tag and .actionable, and one of: filterByFavorites, filterByGroups, filterByFolder
+    // const filters = document.querySelectorAll(
+    //     '.tags.rm_tag_filter .tag.filterByFavorites,' +
+    //     '.tags.rm_tag_filter .tag.filterByGroups,' +
+    //     '.tags.rm_tag_filter .tag.filterByFolder'
+    // );
+    // filters.forEach(el => el.remove());
+}
+
+
+class SidebarSearchBox {
+    constructor(onSearch) {
+        this.onSearch = onSearch;
+        this.input = document.createElement('input');
+        this.input.type = 'search';
+        this.input.id = 'character_search_bar_stcm';
+        this.input.className = 'text_pole width100p';
+        this.input.placeholder = 'Search...';
+        this.input.autocomplete = 'off';
+
+        this.clearBtn = document.createElement('button');
+        this.clearBtn.type = 'button';
+        this.clearBtn.tabIndex = -1;
+        this.clearBtn.className = 'stcm_search_clear_btn';
+        this.clearBtn.innerHTML = '<i class="fa fa-times"></i>';
+        this.clearBtn.style.display = 'none';
+
+        // Show/hide the clear button
+        this.input.addEventListener('input', () => {
+            this.clearBtn.style.display = this.input.value ? 'block' : 'none';
+            this.triggerSearch();
+        });
+
+        // Clear button behavior
+        this.clearBtn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            this.input.value = '';
+            this.clearBtn.style.display = 'none';
+            this.triggerSearch();
+            this.input.blur();
+        });
+
+        // Compose wrapper
+        this.wrapper = document.createElement('div');
+        this.wrapper.className = 'stcm_search_bar_wrapper';
+        this.wrapper.style.position = 'relative';
+        this.wrapper.style.display = 'flex';
+        this.wrapper.style.alignItems = 'center';
+        this.wrapper.style.width = '100%';
+        this.input.style.flex = '1 1 auto';
+
+        this.wrapper.appendChild(this.input);
+        this.wrapper.appendChild(this.clearBtn);
+    }
+
+    attachTo(parentNode, replaceNode) {
+        if (replaceNode) parentNode.replaceChild(this.wrapper, replaceNode);
+        else parentNode.appendChild(this.wrapper);
+    }
+
+    focus() { this.input.focus(); }
+    blur() { this.input.blur(); }
+    get value() { return this.input.value.trim(); }
+    set value(val) { this.input.value = val; this.clearBtn.style.display = val ? 'block' : 'none'; }
+
+    triggerSearch() {
+        this.triggerSearch = debounce(() => {
+            if (this.onSearch) this.onSearch(this.value);
+        }, 150);
+    }
+}
+
+let sidebarSearchBox = null;
+
+function injectSidebarSearchBox() {
+    const oldInput = document.getElementById('character_search_bar');
+    if (!oldInput) return;
+
+    if (sidebarSearchBox && sidebarSearchBox.wrapper.parentNode) {
+        sidebarSearchBox.wrapper.parentNode.removeChild(sidebarSearchBox.wrapper);
+    }
+
+    sidebarSearchBox = new SidebarSearchBox(async (searchTerm) => {
+        if (!searchTerm) {
+            // Always reload folders fresh if search is empty
+            currentSidebarFolderId = 'root';
+            stcmSearchActive = false;
+            stcmSearchTerm = '';
+            stcmSearchResults = null;
+            stcmLastSearchFolderId = null;
+
+            const folders = await stcmFolders.loadFolders();
+            STCM.sidebarFolders = folders;
+            injectSidebarFolders(folders);
+        } else {
+            stcmSearchActive = true;
+            stcmSearchTerm = searchTerm;
+            injectSidebarFolders(STCM.sidebarFolders);
+        }
+    });
+
+    oldInput.parentNode.replaceChild(sidebarSearchBox.wrapper, oldInput);
+}
+
+function shouldShowResetButton() {
+    // Search bar
+    const searchBar = document.getElementById('character_search_bar_stcm');
+    const searchActive = searchBar && searchBar.value && searchBar.value.trim() !== '';
+
+    // Any real tag selected
+    const tagActive = isAnyRealTagActive();
+
+    // Any sort except STCM active
+    const sortActive = !isSTCMSortActive();
+
+    return searchActive || tagActive || sortActive;
+}
+
+
+function injectResetViewButton() {
+    if (!shouldShowResetButton()) return;
+
+    const charPanel = document.getElementById('rm_characters_block');
+    if (!charPanel) return;
+    const tagBar = charPanel.querySelector('.tags.rm_tag_filter');
+    if (!tagBar) return;
+    const showTag = tagBar.querySelector('.tag.showTagList');
+    if (!showTag) return;
+
+    // Prevent duplicate
+    if (showTag.nextElementSibling && showTag.nextElementSibling.id === 'stcm_reset_view_btn') return;
+
+    const resetBtn = document.createElement('button');
+    resetBtn.id = 'stcm_reset_view_btn';
+    resetBtn.textContent = 'Reset View';
+    resetBtn.className = 'stcm_reset_view_btn stcm_menu_button stcm_view_btn interactable';
+    resetBtn.style.marginLeft = '8px';
+    resetBtn.addEventListener('click', function () {
+        // 1. Unselect all tags in the global filter bar
+        document.querySelectorAll('.tags.rm_tag_bogus_drilldown .tag_remove').forEach(xBtn => {
+            // If it's visible (not display:none) and not disabled
+            if (xBtn.offsetParent !== null && !xBtn.disabled) {
+                xBtn.click();
+            }
+        });
+
+        document.querySelectorAll('.tags.rm_tag_filter .tag.selected, .tags.rm_tag_filter .tag.excluded').forEach(tag => {
+            tag.classList.remove('selected', 'excluded');
+        });
+
+        // 2. Clear search bar
+        const searchInput = document.getElementById('character_search_bar_stcm');
+        if (searchInput) {
+            searchInput.value = '';
+            const clearBtn = searchInput.parentNode.querySelector('.stcm_search_clear_btn');
+            if (clearBtn) clearBtn.click();
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        stcmSearchActive = false;
+        stcmSearchTerm = '';
+        stcmSearchResults = null;
+        stcmLastSearchFolderId = null;
+
+        // 3. Reset sort order to "STCM"
+        const sortSelect = document.getElementById('character_sort_order');
+        if (sortSelect) {
+            let stcmOpt = [...sortSelect.options].find(opt => opt.value === 'stcm' || opt.getAttribute('data-field') === 'stcm');
+            if (stcmOpt) {
+                stcmOpt.selected = true;
+                sortSelect.value = stcmOpt.value;
+                sortSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        // 4. Wait for DOM to settle, then re-inject sidebar
+        setTimeout(async () => {
+            currentSidebarFolderId = 'root';
+
+            // If sidebar nav is missing (wiped by sort), forcibly re-inject and then update
+            const rmBlock = document.getElementById('rm_print_characters_block');
+            if (rmBlock && !document.getElementById('stcm_sidebar_folder_nav')) {
+                injectSidebarFolders(STCM.sidebarFolders || []);
+            }
+
+            await updateSidebar(true);
+        }, 100); // 10ms is enough, adjust if needed
+    });
+
+    showTag.parentNode.insertBefore(resetBtn, showTag.nextSibling);
+}
+
+function buildFolderDropdownOptionsWithIndents(folders, parentId = 'root', depth = 0) {
+    const out = [];
+    // Find the parent folder
+    const parentFolder = folders.find(f => f.id === parentId);
+    if (!parentFolder || !Array.isArray(parentFolder.children)) return out;
+    parentFolder.children.forEach(childId => {
+        const folder = folders.find(f => f.id === childId);
+        if (!folder || folder.id === 'root') return;
+        out.push({
+            id: folder.id,
+            // Use 4 non-breaking spaces per depth for proper indent in HTML select
+            name: (depth ? '&nbsp;&nbsp;&nbsp;&nbsp;'.repeat(depth) : '') + folder.name,
+            depth,
+        });
+        out.push(...buildFolderDropdownOptionsWithIndents(folders, folder.id, depth + 1));
+    });
+    return out;
+}
+
+
+async function injectOrUpdateFolderDropdownAfterTagsDiv() {
+    const tagsDiv = document.getElementById('tags_div');
+    if (!tagsDiv) return;
+
+    // --- Get avatar filename from img src ---
+    const avatarImg = document.querySelector('#avatar_div_div img#avatar_load_preview');
+    if (!avatarImg) return;
+    // src: /thumbnail?type=avatar&file=Demo%20Card%20-%20No%20Folder.png
+    const url = new URL(avatarImg.src, window.location.origin);
+    const charId = decodeURIComponent(url.searchParams.get('file') || '');
+    if (!charId) return;
+
+    // --- Get Folders ---
+    let folders = STCM?.sidebarFolders || [];
+    if (!folders.length && stcmFolders.loadFolders) {
+        folders = await stcmFolders.loadFolders();
+        STCM.sidebarFolders = folders;
+    }
+    if (!folders.length) return;
+
+    let assignedFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
+    let charFolderId = assignedFolder ? assignedFolder.id : '';
+
+    // Prepare options
+    const options = [
+        { id: '', name: 'No Folder (Top Level)' },
+        ...buildFolderDropdownOptionsWithIndents(folders)
+    ];
+    
+
+    let row = document.getElementById('stcm-folder-dropdown-row');
+    let select;
+
+    if (!row) {
+        // --- Create fresh row ---
+        row = document.createElement('div');
+        row.id = 'stcm-folder-dropdown-row';
+        row.style.margin = '0';
+
+        const folderIcon = document.createElement('i');
+        folderIcon.className = 'fa-solid fa-folder-open';
+        folderIcon.style.marginRight = '8px';
+        folderIcon.style.fontSize = '1.2em';
+        folderIcon.style.color = 'var(--ac-style-color-text, #bbb)';
+       
+        select = document.createElement('select');
+        select.id = 'stcm-folder-dropdown';
+        select.className = 'text_pole';
+        select.style.minWidth = '140px';
+
+        row.appendChild(folderIcon);
+        row.appendChild(select);
+        tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
+    } else {
+        // --- Update existing ---
+        select = row.querySelector('select#stcm-folder-dropdown');
+        if (!select) {
+            // corrupted, recreate:
+            row.innerHTML = '';
+            const folderIcon = document.createElement('i');
+            folderIcon.className = 'fa-solid fa-folder-open';
+            folderIcon.style.marginRight = '8px';
+            folderIcon.style.fontSize = '1.2em';
+            folderIcon.style.color = 'var(--ac-style-color-text, #bbb)';
+
+            select = document.createElement('select');
+            select.id = 'stcm-folder-dropdown';
+            select.className = 'text_pole';
+            select.style.minWidth = '140px';
+
+            row.appendChild(folderIcon);
+            row.appendChild(select);
+        }
+    }
+
+    // --- Refresh options every time ---
+    select.innerHTML = '';
+    options.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt.id;
+        o.innerHTML = opt.name;
+        if (opt.id === charFolderId) o.selected = true;
+        select.appendChild(o);
+    });
+
+    // --- Replace all existing listeners with a new one ---
+    select.onchange = async function(e) {
+        const newFolderId = e.target.value;
+        let folders = await stcmFolders.loadFolders();
+
+        let oldFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
+        if (oldFolder) {
+            await stcmFolders.removeCharacterFromFolder(oldFolder.id, charId);
+        }
+        if (newFolderId) {
+            await stcmFolders.assignCharactersToFolder(newFolderId, [charId]);
+        }
+        toastr.success("Folder assignment updated!");
+        await updateSidebar(true);
+    };
+}
+
+
+function watchInjectFolderDropdown() {
+    let tries = 0;
+    const interval = setInterval(() => {
+        tries++;
+        if (document.getElementById('tags_div')) {
+            clearInterval(interval);
+            injectOrUpdateFolderDropdownAfterTagsDiv();
+        }
+        if (tries > 20) clearInterval(interval);
+    }, 50);
+}
+
+eventSource.on(event_types.CHARACTER_PAGE_LOADED, watchInjectFolderDropdown);
+eventSource.on(event_types.chat_id_changed || "chat_id_changed", watchInjectFolderDropdown);
+
+// // Save the original
+// const origEmit = eventSource.emit;
+
+// eventSource.emit = function(event, ...args) {
+//     console.log('[EVENT]', event, ...args);
+//     return origEmit.apply(this, arguments);
+// };

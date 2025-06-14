@@ -19,7 +19,8 @@ import * as stcmFolders from './stcm_folders.js';
 import {
     watchSidebarFolderInjection,
     injectSidebarFolders,
-    hookFolderSidebarEvents
+    hookFolderSidebarEvents,
+    hideFolderedCharactersOutsideSidebar,
 } from './stcm_folders_ui.js';
 
 import { renderFoldersTree, attachFolderSectionListeners } from './stcm_folders_tree.js';
@@ -147,7 +148,7 @@ function openCharacterTagManagerModal() {
         <div class="accordionSection stcm_accordion_section stcm_folders_section">
             <button class="accordionToggle stcm_text_left" data-target="foldersSection">▶ Folders</button>
             <div id="foldersSection" class="accordionContent">
-                <div style="padding: .2em 0; display: flex; align-items: flex-start; gap: 3px;">
+                <div class="foldersSectionControls" style="padding: .2em 0; display: flex; align-items: flex-start; gap: 3px;">
                 <div style="display: flex; gap: 3px;">
                     <button id="collapseAllFoldersBtn" class="stcm_menu_button tiny interactable collapseExpandAllFoldersBtn" title="Collapse All Folders">
                         <i class="fa-solid fa-caret-up"></i> Collapse All
@@ -176,7 +177,7 @@ function openCharacterTagManagerModal() {
         <div class="accordionSection stcm_accordion_section stcm_tags_section">
             <button class="accordionToggle stcm_text_left" data-target="charactersSection">▶ Characters</button>
             <div id="charactersSection" class="accordionContent">
-                <div style="padding-top: 1em;">
+                <div style="padding-top: ..1em;">
                             <div class="stcm_sort_row">
                             <div id="assignTagList" class="stcm_tag_chip_list"></div>
                             </div>
@@ -184,15 +185,24 @@ function openCharacterTagManagerModal() {
                         <label style="text-wrap: nowrap;">Select Tag(s) to Assign</label>
                             <input type="text" id="assignTagSearchInput" class="menu_input stcm_fullwidth_input stcm_margin_bottom-sm" placeholder="Filter tags..." />
                                                                      <button id="assignTagsButton" class="stcm_menu_button interactable green">Assign Tag(s)</button>
-
+                            <div id="assignFoldersBar" class="stcm_folder_assign_bar">
+                            <i class="fa-solid fa-folder-open" style="font-size: 1.5em;"></i><select id="bulkFolderSelect" class="charFolderDropdown"></select>
+                            <button id="bulkAssignFolderBtn" class="stcm_menu_button small">Assign Folder</button>
                             </div>
+                            </div>
+
+
                     <div id="assignTagsBar" class="stcm_assign_bar">
                    <div id="selectedTagsDisplay" class="selected-tags-container"></div>
                     </div>
   <div class="stcm_sort_row stcm_margin_top">
                              <div class="stcm_fullwidth">
-                           <div class="stcm_flex">
-                        <span>SORT</span>
+                           <div class="stcm_flex char_sort_row" style="align-items: center;">
+                           <div class="select_all_chars">
+                       <input type="checkbox" id="selectAllCharactersCheckbox" style="vertical-align:middle;">
+<label for="selectAllCharactersCheckbox" style="vertical-align:middle;user-select:none;">Select All</label>
+ </div>
+                           <span>SORT</span>
                         <select id="charSortMode" class="stcm_menu_button interactable">
                             <option value="alpha_asc">A → Z</option>
                             <option value="alpha_desc">Z → A</option>
@@ -201,6 +211,8 @@ function openCharacterTagManagerModal() {
                             <option value="only_zero">Only 0 Tags</option>
                             <option value="with_notes">With Notes</option>
                             <option value="without_notes">Without Notes</option>
+                            <option value="no_folder">No Folder Assigned</option>
+                            <option value="with_folder">Folder Assigned</option>
                         </select>
                             <input type="text" id="charSearchInput" class="menu_input stcm_fullwidth_input " placeholder="Search characters/groups..." />
                             <button id="startBulkDeleteChars" class="stcm_menu_button stcm_margin_left interactable bulkDelChar" tabindex="0">
@@ -213,7 +225,7 @@ function openCharacterTagManagerModal() {
                                 <i class="fa-solid fa-trash"></i> Delete Selected
                             </button>
                             </div>
-                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms (- comes before modifiers like -T:Comedy)</span>
+                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag or "F:" for characters assigned to a folder. Use , (comma) to seperate OR lists, use - (minus) for negative terms (- comes before modifiers like -T:Comedy)</span>
                                 </div>
 
                     </div>
@@ -643,6 +655,22 @@ refreshFoldersTree();
     // ---- Save size/position after user resizes/drags
 
     let hasInteracted = false;
+    const isMobile = window.innerWidth < 700;
+
+    if (isMobile) {
+        Object.assign(modalContent.style, {
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            width: '100vw',
+            minWidth: '0',
+            maxWidth: '100vw',
+            height: '100vh',
+            maxHeight: '100vh',
+            transform: 'none'
+        });
+        document.body.classList.add('modal-open'); // prevent behind scroll
+    } else {
 
     const handle = modalContent.querySelector('.stcm_modal_header');
     if (handle) {
@@ -670,11 +698,20 @@ refreshFoldersTree();
 
     // inside the window resize listener
     window.addEventListener('resize', () => {
-        modalContent.style.maxWidth  = `${window.innerWidth - 40}px`;
-        modalContent.style.maxHeight = `${window.innerHeight - 40}px`;
-        clampModalSize(modalContent);          // <— and here
+        if (window.innerWidth < 700) {
+            // On mobile, force modal to full screen again (in case of orientation change)
+            Object.assign(modalContent.style, {
+                left: 0, top: 0,
+                width: '100vw', height: '100vh',
+                minWidth: '0', maxWidth: '100vw', maxHeight: '100vh', transform: 'none'
+            });
+        } else {
+            // Desktop logic as before
+            modalContent.style.maxWidth  = `${window.innerWidth - 40}px`;
+            modalContent.style.maxHeight = `${window.innerHeight - 40}px`;
+            clampModalSize(modalContent);
+        }
     });
-
     
         // Set these at open, too!
         modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
@@ -691,7 +728,7 @@ refreshFoldersTree();
         });
         observer.observe(modalContent);
     }
-    
+    }
     
     // END MODAL Sizing, positioning, scroll, draggable
 
@@ -799,7 +836,7 @@ function observeTagViewInjection() {
     const observer = new MutationObserver((mutations, obs) => {
         const targetContainer = document.querySelector('#tag_view_list .title_restorable .flex-container');
         if (targetContainer && !document.getElementById('characterTagManagerBackupAreaButton')) {
-            console.log("Injecting Character/Tag Manager button into Tag View section");
+            // console.log("Injecting Character/Tag Manager button into Tag View section");
             injectTagManagerButtonInTagView(targetContainer);
         }
     });
@@ -897,6 +934,7 @@ eventSource.on(event_types.APP_READY, async () => {
     injectSidebarFolders(STCM.sidebarFolders, characters);  // <--- use sidebarFolders!
     watchSidebarFolderInjection(); 
     hookFolderSidebarEvents();
+    hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
     injectStcmSettingsPanel();    
 
 });

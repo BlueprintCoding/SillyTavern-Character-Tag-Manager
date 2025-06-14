@@ -51,6 +51,7 @@ async function renderCharacterList() {
 
     document.getElementById('assignTagsBar').style.display = showCheckboxes ? 'block' : 'none';
 
+
         const searchTerm = document.getElementById('charSearchInput')?.value.toLowerCase() || '';
         const sortMode = document.getElementById('charSortMode')?.value || 'alpha_asc';
 
@@ -72,10 +73,20 @@ async function renderCharacterList() {
             const tagNames = tagIds.map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
             const allFields = charObj ? Object.values(charObj).filter(v => typeof v === 'string').join(' ').toLowerCase() : '';
             const name = entity.name.toLowerCase();
-
+        
+            // --- Add this ---
+            let folderName = '';
+            if (entity.type === 'character') {
+                const assignedFolder = stcmFolders.getCharacterAssignedFolder(entity.id, folders);
+                if (assignedFolder) {
+                    folderName = assignedFolder.name?.toLowerCase() || '';
+                }
+                  }
+            
+        
             // If no search (empty), show all
             if (searchGroups.length === 0) return true;
-
+        
             // OR logic: If any group matches, show this entity
             for (const group of searchGroups) {
                 let groupMatches = true;
@@ -87,6 +98,9 @@ async function renderCharacterList() {
                         match = allFields.includes(term.value);
                     } else if (term.field === 't') {
                         match = tagNames.some(tagName => tagName.includes(term.value));
+                    } else if (term.field === 'f') {
+                        // Only match folders for characters (not groups)
+                        match = entity.type === 'character' && folderName.includes(term.value);
                     } else {
                         match = name.includes(term.value);
                     }
@@ -103,6 +117,7 @@ async function renderCharacterList() {
             }
             return false;
         };
+        
 
         const filtered = allEntities.filter(filterEntity);
 
@@ -120,6 +135,19 @@ async function renderCharacterList() {
         visible = filtered.filter(e =>
             !(notes.charNotes[e.id] || '').trim()
         );
+    } else if (sortMode === 'no_folder') {
+        visible = filtered.filter(e => {
+            // Only apply to characters, not groups!
+            if (e.type !== 'character') return false;
+            const folder = stcmFolders.getCharacterAssignedFolder(e.id, folders);
+            return !folder; // Not assigned to any folder
+        });
+    } else if (sortMode === 'with_folder') {
+        visible = filtered.filter(e => {
+            if (e.type !== 'character') return false;
+            const folder = stcmFolders.getCharacterAssignedFolder(e.id, folders);
+            return !!folder; // Assigned to a folder
+        });
     }
 
     visible.sort((a, b) => {
@@ -137,6 +165,8 @@ async function renderCharacterList() {
         container.innerHTML = `<div>No characters or groups found.</div>`;
         return;
     }
+
+    
 
     const list = document.createElement('ul');
     list.className = 'charList';
@@ -278,6 +308,36 @@ async function renderCharacterList() {
             // --- Put icon and dropdown together ---
             folderDropdownWrapper.appendChild(folderIcon);
             folderDropdownWrapper.appendChild(folderDropdown);
+
+            // --- Add the remove (x) button ---
+            const removeFolderBtn = document.createElement('span');
+            removeFolderBtn.className = 'removeFolderBtn';
+            removeFolderBtn.textContent = '✕';
+            removeFolderBtn.title = 'Remove from folder (set to No Folder)';
+            removeFolderBtn.style.cssText = `
+                display: ${assignedFolder ? 'inline-block' : 'none'};
+                cursor: pointer;
+                margin-left: 8px;
+                color: #b55;
+                font-size: 1.1em;
+                font-weight: bold;
+            `;
+
+            // --- Remove logic ---
+            removeFolderBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // Set dropdown to "No Folder" and trigger change
+                folderDropdown.value = '';
+                folderDropdown.dispatchEvent(new Event('change', {bubbles:true}));
+            });
+
+            // Add ✕ to the wrapper
+            folderDropdownWrapper.appendChild(removeFolderBtn);
+
+            // Listen for dropdown changes to show/hide ✕ appropriately
+            folderDropdown.addEventListener('change', (e) => {
+                removeFolderBtn.style.display = folderDropdown.value ? 'inline-block' : 'none';
+            });
         
             // --- Insert into the row ---
             nameRow.appendChild(folderDropdownWrapper);
@@ -431,6 +491,89 @@ async function renderCharacterList() {
 
 
     container.appendChild(list);
+
+    //wire up Select All, after all checkboxes exist:
+const selectAllBox = document.getElementById('selectAllCharactersCheckbox');
+if (selectAllBox) {
+    // When toggled, check/uncheck all visible assignCharCheckbox
+    selectAllBox.onchange = function () {
+        const checkboxes = container.querySelectorAll('.assignCharCheckbox');
+        const ids = Array.from(checkboxes).map(cb => cb.value);
+        if (selectAllBox.checked) {
+            ids.forEach(id => stcmCharState.selectedCharacterIds.add(id));
+        } else {
+            ids.forEach(id => stcmCharState.selectedCharacterIds.delete(id));
+        }
+        // Rerender to update all checkboxes at once
+        renderCharacterList();
+    };
+    
+
+    // Indeterminate state: if user manually clicks
+    const syncSelectAllState = () => {
+        const checkboxes = container.querySelectorAll('.assignCharCheckbox');
+        const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+        selectAllBox.checked = checked === checkboxes.length && checked > 0;
+        selectAllBox.indeterminate = checked > 0 && checked < checkboxes.length;
+    };
+    container.querySelectorAll('.assignCharCheckbox').forEach(cb => {
+        cb.addEventListener('change', syncSelectAllState);
+    });
+    // Initial sync
+    syncSelectAllState();
+}
+
+    // ===== BULK FOLDER ASSIGN BAR (ONE TIME) =====
+const bulkFolderSelect = document.getElementById('bulkFolderSelect');
+if (bulkFolderSelect) {
+    bulkFolderSelect.innerHTML = ''; // Clear previous
+
+    // "-- No Folder --" option
+    const optNone = document.createElement('option');
+    optNone.value = '';
+    optNone.textContent = '-- No Folder --';
+    bulkFolderSelect.appendChild(optNone);
+
+    // Populate with folder tree
+    const folderOptions = getFolderOptionsTree(folders, [], 'root', 0)
+        .filter(opt => opt.id !== 'root');
+    folderOptions.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.id;
+        option.innerHTML = opt.name; // name contains indents
+        bulkFolderSelect.appendChild(option);
+    });
+
+    // Assign button handler
+    document.getElementById('bulkAssignFolderBtn').onclick = async function() {
+        const selectedFolderId = bulkFolderSelect.value;
+        const charIds = Array.from(stcmCharState.selectedCharacterIds);
+        if (charIds.length === 0) {
+            toastr.warning('No characters selected.');
+            return;
+        }
+        // Always remove from any existing folder
+        for (const charId of charIds) {
+            const currentFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
+            if (currentFolder) {
+                await stcmFolders.removeCharacterFromFolder(currentFolder.id, charId);
+            }
+        }
+        // Only assign to new folder if a folder was picked (not root)
+        if (selectedFolderId) {
+            await stcmFolders.assignCharactersToFolder(selectedFolderId, charIds);
+            toastr.success(`Assigned ${charIds.length} character${charIds.length !== 1 ? 's' : ''} to folder.`);
+        } else {
+            toastr.success(`Removed ${charIds.length} character${charIds.length !== 1 ? 's' : ''} from all folders (moved to root).`);
+        }
+        stcmCharState.selectedCharacterIds.clear();
+        callSaveandReload();
+        renderCharacterList();
+        renderTagSection && renderTagSection();
+    };
+    
+}
+
 }
 
 function toggleCharacterList(container, group) {
@@ -546,7 +689,7 @@ document.addEventListener('click', function(e) {
                 const avatar = li.getAttribute('data-avatar');
                 const id = avatar ? characters.findIndex(c => c.avatar === avatar) : -1;
                 if (id !== -1 && typeof selectCharacterById === 'function') {
-                    console.log('Switching character by index:', id, 'avatar:', avatar);
+                    // console.log('Switching character by index:', id, 'avatar:', avatar);
                     selectCharacterById(id);
                     if (typeof setActiveGroup === 'function') setActiveGroup(null);
                     if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();

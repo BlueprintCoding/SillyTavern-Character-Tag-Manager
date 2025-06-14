@@ -84,6 +84,14 @@
     margin-top: .5em;
 }
 
+#assignTagList {
+  max-height: 10vh;
+  overflow-y: scroll;
+  background-color: var(--SmartThemeBlurTintColor);
+  padding: .5em;
+  width:100%;
+}
+
 .accordionToggle {
     background: var(--menuButtonBackground, #222);
     color: var(--textColor, #fff);
@@ -217,7 +225,7 @@
 }
 
 .bulkDelChar {
-    min-width: 150px;
+    min-width: 135px;
     margin-left: 5px;
 }
 
@@ -261,11 +269,13 @@
 
 .charNotesToggle:hover,
 .stcm_save_note_btn:hover,
-#assignTagsButton:hover {
+#assignTagsButton:hover,
+#bulkAssignFolderBtn:hover {
     background-color: #2e7035;
 }
 
-#assignTagsButton {
+#assignTagsButton,
+#bulkAssignFolderBtn {
     background-color: #3d8b44;
     color: white;
     min-width: 125px;
@@ -296,6 +306,44 @@
     margin-bottom: -3px;
 }
 
+.stcm_search_bar_wrapper {
+    position: relative;
+    width: 100%;
+}
+
+
+.stcm_search_bar_wrapper input[type="search"] {
+    padding-right: 2.2em !important; /* Room for the X */
+    margin-top: 0;
+}
+
+#character_search_bar_stcm {
+  margin: 0;
+  flex: 1;
+  padding-left: 0.75em;
+  height: auto;
+}
+
+.stcm_search_clear_btn {
+    position: absolute;
+    right: 6px;
+    background: none;
+    border: none;
+    color: var(--ac-style-color-text, #888);
+    font-size: 1.18em;
+    cursor: pointer;
+    padding: 0;
+    z-index: 2;
+    top: 50%;
+    transform: translateY(-50%);
+    line-height: 1;
+}
+
+#character_sort_order{
+    min-width: 110px!important;
+}
+
+
 .menu_input {
     padding: 6px;
     border-radius: 4px;
@@ -310,6 +358,7 @@
 
 #charSortMode {
     margin-left:4px;
+    min-width: 170px;
 }
 
 /* === Scroll Areas & Banding (Lists) === */
@@ -458,6 +507,11 @@
     margin-bottom: 0;
 }
 
+.removeFolderBtn:hover {
+    color: #e33;
+    text-shadow: 0 0 2px #fff;
+}
+
 /* === Tag List, Tag Groups, Tag Chips === */
 .tagNameEditable {
     display: flex;
@@ -467,7 +521,7 @@
 
 .tagGroup {
     width: 100%;
-    padding: 0.5em 0.75em;
+    padding: 0.1em 0.75em;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -527,6 +581,17 @@
     flex-wrap: wrap;
     gap: 6px;
     margin-top: -2px;
+}
+
+.stcm_folder_assign_bar {
+    display: flex;
+    gap: 5px;
+    border-left: 2px solid #242424;
+    padding-left: 5px;
+}
+
+#bulkAssignFolderBtn {
+    text-wrap: nowrap;
 }
 
 .tagBox {
@@ -817,6 +882,19 @@
     transition: all 0.18s;
 }
 
+.stcm-folder-row-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.stcm_folder_chars_btn {
+    min-width: 130px;
+}
+
+
 .stcm-folder-row-drop-target {
     /* Keep for border radius, transitions, etc., but let JS set bg */
     border-radius: 4px;
@@ -883,6 +961,14 @@ margin-right: 0!important;
 .stcm_folder_chars_header h3 { margin-top: 0; }
 .stcm_folder_chars_chips_row { margin-bottom: 12px; }
 
+.select_all_chars {
+display: flex;
+  align-items: center;
+  min-width: 100px;
+  width: 100px;
+  gap: 0.5em;
+}
+
 .stcm_char_chip {
     display: inline-flex;
     align-items: center;
@@ -909,6 +995,10 @@ margin-right: 0!important;
 }
 
 .stcm_force_hidden {
+    display: none !important;
+}
+
+.stcm_dive_hidden {
     display: none !important;
 }
 
@@ -988,9 +1078,7 @@ div#rightNavHolder.drawer {
     overflow: hidden !important;
 }
 
-[id^="BogusFolder"] {
-    display: none !important;
-} */
+*/
 
 #stcm_sidebar_folder_nav {
     display: flex;
@@ -1012,7 +1100,23 @@ div#rightNavHolder.drawer {
     gap: 5px;
     flex-wrap: wrap;
     flex-direction: row;
-    justify-content: space-around;
+    align-content: flex-start;
+  }
+
+  .stcm_folder_contents
+  {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-content: flex-start;
+  }
+
+  .stcm_folder_contents_search{
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    flex-direction: row;
     align-content: flex-start;
   }
 
@@ -1172,11 +1276,19 @@ display: none;
     opacity: 0.7;
 }
 .stcm-icon-grid {
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 
 .stcm-icon-picker-popup .stcm-icon-btn {
     font-size: 1em!important;
+}
+
+.stcm_search_folder_label {
+    margin: 0px; 
+    margin-bottom: -5px;
+    font-weight: 700; 
+    font-size: .9em; 
+    color: var(--ac-style-color-text, #bbb);
 }
 
 /* === Merge Tag Buttons/States === */
@@ -1248,6 +1360,28 @@ display: none;
     border-radius: 4px;
     white-space: pre-wrap;
 }
+
+#stcm-folder-dropdown-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+#stcm-folder-dropdown-row i.fa-folder-open {
+    flex: 0 0 auto;
+    font-size: 1.2em;
+    color: var(--ac-style-color-text, #bbb);
+    margin-right: 8px;
+}
+
+#stcm-folder-dropdown-row select {
+    flex: 1 1 auto;
+    width: auto !important;  /* Overrides 100% if needed */
+    min-width: 120px;
+    max-width: 100%;
+}
+
 
 /* Private Folder Styling */
 
@@ -1434,20 +1568,146 @@ dialog.popup #stcm-popup-pin-input:focus {
   background: #181818;
 }
 
+#foldersTreeContainer {
+    max-height: 55vh;
+    overflow-y: scroll;
+  }
+
   
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {
+
+    nav#right-nav-panel.drawer-content {
+        height: auto!important;
+    }
+
+    .stcm_modal_main {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        height: 100vh !important;
+        }
+
+        .modalHeader, .stcm_modal_header {
+            max-width: 100vw;
+        }
+        .modalBody {
+            max-height: 95vh; /* or whatever fits best */
+            overflow-y: auto;
+        }
+        .accordionContent.open {
+            max-height: 90vh; /* tune this if needed */
+            overflow-y: auto;
+        }
+
+    .modalBody {
+        padding: 0px;
+    }
+
+    .accordionContent {
+        padding: .5em;
+    }
+    
+
+    .modalHeader {
+        font-size: 1em;
+    }
+
+    .stcm_align-right {
+        display: flex;
+        justify-content: center;
+        padding: 0.5em;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .stcm_folder_type_row {
+        margin-left: 0px !important;
+        font-size: .7em;
+      }
+
+      .tagActionButtons {
+        margin-left: 0px!important;
+      }
+
+      #toggleImportExport {
+        width: 100%;
+        margin-left: -5px;
+      }
+
+      #foldersTreeContainer {
+        max-height: 60vh;
+        overflow-y: scroll;
+        background-color: var(--SmartThemeBlurTintColor);
+        padding: .1em;
+      }
+
+      .foldersSectionControls {
+        flex-direction: column!important;
+      }
+
+      .stcm_folder_node .stcm_folder_row {
+        gap: 7px;
+        margin-left: 0px;
+        flex-wrap: wrap;
+        padding: 5px;
+        justify-content: start;
+        }   
+
+      .stcm_menu_button.tiny {
+        margin-left: 0px;
+      }
+
+      #charactersSection .stcm_sort_row, #charactersSection .stcm_flex  {
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .stcm_folder_assign_bar {
+        flex-direction: column;
+        gap: 5px;
+        width:98%;
+      }
+
+      .assignFoldersBar i {
+        display: none;
+      }
+
+      .charNameRow {
+        flex-direction: column;
+        align-items: start;
+      }
+      
+
+      .charRowRightFixed {
+        bottom: 0!important;
+        top: auto;
+      }
+
     .tagGroupHeader {
         grid-template-columns: 1fr;
         gap: 6px;
+    }
+
+    .charNotesToggle {
+        max-width: 80px;
     }
 
     .mergeOptions {
         justify-content: flex-start;
     }
 
-    .stcm_menu_button {
-        width: 100%;
-        margin-top: 5px;
+    .char_sort_row {
+        flex-direction: column-reverse;
     }
+
+    .stcm_folder_chars_btn {
+        min-width: 40px!important;
+    }
+
+
+    .drawer-toggle .drawer-icon {
+        font-size: 1.1em !important;
+      }
+
 }

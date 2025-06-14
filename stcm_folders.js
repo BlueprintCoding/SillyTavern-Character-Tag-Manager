@@ -3,18 +3,129 @@ import {
     tags,
     tag_map,
 } from "../../../tags.js";
+import {
+    uuidv4 
+} from "../../../utils.js"
 import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
-import { escapeHtml, flushExtSettings  } from "./utils.js";
+import { escapeHtml, flushExtSettings, buildTagMap } from "./utils.js";
 import { STCM, callSaveandReload } from "./index.js";
 import { renderCharacterList } from "./stcm_characters.js"; 
-import { updateSidebar  } from "./stcm_folders_ui.js";
+import { updateSidebar } from "./stcm_folders_ui.js";
 import { renderTagSection } from "./stcm_tags_ui.js"
+import {
+    getEntitiesList,
+} from "../../../../script.js";
 
 const EXT_KEY = 'stcm_folders_v2'; // a single key in ext-settings that holds the folder array
 
 function ctx() {
     return SillyTavern.getContext();
 }
+
+export function getEntityChidMaster(entity) {
+    if (!entity) return undefined;
+    // If entity.item exists, try that first
+    if (entity.item && typeof entity.item.id !== "undefined") return entity.item.id;
+    if (entity.id !== undefined) return entity.id;
+    if (entity.item && entity.item.avatar !== undefined) return entity.item.avatar;
+    if (entity.avatar !== undefined) return entity.avatar;
+    return undefined;
+}
+
+export function buildEntityMap() {
+    const folders = STCM?.sidebarFolders || [];
+    const allEntities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
+    const tagsById = buildTagMap(tags);
+
+    // Map folder assignment (character/group ID => folder ID and privacy)
+    const charToFolder = new Map();
+    function walk(folder, parentPrivate = false) {
+        const isPrivate = !!folder.private || parentPrivate;
+        (folder.characters || []).forEach(charAvatar => {
+            charToFolder.set(charAvatar, { folderId: folder.id, isPrivate });
+        });
+        (folder.children || []).forEach(childId => {
+            const child = folders.find(f => f.id === childId);
+            if (child) walk(child, isPrivate);
+        });
+    }
+
+    const root = folders.find(f => f.id === "root");
+    if (root) walk(root);
+    else folders.forEach(f => walk(f));
+
+    const entityMap = new Map();
+    for (const entity of allEntities) {
+        if (!entity) continue;
+    
+        let id, idType, type, name, avatar, chid, description, members, avatar_url, creator_notes;
+        if (entity.type === "character") {
+            // Character
+            id = entity.item?.avatar || entity.avatar || entity.item?.id || entity.id;
+            avatar = entity.item?.avatar || entity.avatar;
+            chid = entity.item?.id || entity.id;
+            name = entity.item?.name || entity.name;
+            idType = avatar ? "avatar" : (chid ? "chid" : "unknown");
+            type = "character";
+            description = entity.item?.description || entity.description || "";
+    
+            // ----- ADD THIS -----
+            creator_notes =
+                entity.item?.creator_notes ??
+                entity.item?.creatorcomment ??
+                entity.creatorcomment ??
+                null;
+            // --------------------
+        } else if (entity.type === "group") {
+            // Group
+            let groupObj = entity.item ? entity.item : entity;
+            id = entity.id || groupObj.id;
+            name = groupObj.name;
+            avatar = Array.isArray(groupObj.members) ? groupObj.members.slice(0, 3) : [];
+            idType = "id";
+            type = "group";
+            members = groupObj.members || [];
+            avatar_url = groupObj.avatar_url || "";
+    
+            // For groups, likely no creator notes
+            creator_notes = null;
+        } else {
+            continue; // skip unknown types
+        }
+    
+        // **Skip any entity missing any required identifier**
+        if (typeof id === "undefined" || typeof avatar === "undefined" || typeof idType === "undefined" || idType === "unknown") {
+            continue;
+        }
+    
+        // Folder assignment
+        const folderInfo = charToFolder.get(id) || { folderId: null, isPrivate: false };
+    
+        // Tags for this entity (characters: use avatar as key; groups: use id)
+        const tagIds = tag_map[id] || [];
+        const tagNames = tagIds.map(tid => tagsById.get(tid)?.name).filter(Boolean);
+    
+        entityMap.set(id, {
+            id,
+            idType,
+            type,
+            name,
+            avatar,
+            chid,             // For characters
+            description,      // For characters
+            members,          // For groups
+            avatar_url,       // For groups
+            folderId: folderInfo.folderId,
+            folderIsPrivate: folderInfo.isPrivate,
+            tagIds,
+            tagNames,
+            creator_notes     // <<< ADD THIS FIELD TO ENTITY MAP
+        });
+    }    
+    return entityMap;
+}
+
+
 
 function readExtFolders() {
     const set = ctx().extensionSettings || {};
@@ -215,10 +326,6 @@ export async function setFolderPrivacy(id, isPrivate, recursive = false) {
 }
 
 
-// deleteFolder(id[, cascade=true])
-// • cascade = true  → delete this folder AND all descendants
-// • cascade = false → move all child-folders to Root first, then delete only this folder
-// deleteFolder(id[, cascade=true, foldersOverride])
 export async function deleteFolder(id, cascade = true, moveAssigned = true) {
     if (id === 'root') return await loadFolders();
 
@@ -229,9 +336,16 @@ export async function deleteFolder(id, cascade = true, moveAssigned = true) {
     // Helper to move assigned chars
     function moveCharsToParent(folder, parentId) {
         if (!Array.isArray(folder.characters) || !folder.characters.length) return;
-        if (!parentId) return;
+        // If no parent or parent is root, unassign
+        if (!parentId || parentId === 'root') {
+            unassignChars(folder);
+            return;
+        }
         const parent = getFolder(parentId, folders);
-        if (!parent) return;
+        if (!parent || parent.id === 'root') {
+            unassignChars(folder);
+            return;
+        }
         folder.characters.forEach(charId => {
             if (!parent.characters.includes(charId)) parent.characters.push(charId);
         });
@@ -268,13 +382,19 @@ export async function deleteFolder(id, cascade = true, moveAssigned = true) {
         collectAll(self);
 
         allFoldersToDelete.forEach(f => {
-            if (moveAssigned && f.id !== 'root' && f.parentId) moveCharsToParent(f, getFolder(f.parentId, folders).id);
-            else if (!moveAssigned) unassignChars(f);
+            if (moveAssigned && f.id !== 'root') {
+                moveCharsToParent(f, f.parentId);
+            } else if (!moveAssigned) {
+                unassignChars(f);
+            }
         });
     } else {
         // Only the deleted folder itself
-        if (moveAssigned && self.parentId) moveCharsToParent(self, self.parentId);
-        else if (!moveAssigned) unassignChars(self);
+        if (moveAssigned) {
+            moveCharsToParent(self, self.parentId);
+        } else {
+            unassignChars(self);
+        }
     }
 
     // Now do the delete
