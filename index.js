@@ -651,6 +651,22 @@ refreshFoldersTree();
     // ---- Save size/position after user resizes/drags
 
     let hasInteracted = false;
+    const isMobile = window.innerWidth < 700;
+
+    if (isMobile) {
+        Object.assign(modalContent.style, {
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            width: '100vw',
+            minWidth: '0',
+            maxWidth: '100vw',
+            height: '100vh',
+            maxHeight: '100vh',
+            transform: 'none'
+        });
+        document.body.classList.add('modal-open'); // prevent behind scroll
+    } else {
 
     const handle = modalContent.querySelector('.stcm_modal_header');
     if (handle) {
@@ -708,7 +724,7 @@ refreshFoldersTree();
         });
         observer.observe(modalContent);
     }
-    
+    }
     
     // END MODAL Sizing, positioning, scroll, draggable
 
