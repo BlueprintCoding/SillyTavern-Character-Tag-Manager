@@ -520,31 +520,14 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     if (!container) return;
     container.innerHTML = "";
 
-    // --- Breadcrumb Label ---
-    const breadcrumbDiv = document.createElement('div');
-    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
-
-    if (folderId === 'root') {
-        breadcrumbDiv.textContent = "FOLDERS";
-    } else {
-        const chain = getFolderChain(folderId, folders);
-        if (chain.length > 0) {
-            // Add .../ before the first folder
-            const names = chain.map(f => f.name);
-            names[0] = '.../' + names[0];
-            breadcrumbDiv.textContent = names.join(' / ');
-        } else {
-            breadcrumbDiv.textContent = ".../"; // fallback
-        }
-    }
-
-    // === Private Folder Toggle Icon ===
+    // === Private Folder Toggle Icon + Logout + Back + Breadcrumbs ===
     const controlRow = document.createElement('div');
     controlRow.className = 'stcm_folders_header_controls';
     controlRow.style.display = 'flex';
     controlRow.style.alignItems = 'center';
     controlRow.style.gap = '8px';
 
+    // -- Toggle
     const toggleBtn = document.createElement('i');
     toggleBtn.className = 'fa-solid fa-eye-slash stcm_private_toggle_icon';
     toggleBtn.style.cursor = 'pointer';
@@ -553,6 +536,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     toggleBtn.style.padding = '4px';
     toggleBtn.style.borderRadius = '6px';
 
+    // -- Logout
     const logoutBtn = document.createElement('i');
     logoutBtn.className = 'fa-solid fa-right-from-bracket stcm_private_logout_icon';
     logoutBtn.style.cursor = 'pointer';
@@ -566,15 +550,65 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         sessionStorage.removeItem("stcm_pin_okay");
         toastr.info("Private folder access has been locked.");
         logoutBtn.style.display = 'none';
-
         // Reset visibility mode to hidden and update view
         privateFolderVisibilityMode = 0;
         renderSidebarFolderContents(folders, allEntities, 'root');
     });
 
+    // -- Back Button (icon only), only if not root
+    let showBack = false;
+    let backTarget = 'root';
+    if (folderId !== 'root') {
+        if (folderId === 'orphans') {
+            showBack = true;
+            backTarget = 'root';
+        } else {
+            // For normal folders, find parent
+            const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
+            if (parent) {
+                showBack = true;
+                backTarget = parent.id;
+            }
+        }
+    }
+    let backBtn = null;
+    if (showBack) {
+        backBtn = document.createElement('i');
+        backBtn.className = "sidebar-folder-back fa-solid fa-arrow-left";
+        backBtn.title = "Back";
+        backBtn.style.cursor = "pointer";
+        backBtn.style.fontSize = "1.1em";
+        backBtn.style.padding = "4px";
+        backBtn.style.borderRadius = "6px";
+        backBtn.style.marginRight = "4px";
+        backBtn.onclick = () => {
+            currentSidebarFolderId = backTarget;
+            renderSidebarFolderContents(folders, allEntities, backTarget);
+        };
+    }
+
+    // -- Breadcrumb Label
+    const breadcrumbDiv = document.createElement('div');
+    breadcrumbDiv.className = 'stcm_folders_breadcrumb';
+    if (folderId === 'orphans') {
+        breadcrumbDiv.textContent = ".../Cards not in Folder";
+    } else if (folderId === 'root') {
+        breadcrumbDiv.textContent = "FOLDERS";
+    } else {
+        const chain = getFolderChain(folderId, folders);
+        if (chain.length > 0) {
+            // Add .../ before the first folder
+            const names = chain.map(f => f.name);
+            names[0] = '.../' + names[0];
+            breadcrumbDiv.textContent = names.join(' / ');
+        } else {
+            breadcrumbDiv.textContent = ".../"; // fallback
+        }
+    }
+
+    // -- Order: toggle, logout, back, breadcrumbs
     function updateToggleIcon() {
         toggleBtn.classList.remove('fa-eye', 'fa-eye-slash', 'fa-user-secret');
-
         if (privateFolderVisibilityMode === 0) {
             toggleBtn.classList.add('fa-eye-slash');
             toggleBtn.title = 'Private folders hidden';
@@ -589,7 +623,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
     toggleBtn.addEventListener('click', async () => {
         privateFolderVisibilityMode = (privateFolderVisibilityMode + 1) % 3;
-
         if (privateFolderVisibilityMode !== 0) {
             const pinHash = getStoredPinHash();
             if (pinHash && !sessionStorage.getItem("stcm_pin_okay")) {
@@ -599,12 +632,10 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                     ok: 'Unlock',
                     cancel: 'Cancel'
                 });
-
                 if (!input) {
                     privateFolderVisibilityMode = 0;
                     return;
                 }
-
                 const enteredHash = await hashPin(input);
                 if (enteredHash !== pinHash) {
                     toastr.error("Incorrect PIN.");
@@ -616,19 +647,17 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 toastr.success("Private folders unlocked.");
             }
         }
-
         renderSidebarFolderContents(folders, allEntities, folderId);
     });
 
     updateToggleIcon();
     controlRow.appendChild(toggleBtn);
     controlRow.appendChild(logoutBtn);
-    controlRow.appendChild(breadcrumbDiv); // Breadcrumb goes to the right of icon
+    if (backBtn) controlRow.appendChild(backBtn); // Only append if defined
+    controlRow.appendChild(breadcrumbDiv);
     container.appendChild(controlRow);
 
-
     // ====== Top of Folder List: Orphan Cards ======
-    // Top of folder list: show orphan "folder" in root, navigate in
     if (folderId === 'root') {
         const orphanedEntities = getEntitiesNotInAnyFolder(folders);
         if (orphanedEntities.length > 0) {
@@ -636,7 +665,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             orphanDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
             orphanDiv.setAttribute('data-folder-id', 'orphans');
             orphanDiv.style.cursor = 'pointer';
-
             orphanDiv.innerHTML = `
                 <div class="stcm_folder_main">
                     <div class="avatar flex alignitemscenter textAlignCenter"
@@ -650,12 +678,10 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                     </div>
                 </div>
             `;
-
             orphanDiv.onclick = () => {
                 currentSidebarFolderId = 'orphans';
                 renderSidebarFolderContents(folders, allEntities, 'orphans');
             };
-
             container.appendChild(orphanDiv);
         }
         // ... regular children display below
@@ -663,27 +689,8 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
     // --- If in "orphans" pseudo-folder, show just orphans with a back button
     if (folderId === 'orphans') {
-        // --- Breadcrumb ---
-        const bcDiv = document.createElement('div');
-        bcDiv.className = 'stcm_folders_breadcrumb';
-        bcDiv.textContent = ".../Cards not in Folder";
-        container.appendChild(bcDiv);
-
-        // --- Back Button ---
-        const backBtn = document.createElement('div');
-        backBtn.className = "sidebar-folder-back";
-        backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
-        backBtn.style.cursor = 'pointer';
-        backBtn.onclick = () => {
-            currentSidebarFolderId = 'root';
-            renderSidebarFolderContents(folders, allEntities, 'root');
-        };
-        container.appendChild(backBtn);
-
-        // --- Orphaned card grid ---
         const orphanedEntities = getEntitiesNotInAnyFolder(folders);
-        const entityMap = stcmFolders.buildEntityMap(); // make sure it's in scope here
-
+        const entityMap = stcmFolders.buildEntityMap();
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents';
         orphanedEntities.forEach(entity => {
@@ -700,33 +707,13 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 }));
             }
         });
-
         container.appendChild(grid);
-
-
         // Don't render any children/folders/other stuff
         return;
     }
 
-
     const folder = folders.find(f => f.id === folderId);
     if (!folder && folderId !== 'root') return;
-
-    // Show "Back" if not root
-    if (folderId !== 'root') {
-        const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
-        if (parent) {
-            const backBtn = document.createElement('div');
-            backBtn.className = "sidebar-folder-back";
-            backBtn.innerHTML = `<i class="fa-solid fa-arrow-left"></i> Back`;
-            backBtn.style.cursor = 'pointer';
-            backBtn.onclick = () => {
-                currentSidebarFolderId = parent.id;
-                renderSidebarFolderContents(folders, allEntities, parent.id);
-            };
-            container.appendChild(backBtn);
-        }
-    }
 
     // === NEW: Create folder contents wrapper ===
     let contentDiv = document.getElementById('stcm_folder_contents');
@@ -756,7 +743,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             });
             const folderCount = visibleChildren.length;
             const totalCharCount = getVisibleDescendantCharacterCount(child.id, folders);
-
 
             const folderDiv = document.createElement('div');
             folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
@@ -832,9 +818,9 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         }
     });
 
-
     container.appendChild(contentDiv);
 }
+
 
 function hasPrivateDescendant(folderId, folders) {
     const folder = folders.find(f => f.id === folderId);
