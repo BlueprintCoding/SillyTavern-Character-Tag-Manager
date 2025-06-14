@@ -1816,7 +1816,13 @@ function injectResetViewButton() {
 
 function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
     const out = [];
-    folders.filter(f => f.parentId === parentId && f.id !== 'root').forEach(folder => {
+    // Find the parent folder
+    const parentFolder = folders.find(f => f.id === parentId);
+    if (!parentFolder || !Array.isArray(parentFolder.children)) return out;
+    // For each child (in children array order)
+    parentFolder.children.forEach(childId => {
+        const folder = folders.find(f => f.id === childId);
+        if (!folder || folder.id === 'root') return;
         out.push({
             id: folder.id,
             name: (depth ? '—'.repeat(depth) + ' ' : '') + folder.name,
@@ -1825,7 +1831,6 @@ function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
     });
     return out;
 }
-
 async function injectOrUpdateFolderDropdownAfterTagsDiv() {
     const tagsDiv = document.getElementById('tags_div');
     if (!tagsDiv) return;
