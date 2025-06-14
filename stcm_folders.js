@@ -326,10 +326,7 @@ export async function setFolderPrivacy(id, isPrivate, recursive = false) {
 }
 
 
-// deleteFolder(id[, cascade=true])
-// • cascade = true  → delete this folder AND all descendants
-// • cascade = false → move all child-folders to Root first, then delete only this folder
-// deleteFolder(id[, cascade=true, foldersOverride])
+// deleteFolder(id[, cascade=true, moveAssigned=true])
 export async function deleteFolder(id, cascade = true, moveAssigned = true) {
     if (id === 'root') return await loadFolders();
 
@@ -340,9 +337,17 @@ export async function deleteFolder(id, cascade = true, moveAssigned = true) {
     // Helper to move assigned chars
     function moveCharsToParent(folder, parentId) {
         if (!Array.isArray(folder.characters) || !folder.characters.length) return;
-        if (!parentId) return;
+        if (!parentId) {
+            // If no parent, unassign instead (your requested logic)
+            unassignChars(folder);
+            return;
+        }
         const parent = getFolder(parentId, folders);
-        if (!parent) return;
+        if (!parent) {
+            // If parent doesn't exist, also unassign
+            unassignChars(folder);
+            return;
+        }
         folder.characters.forEach(charId => {
             if (!parent.characters.includes(charId)) parent.characters.push(charId);
         });
@@ -379,13 +384,19 @@ export async function deleteFolder(id, cascade = true, moveAssigned = true) {
         collectAll(self);
 
         allFoldersToDelete.forEach(f => {
-            if (moveAssigned && f.id !== 'root' && f.parentId) moveCharsToParent(f, getFolder(f.parentId, folders).id);
-            else if (!moveAssigned) unassignChars(f);
+            if (moveAssigned && f.id !== 'root') {
+                moveCharsToParent(f, f.parentId);
+            } else if (!moveAssigned) {
+                unassignChars(f);
+            }
         });
     } else {
         // Only the deleted folder itself
-        if (moveAssigned && self.parentId) moveCharsToParent(self, self.parentId);
-        else if (!moveAssigned) unassignChars(self);
+        if (moveAssigned) {
+            moveCharsToParent(self, self.parentId);
+        } else {
+            unassignChars(self);
+        }
     }
 
     // Now do the delete
