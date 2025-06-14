@@ -882,6 +882,15 @@
     transition: all 0.18s;
 }
 
+.stcm-folder-row-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+
 .stcm-folder-row-drop-target {
     /* Keep for border radius, transitions, etc., but let JS set bg */
     border-radius: 4px;
@@ -1263,7 +1272,7 @@ display: none;
     opacity: 0.7;
 }
 .stcm-icon-grid {
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 
 .stcm-icon-picker-popup .stcm-icon-btn {

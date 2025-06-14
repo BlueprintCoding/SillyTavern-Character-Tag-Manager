@@ -152,7 +152,6 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
         row.appendChild(toggleBtn);
     }
 
-
     // ── icon (click → icon picker) ────────────────────────────────────────
     const iconBg = document.createElement('div');
     iconBg.className = 'avatar flex alignitemscenter textAlignCenter stcm-folder-avatar';
@@ -182,7 +181,8 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     });
     row.appendChild(nameSpan);
 
-    // edit button (same rename)
+    // -- CONTROLS (align right) --
+    // Create all controls/buttons
     const editBtn = document.createElement('button');
     editBtn.className = 'stcm-folder-edit-btn stcm_menu_button tiny interactable';
     editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
@@ -193,9 +193,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
             if (onTreeChanged) await onTreeChanged(folders);
         });
     });
-    row.appendChild(editBtn);
 
-    // colour-picker
     const colorBtn = document.createElement('button');
     colorBtn.className = 'stcm-folder-color-btn stcm_menu_button tiny interactable';
     colorBtn.innerHTML = '<i class="fa-solid fa-palette"></i>';
@@ -206,10 +204,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
             if (onTreeChanged) await onTreeChanged(folders);
         });
     });
-    
-    row.appendChild(colorBtn);
 
-    // privacy dropdown
     const typeSelect = document.createElement('select');
     typeSelect.className = 'stcm_folder_type_select tiny';
     typeSelect.title   = 'Set Folder Type: Public or Private';
@@ -222,7 +217,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
         const childIds = Array.isArray(folder.children) ? folder.children : [];
         const hasChildren = childIds.length > 0;
         let recursive = false;
-    
+
         if (hasChildren) {
             const confirmed = await callGenericPopup(
                 `<div>
@@ -234,16 +229,14 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
             );
             recursive = (confirmed === POPUP_RESULT.AFFIRMATIVE);
         }
-    
+
         const folders = await stcmFolders.setFolderPrivacy(folder.id, isPriv, recursive);
         if (onTreeChanged) await onTreeChanged(folders);
     });
-    
-    row.appendChild(typeSelect);
 
-    // delete
+    let delBtn = null;
     if (folder.id !== 'root') {
-        const delBtn = document.createElement('button');
+        delBtn = document.createElement('button');
         delBtn.className = 'stcm-folder-delete-btn stcm_menu_button tiny red interactable';
         delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
         delBtn.title = 'Delete Folder';
@@ -253,10 +246,8 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
                 if (onTreeChanged) await onTreeChanged(folders);
             });
         });
-        row.appendChild(delBtn);
     }
 
-    // move/parent-change
     const moveBtn = document.createElement('button');
     moveBtn.className = 'stcm-folder-move-btn stcm_menu_button tiny interactable';
     moveBtn.innerHTML = '<i class="fa-solid fa-share"></i>';
@@ -267,11 +258,10 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
             if (onTreeChanged) await onTreeChanged(folders);
         });
     });
-    row.appendChild(moveBtn);
 
-    // add subfolder (depth < 4)
+    let addBtn = null;
     if (depth < 4) {
-        const addBtn = document.createElement('button');
+        addBtn = document.createElement('button');
         addBtn.className = 'stcm_menu_button tiny interactable';
         addBtn.innerHTML = '<i class="fa-solid fa-folder-plus"></i>';
         addBtn.title = 'Add Subfolder';
@@ -297,10 +287,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
                 toastr.error(err.message || 'Failed to create folder');
             }
         });
-
-        row.appendChild(addBtn);
     }
-
 
     // char-count / manage chars button
     const charCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
@@ -310,7 +297,6 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     charBtn.title = 'Manage Characters in this Folder';
     charBtn.addEventListener('click', e => {
         e.stopPropagation();
-        // function is defined elsewhere (kept global in original code)
         showFolderCharactersSection?.(folder, allFolders);
 
         setTimeout(() => {
@@ -319,9 +305,21 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
                 section.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }, 50);
-        
     });
-    row.appendChild(charBtn);
+
+    // --- CONTROLS ROW ---
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'stcm-folder-row-controls';
+
+    controlsDiv.appendChild(editBtn);
+    controlsDiv.appendChild(colorBtn);
+    controlsDiv.appendChild(typeSelect);
+    if (delBtn) controlsDiv.appendChild(delBtn);
+    controlsDiv.appendChild(moveBtn);
+    if (addBtn) controlsDiv.appendChild(addBtn);
+    controlsDiv.appendChild(charBtn);
+
+    row.appendChild(controlsDiv); // everything flush right
 
     node.appendChild(row);
 
@@ -329,8 +327,6 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     if (Array.isArray(folder.children)) {
         const childrenContainer = document.createElement('div');
         childrenContainer.className = 'stcm_folder_children';
-        childrenContainer.style.display = 'block';
-
         childrenContainer.style.display = collapsedFolders[folder.id] ? 'none' : 'block';
 
         // drop-line before first child
@@ -392,7 +388,6 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
             folders = await reorderChildren(folder.id, siblings);
             injectSidebarFolders(folders, characters);
             onTreeChanged && onTreeChanged(folders);
-            
         });
 
         node.appendChild(childrenContainer);
@@ -400,6 +395,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
 
     return node;
 }
+
 
 
 // ---------------------------------------------------------------------------
