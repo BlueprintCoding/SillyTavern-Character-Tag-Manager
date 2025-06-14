@@ -35,6 +35,9 @@ import {
     callGenericPopup
 } from "../../../popup.js"
 
+import { FA_ICON_LIST } from './fa-icon-list.js'; // path may need adjustment
+
+
 let currentSidebarFolderId = 'root';
 let privateFolderVisibilityMode = 0; // 0 = Hidden, 1 = Show All, 2 = Show Only Private
 let sidebarUpdateInProgress = false;
@@ -50,10 +53,8 @@ let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
 let orphanFolderExpanded = false;
 
-let FA_ICONS = null;
-fetch('/fa-icon-list.json')
-  .then(res => res.json())
-  .then(data => { FA_ICONS = data.data.allIcons.icons; });
+let FA_ICONS = FA_ICON_LIST.data.allIcons.icons;
+
 
 
 
