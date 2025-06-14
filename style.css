@@ -1533,6 +1533,11 @@ dialog.popup #stcm-popup-pin-input:focus {
   background: #181818;
 }
 
+#foldersTreeContainer {
+    max-height: 60vh;
+    overflow-y: scroll;
+  }
+
   
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {
@@ -1593,6 +1598,11 @@ dialog.popup #stcm-popup-pin-input:focus {
       #toggleImportExport {
         width: 100%;
         margin-left: -5px;
+      }
+
+      #foldersTreeContainer {
+        max-height: 70vh;
+        overflow-y: scroll;
       }
 
       .foldersSectionControls{
