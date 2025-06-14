@@ -578,7 +578,7 @@ export function showFolderCharactersSection(folder, folders) {
         let unassignedCharacters = characters.filter(c => !folder.characters.includes(c.avatar));
         const searchInput = document.getElementById('folderCharSearchInput');
         const rawInput = (searchInput?.value || '').trim();
-        const tagMapById = buildTagMap(tags); // needed for tag lookups
+        const tagMapById = buildTagMap(tags);
         const searchGroups = parseSearchGroups(rawInput);
     
         // --- SEARCH FILTER ---
@@ -620,27 +620,31 @@ export function showFolderCharactersSection(folder, folders) {
             });
         }
     
-        // === FOLDER SORT MODES: STRICT FILTERS ===
+        // === STRICT FILTER MODES ===
         switch (folderCharSortMode) {
             case 'no_folder':
                 filtered = filtered.filter(char => {
-                    // Only show characters not assigned to any folder
                     const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
                     return !assignedFolder;
                 });
                 break;
             case 'with_folder':
                 filtered = filtered.filter(char => {
-                    // Only show characters assigned to some folder (but not this one)
                     const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
                     return !!assignedFolder && assignedFolder.id !== folder.id;
                 });
                 break;
-            // Other modes handled below
+            case 'with_notes':
+                filtered = filtered.filter(c => (getNotes().charNotes || {})[c.avatar]);
+                break;
+            case 'without_notes':
+                filtered = filtered.filter(c => !(getNotes().charNotes || {})[c.avatar]);
+                break;
+            // Other sort modes handled below
         }
     
         // === NORMAL SORT MODES: SPLIT & SORT ===
-        if (folderCharSortMode !== 'no_folder' && folderCharSortMode !== 'with_folder') {
+        if (!['no_folder', 'with_folder', 'with_notes', 'without_notes'].includes(folderCharSortMode)) {
             let unassigned = [];
             let assignedElsewhere = [];
     
@@ -672,19 +676,12 @@ export function showFolderCharactersSection(folder, folders) {
                             (tag_map[a.avatar]?.length || 0) - (tag_map[b.avatar]?.length || 0)
                         );
                         break;
-                    case 'with_notes':
-                        arr = arr.filter(c => (getNotes().charNotes || {})[c.avatar]);
-                        break;
-                    case 'without_notes':
-                        arr = arr.filter(c => !(getNotes().charNotes || {})[c.avatar]);
-                        break;
                 }
                 return arr;
             }
     
             unassigned = sortChars(unassigned);
             assignedElsewhere = sortChars(assignedElsewhere);
-    
             filtered = [...unassigned, ...assignedElsewhere];
         }
     
@@ -834,6 +831,7 @@ export function showFolderCharactersSection(folder, folders) {
             selectAllCheckbox.checked = allChecked;
         }
     }
+    
     
 
     // Attach event listeners
