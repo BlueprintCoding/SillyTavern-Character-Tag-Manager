@@ -890,6 +890,10 @@
     flex-shrink: 0;
 }
 
+.stcm_folder_chars_btn {
+    min-width: 130px;
+}
+
 
 .stcm-folder-row-drop-target {
     /* Keep for border radius, transitions, etc., but let JS set bg */
