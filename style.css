@@ -1534,7 +1534,7 @@ dialog.popup #stcm-popup-pin-input:focus {
 }
 
 #foldersTreeContainer {
-    max-height: 60vh;
+    max-height: 55vh;
     overflow-y: scroll;
   }
 
@@ -1605,9 +1605,10 @@ dialog.popup #stcm-popup-pin-input:focus {
         overflow-y: scroll;
         background-color: var(--SmartThemeBlurTintColor);
         padding: .1em;
+      }
 
-      .foldersSectionControls{
-        flex-direction: column;
+      .foldersSectionControls {
+        flex-direction: column!important;
       }
 
       .stcm_folder_node .stcm_folder_row {

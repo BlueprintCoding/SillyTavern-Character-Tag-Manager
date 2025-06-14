@@ -197,7 +197,7 @@ function openCharacterTagManagerModal() {
                     </div>
   <div class="stcm_sort_row stcm_margin_top">
                              <div class="stcm_fullwidth">
-                           <div class="stcm_flex" style="align-items: center;">
+                           <div class="stcm_flex char_sort_row" style="align-items: center;">
                            <div class="select_all_chars">
                        <input type="checkbox" id="selectAllCharactersCheckbox" style="vertical-align:middle;">
 <label for="selectAllCharactersCheckbox" style="vertical-align:middle;user-select:none;">Select All</label>

@@ -73,10 +73,17 @@ async function renderCharacterList() {
             const tagNames = tagIds.map(tagId => (tagMapById.get(tagId)?.name?.toLowerCase() || ""));
             const allFields = charObj ? Object.values(charObj).filter(v => typeof v === 'string').join(' ').toLowerCase() : '';
             const name = entity.name.toLowerCase();
-
+        
+            // --- Add this ---
+            let folderName = '';
+            if (entity.type === 'character') {
+                const assignedFolder = stcmFolders.getCharacterAssignedFolder(entity.id, folders);
+                folderName = assignedFolder?.name?.toLowerCase() || '';
+            }
+        
             // If no search (empty), show all
             if (searchGroups.length === 0) return true;
-
+        
             // OR logic: If any group matches, show this entity
             for (const group of searchGroups) {
                 let groupMatches = true;
@@ -88,6 +95,9 @@ async function renderCharacterList() {
                         match = allFields.includes(term.value);
                     } else if (term.field === 't') {
                         match = tagNames.some(tagName => tagName.includes(term.value));
+                    } else if (term.field === 'f') {
+                        // Only match folders for characters (not groups)
+                        match = entity.type === 'character' && folderName.includes(term.value);
                     } else {
                         match = name.includes(term.value);
                     }
@@ -104,6 +114,7 @@ async function renderCharacterList() {
             }
             return false;
         };
+        
 
         const filtered = allEntities.filter(filterEntity);
 
