@@ -1094,7 +1094,6 @@ export function makeFolderNameEditable(span, folder, rerender) {
     input.select();
 }
 
-
 export function showIconPicker(folder, parentNode, rerender) {
     // Wait until FA_ICONS is loaded
     if (!FA_ICONS) {
@@ -1110,6 +1109,7 @@ export function showIconPicker(folder, parentNode, rerender) {
     const freeIcons = FA_ICONS.filter(icon =>
         icon.membership && icon.membership.free && icon.membership.free.includes("solid")
     );
+    const ICONS_PER_PAGE = 120; // Adjust as needed (12 x 10 grid)
 
     // --- Icon picker popup ---
     const popup = document.createElement('div');
@@ -1129,7 +1129,7 @@ export function showIconPicker(folder, parentNode, rerender) {
     const instr = document.createElement('div');
     instr.innerHTML = `
         <div style="margin-bottom:8px; font-size: 0.97em;">
-            <b>Choose an icon below</b> or search all Font Awesome Free icons.<br>
+            <b>Choose an icon below </b> or search all Font Awesome Free icons.<br>
             <a href="https://fontawesome.com/search?m=free" target="_blank" style="color:#6ec0ff; text-decoration:underline; font-size: 0.96em;">
                 Browse all free icons
             </a>
@@ -1140,6 +1140,15 @@ export function showIconPicker(folder, parentNode, rerender) {
     `;
     popup.appendChild(instr);
 
+    // --- Pagination controls ---
+    const paginationDiv = document.createElement('div');
+    paginationDiv.style.display = 'flex';
+    paginationDiv.style.justifyContent = 'center';
+    paginationDiv.style.alignItems = 'center';
+    paginationDiv.style.gap = '18px';
+    paginationDiv.style.marginBottom = '6px';
+    popup.appendChild(paginationDiv);
+
     // --- Icon grid ---
     const grid = document.createElement('div');
     grid.className = 'stcm-icon-grid';
@@ -1149,11 +1158,15 @@ export function showIconPicker(folder, parentNode, rerender) {
     grid.style.marginBottom = '18px';
     popup.appendChild(grid);
 
-    // --- Manual entry at bottom ---
+    // --- Manual entry at bottom (UNCHANGED) ---
     const manualDiv = document.createElement('div');
     manualDiv.innerHTML = `
         <div style="margin-top:12px; font-size: 0.95em; color:#fff;">
             Or manually enter a Font Awesome icon class or &lt;i&gt; tag:
+                        <br>
+            <a href="https://fontawesome.com/search?m=free" target="_blank" style="color:#6ec0ff; text-decoration:underline; font-size: 0.96em;">
+                Browse all free icons
+            </a>
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin:8px 0 0 0;">
             <input type="text" id="stcmCustomIconInput" placeholder="e.g. fa-dragon" style="flex:1;min-width:0;padding:4px 8px;border-radius:4px;border:1px solid #444;background:#181818;color:#eee;">
@@ -1163,12 +1176,46 @@ export function showIconPicker(folder, parentNode, rerender) {
     `;
     popup.appendChild(manualDiv);
 
-    // ---- Icon rendering logic ----
-    function renderIcons(iconArr) {
+    // ---- Pagination State and Logic ----
+    let lastSearch = "";
+    let currentIcons = freeIcons;
+    let currentPage = 1;
+
+    function updatePagination() {
+        paginationDiv.innerHTML = "";
+        const totalPages = Math.max(1, Math.ceil(currentIcons.length / ICONS_PER_PAGE));
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = 'Prev';
+        prevBtn.className = 'stcm_menu_button tiny';
+        prevBtn.disabled = (currentPage === 1);
+        prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderIcons(); }};
+        paginationDiv.appendChild(prevBtn);
+
+        const pageInfo = document.createElement('span');
+        pageInfo.style.color = '#aaa';
+        pageInfo.textContent = `Page ${currentPage} / ${totalPages}`;
+        paginationDiv.appendChild(pageInfo);
+
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next';
+        nextBtn.className = 'stcm_menu_button tiny';
+        nextBtn.disabled = (currentPage === totalPages);
+        nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderIcons(); }};
+        paginationDiv.appendChild(nextBtn);
+    }
+
+    function renderIcons() {
         grid.innerHTML = "";
-        // Show up to 240 icons max (perf/sanity)
-        iconArr.slice(0, 240).forEach(icon => {
-            // Use fa-solid
+        const totalPages = Math.max(1, Math.ceil(currentIcons.length / ICONS_PER_PAGE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+        updatePagination();
+
+        const startIdx = (currentPage - 1) * ICONS_PER_PAGE;
+        const iconsToShow = currentIcons.slice(startIdx, startIdx + ICONS_PER_PAGE);
+
+        iconsToShow.forEach(icon => {
             const ico = 'fa-' + icon.id;
             const btn = document.createElement('button');
             btn.className = 'stcm-icon-btn stcm_menu_button tiny';
@@ -1185,7 +1232,7 @@ export function showIconPicker(folder, parentNode, rerender) {
             });
             grid.appendChild(btn);
         });
-        if (iconArr.length === 0) {
+        if (iconsToShow.length === 0) {
             const nores = document.createElement('div');
             nores.style.gridColumn = 'span 12';
             nores.style.textAlign = 'center';
@@ -1197,7 +1244,6 @@ export function showIconPicker(folder, parentNode, rerender) {
 
     // ---- Search functionality ----
     const searchInput = instr.querySelector('#stcmIconSearch');
-    let lastSearch = "";
     function searchIcons(term) {
         if (!term) return freeIcons;
         term = term.toLowerCase();
@@ -1210,13 +1256,15 @@ export function showIconPicker(folder, parentNode, rerender) {
     }
     searchInput.addEventListener('input', () => {
         lastSearch = searchInput.value.trim();
-        renderIcons(searchIcons(lastSearch));
+        currentIcons = searchIcons(lastSearch);
+        currentPage = 1; // Reset to first page on new search
+        renderIcons();
     });
 
-    // Initial: show all icons (trimmed to max)
-    renderIcons(freeIcons);
+    // Initial: show all icons (first page)
+    renderIcons();
 
-    // --- Manual custom icon logic ---
+    // --- Manual custom icon logic (UNCHANGED) ---
     const customInput = manualDiv.querySelector('#stcmCustomIconInput');
     const customBtn = manualDiv.querySelector('#stcmSetCustomIconBtn');
     const errorDiv = manualDiv.querySelector('#stcmIconError');
@@ -1287,7 +1335,6 @@ export function showIconPicker(folder, parentNode, rerender) {
         }
     });
 }
-
 
 
 export function confirmDeleteFolder(folder, rerender) {
