@@ -326,7 +326,6 @@ export async function setFolderPrivacy(id, isPrivate, recursive = false) {
 }
 
 
-// deleteFolder(id[, cascade=true, moveAssigned=true])
 export async function deleteFolder(id, cascade = true, moveAssigned = true) {
     if (id === 'root') return await loadFolders();
 
@@ -337,14 +336,13 @@ export async function deleteFolder(id, cascade = true, moveAssigned = true) {
     // Helper to move assigned chars
     function moveCharsToParent(folder, parentId) {
         if (!Array.isArray(folder.characters) || !folder.characters.length) return;
-        if (!parentId) {
-            // If no parent, unassign instead (your requested logic)
+        // If no parent or parent is root, unassign
+        if (!parentId || parentId === 'root') {
             unassignChars(folder);
             return;
         }
         const parent = getFolder(parentId, folders);
-        if (!parent) {
-            // If parent doesn't exist, also unassign
+        if (!parent || parent.id === 'root') {
             unassignChars(folder);
             return;
         }
