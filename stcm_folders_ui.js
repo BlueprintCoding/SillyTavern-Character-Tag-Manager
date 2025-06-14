@@ -1879,6 +1879,7 @@ function injectFolderDropdownAfterTagsDiv() {
 }
 
 eventSource.on(event_types.CHARACTER_PAGE_LOADED, () => {
+    // Always run, every time the character editor loads
     let tries = 0;
     const interval = setInterval(() => {
         const tagsDiv = document.getElementById('tags_div');
@@ -1888,6 +1889,6 @@ eventSource.on(event_types.CHARACTER_PAGE_LOADED, () => {
             if (document.getElementById('stcm-folder-dropdown-row')) return;
             injectFolderDropdownAfterTagsDiv();
         }
-        if (tries > 20) clearInterval(interval);
+        if (tries > 20) clearInterval(interval); // Only stops for this particular attempt
     }, 50);
 });
