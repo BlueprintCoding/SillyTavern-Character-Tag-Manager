@@ -484,13 +484,16 @@ if (selectAllBox) {
     // When toggled, check/uncheck all visible assignCharCheckbox
     selectAllBox.onchange = function () {
         const checkboxes = container.querySelectorAll('.assignCharCheckbox');
-        checkboxes.forEach(cb => {
-            if (cb.checked !== selectAllBox.checked) {
-                cb.checked = selectAllBox.checked;
-                cb.dispatchEvent(new Event('change'));
-            }
-        });
+        const ids = Array.from(checkboxes).map(cb => cb.value);
+        if (selectAllBox.checked) {
+            ids.forEach(id => stcmCharState.selectedCharacterIds.add(id));
+        } else {
+            ids.forEach(id => stcmCharState.selectedCharacterIds.delete(id));
+        }
+        // Rerender to update all checkboxes at once
+        renderCharacterList();
     };
+    
 
     // Indeterminate state: if user manually clicks
     const syncSelectAllState = () => {
