@@ -293,7 +293,7 @@ function parseSearchGroups(input) {
 function parseSearchTerm(term) {
     let positive = !term.startsWith('-');
     term = term.replace(/^-/, '').trim();
-    const m = term.match(/^([ta]):(.+)$/i);
+    const m = term.match(/^([taf]):(.+)$/i);
     return m ? { field: m[1].toLowerCase(), value: m[2].toLowerCase(), positive } : { field: '', value: term, positive };
 }
 

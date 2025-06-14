@@ -78,8 +78,11 @@ async function renderCharacterList() {
             let folderName = '';
             if (entity.type === 'character') {
                 const assignedFolder = stcmFolders.getCharacterAssignedFolder(entity.id, folders);
-                folderName = assignedFolder?.name?.toLowerCase() || '';
-            }
+                if (assignedFolder) {
+                    folderName = assignedFolder.name?.toLowerCase() || '';
+                }
+                  }
+            
         
             // If no search (empty), show all
             if (searchGroups.length === 0) return true;
