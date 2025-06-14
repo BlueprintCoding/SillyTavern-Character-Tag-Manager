@@ -1862,7 +1862,7 @@ async function injectOrUpdateFolderDropdownAfterTagsDiv() {
         // --- Create fresh row ---
         row = document.createElement('div');
         row.id = 'stcm-folder-dropdown-row';
-        row.style.margin = '12px 0';
+        row.style.margin = '0';
 
         const label = document.createElement('label');
         label.textContent = 'Folder: ';
@@ -1883,10 +1883,12 @@ async function injectOrUpdateFolderDropdownAfterTagsDiv() {
         if (!select) {
             // corrupted, recreate:
             row.innerHTML = '';
-            const label = document.createElement('label');
-            label.textContent = 'Folder: ';
-            label.style.marginRight = '8px';
-            label.htmlFor = 'stcm-folder-dropdown';
+            const folderIcon = document.createElement('i');
+            folderIcon.className = 'fa-solid fa-folder-open';
+            folderIcon.style.marginRight = '8px';
+            folderIcon.style.fontSize = '1.2em';
+            folderIcon.style.color = 'var(--ac-style-color-text, #bbb)';
+            row.appendChild(folderIcon);
 
             select = document.createElement('select');
             select.id = 'stcm-folder-dropdown';
