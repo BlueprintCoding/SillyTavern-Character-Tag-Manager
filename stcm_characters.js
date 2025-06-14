@@ -152,6 +152,8 @@ async function renderCharacterList() {
         return;
     }
 
+    
+
     const list = document.createElement('ul');
     list.className = 'charList';
 
@@ -475,6 +477,34 @@ async function renderCharacterList() {
 
 
     container.appendChild(list);
+
+    //wire up Select All, after all checkboxes exist:
+const selectAllBox = document.getElementById('selectAllCharactersCheckbox');
+if (selectAllBox) {
+    // When toggled, check/uncheck all visible assignCharCheckbox
+    selectAllBox.onchange = function () {
+        const checkboxes = container.querySelectorAll('.assignCharCheckbox');
+        checkboxes.forEach(cb => {
+            if (cb.checked !== selectAllBox.checked) {
+                cb.checked = selectAllBox.checked;
+                cb.dispatchEvent(new Event('change'));
+            }
+        });
+    };
+
+    // Indeterminate state: if user manually clicks
+    const syncSelectAllState = () => {
+        const checkboxes = container.querySelectorAll('.assignCharCheckbox');
+        const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+        selectAllBox.checked = checked === checkboxes.length && checked > 0;
+        selectAllBox.indeterminate = checked > 0 && checked < checkboxes.length;
+    };
+    container.querySelectorAll('.assignCharCheckbox').forEach(cb => {
+        cb.addEventListener('change', syncSelectAllState);
+    });
+    // Initial sync
+    syncSelectAllState();
+}
 
     // ===== BULK FOLDER ASSIGN BAR (ONE TIME) =====
 const bulkFolderSelect = document.getElementById('bulkFolderSelect');

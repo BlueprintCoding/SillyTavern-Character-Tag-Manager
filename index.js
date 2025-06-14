@@ -198,7 +198,10 @@ function openCharacterTagManagerModal() {
   <div class="stcm_sort_row stcm_margin_top">
                              <div class="stcm_fullwidth">
                            <div class="stcm_flex">
-                        <span>SORT</span>
+                       <input type="checkbox" id="selectAllCharactersCheckbox" style="margin-left:1em;vertical-align:middle;">
+<label for="selectAllCharactersCheckbox" style="margin-right:1.3em;vertical-align:middle;user-select:none;">Select All</label>
+ 
+                           <span>SORT</span>
                         <select id="charSortMode" class="stcm_menu_button interactable">
                             <option value="alpha_asc">A → Z</option>
                             <option value="alpha_desc">Z → A</option>
