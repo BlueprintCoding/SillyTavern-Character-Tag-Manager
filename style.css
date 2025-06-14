@@ -84,7 +84,7 @@
     margin-top: .5em;
 }
 
-.assignTagList {
+#assignTagList {
   max-height: 10vh;
   overflow-y: scroll;
   background-color: var(--SmartThemeBlurTintColor);
