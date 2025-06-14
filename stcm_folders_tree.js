@@ -305,7 +305,7 @@ function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContaine
     const charCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
     const charBtn = document.createElement('button');
     charBtn.className = 'stcm_menu_button tiny stcm_folder_chars_btn interactable';
-    charBtn.innerHTML = `<i class="fa-solid fa-users"></i> Characters (<span class="folderCharCount" data-folder-id="${folder.id}">${charCount}</span>)`;
+    charBtn.innerHTML = `<i class="fa-solid fa-users"></i> Chars. (<span class="folderCharCount" data-folder-id="${folder.id}">${charCount}</span>)`;
     charBtn.title = 'Manage Characters in this Folder';
     charBtn.addEventListener('click', e => {
         e.stopPropagation();

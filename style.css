@@ -1679,6 +1679,10 @@ dialog.popup #stcm-popup-pin-input:focus {
         flex-direction: column-reverse;
     }
 
+    .stcm_folder_chars_btn {
+        min-width: 40px!important;
+    }
+
 
     .drawer-toggle .drawer-icon {
         font-size: 1.1em !important;
