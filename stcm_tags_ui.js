@@ -28,6 +28,10 @@ import {
     saveNotes,
 } from './utils.js';
 
+import {
+    uuidv4 
+} from "../../../utils.js"
+
 import { convertTagToRealFolder} from './stcm_folders.js';
 
 import { callSaveandReload } from "./index.js";
