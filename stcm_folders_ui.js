@@ -1826,14 +1826,19 @@ function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
     return out;
 }
 
-function injectFolderDropdownAfterTagsDiv() {
+async function injectFolderDropdownAfterTagsDiv() {
     const tagsDiv = document.getElementById('tags_div');
     if (!tagsDiv) return;
     if (document.getElementById('stcm-folder-dropdown-row')) return;
 
-    // --- GET FOLDER DATA ---
-    const folders = window.STCM?.sidebarFolders || [];
+    // --- GET FOLDER DATA --- (force-load if empty)
+    let folders = window.STCM?.sidebarFolders || [];
+    if (!folders.length && stcmFolders.loadFolders) {
+        folders = await stcmFolders.loadFolders();
+        window.STCM.sidebarFolders = folders;
+    }
     if (!folders.length) return;
+
 
     // --- Optionally, detect current character folder assignment here ---
     let charFolderId = null;
