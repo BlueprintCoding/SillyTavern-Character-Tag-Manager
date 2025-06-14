@@ -521,7 +521,7 @@
 
 .tagGroup {
     width: 100%;
-    padding: 0.5em 0.75em;
+    padding: 0.1em 0.75em;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -1601,9 +1601,10 @@ dialog.popup #stcm-popup-pin-input:focus {
       }
 
       #foldersTreeContainer {
-        max-height: 70vh;
+        max-height: 60vh;
         overflow-y: scroll;
-      }
+        background-color: var(--SmartThemeBlurTintColor);
+        padding: .1em;
 
       .foldersSectionControls{
         flex-direction: column;
