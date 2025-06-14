@@ -1814,12 +1814,6 @@ function injectResetViewButton() {
     showTag.parentNode.insertBefore(resetBtn, showTag.nextSibling);
 }
 
-// stcm_folders_ui.js (or your extension main file)
-
-// --- Helper for folder options as above (can be moved out) ---
-import { eventSource, event_types } from "../../../../script.js";
-// (Already imported in your code base!)
-
 function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
     const out = [];
     folders.filter(f => f.parentId === parentId && f.id !== 'root').forEach(folder => {
