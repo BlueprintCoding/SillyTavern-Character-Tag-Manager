@@ -1940,3 +1940,11 @@ function watchInjectFolderDropdown() {
 
 eventSource.on(event_types.CHARACTER_PAGE_LOADED, watchInjectFolderDropdown);
 eventSource.on(event_types.chat_id_changed || "chat_id_changed", watchInjectFolderDropdown);
+
+// Save the original
+const origEmit = eventSource.emit;
+
+eventSource.emit = function(event, ...args) {
+    console.log('[EVENT]', event, ...args);
+    return origEmit.apply(this, arguments);
+};
