@@ -1832,10 +1832,10 @@ async function injectFolderDropdownAfterTagsDiv() {
     if (document.getElementById('stcm-folder-dropdown-row')) return;
 
     // --- GET FOLDER DATA --- (force-load if empty)
-    let folders = window.STCM?.sidebarFolders || [];
+    let folders = STCM?.sidebarFolders || [];
     if (!folders.length && stcmFolders.loadFolders) {
         folders = await stcmFolders.loadFolders();
-        window.STCM.sidebarFolders = folders;
+        STCM.sidebarFolders = folders;
     }
     if (!folders.length) return;
 
