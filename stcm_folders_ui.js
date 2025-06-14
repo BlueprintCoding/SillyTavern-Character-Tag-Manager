@@ -1107,8 +1107,11 @@ export function showIconPicker(folder, parentNode, rerender) {
 
     // Helper: Build candidate icon array (only free solid icons)
     const freeIcons = FA_ICONS.filter(icon =>
-        icon.membership && icon.membership.free && icon.membership.free.includes("solid")
+        icon.membership &&
+        icon.membership.free &&
+        icon.membership.free.length > 0
     );
+    
     const ICONS_PER_PAGE = 120; // Adjust as needed (12 x 10 grid)
 
     // --- Icon picker popup ---
@@ -1341,7 +1344,7 @@ export function confirmDeleteFolder(folder, rerender) {
     const hasRealParent = folder.parentId && folder.parentId !== 'root';
 
     // Compute character assignments:
-    const folders = window.STCM?.sidebarFolders || []; // or however you have access to all folders
+    const folders = window.STCM?.sidebarFolders || []; 
     const getDescendants = (f, all) => {
         let result = [];
         if (!Array.isArray(f.children)) return result;
