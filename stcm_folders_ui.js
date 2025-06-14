@@ -1214,10 +1214,10 @@ export function showIconPicker(folder, parentNode, rerender) {
         const iconsToShow = currentIcons.slice(startIdx, startIdx + ICONS_PER_PAGE);
 
         iconsToShow.forEach(icon => {
-            const ico = 'fa-' + icon.id;
+            const ico = 'fa-' + icon; // icon is already a string!
             const btn = document.createElement('button');
             btn.className = 'stcm-icon-btn stcm_menu_button tiny';
-            btn.title = icon.label || icon.id;
+            btn.title = icon; // just use the string for title
             btn.style.background = 'none';
             btn.style.border = 'none';
             btn.style.cursor = 'pointer';
@@ -1230,6 +1230,7 @@ export function showIconPicker(folder, parentNode, rerender) {
             });
             grid.appendChild(btn);
         });
+        
         if (iconsToShow.length === 0) {
             const nores = document.createElement('div');
             nores.style.gridColumn = 'span 12';
@@ -1246,12 +1247,10 @@ export function showIconPicker(folder, parentNode, rerender) {
         if (!term) return freeIcons;
         term = term.toLowerCase();
         return freeIcons.filter(icon =>
-            (icon.label && icon.label.toLowerCase().includes(term)) ||
-            (icon.id && icon.id.toLowerCase().includes(term)) ||
-            (icon.categories && icon.categories.some(cat => cat.toLowerCase().includes(term))) ||
-            (icon.aliases && icon.aliases.names && icon.aliases.names.some(a => a && a.toLowerCase().includes(term)))
+            icon.toLowerCase().includes(term)
         );
     }
+    
     searchInput.addEventListener('input', () => {
         lastSearch = searchInput.value.trim();
         currentIcons = searchIcons(lastSearch);
