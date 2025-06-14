@@ -1826,20 +1826,19 @@ function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
     return out;
 }
 
-async function injectFolderDropdownAfterTagsDiv() {
+async function injectOrUpdateFolderDropdownAfterTagsDiv() {
     const tagsDiv = document.getElementById('tags_div');
     if (!tagsDiv) return;
-    if (document.getElementById('stcm-folder-dropdown-row')) return;
 
     // --- Get avatar filename from img src ---
     const avatarImg = document.querySelector('#avatar_div_div img#avatar_load_preview');
     if (!avatarImg) return;
-    // src looks like: /thumbnail?type=avatar&file=Demo%20Card%20-%20No%20Folder.png
+    // src: /thumbnail?type=avatar&file=Demo%20Card%20-%20No%20Folder.png
     const url = new URL(avatarImg.src, window.location.origin);
     const charId = decodeURIComponent(url.searchParams.get('file') || '');
     if (!charId) return;
 
-    // --- GET FOLDER DATA ---
+    // --- Get Folders ---
     let folders = STCM?.sidebarFolders || [];
     if (!folders.length && stcmFolders.loadFolders) {
         folders = await stcmFolders.loadFolders();
@@ -1850,24 +1849,57 @@ async function injectFolderDropdownAfterTagsDiv() {
     let assignedFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
     let charFolderId = assignedFolder ? assignedFolder.id : '';
 
+    // Prepare options
     const options = [
         { id: '', name: 'No Folder (Top Level)' },
         ...buildFolderDropdownOptions(folders)
     ];
 
-    const row = document.createElement('div');
-    row.id = 'stcm-folder-dropdown-row';
-    row.style.margin = '12px 0';
+    let row = document.getElementById('stcm-folder-dropdown-row');
+    let select;
 
-    const label = document.createElement('label');
-    label.textContent = 'Folder: ';
-    label.style.marginRight = '8px';
-    label.htmlFor = 'stcm-folder-dropdown';
+    if (!row) {
+        // --- Create fresh row ---
+        row = document.createElement('div');
+        row.id = 'stcm-folder-dropdown-row';
+        row.style.margin = '12px 0';
 
-    const select = document.createElement('select');
-    select.id = 'stcm-folder-dropdown';
-    select.className = 'text_pole';
-    select.style.minWidth = '140px';
+        const label = document.createElement('label');
+        label.textContent = 'Folder: ';
+        label.style.marginRight = '8px';
+        label.htmlFor = 'stcm-folder-dropdown';
+
+        select = document.createElement('select');
+        select.id = 'stcm-folder-dropdown';
+        select.className = 'text_pole';
+        select.style.minWidth = '140px';
+
+        row.appendChild(label);
+        row.appendChild(select);
+        tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
+    } else {
+        // --- Update existing ---
+        select = row.querySelector('select#stcm-folder-dropdown');
+        if (!select) {
+            // corrupted, recreate:
+            row.innerHTML = '';
+            const label = document.createElement('label');
+            label.textContent = 'Folder: ';
+            label.style.marginRight = '8px';
+            label.htmlFor = 'stcm-folder-dropdown';
+
+            select = document.createElement('select');
+            select.id = 'stcm-folder-dropdown';
+            select.className = 'text_pole';
+            select.style.minWidth = '140px';
+
+            row.appendChild(label);
+            row.appendChild(select);
+        }
+    }
+
+    // --- Refresh options every time ---
+    select.innerHTML = '';
     options.forEach(opt => {
         const o = document.createElement('option');
         o.value = opt.id;
@@ -1876,7 +1908,8 @@ async function injectFolderDropdownAfterTagsDiv() {
         select.appendChild(o);
     });
 
-    select.addEventListener('change', async e => {
+    // --- Replace all existing listeners with a new one ---
+    select.onchange = async function(e) {
         const newFolderId = e.target.value;
         let folders = await stcmFolders.loadFolders();
 
@@ -1889,25 +1922,21 @@ async function injectFolderDropdownAfterTagsDiv() {
         }
         toastr.success("Folder assignment updated!");
         await updateSidebar(true);
-    });
-
-    row.appendChild(label);
-    row.appendChild(select);
-    tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
+    };
 }
 
 
-eventSource.on(event_types.CHARACTER_PAGE_LOADED, () => {
-    // Always run, every time the character editor loads
+function watchInjectFolderDropdown() {
     let tries = 0;
     const interval = setInterval(() => {
-        const tagsDiv = document.getElementById('tags_div');
         tries++;
-        if (tagsDiv) {
+        if (document.getElementById('tags_div')) {
             clearInterval(interval);
-            if (document.getElementById('stcm-folder-dropdown-row')) return;
-            injectFolderDropdownAfterTagsDiv();
+            injectOrUpdateFolderDropdownAfterTagsDiv();
         }
-        if (tries > 20) clearInterval(interval); // Only stops for this particular attempt
+        if (tries > 20) clearInterval(interval);
     }, 50);
-});
+}
+
+eventSource.on(event_types.CHARACTER_PAGE_LOADED, watchInjectFolderDropdown);
+eventSource.on(event_types.chat_id_changed || "chat_id_changed", watchInjectFolderDropdown);
