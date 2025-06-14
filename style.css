@@ -84,6 +84,14 @@
     margin-top: .5em;
 }
 
+.assignTagList {
+  max-height: 10vh;
+  overflow-y: scroll;
+  background-color: var(--SmartThemeBlurTintColor);
+  padding: .5em;
+  border-radius: 1em;
+}
+
 .accordionToggle {
     background: var(--menuButtonBackground, #222);
     color: var(--textColor, #fff);

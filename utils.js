@@ -134,7 +134,7 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
         if (!isDragging) return;
         isDragging = false;
         document.body.style.userSelect = '';
-        clampModalSize(modalContent, 0);
+        clampModalSize(modal, 0);
         if (onDragEnd) onDragEnd();
     }
 

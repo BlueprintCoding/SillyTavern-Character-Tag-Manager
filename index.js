@@ -177,7 +177,7 @@ function openCharacterTagManagerModal() {
         <div class="accordionSection stcm_accordion_section stcm_tags_section">
             <button class="accordionToggle stcm_text_left" data-target="charactersSection">▶ Characters</button>
             <div id="charactersSection" class="accordionContent">
-                <div style="padding-top: 1em;">
+                <div style="padding-top: ..1em;">
                             <div class="stcm_sort_row">
                             <div id="assignTagList" class="stcm_tag_chip_list"></div>
                             </div>
