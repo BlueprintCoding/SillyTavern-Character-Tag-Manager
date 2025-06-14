@@ -1532,6 +1532,18 @@ dialog.popup #stcm-popup-pin-input:focus {
         height: 100vh !important;
         }
 
+        .modalHeader, .stcm_modal_header {
+            max-width: 100vw;
+        }
+        .modalBody {
+            max-height: 95vh; /* or whatever fits best */
+            overflow-y: auto;
+        }
+        .accordionContent.open {
+            max-height: 90vh; /* tune this if needed */
+            overflow-y: auto;
+        }
+
     .modalBody {
         padding: 0px;
     }
