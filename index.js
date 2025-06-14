@@ -225,7 +225,7 @@ function openCharacterTagManagerModal() {
                                 <i class="fa-solid fa-trash"></i> Delete Selected
                             </button>
                             </div>
-                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag. Use , (comma) to seperate OR lists, use - (minus) for negative terms (- comes before modifiers like -T:Comedy)</span>
+                            <span class="smallInstructions" style="display: block; margin-top:2px;">Search by character name, or use "A:" to search all character fields or "T:" to search characters with that tag or "F:" for characters assigned to a folder. Use , (comma) to seperate OR lists, use - (minus) for negative terms (- comes before modifiers like -T:Comedy)</span>
                                 </div>
 
                     </div>
