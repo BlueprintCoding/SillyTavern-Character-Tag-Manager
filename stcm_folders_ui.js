@@ -1817,6 +1817,9 @@ function injectResetViewButton() {
 // stcm_folders_ui.js (or your extension main file)
 
 // --- Helper for folder options as above (can be moved out) ---
+import { eventSource, event_types } from "../../../../script.js";
+// (Already imported in your code base!)
+
 function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
     const out = [];
     folders.filter(f => f.parentId === parentId && f.id !== 'root').forEach(folder => {
@@ -1832,35 +1835,30 @@ function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
 function injectFolderDropdownAfterTagsDiv() {
     const tagsDiv = document.getElementById('tags_div');
     if (!tagsDiv) return;
-    // Prevent duplicate
     if (document.getElementById('stcm-folder-dropdown-row')) return;
 
     // --- GET FOLDER DATA ---
     const folders = window.STCM?.sidebarFolders || [];
-    // If no folders, skip
     if (!folders.length) return;
 
-    // (Customize this part: get character's current folder assignment, if editing)
+    // --- Optionally, detect current character folder assignment here ---
     let charFolderId = null;
+    // If you have a current editing character, set charFolderId to its folder assignment.
 
-    // Build options
     const options = [
         { id: '', name: 'No Folder (Top Level)' },
         ...buildFolderDropdownOptions(folders)
     ];
 
-    // Create row
     const row = document.createElement('div');
     row.id = 'stcm-folder-dropdown-row';
     row.style.margin = '12px 0';
 
-    // Label
     const label = document.createElement('label');
     label.textContent = 'Folder: ';
     label.style.marginRight = '8px';
     label.htmlFor = 'stcm-folder-dropdown';
 
-    // Dropdown
     const select = document.createElement('select');
     select.id = 'stcm-folder-dropdown';
     select.className = 'text_pole';
@@ -1873,43 +1871,22 @@ function injectFolderDropdownAfterTagsDiv() {
         select.appendChild(o);
     });
 
-    // Add change handler as needed
+    // On change: save to your character object, or form hidden field as needed
     select.addEventListener('change', e => {
-        // Example: save folder assignment
+        // Example: save selection to current character being edited
         // window.currentEditingCharacter.folderId = e.target.value;
     });
 
     row.appendChild(label);
     row.appendChild(select);
 
-    // Insert AFTER tagsDiv
+    // Insert after tagsDiv
     tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
 }
 
-// --- Robust Observer ---
-export function startRightNavPanelObserver() {
-    const rightNav = document.getElementById('right-nav-panel');
-    if (!rightNav) {
-        setTimeout(startRightNavPanelObserver, 500); // Wait for DOM if needed
-        return;
-    }
-
-    // Use one global observer to avoid multiple attachments
-    if (rightNav._stcmFolderObsAttached) return;
-    rightNav._stcmFolderObsAttached = true;
-
-    const obs = new MutationObserver(() => {
-        // Only inject when in character_edit mode, visible, and the #tags_div exists
-        if (
-            rightNav.getAttribute('data-menu-type') === 'character_edit' &&
-            rightNav.style.display !== 'none'
-        ) {
-            injectFolderDropdownAfterTagsDiv();
-        }
-    });
-
-    obs.observe(rightNav, {
-        childList: true,
-        subtree: true
-    });
-}
+// Listen for character page loaded event (fires after DOM for form is ready)
+eventSource.on(event_types.CHARACTER_PAGE_LOADED, () => {
+    setTimeout(() => { // Give SillyTavern a tick to finish rendering tags_div
+        injectFolderDropdownAfterTagsDiv();
+    }, 10);
+});
