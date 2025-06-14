@@ -89,7 +89,7 @@
   overflow-y: scroll;
   background-color: var(--SmartThemeBlurTintColor);
   padding: .5em;
-  border-radius: 1em;
+  width:100%;
 }
 
 .accordionToggle {
