@@ -1831,7 +1831,15 @@ async function injectFolderDropdownAfterTagsDiv() {
     if (!tagsDiv) return;
     if (document.getElementById('stcm-folder-dropdown-row')) return;
 
-    // --- GET FOLDER DATA --- (force-load if empty)
+    // --- Get avatar filename from img src ---
+    const avatarImg = document.querySelector('#avatar_div_div img#avatar_load_preview');
+    if (!avatarImg) return;
+    // src looks like: /thumbnail?type=avatar&file=Demo%20Card%20-%20No%20Folder.png
+    const url = new URL(avatarImg.src, window.location.origin);
+    const charId = decodeURIComponent(url.searchParams.get('file') || '');
+    if (!charId) return;
+
+    // --- GET FOLDER DATA ---
     let folders = STCM?.sidebarFolders || [];
     if (!folders.length && stcmFolders.loadFolders) {
         folders = await stcmFolders.loadFolders();
@@ -1839,10 +1847,8 @@ async function injectFolderDropdownAfterTagsDiv() {
     }
     if (!folders.length) return;
 
-
-    // --- Optionally, detect current character folder assignment here ---
-    let charFolderId = null;
-    // If you have a current editing character, set charFolderId to its folder assignment.
+    let assignedFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
+    let charFolderId = assignedFolder ? assignedFolder.id : '';
 
     const options = [
         { id: '', name: 'No Folder (Top Level)' },
@@ -1870,18 +1876,26 @@ async function injectFolderDropdownAfterTagsDiv() {
         select.appendChild(o);
     });
 
-    // On change: save to your character object, or form hidden field as needed
-    select.addEventListener('change', e => {
-        // Example: save selection to current character being edited
-        // window.currentEditingCharacter.folderId = e.target.value;
+    select.addEventListener('change', async e => {
+        const newFolderId = e.target.value;
+        let folders = await stcmFolders.loadFolders();
+
+        let oldFolder = stcmFolders.getCharacterAssignedFolder(charId, folders);
+        if (oldFolder) {
+            await stcmFolders.removeCharacterFromFolder(oldFolder.id, charId);
+        }
+        if (newFolderId) {
+            await stcmFolders.assignCharactersToFolder(newFolderId, [charId]);
+        }
+        toastr.success("Folder assignment updated!");
+        await updateSidebar(true);
     });
 
     row.appendChild(label);
     row.appendChild(select);
-
-    // Insert after tagsDiv
     tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
 }
+
 
 eventSource.on(event_types.CHARACTER_PAGE_LOADED, () => {
     // Always run, every time the character editor loads
