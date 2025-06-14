@@ -26,6 +26,7 @@ import {
     getFolderTypeForUI,
     getNotes,
     saveNotes,
+    uuidv4
 } from './utils.js';
 
 import { convertTagToRealFolder} from './stcm_folders.js';
