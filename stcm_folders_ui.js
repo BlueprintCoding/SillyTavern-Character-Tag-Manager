@@ -1864,17 +1864,18 @@ async function injectOrUpdateFolderDropdownAfterTagsDiv() {
         row.id = 'stcm-folder-dropdown-row';
         row.style.margin = '0';
 
-        const label = document.createElement('label');
-        label.textContent = 'Folder: ';
-        label.style.marginRight = '8px';
-        label.htmlFor = 'stcm-folder-dropdown';
-
+        const folderIcon = document.createElement('i');
+        folderIcon.className = 'fa-solid fa-folder-open';
+        folderIcon.style.marginRight = '8px';
+        folderIcon.style.fontSize = '1.2em';
+        folderIcon.style.color = 'var(--ac-style-color-text, #bbb)';
+       
         select = document.createElement('select');
         select.id = 'stcm-folder-dropdown';
         select.className = 'text_pole';
         select.style.minWidth = '140px';
 
-        row.appendChild(label);
+        row.appendChild(folderIcon);
         row.appendChild(select);
         tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
     } else {
@@ -1888,14 +1889,13 @@ async function injectOrUpdateFolderDropdownAfterTagsDiv() {
             folderIcon.style.marginRight = '8px';
             folderIcon.style.fontSize = '1.2em';
             folderIcon.style.color = 'var(--ac-style-color-text, #bbb)';
-            row.appendChild(folderIcon);
 
             select = document.createElement('select');
             select.id = 'stcm-folder-dropdown';
             select.className = 'text_pole';
             select.style.minWidth = '140px';
 
-            row.appendChild(label);
+            row.appendChild(folderIcon);
             row.appendChild(select);
         }
     }
