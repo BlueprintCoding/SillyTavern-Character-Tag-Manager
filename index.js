@@ -678,11 +678,20 @@ refreshFoldersTree();
 
     // inside the window resize listener
     window.addEventListener('resize', () => {
-        modalContent.style.maxWidth  = `${window.innerWidth - 40}px`;
-        modalContent.style.maxHeight = `${window.innerHeight - 40}px`;
-        clampModalSize(modalContent);          // <— and here
+        if (window.innerWidth < 700) {
+            // On mobile, force modal to full screen again (in case of orientation change)
+            Object.assign(modalContent.style, {
+                left: 0, top: 0,
+                width: '100vw', height: '100vh',
+                minWidth: '0', maxWidth: '100vw', maxHeight: '100vh', transform: 'none'
+            });
+        } else {
+            // Desktop logic as before
+            modalContent.style.maxWidth  = `${window.innerWidth - 40}px`;
+            modalContent.style.maxHeight = `${window.innerHeight - 40}px`;
+            clampModalSize(modalContent);
+        }
     });
-
     
         // Set these at open, too!
         modalContent.style.maxWidth = (window.innerWidth - 40) + "px";
