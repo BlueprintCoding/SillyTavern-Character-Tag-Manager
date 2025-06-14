@@ -836,7 +836,7 @@ function observeTagViewInjection() {
     const observer = new MutationObserver((mutations, obs) => {
         const targetContainer = document.querySelector('#tag_view_list .title_restorable .flex-container');
         if (targetContainer && !document.getElementById('characterTagManagerBackupAreaButton')) {
-            console.log("Injecting Character/Tag Manager button into Tag View section");
+            // console.log("Injecting Character/Tag Manager button into Tag View section");
             injectTagManagerButtonInTagView(targetContainer);
         }
     });

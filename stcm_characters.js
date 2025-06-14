@@ -689,7 +689,7 @@ document.addEventListener('click', function(e) {
                 const avatar = li.getAttribute('data-avatar');
                 const id = avatar ? characters.findIndex(c => c.avatar === avatar) : -1;
                 if (id !== -1 && typeof selectCharacterById === 'function') {
-                    console.log('Switching character by index:', id, 'avatar:', avatar);
+                    // console.log('Switching character by index:', id, 'avatar:', avatar);
                     selectCharacterById(id);
                     if (typeof setActiveGroup === 'function') setActiveGroup(null);
                     if (typeof saveSettingsDebounced === 'function') saveSettingsDebounced();

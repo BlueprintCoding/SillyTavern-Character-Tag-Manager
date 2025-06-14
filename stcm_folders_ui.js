@@ -144,9 +144,9 @@ function insertNoFolderLabelIfNeeded() {
 export function injectSidebarFolders(folders) {
     if (!folders || folders.filter(f => f.id !== 'root').length === 0) return;
 
-    console.log("ST Entities List:", getEntitiesList());
+    // console.log("ST Entities List:", getEntitiesList());
     const entityMap = stcmFolders.buildEntityMap();
-    console.log("STCM Entity Map:", Array.from(entityMap.values()));
+    // console.log("STCM Entity Map:", Array.from(entityMap.values()));
 
     const parent = document.getElementById('rm_print_characters_block');
     if (!parent) return;
@@ -170,8 +170,8 @@ export function injectSidebarFolders(folders) {
         const groupResults = fuzzySearchGroups(stcmSearchTerm);     // array of Fuse results
         const tagResults   = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
     
-        console.log("entityMap keys:", [...entityMap.keys()]);
-        console.log("charResults sample:", charResults.slice(0,20));
+        // console.log("entityMap keys:", [...entityMap.keys()]);
+        // console.log("charResults sample:", charResults.slice(0,20));
 
         // --- Filter and prepare Character & Group results (privacy-aware) ---
         const filteredCharEntities = charResults
@@ -314,11 +314,11 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     // console.log('HIDE-FOLDERED CALLED', Date.now(), new Error().stack);
     const globalList = document.getElementById('rm_print_characters_block');
     if (!globalList) return;
-    console.log(
-        "shouldShowAllCharacters:", shouldShowAllCharacters(),
-        "isAnyRealTagActive:", isAnyRealTagActive(),
-        "isSTCMSortActive:", isSTCMSortActive()
-      );
+    // console.log(
+    //     "shouldShowAllCharacters:", shouldShowAllCharacters(),
+    //     "isAnyRealTagActive:", isAnyRealTagActive(),
+    //     "isSTCMSortActive:", isSTCMSortActive()
+    //   );
      // --- NEW: Check for tag selection and short-circuit hiding ---
      if (shouldShowAllCharacters()) {
         // If a tag is selected, do NOT hide any characters; just unhide all.
@@ -408,11 +408,11 @@ function isAnyRealTagActive() {
 function isSTCMSortActive() {
     const sortSelect = document.getElementById('character_sort_order');
     if (!sortSelect) {
-        console.log("sortSelect not found!");
+        // console.log("sortSelect not found!");
         return false;
     }
     const selected = sortSelect.selectedOptions ? sortSelect.selectedOptions[0] : sortSelect.options[sortSelect.selectedIndex];
-    console.log("Selected sort value:", selected?.value, "data-field:", selected?.getAttribute('data-field'));
+    // console.log("Selected sort value:", selected?.value, "data-field:", selected?.getAttribute('data-field'));
     return selected && (selected.value === "stcm" || selected.getAttribute('data-field') === 'stcm');
 }
 
@@ -422,7 +422,7 @@ function setupSortOrderListener() {
     if (!sortSelect) return;
     sortSelect.addEventListener('change', () => {
         // Re-run your show/hide logic on sort change
-        console.log("hidecharsfired");
+        // console.log("hidecharsfired");
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
     });
 }
