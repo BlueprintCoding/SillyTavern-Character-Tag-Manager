@@ -948,6 +948,14 @@ margin-right: 0!important;
 .stcm_folder_chars_header h3 { margin-top: 0; }
 .stcm_folder_chars_chips_row { margin-bottom: 12px; }
 
+.select_all_chars {
+display: flex;
+  align-items: center;
+  min-width: 100px;
+  width: 100px;
+  gap: 0.5em;
+}
+
 .stcm_char_chip {
     display: inline-flex;
     align-items: center;
