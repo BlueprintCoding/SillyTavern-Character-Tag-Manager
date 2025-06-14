@@ -1361,6 +1361,28 @@ display: none;
     white-space: pre-wrap;
 }
 
+#stcm-folder-dropdown-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+#stcm-folder-dropdown-row i.fa-folder-open {
+    flex: 0 0 auto;
+    font-size: 1.2em;
+    color: var(--ac-style-color-text, #bbb);
+    margin-right: 8px;
+}
+
+#stcm-folder-dropdown-row select {
+    flex: 1 1 auto;
+    width: auto !important;  /* Overrides 100% if needed */
+    min-width: 120px;
+    max-width: 100%;
+}
+
+
 /* Private Folder Styling */
 
 .stcm-hide { display: none !important; }
