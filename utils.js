@@ -104,16 +104,37 @@ function makeModalDraggable(modal, handle, onDragEnd = null) {
 
     function onMove(e) {
         if (!isDragging) return;
-        const newLeft = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth  - modal.offsetWidth));
-        const newTop  = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - handle.offsetHeight));
+        const modalWidth = modal.offsetWidth;
+        const modalHeight = modal.offsetHeight;
+        const winWidth = window.innerWidth;
+        const winHeight = window.innerHeight;
+    
+        // Clamp so modal never leaves the viewport!
+        let newLeft = e.clientX - offsetX;
+        let newTop  = e.clientY - offsetY;
+    
+        // Clamp left/top so modal never goes outside window
+        if (newLeft < 0) newLeft = 0;
+        if (newTop < 0) newTop = 0;
+    
+        // Clamp right/bottom so modal never goes outside window
+        if (newLeft + modalWidth > winWidth)  newLeft = winWidth  - modalWidth;
+        if (newTop  + modalHeight > winHeight) newTop = winHeight - modalHeight;
+    
+        // Prevent negative values after clamp
+        if (newLeft < 0) newLeft = 0;
+        if (newTop < 0) newTop = 0;
+    
         modal.style.left = `${newLeft}px`;
         modal.style.top  = `${newTop}px`;
     }
+    
 
     function onUp() {
         if (!isDragging) return;
         isDragging = false;
         document.body.style.userSelect = '';
+        clampModalSize(modalContent, 0);
         if (onDragEnd) onDragEnd();
     }
 
