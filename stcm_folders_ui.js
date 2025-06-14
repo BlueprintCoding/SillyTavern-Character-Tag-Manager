@@ -1879,25 +1879,14 @@ function injectFolderDropdownAfterTagsDiv() {
 }
 
 eventSource.on(event_types.CHARACTER_PAGE_LOADED, () => {
-    // Try up to 20 times, every 50ms
     let tries = 0;
     const interval = setInterval(() => {
         const tagsDiv = document.getElementById('tags_div');
         tries++;
-        console.log(`[STCM] Try ${tries} tagsDiv:`, tagsDiv);
         if (tagsDiv) {
             clearInterval(interval);
-            if (document.getElementById('stcm-folder-dropdown-row')) {
-                console.log('[STCM] Already injected, skipping');
-                return;
-            }
-            // Visual test: Big red div
-            const row = document.createElement('div');
-            row.id = 'stcm-folder-dropdown-row';
-            row.style.background = 'red';
-            row.textContent = 'FOLDER DROPDOWN HERE';
-            tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
-            console.log('[STCM] Dropdown injected');
+            if (document.getElementById('stcm-folder-dropdown-row')) return;
+            injectFolderDropdownAfterTagsDiv();
         }
         if (tries > 20) clearInterval(interval);
     }, 50);
