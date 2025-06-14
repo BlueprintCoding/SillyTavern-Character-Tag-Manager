@@ -506,6 +506,8 @@ export function showFolderCharactersSection(folder, folders) {
             <option value="tag_count_asc">Fewest Tags</option>
             <option value="with_notes">With Notes</option>
             <option value="without_notes">Without Notes</option>
+            <option value="no_folder">No Folder Assigned</option>
+            <option value="with_folder">Folder Assigned</option>
         </select>
         <input type="text" id="folderCharSearchInput" class="menu_input stcm_fullwidth_input" 
             placeholder="Search characters/groups..." style="min-width:140px;">
@@ -573,15 +575,14 @@ export function showFolderCharactersSection(folder, folders) {
     // --- RENDER FUNCTION ---
     function renderAssignCharList() {
         charList.innerHTML = '';
-        // Advanced search: comma = OR, space = AND, minus = NOT
         let unassignedCharacters = characters.filter(c => !folder.characters.includes(c.avatar));
-        let filtered = unassignedCharacters;
-    
         const searchInput = document.getElementById('folderCharSearchInput');
         const rawInput = (searchInput?.value || '').trim();
         const tagMapById = buildTagMap(tags); // needed for tag lookups
         const searchGroups = parseSearchGroups(rawInput);
     
+        // --- SEARCH FILTER ---
+        let filtered = unassignedCharacters;
         if (searchGroups.length > 0) {
             filtered = unassignedCharacters.filter(char => {
                 const tagIds = tag_map[char.avatar] || [];
@@ -619,48 +620,90 @@ export function showFolderCharactersSection(folder, folders) {
             });
         }
     
-        // Sort
+        // === FOLDER SORT MODES: STRICT FILTERS ===
         switch (folderCharSortMode) {
-            case 'alpha_asc':
-                filtered.sort((a, b) => a.name.localeCompare(b.name));
+            case 'no_folder':
+                filtered = filtered.filter(char => {
+                    // Only show characters not assigned to any folder
+                    const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
+                    return !assignedFolder;
+                });
                 break;
-            case 'alpha_desc':
-                filtered.sort((a, b) => b.name.localeCompare(a.name));
+            case 'with_folder':
+                filtered = filtered.filter(char => {
+                    // Only show characters assigned to some folder (but not this one)
+                    const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
+                    return !!assignedFolder && assignedFolder.id !== folder.id;
+                });
                 break;
-            case 'tag_count_desc':
-                filtered.sort((a, b) =>
-                    (tag_map[b.avatar]?.length || 0) - (tag_map[a.avatar]?.length || 0)
-                );
-                break;
-            case 'tag_count_asc':
-                filtered.sort((a, b) =>
-                    (tag_map[a.avatar]?.length || 0) - (tag_map[b.avatar]?.length || 0)
-                );
-                break;
-            case 'with_notes':
-                filtered = filtered.filter(c => (getNotes().charNotes || {})[c.avatar]);
-                break;
-            case 'without_notes':
-                filtered = filtered.filter(c => !(getNotes().charNotes || {})[c.avatar]);
-                break;
+            // Other modes handled below
         }
-
+    
+        // === NORMAL SORT MODES: SPLIT & SORT ===
+        if (folderCharSortMode !== 'no_folder' && folderCharSortMode !== 'with_folder') {
+            let unassigned = [];
+            let assignedElsewhere = [];
+    
+            filtered.forEach(char => {
+                const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
+                if (!assignedFolder) {
+                    unassigned.push(char);
+                } else if (assignedFolder.id !== folder.id) {
+                    assignedElsewhere.push(char);
+                }
+            });
+    
+            // Sorting function
+            function sortChars(arr) {
+                switch (folderCharSortMode) {
+                    case 'alpha_asc':
+                        arr.sort((a, b) => a.name.localeCompare(b.name));
+                        break;
+                    case 'alpha_desc':
+                        arr.sort((a, b) => b.name.localeCompare(a.name));
+                        break;
+                    case 'tag_count_desc':
+                        arr.sort((a, b) =>
+                            (tag_map[b.avatar]?.length || 0) - (tag_map[a.avatar]?.length || 0)
+                        );
+                        break;
+                    case 'tag_count_asc':
+                        arr.sort((a, b) =>
+                            (tag_map[a.avatar]?.length || 0) - (tag_map[b.avatar]?.length || 0)
+                        );
+                        break;
+                    case 'with_notes':
+                        arr = arr.filter(c => (getNotes().charNotes || {})[c.avatar]);
+                        break;
+                    case 'without_notes':
+                        arr = arr.filter(c => !(getNotes().charNotes || {})[c.avatar]);
+                        break;
+                }
+                return arr;
+            }
+    
+            unassigned = sortChars(unassigned);
+            assignedElsewhere = sortChars(assignedElsewhere);
+    
+            filtered = [...unassigned, ...assignedElsewhere];
+        }
+    
+        // === RENDER CHARACTERS ===
         filtered.forEach(char => {
-            // Check if assigned to another folder
             const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
             const isAssignedHere = folder.characters.includes(char.avatar);
             const isAssignedElsewhere = assignedFolder && !isAssignedHere;
-        
+    
             const li = document.createElement('li');
             li.style.display = 'flex';
             li.style.alignItems = 'center';
             li.style.gap = '1em';
-        
+    
             const left = document.createElement('div');
             left.style.display = 'flex';
             left.style.alignItems = 'center';
             left.style.gap = '8px';
-        
+    
             // Avatar + name
             const img = document.createElement('img');
             img.className = 'stcm_avatar_thumb';
@@ -668,23 +711,23 @@ export function showFolderCharactersSection(folder, folders) {
             img.alt = char.name;
             img.onerror = () => img.src = 'img/ai4.png';
             left.appendChild(img);
-        
+    
             const nameSpan = document.createElement('span');
             nameSpan.className = 'charName';
             nameSpan.textContent = char.name;
             left.appendChild(nameSpan);
-        
+    
             if (isAssignedElsewhere) {
                 li.style.opacity = '0.6';
                 li.title = `Already assigned to "${assignedFolder.name}"`;
-        
+    
                 // Text label
                 const assignedLabel = document.createElement('span');
                 assignedLabel.style.fontStyle = 'italic';
                 assignedLabel.style.color = '#ccc';
                 assignedLabel.textContent = `Already assigned to '${assignedFolder.name}'`;
                 left.appendChild(assignedLabel);
-        
+    
                 // "Reassign here" button
                 const reassignBtn = document.createElement('button');
                 reassignBtn.className = 'stcm_menu_button tiny';
@@ -693,21 +736,20 @@ export function showFolderCharactersSection(folder, folders) {
                 reassignBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     await stcmFolders.assignCharactersToFolder(folder, [char.avatar]);
-                    // Update local view
                     if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                     renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                     renderAssignCharList();
-                    stcmFolders.updateFolderCharacterCount (folder);
+                    stcmFolders.updateFolderCharacterCount(folder);
                     const sidebarFolders = await stcmFolders.loadFolders();
                     injectSidebarFolders(sidebarFolders, characters);
                 });
                 left.appendChild(reassignBtn);
-        
+    
                 li.appendChild(left);
                 charList.appendChild(li);
                 return;
             }
-        
+    
             // Otherwise: normal assign controls
             // Checkbox
             const label = document.createElement('label');
@@ -719,13 +761,12 @@ export function showFolderCharactersSection(folder, folders) {
             checkbox.checked = assignSelection.has(char.avatar);
             checkbox.addEventListener('change', () => {
                 if (checkbox.checked) {
-                    assignSelection.add(char.avatar); }
-                else {
-
-                 assignSelection.delete(char.avatar);
-            }
-
-                    // 🔄 Sync "Select All" if it exists
+                    assignSelection.add(char.avatar);
+                } else {
+                    assignSelection.delete(char.avatar);
+                }
+    
+                // 🔄 Sync "Select All" if it exists
                 const selectAllCheckbox = document.getElementById('selectAllVisibleAssignables');
                 if (selectAllCheckbox) {
                     const allVisible = [...charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)')];
@@ -733,16 +774,15 @@ export function showFolderCharactersSection(folder, folders) {
                     selectAllCheckbox.checked = allChecked;
                 }
             });
-
-
+    
             label.appendChild(checkbox);
-        
+    
             const checkmark = document.createElement('span');
             checkmark.className = 'customCheckbox';
             label.appendChild(checkmark);
-        
+    
             left.insertBefore(label, img);
-        
+    
             // Assign one button
             const assignOneBtn = document.createElement('button');
             assignOneBtn.className = 'stcm_menu_button tiny assignCharsFoldersSmall';
@@ -754,15 +794,15 @@ export function showFolderCharactersSection(folder, folders) {
                 if (!folder.characters.includes(char.avatar)) folder.characters.push(char.avatar);
                 renderAssignedChipsRow(folder, section, renderAssignCharList, assignSelection);
                 renderAssignCharList();
-                stcmFolders.updateFolderCharacterCount (folder);
+                stcmFolders.updateFolderCharacterCount(folder);
                 const sidebarFolders = await stcmFolders.loadFolders();
                 injectSidebarFolders(sidebarFolders, characters);
             });
-        
+    
             left.appendChild(assignOneBtn);
-        
+    
             li.appendChild(left);
-        
+    
             // Tag chips (as before)
             const tagListWrapper = document.createElement('div');
             tagListWrapper.className = 'assignedTagsWrapper';
@@ -782,20 +822,19 @@ export function showFolderCharactersSection(folder, folders) {
                 tagListWrapper.appendChild(tagBox);
             });
             li.appendChild(tagListWrapper);
-        
+    
             charList.appendChild(li);
         });
-
-                    // Sync "Select All" checkbox based on current view
-const selectAllCheckbox = document.getElementById('selectAllVisibleAssignables');
-if (selectAllCheckbox) {
-    const allVisible = [...charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)')];
-    const allChecked = allVisible.length > 0 && allVisible.every(cb => cb.checked);
-    selectAllCheckbox.checked = allChecked;
-}
-
-        
+    
+        // Sync "Select All" checkbox based on current view
+        const selectAllCheckbox = document.getElementById('selectAllVisibleAssignables');
+        if (selectAllCheckbox) {
+            const allVisible = [...charList.querySelectorAll('input.folderAssignCharCheckbox:not(:disabled)')];
+            const allChecked = allVisible.length > 0 && allVisible.every(cb => cb.checked);
+            selectAllCheckbox.checked = allChecked;
+        }
     }
+    
 
     // Attach event listeners
     sortFilterRow.querySelector('#folderCharSortMode').addEventListener('change', (e) => {
