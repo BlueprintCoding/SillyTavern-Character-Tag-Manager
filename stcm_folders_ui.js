@@ -1282,6 +1282,8 @@ export function showIconPicker(folder, parentNode, rerender) {
 
 export function confirmDeleteFolder(folder, rerender) {
     const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
+    const hasRealParent = folder.parentId && folder.parentId !== 'root';
+
     // Compute character assignments:
     const folders = window.STCM?.sidebarFolders || []; // or however you have access to all folders
     const getDescendants = (f, all) => {
@@ -1334,15 +1336,25 @@ export function confirmDeleteFolder(folder, rerender) {
                     }
                 </b>
             </p>
-            <label style="display:block;margin:4px 0 0 12px;">
-                <input type="radio" name="moveMode" value="move" checked>
-                Move assigned characters to parent folder
-            </label>
-            <label style="display:block;margin:4px 0 0 12px;">
-                <input type="radio" name="moveMode" value="unassign">
-                Remove all assigned characters from folders
-            </label>
+            ${
+                hasRealParent ? `
+                <label style="display:block;margin:4px 0 0 12px;">
+                    <input type="radio" name="moveMode" value="move" checked>
+                    Move assigned characters to parent folder
+                </label>
+                <label style="display:block;margin:4px 0 0 12px;">
+                    <input type="radio" name="moveMode" value="unassign">
+                    Remove all assigned characters from folders
+                </label>
+                ` : `
+                <label style="display:block;margin:4px 0 0 12px;">
+                    <input type="radio" name="moveMode" value="unassign" checked>
+                    Remove all assigned characters from folders
+                </label>
+                `
+            }
         ` : ''}
+        
         <p style="color:#e57373;">This cannot be undone.</p>
     `;
 
