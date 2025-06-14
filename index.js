@@ -20,7 +20,8 @@ import {
     watchSidebarFolderInjection,
     injectSidebarFolders,
     hookFolderSidebarEvents,
-    hideFolderedCharactersOutsideSidebar
+    hideFolderedCharactersOutsideSidebar,
+    observeCharacterEditPanel
 } from './stcm_folders_ui.js';
 
 import { renderFoldersTree, attachFolderSectionListeners } from './stcm_folders_tree.js';
@@ -935,6 +936,7 @@ eventSource.on(event_types.APP_READY, async () => {
     watchSidebarFolderInjection(); 
     hookFolderSidebarEvents();
     hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
+    observeCharacterEditPanel();
     injectStcmSettingsPanel();    
 
 });

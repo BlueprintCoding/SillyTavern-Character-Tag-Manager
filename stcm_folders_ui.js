@@ -1,12 +1,12 @@
 // stcm_folders_ui.js
-import { 
-    debounce, 
-    buildTagMap, 
+import {
+    debounce,
+    buildTagMap,
     escapeHtml,
-    getStoredPinHash, 
+    getStoredPinHash,
     hashPin,
     promptInput
-    } from './utils.js';
+} from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
 
@@ -22,7 +22,7 @@ import {
 } from "../../../power-user.js";
 
 import {
-    eventSource, 
+    eventSource,
     event_types,
     getEntitiesList,
 } from "../../../../script.js";
@@ -90,7 +90,7 @@ export async function updateSidebar(forceReload = false) {
     if (!folders || folders.filter(f => f.id !== 'root').length === 0) return;
     if (sidebarUpdateInProgress) return;
     sidebarUpdateInProgress = true;
-    suppressSidebarObserver = true; 
+    suppressSidebarObserver = true;
     if (stcmObserver) stcmObserver.disconnect();
     try {
         if (forceReload || !STCM.sidebarFolders?.length) {
@@ -99,11 +99,11 @@ export async function updateSidebar(forceReload = false) {
         injectSidebarFolders(STCM.sidebarFolders);
         setTimeout(() => {
             hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
-            suppressSidebarObserver = false; 
+            suppressSidebarObserver = false;
             watchSidebarFolderInjection(); // This will recreate the observer
         }, 100);
     } catch (e) {
-        suppressSidebarObserver = false; 
+        suppressSidebarObserver = false;
         console.error("Sidebar update failed:", e);
         watchSidebarFolderInjection(); // This will recreate the observer
     } finally {
@@ -164,26 +164,26 @@ export function injectSidebarFolders(folders) {
         // Entity map keyed by both character CHID and group ID for convenience
         const entityMap = stcmFolders.buildEntityMap();
         const entitiesById = Object.fromEntries([...entityMap].map(([id, ent]) => [id, ent]));
-    
+
         // --- Fuzzy search ---
-        const charResults  = fuzzySearchCharacters(stcmSearchTerm); // array of Fuse results
+        const charResults = fuzzySearchCharacters(stcmSearchTerm); // array of Fuse results
         const groupResults = fuzzySearchGroups(stcmSearchTerm);     // array of Fuse results
-        const tagResults   = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
-    
+        const tagResults = fuzzySearchTags(stcmSearchTerm);       // array of Fuse results
+
         // console.log("entityMap keys:", [...entityMap.keys()]);
         // console.log("charResults sample:", charResults.slice(0,20));
 
         // --- Filter and prepare Character & Group results (privacy-aware) ---
         const filteredCharEntities = charResults
-        .sort((a, b) => a.score - b.score)
-        .map(r => entityMap.get(r.item.avatar || r.item.id))
-        .filter(ent => ent && (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate));
+            .sort((a, b) => a.score - b.score)
+            .map(r => entityMap.get(r.item.avatar || r.item.id))
+            .filter(ent => ent && (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate));
         const filteredGroupEntities = groupResults
-        .sort((a, b) => a.score - b.score)
-        .map(r => entityMap.get(r.item.id))
-        .filter(ent => ent && (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate));
+            .sort((a, b) => a.score - b.score)
+            .map(r => entityMap.get(r.item.id))
+            .filter(ent => ent && (privateFolderVisibilityMode !== 0 || !ent.folderIsPrivate));
 
-    
+
         // --- Tags are different: display only tags, but show privacy marker if all characters/groups with that tag are private ---
         const filteredTags = tagResults
             .map(r => r.item)
@@ -195,14 +195,14 @@ export function injectSidebarFolders(folders) {
                 );
                 return hasVisibleEntity;
             });
-    
+
         // --- Render Unified Search Results ---
         renderSidebarUnifiedSearchResults(filteredCharEntities, filteredGroupEntities, filteredTags, stcmSearchTerm, folders, entityMap);
     }
     else {
         renderSidebarFolderContents(folders, getEntitiesList(), currentSidebarFolderId);
     }
-    
+
     injectSidebarSearchBox();
     removeCharacterSortSelect();
     setupSortOrderListener();
@@ -319,8 +319,8 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     //     "isAnyRealTagActive:", isAnyRealTagActive(),
     //     "isSTCMSortActive:", isSTCMSortActive()
     //   );
-     // --- NEW: Check for tag selection and short-circuit hiding ---
-     if (shouldShowAllCharacters()) {
+    // --- NEW: Check for tag selection and short-circuit hiding ---
+    if (shouldShowAllCharacters()) {
         // If a tag is selected, do NOT hide any characters; just unhide all.
         for (const el of globalList.querySelectorAll('.character_select, .group_select')) {
             el.classList.remove('stcm_force_hidden');
@@ -342,33 +342,33 @@ export function hideFolderedCharactersOutsideSidebar(folders) {
     }
 
 
-        // If we are in a tag folder dive, UNHIDE the right characters
-        if (isTagFolderDiveActive()) {
-            // 1. Find the back button (start of dive area)
-            let backBtn = document.getElementById('BogusFolderBack');
-            // 2. Find the block marking the end (the "hidden" info)
-            let endBlock = document.querySelector('.text_block.hidden_block');
-        
-            if (backBtn && endBlock) {
-                let el = backBtn.nextElementSibling;
-                while (el && el !== endBlock) {
-                    // Unhide all characters, groups, and nested bogus folders in this "dive"
-                    if (
-                        el.classList.contains('character_select') ||
-                        el.classList.contains('group_select') ||
-                        el.classList.contains('bogus_folder_select')
-                    ) {
-                        el.classList.remove('stcm_force_hidden');
-                        el.classList.add('FoundDiveFolder');
-                        document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
-                        // For debugging:
-                        // console.log('UNHIDING:', el);
-                    }
-                    el = el.nextElementSibling;
+    // If we are in a tag folder dive, UNHIDE the right characters
+    if (isTagFolderDiveActive()) {
+        // 1. Find the back button (start of dive area)
+        let backBtn = document.getElementById('BogusFolderBack');
+        // 2. Find the block marking the end (the "hidden" info)
+        let endBlock = document.querySelector('.text_block.hidden_block');
+
+        if (backBtn && endBlock) {
+            let el = backBtn.nextElementSibling;
+            while (el && el !== endBlock) {
+                // Unhide all characters, groups, and nested bogus folders in this "dive"
+                if (
+                    el.classList.contains('character_select') ||
+                    el.classList.contains('group_select') ||
+                    el.classList.contains('bogus_folder_select')
+                ) {
+                    el.classList.remove('stcm_force_hidden');
+                    el.classList.add('FoundDiveFolder');
+                    document.getElementById('stcm_sidebar_folder_nav')?.classList.add('stcm_dive_hidden');
+                    // For debugging:
+                    // console.log('UNHIDING:', el);
                 }
+                el = el.nextElementSibling;
             }
         }
-        
+    }
+
 
     // Never hide the bogus folders
     for (const el of globalList.querySelectorAll('.bogus_folder_select')) {
@@ -566,7 +566,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         sessionStorage.removeItem("stcm_pin_okay");
         toastr.info("Private folder access has been locked.");
         logoutBtn.style.display = 'none';
-    
+
         // Reset visibility mode to hidden and update view
         privateFolderVisibilityMode = 0;
         renderSidebarFolderContents(folders, allEntities, 'root');
@@ -589,7 +589,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
     toggleBtn.addEventListener('click', async () => {
         privateFolderVisibilityMode = (privateFolderVisibilityMode + 1) % 3;
-    
+
         if (privateFolderVisibilityMode !== 0) {
             const pinHash = getStoredPinHash();
             if (pinHash && !sessionStorage.getItem("stcm_pin_okay")) {
@@ -599,13 +599,13 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                     ok: 'Unlock',
                     cancel: 'Cancel'
                 });
-                
+
                 if (!input) {
                     privateFolderVisibilityMode = 0;
                     return;
                 }
-                
-                const enteredHash = await hashPin(input);                
+
+                const enteredHash = await hashPin(input);
                 if (enteredHash !== pinHash) {
                     toastr.error("Incorrect PIN.");
                     privateFolderVisibilityMode = 0;
@@ -619,7 +619,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
         renderSidebarFolderContents(folders, allEntities, folderId);
     });
-    
+
     updateToggleIcon();
     controlRow.appendChild(toggleBtn);
     controlRow.appendChild(logoutBtn);
@@ -700,7 +700,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 }));
             }
         });
-        
+
         container.appendChild(grid);
 
 
@@ -728,58 +728,58 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         }
     }
 
-        // === NEW: Create folder contents wrapper ===
-        let contentDiv = document.getElementById('stcm_folder_contents');
-        if (contentDiv) {
-            contentDiv.innerHTML = "";
-        } else {
-            contentDiv = document.createElement('div');
-            contentDiv.id = 'stcm_folder_contents';
-            contentDiv.className = 'stcm_folder_contents';
-        }
+    // === NEW: Create folder contents wrapper ===
+    let contentDiv = document.getElementById('stcm_folder_contents');
+    if (contentDiv) {
+        contentDiv.innerHTML = "";
+    } else {
+        contentDiv = document.createElement('div');
+        contentDiv.id = 'stcm_folder_contents';
+        contentDiv.className = 'stcm_folder_contents';
+    }
 
     const tagsById = buildTagMap(tags);
     // Show folders (children)
-   (folder.children || []).forEach(childId => {
-    const child = folders.find(f => f.id === childId);
-    if (child) {
-        const isPrivate = !!child.private;
+    (folder.children || []).forEach(childId => {
+        const child = folders.find(f => f.id === childId);
+        if (child) {
+            const isPrivate = !!child.private;
 
-        // Count characters and subfolders
-        const charCount = child.characters?.length || 0;
-        const visibleChildren = (child.children || []).filter(cid => {
-            const f = folders.find(f => f.id === cid);
-            if (!f) return false;
-            if (privateFolderVisibilityMode === 0 && f.private) return false;
-            if (privateFolderVisibilityMode === 2 && !f.private) return false;
-            return true;
-        });
-        const folderCount = visibleChildren.length;
-        const totalCharCount = getVisibleDescendantCharacterCount(child.id, folders);
-        
+            // Count characters and subfolders
+            const charCount = child.characters?.length || 0;
+            const visibleChildren = (child.children || []).filter(cid => {
+                const f = folders.find(f => f.id === cid);
+                if (!f) return false;
+                if (privateFolderVisibilityMode === 0 && f.private) return false;
+                if (privateFolderVisibilityMode === 2 && !f.private) return false;
+                return true;
+            });
+            const folderCount = visibleChildren.length;
+            const totalCharCount = getVisibleDescendantCharacterCount(child.id, folders);
 
-        const folderDiv = document.createElement('div');
-        folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
-        folderDiv.setAttribute('data-folder-id', child.id);
 
-        if (isPrivate) {
-            folderDiv.classList.add('stcm_folder_private');
-            folderDiv.setAttribute('data-private', 'true');
-        }
+            const folderDiv = document.createElement('div');
+            folderDiv.className = 'stcm_folder_sidebar entity_block flex-container wide100p alignitemsflexstart interactable folder_open';
+            folderDiv.setAttribute('data-folder-id', child.id);
 
-        let shouldHide = false;
-        if (child.id !== folderId) {
-            shouldHide =
-                (privateFolderVisibilityMode === 0 && isPrivate) || 
-                (privateFolderVisibilityMode === 2 && !isPrivate && !hasPrivateDescendant(child.id, folders));
-        }
-        
-        if (shouldHide) {
-            folderDiv.style.display = 'none';
-        }
+            if (isPrivate) {
+                folderDiv.classList.add('stcm_folder_private');
+                folderDiv.setAttribute('data-private', 'true');
+            }
 
-        folderDiv.style.cursor = 'pointer';
-        folderDiv.innerHTML = `
+            let shouldHide = false;
+            if (child.id !== folderId) {
+                shouldHide =
+                    (privateFolderVisibilityMode === 0 && isPrivate) ||
+                    (privateFolderVisibilityMode === 2 && !isPrivate && !hasPrivateDescendant(child.id, folders));
+            }
+
+            if (shouldHide) {
+                folderDiv.style.display = 'none';
+            }
+
+            folderDiv.style.cursor = 'pointer';
+            folderDiv.innerHTML = `
             <div class="stcm_folder_main">
                 <div class="avatar flex alignitemscenter textAlignCenter"
                     style="background-color: ${child.color || '#8b2ae6'}; color: #fff;">
@@ -796,44 +796,44 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             </div>
         `;
 
-        const folderIsVisible = hasVisibleChildrenOrCharacters(child.id, folders);
+            const folderIsVisible = hasVisibleChildrenOrCharacters(child.id, folders);
 
-        if (folderIsVisible) {
-            folderDiv.onclick = () => {
-                currentSidebarFolderId = child.id;
-                renderSidebarFolderContents(folders, getEntitiesList(), child.id);
-            };
-        } else {
-            folderDiv.style.cursor = 'default';
-            folderDiv.classList.add('stcm_folder_disabled');
-            folderDiv.title = 'Empty folder';
-            folderDiv.onclick = null;
-        }
-
-        contentDiv.appendChild(folderDiv);
-    }
-});
-   
-        const entityMap = stcmFolders.buildEntityMap();
-        // Show characters in this folder (full card style)
-        (folder.characters || []).forEach(folderVal => {
-            let entity = entityMap.get(folderVal);
-            if (entity && typeof entity.chid !== "undefined") {
-                const entityId = entity.chid;
-                // Add tag info
-                const tagsForChar = getTagsForChar(entity);
-                const entityCard = renderSidebarCharacterCard({
-                    ...entity,
-                    id: entityId,
-                    chid: entityId,
-                    tags: tagsForChar
-                });
-                contentDiv.appendChild(entityCard);
+            if (folderIsVisible) {
+                folderDiv.onclick = () => {
+                    currentSidebarFolderId = child.id;
+                    renderSidebarFolderContents(folders, getEntitiesList(), child.id);
+                };
+            } else {
+                folderDiv.style.cursor = 'default';
+                folderDiv.classList.add('stcm_folder_disabled');
+                folderDiv.title = 'Empty folder';
+                folderDiv.onclick = null;
             }
-        });
-        
-        
-        container.appendChild(contentDiv);
+
+            contentDiv.appendChild(folderDiv);
+        }
+    });
+
+    const entityMap = stcmFolders.buildEntityMap();
+    // Show characters in this folder (full card style)
+    (folder.characters || []).forEach(folderVal => {
+        let entity = entityMap.get(folderVal);
+        if (entity && typeof entity.chid !== "undefined") {
+            const entityId = entity.chid;
+            // Add tag info
+            const tagsForChar = getTagsForChar(entity);
+            const entityCard = renderSidebarCharacterCard({
+                ...entity,
+                id: entityId,
+                chid: entityId,
+                tags: tagsForChar
+            });
+            contentDiv.appendChild(entityCard);
+        }
+    });
+
+
+    container.appendChild(contentDiv);
 }
 
 function hasPrivateDescendant(folderId, folders) {
@@ -934,7 +934,7 @@ export function renderSidebarCharacterCard(entity) {
             <i class="fa-solid fa-circle-xmark tag_remove interactable" tabindex="0" style="display: none;"></i>
         </span>`;
     }).join('');
-    
+
 
     if (isGroup) {
         // --- GROUP CARD ---
@@ -951,8 +951,8 @@ export function renderSidebarCharacterCard(entity) {
         const avatarHtml = `
             <div class="avatar avatar_collage collage_${memberFiles.length}" title="[Group] ${escapedName}">
                 ${memberFiles.slice(0, 3).map((file, i) =>
-                    `<img alt="img${i+1}" class="img_${i+1}" src="/thumbnail?type=avatar&file=${encodeURIComponent(file)}">`
-                ).join('')}
+            `<img alt="img${i + 1}" class="img_${i + 1}" src="/thumbnail?type=avatar&file=${encodeURIComponent(file)}">`
+        ).join('')}
             </div>
         `;
 
@@ -980,7 +980,7 @@ export function renderSidebarCharacterCard(entity) {
         if (typeof avatarUrl !== 'string') avatarUrl = String(avatarUrl ?? 'img/ai4.png');
         const descriptionToShow = ent.creator_notes && ent.creator_notes.trim() !== "" ? ent.creator_notes : (ent.description || ent.creatorcomment || "");
         const escapedDesc = escapeHtml(descriptionToShow);
-        
+
         const div = document.createElement('div');
         div.className = 'character_select entity_block flex-container wide100p alignitemsflexstart interactable stcm_sidebar_character_card';
         div.setAttribute('chid', chid);
@@ -1187,7 +1187,7 @@ export function showIconPicker(folder, parentNode, rerender) {
         prevBtn.textContent = 'Prev';
         prevBtn.className = 'stcm_menu_button tiny';
         prevBtn.disabled = (currentPage === 1);
-        prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderIcons(); }};
+        prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderIcons(); } };
         paginationDiv.appendChild(prevBtn);
 
         const pageInfo = document.createElement('span');
@@ -1199,7 +1199,7 @@ export function showIconPicker(folder, parentNode, rerender) {
         nextBtn.textContent = 'Next';
         nextBtn.className = 'stcm_menu_button tiny';
         nextBtn.disabled = (currentPage === totalPages);
-        nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderIcons(); }};
+        nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderIcons(); } };
         paginationDiv.appendChild(nextBtn);
     }
 
@@ -1230,7 +1230,7 @@ export function showIconPicker(folder, parentNode, rerender) {
             });
             grid.appendChild(btn);
         });
-        
+
         if (iconsToShow.length === 0) {
             const nores = document.createElement('div');
             nores.style.gridColumn = 'span 12';
@@ -1250,7 +1250,7 @@ export function showIconPicker(folder, parentNode, rerender) {
             icon.toLowerCase().includes(term)
         );
     }
-    
+
     searchInput.addEventListener('input', () => {
         lastSearch = searchInput.value.trim();
         currentIcons = searchIcons(lastSearch);
@@ -1338,7 +1338,7 @@ export function confirmDeleteFolder(folder, rerender) {
     const hasRealParent = folder.parentId && folder.parentId !== 'root';
 
     // Compute character assignments:
-    const folders = window.STCM?.sidebarFolders || []; 
+    const folders = window.STCM?.sidebarFolders || [];
     const getDescendants = (f, all) => {
         let result = [];
         if (!Array.isArray(f.children)) return result;
@@ -1379,18 +1379,16 @@ export function confirmDeleteFolder(folder, rerender) {
         ${(hasChildren && cascadeCharCount > 0) || (!hasChildren && directCharCount > 0) ? `
             <p style="margin-top: 10px;">
                 <b>
-                    ${
-                        hasChildren
-                            ? (`
+                    ${hasChildren
+                ? (`
                                 <span class="cascadeCharCount" style="display: ${'cascade'};">This folder and its subfolders have ${cascadeCharCount} characters assigned.</span>
                                 <span class="directCharCount" style="display: ${'none'};">This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.</span>
                             `)
-                            : `This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.`
-                    }
+                : `This folder has ${directCharCount} character${directCharCount === 1 ? '' : 's'} assigned.`
+            }
                 </b>
             </p>
-            ${
-                hasRealParent ? `
+            ${hasRealParent ? `
                 <label style="display:block;margin:4px 0 0 12px;">
                     <input type="radio" name="moveMode" value="move" checked>
                     Move assigned characters to parent folder
@@ -1525,7 +1523,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         return (destDepth + subtreeDepth - 1) < MAX_DEPTH;
     });
 
-        // Build hierarchical option list
+    // Build hierarchical option list
     const optionsTree = getFolderOptionsTree(allFolders, descendants);
 
     // Now, only include those in validFolders
@@ -1537,8 +1535,8 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
         <label><b>Choose New Parent Folder</b></label><br>
         <select style="width:100%;margin:12px 0;" id="stcmMoveFolderSelect">
         ${validOptions.map(f =>
-            `<option value="${f.id}" ${f.id === folder.parentId ? 'selected' : ''}>${f.name}</option>`
-        ).join('')}
+        `<option value="${f.id}" ${f.id === folder.parentId ? 'selected' : ''}>${f.name}</option>`
+    ).join('')}
         </select>
         <div style="font-size:0.93em;color:#fa7878;" id="stcmMoveFolderError"></div>
     `;
@@ -1560,7 +1558,7 @@ export function showChangeParentPopup(folder, allFolders, rerender) {
             errDiv.textContent = e.message || "Failed to move folder.";
         }
     });
-    
+
 }
 
 function getFolderDepth(folderId, folders) {
@@ -1617,7 +1615,7 @@ function removeCharacterSortSelect() {
     sortSelect.value = 'stcm';
 
     // Fire a change event to notify listeners
-    sortSelect.dispatchEvent(new Event('change', {bubbles: true}));
+    sortSelect.dispatchEvent(new Event('change', { bubbles: true }));
     hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
 
     // Remove the sort dropdown if present
@@ -1762,7 +1760,7 @@ function injectResetViewButton() {
     resetBtn.textContent = 'Reset View';
     resetBtn.className = 'stcm_reset_view_btn stcm_menu_button stcm_view_btn interactable';
     resetBtn.style.marginLeft = '8px';
-    resetBtn.addEventListener('click', function() {
+    resetBtn.addEventListener('click', function () {
         // 1. Unselect all tags in the global filter bar
         document.querySelectorAll('.tags.rm_tag_bogus_drilldown .tag_remove').forEach(xBtn => {
             // If it's visible (not display:none) and not disabled
@@ -1774,20 +1772,20 @@ function injectResetViewButton() {
         document.querySelectorAll('.tags.rm_tag_filter .tag.selected, .tags.rm_tag_filter .tag.excluded').forEach(tag => {
             tag.classList.remove('selected', 'excluded');
         });
-    
+
         // 2. Clear search bar
         const searchInput = document.getElementById('character_search_bar_stcm');
         if (searchInput) {
             searchInput.value = '';
             const clearBtn = searchInput.parentNode.querySelector('.stcm_search_clear_btn');
             if (clearBtn) clearBtn.click();
-            searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
         stcmSearchActive = false;
         stcmSearchTerm = '';
         stcmSearchResults = null;
         stcmLastSearchFolderId = null;
-    
+
         // 3. Reset sort order to "STCM"
         const sortSelect = document.getElementById('character_sort_order');
         if (sortSelect) {
@@ -1795,24 +1793,124 @@ function injectResetViewButton() {
             if (stcmOpt) {
                 stcmOpt.selected = true;
                 sortSelect.value = stcmOpt.value;
-                sortSelect.dispatchEvent(new Event('change', {bubbles: true}));
+                sortSelect.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
-    
+
         // 4. Wait for DOM to settle, then re-inject sidebar
         setTimeout(async () => {
             currentSidebarFolderId = 'root';
-    
+
             // If sidebar nav is missing (wiped by sort), forcibly re-inject and then update
             const rmBlock = document.getElementById('rm_print_characters_block');
             if (rmBlock && !document.getElementById('stcm_sidebar_folder_nav')) {
                 injectSidebarFolders(STCM.sidebarFolders || []);
             }
-    
+
             await updateSidebar(true);
         }, 100); // 10ms is enough, adjust if needed
     });
-    
-    
+
     showTag.parentNode.insertBefore(resetBtn, showTag.nextSibling);
+}
+
+// stcm_folders_ui.js (or your extension main file)
+
+// --- Helper for folder options as above (can be moved out) ---
+function buildFolderDropdownOptions(folders, parentId = 'root', depth = 0) {
+    const out = [];
+    folders.filter(f => f.parentId === parentId && f.id !== 'root').forEach(folder => {
+        out.push({
+            id: folder.id,
+            name: (depth ? '—'.repeat(depth) + ' ' : '') + folder.name,
+        });
+        out.push(...buildFolderDropdownOptions(folders, folder.id, depth + 1));
+    });
+    return out;
+}
+
+// --- The core injection logic ---
+function injectCharacterFolderDropdownIfNeeded() {
+    // Only inject if the character form is actually present and visible
+    const tagsDiv = document.getElementById('tags_div');
+    if (!tagsDiv) return;
+    // Prevent duplicate injection
+    if (document.getElementById('stcm-folder-dropdown-row')) return;
+
+    // Get folders (use your source of truth)
+    const folders = window.STCM?.sidebarFolders || [];
+    if (!folders.length) return;
+
+    // Find the current character being edited, if possible (you may need to hook this from your global state)
+    let charFolderId = null;
+    // Try to get from a global, or from a hidden field, etc.
+    // For demo, leave as null for "new" char
+
+    // Build options
+    const options = [
+        { id: '', name: 'No Folder (Top Level)' },
+        ...buildFolderDropdownOptions(folders)
+    ];
+
+    // Create row
+    const row = document.createElement('div');
+    row.id = 'stcm-folder-dropdown-row';
+    row.style.margin = '12px 0';
+
+    // Label
+    const label = document.createElement('label');
+    label.textContent = 'Folder: ';
+    label.style.marginRight = '8px';
+    label.htmlFor = 'stcm-folder-dropdown';
+
+    // Dropdown
+    const select = document.createElement('select');
+    select.id = 'stcm-folder-dropdown';
+    select.className = 'text_pole';
+    select.style.minWidth = '140px';
+    options.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt.id;
+        o.textContent = opt.name;
+        if (opt.id === charFolderId) o.selected = true;
+        select.appendChild(o);
+    });
+
+    // Change handler (update the hidden field or character object as needed)
+    select.addEventListener('change', e => {
+        // Save to your in-memory object or hidden field as needed
+        // Example: set character.folderId = e.target.value
+    });
+
+    row.appendChild(label);
+    row.appendChild(select);
+
+    // Inject after tagsDiv
+    tagsDiv.parentNode.insertBefore(row, tagsDiv.nextSibling);
+}
+
+// --- The observer setup ---
+export function observeCharacterEditPanel() {
+    const rightNav = document.getElementById('right-nav-panel');
+    if (!rightNav) return; // Wait for DOM
+
+    // Use a MutationObserver to watch for content changes
+    const observer = new MutationObserver(() => {
+        // Only inject when character_edit form is visible
+        if (rightNav.getAttribute('data-menu-type') === 'character_edit' && rightNav.style.display !== 'none') {
+            injectCharacterFolderDropdownIfNeeded();
+        }
+    });
+
+    observer.observe(rightNav, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-menu-type', 'style'],
+    });
+
+    // Initial check (in case already open)
+    if (rightNav.getAttribute('data-menu-type') === 'character_edit' && rightNav.style.display !== 'none') {
+        injectCharacterFolderDropdownIfNeeded();
+    }
 }
