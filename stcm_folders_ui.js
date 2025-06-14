@@ -1336,7 +1336,6 @@ export function showIconPicker(folder, parentNode, rerender) {
     });
 }
 
-
 export function confirmDeleteFolder(folder, rerender) {
     const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
     const hasRealParent = folder.parentId && folder.parentId !== 'root';
