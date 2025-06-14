@@ -75,321 +75,12 @@ export async function renderFoldersTree(containerEl, { onTreeChanged } = {}) {
 }
 
 STCM_TREE.renderFoldersTree = renderFoldersTree;   // (optional export)
-function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContainer) {
-    const node = document.createElement('div');
-    node.className = `stcm_folder_node stcm_depth_${depth}`;
-    node.style.marginBottom = '0px';
-
-    // ███████ ROW ███████
-    const row = document.createElement('div');
-    row.className = 'stcm_folder_row';
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '7px';
-    row.style.marginLeft = `${depth * 24}px`;
-
-    // Drag handle
-    const dragHandle = document.createElement('div');
-    dragHandle.className = 'stcm-folder-drag-handle';
-    dragHandle.innerHTML = '<i class="fa-solid fa-bars"></i>';
-    dragHandle.draggable = true;
-    dragHandle.style.cursor = 'grab';
-
-    dragHandle.addEventListener('dragstart', e => {
-        const ghost = row.cloneNode(true);
-        ghost.style.position = 'absolute';
-        ghost.style.top = '-9999px';
-        ghost.style.pointerEvents = 'none';
-        document.body.appendChild(ghost);
-
-        e.dataTransfer.setDragImage(ghost, 0, 0);
-        e.dataTransfer.setData('text/plain', folder.id);
-        e.dataTransfer.effectAllowed = 'move';
-
-        document
-            .getElementById('characterTagManagerModal')
-            ?.classList.add('stcm-dragging-folder');
-
-        setTimeout(() => ghost.remove(), 0);
-    });
-
-    dragHandle.addEventListener('dragend', () => {
-        document
-            .getElementById('characterTagManagerModal')
-            ?.classList.remove('stcm-dragging-folder');
-    });
-
-    row.prepend(dragHandle);
-
-    // Toggle button if children
-    const hasChildren = Array.isArray(folder.children) && folder.children.length > 0;
-    if (hasChildren) {
-        const toggleBtn = document.createElement('button');
-        toggleBtn.className = 'stcm-folder-toggle-btn';
-        toggleBtn.style.marginLeft = '2px';
-        toggleBtn.style.background = 'none';
-        toggleBtn.style.border = 'none';
-        toggleBtn.style.cursor = 'pointer';
-        toggleBtn.style.padding = '0 4px';
-        toggleBtn.title = collapsedFolders[folder.id] ? 'Expand' : 'Collapse';
-
-        toggleBtn.innerHTML = `<i class="fa-solid fa-caret-${collapsedFolders[folder.id] ? 'right' : 'down'}"></i>`;
-        toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            collapsedFolders[folder.id] = !collapsedFolders[folder.id];
-            const newNode = renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContainer);
-            node.replaceWith(newNode);
-        });
-
-        row.appendChild(toggleBtn);
-    }
-
-    // Icon
-    const iconBg = document.createElement('div');
-    iconBg.className = 'avatar flex alignitemscenter textAlignCenter stcm-folder-avatar';
-    iconBg.style.backgroundColor = folder.color || '#8b2ae6';
-    iconBg.title = 'Change Folder Icon';
-    iconBg.innerHTML = `<span class="fa-solid ${folder.icon || 'fa-folder'} fa-fw stcm-folder-icon" style="font-size:1.2em;"></span>`;
-    iconBg.addEventListener('click', e => {
-        e.stopPropagation();
-        showIconPicker(folder, node, async (folders) => {
-            if (onTreeChanged) await onTreeChanged(folders);
-        });
-    });
-    row.appendChild(iconBg);
-
-    // Name
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = folder.name;
-    nameSpan.className = 'stcm-folder-label';
-    nameSpan.style.fontWeight = depth === 0 ? 'bold' : 'normal';
-    nameSpan.style.cursor = 'pointer';
-    nameSpan.title = 'Click to rename';
-    nameSpan.addEventListener('click', e => {
-        e.stopPropagation();
-        makeFolderNameEditable(nameSpan, folder, async (folders) => {
-            if (onTreeChanged) await onTreeChanged(folders);
-        });
-    });
-    row.appendChild(nameSpan);
-
-    // Edit pencil (immediately after name)
-    const editBtn = document.createElement('button');
-    editBtn.className = 'stcm-folder-edit-btn stcm_menu_button tiny interactable';
-    editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
-    editBtn.title = 'Rename Folder';
-    editBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        makeFolderNameEditable(nameSpan, folder, async (folders) => {
-            if (onTreeChanged) await onTreeChanged(folders);
-        });
-    });
-    row.appendChild(editBtn);
-
-    // Color picker (immediately after edit)
-    const colorBtn = document.createElement('button');
-    colorBtn.className = 'stcm-folder-color-btn stcm_menu_button tiny interactable';
-    colorBtn.innerHTML = '<i class="fa-solid fa-palette"></i>';
-    colorBtn.title = 'Change Folder Color';
-    colorBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        showFolderColorPicker(folder, async (folders) => {
-            if (onTreeChanged) await onTreeChanged(folders);
-        });
-    });
-    row.appendChild(colorBtn);
-
-    // --- CONTROLS ROW: aligned right ---
-    const controlsDiv = document.createElement('div');
-    controlsDiv.className = 'stcm-folder-row-controls';
-
-    // Privacy
-    const typeSelect = document.createElement('select');
-    typeSelect.className = 'stcm_folder_type_select tiny';
-    typeSelect.title   = 'Set Folder Type: Public or Private';
-    typeSelect.innerHTML = `
-        <option value="public"  ${folder.private ? '' : 'selected'}>👁️ Public</option>
-        <option value="private" ${folder.private ? 'selected' : ''}>🔒 Private</option>
-    `;
-    typeSelect.addEventListener('change', async e => {
-        const isPriv = e.target.value === 'private';
-        const childIds = Array.isArray(folder.children) ? folder.children : [];
-        const hasChildren = childIds.length > 0;
-        let recursive = false;
-
-        if (hasChildren) {
-            const confirmed = await callGenericPopup(
-                `<div>
-                    <b>This folder has ${childIds.length} subfolder(s).</b><br>
-                    Do you want to apply the <b>${isPriv ? 'Private' : 'Public'}</b> status to all children as well?
-                </div>`,
-                POPUP_TYPE.CONFIRM,
-                isPriv ? 'Set All to Private?' : 'Set All to Public?'
-            );
-            recursive = (confirmed === POPUP_RESULT.AFFIRMATIVE);
-        }
-
-        const folders = await stcmFolders.setFolderPrivacy(folder.id, isPriv, recursive);
-        if (onTreeChanged) await onTreeChanged(folders);
-    });
-
-    controlsDiv.appendChild(typeSelect);
-
-    // Delete
-    let delBtn = null;
-    if (folder.id !== 'root') {
-        delBtn = document.createElement('button');
-        delBtn.className = 'stcm-folder-delete-btn stcm_menu_button tiny red interactable';
-        delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-        delBtn.title = 'Delete Folder';
-        delBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            confirmDeleteFolder(folder, async (folders) => {
-                if (onTreeChanged) await onTreeChanged(folders);
-            });
-        });
-        controlsDiv.appendChild(delBtn);
-    }
-
-    // Move/parent change
-    const moveBtn = document.createElement('button');
-    moveBtn.className = 'stcm-folder-move-btn stcm_menu_button tiny interactable';
-    moveBtn.innerHTML = '<i class="fa-solid fa-share"></i>';
-    moveBtn.title     = 'Change Parent Folder';
-    moveBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        showChangeParentPopup(folder, allFolders, async (folders) => {
-            if (onTreeChanged) await onTreeChanged(folders);
-        });
-    });
-    controlsDiv.appendChild(moveBtn);
-
-    // Add subfolder
-    if (depth < 4) {
-        const addBtn = document.createElement('button');
-        addBtn.className = 'stcm_menu_button tiny interactable';
-        addBtn.innerHTML = '<i class="fa-solid fa-folder-plus"></i>';
-        addBtn.title = 'Add Subfolder';
-
-        addBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-
-            const subName = await promptInput({
-                label  : 'Enter sub-folder name:',
-                title  : 'New Sub-Folder',
-                ok     : 'Create',
-                cancel : 'Cancel',
-                initial: ''
-            });
-
-            if (!subName || !subName.trim()) return;
-
-            try {
-                const { folders } = await stcmFolders.addFolder(subName.trim(), folder.id);
-                await refreshFolderUI(treeContainer, folders);  
-                toastr.success(`Folder “${subName.trim()}” created!`);
-            } catch (err) {
-                toastr.error(err.message || 'Failed to create folder');
-            }
-        });
-        controlsDiv.appendChild(addBtn);
-    }
-
-    // Char-count/manage chars
-    const charCount = Array.isArray(folder.characters) ? folder.characters.length : 0;
-    const charBtn = document.createElement('button');
-    charBtn.className = 'stcm_menu_button tiny stcm_folder_chars_btn interactable';
-    charBtn.innerHTML = `<i class="fa-solid fa-users"></i> Characters (<span class="folderCharCount" data-folder-id="${folder.id}">${charCount}</span>)`;
-    charBtn.title = 'Manage Characters in this Folder';
-    charBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        showFolderCharactersSection?.(folder, allFolders);
-
-        setTimeout(() => {
-            const section = document.getElementById('folderCharactersSection');
-            if (section && section.style.display !== 'none') {
-                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }, 50);
-    });
-    controlsDiv.appendChild(charBtn);
-
-    row.appendChild(controlsDiv); // all right-side controls grouped and aligned right
-
-    node.appendChild(row);
-
-    // CHILDREN, unchanged...
-    if (Array.isArray(folder.children)) {
-        const childrenContainer = document.createElement('div');
-        childrenContainer.className = 'stcm_folder_children';
-        childrenContainer.style.display = collapsedFolders[folder.id] ? 'none' : 'block';
-
-        // drop-line before first child
-        childrenContainer.appendChild(
-            createDropLine(folder, allFolders, 0, onTreeChanged, depth)
-        );
-
-        folder.children.forEach((childId, idx) => {
-            const child = allFolders.find(f => f.id === childId);
-            if (!child) return;
-
-            childrenContainer.appendChild(
-                renderFolderNode(child, allFolders, depth + 1, onTreeChanged, treeContainer)
-            );
-            childrenContainer.appendChild(
-                createDropLine(folder, allFolders, idx + 1, onTreeChanged, depth)
-            );
-        });
-
-        row.addEventListener('dragover', e => {
-            e.preventDefault();
-            row.classList.add('stcm-folder-row-drop-target');
-            row.style.background =
-                folder.color && folder.color !== '#'
-                    ? folder.color
-                    : '#d3ffdc';
-            row.style.boxShadow =
-                `0 0 0 2px ${folder.color && folder.color !== '#' ? folder.color : '#4fc566'}, ` +
-                '0 2px 12px 1px #4fc56655';
-        });
-        row.addEventListener('dragleave', () => {
-            row.classList.remove('stcm-folder-row-drop-target');
-            row.style.background = '';
-            row.style.boxShadow = '';
-        });
-        row.addEventListener('drop', async e => {
-            row.classList.remove('stcm-folder-row-drop-target');
-            row.style.background = '';
-            row.style.boxShadow = '';
-            const draggedId = e.dataTransfer.getData('text/plain');
-            if (!draggedId || draggedId === folder.id) return;
-
-            let folders = await stcmFolders.loadFolders();
-            const dragged = folders.find(f => f.id === draggedId);
-            if (!dragged) return;
-
-            if (getAllDescendantFolderIds(draggedId, folders).includes(folder.id)) return;
-
-            if (dragged.parentId !== folder.id) {
-                await stcmFolders.moveFolder(draggedId, folder.id);
-            }
-
-            const siblings = [...folder.children.filter(id => id !== draggedId), draggedId];
-            folders = await reorderChildren(folder.id, siblings);
-            injectSidebarFolders(folders, characters);
-            onTreeChanged && onTreeChanged(folders);
-        });
-
-        node.appendChild(childrenContainer);
-    }
-
-    return node;
-}
 
 
 // ---------------------------------------------------------------------------
 // Internals
 // ---------------------------------------------------------------------------
+
 function renderFolderNode(folder, allFolders, depth, onTreeChanged, treeContainer) {
     const node = document.createElement('div');
     node.className = `stcm_folder_node stcm_depth_${depth}`;
@@ -878,7 +569,7 @@ export function showFolderCharactersSection(folder, folders) {
         let unassignedCharacters = characters.filter(c => !folder.characters.includes(c.avatar));
         const searchInput = document.getElementById('folderCharSearchInput');
         const rawInput = (searchInput?.value || '').trim();
-        const tagMapById = buildTagMap(tags);
+        const tagMapById = buildTagMap(tags); // needed for tag lookups
         const searchGroups = parseSearchGroups(rawInput);
     
         // --- SEARCH FILTER ---
@@ -920,31 +611,27 @@ export function showFolderCharactersSection(folder, folders) {
             });
         }
     
-        // === STRICT FILTER MODES ===
+        // === FOLDER SORT MODES: STRICT FILTERS ===
         switch (folderCharSortMode) {
             case 'no_folder':
                 filtered = filtered.filter(char => {
+                    // Only show characters not assigned to any folder
                     const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
                     return !assignedFolder;
                 });
                 break;
             case 'with_folder':
                 filtered = filtered.filter(char => {
+                    // Only show characters assigned to some folder (but not this one)
                     const assignedFolder = stcmFolders.getCharacterAssignedFolder(char.avatar, folders);
                     return !!assignedFolder && assignedFolder.id !== folder.id;
                 });
                 break;
-            case 'with_notes':
-                filtered = filtered.filter(c => (getNotes().charNotes || {})[c.avatar]);
-                break;
-            case 'without_notes':
-                filtered = filtered.filter(c => !(getNotes().charNotes || {})[c.avatar]);
-                break;
-            // Other sort modes handled below
+            // Other modes handled below
         }
     
         // === NORMAL SORT MODES: SPLIT & SORT ===
-        if (!['no_folder', 'with_folder', 'with_notes', 'without_notes'].includes(folderCharSortMode)) {
+        if (folderCharSortMode !== 'no_folder' && folderCharSortMode !== 'with_folder') {
             let unassigned = [];
             let assignedElsewhere = [];
     
@@ -976,12 +663,19 @@ export function showFolderCharactersSection(folder, folders) {
                             (tag_map[a.avatar]?.length || 0) - (tag_map[b.avatar]?.length || 0)
                         );
                         break;
+                    case 'with_notes':
+                        arr = arr.filter(c => (getNotes().charNotes || {})[c.avatar]);
+                        break;
+                    case 'without_notes':
+                        arr = arr.filter(c => !(getNotes().charNotes || {})[c.avatar]);
+                        break;
                 }
                 return arr;
             }
     
             unassigned = sortChars(unassigned);
             assignedElsewhere = sortChars(assignedElsewhere);
+    
             filtered = [...unassigned, ...assignedElsewhere];
         }
     
@@ -1131,7 +825,6 @@ export function showFolderCharactersSection(folder, folders) {
             selectAllCheckbox.checked = allChecked;
         }
     }
-    
     
 
     // Attach event listeners
