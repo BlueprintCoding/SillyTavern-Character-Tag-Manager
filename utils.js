@@ -333,6 +333,15 @@ function hexToRgba(hex, alpha) {
     return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// Show all ST events - Dev Mode
+const origEmit = eventSource.emit;
+
+eventSource.emit = function(event, ...args) {
+    console.log('[EVENT]', event, ...args);
+    return origEmit.apply(this, arguments);
+};
+
+
 export {
     debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
     resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize,
