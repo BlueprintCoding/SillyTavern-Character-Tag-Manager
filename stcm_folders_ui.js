@@ -1014,35 +1014,47 @@ export function watchSidebarFolderInjection() {
 
     const debouncedInject = debounce(async () => {
         if (suppressSidebarObserver) return;
+
         const sidebar = container.querySelector('#stcm_sidebar_folder_nav');
         const currentAvatars = getCurrentAvatars();
 
-        // Always inject if missing
+        // Always inject if sidebar is missing
         if (!sidebar) {
+            console.warn('[STCM] Sidebar missing — reinjecting...');
             await updateSidebar(true);
             lastKnownCharacterAvatars = getCurrentAvatars();
             lastSidebarInjection = Date.now();
             return;
         }
-        // Only update if avatars changed
+
+        // Inject only if avatar set changed
         if (!arraysEqual(currentAvatars, lastKnownCharacterAvatars)) {
             await updateSidebar(true);
             lastKnownCharacterAvatars = getCurrentAvatars();
             lastSidebarInjection = Date.now();
         }
+
         hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
-        setTimeout(() => {
-            injectResetViewButton();
-        }, 10);
+        setTimeout(() => injectResetViewButton(), 10);
     }, 150);
 
-    if (stcmObserver) stcmObserver.disconnect();
+    // Reconnect observer
     stcmObserver = new MutationObserver(debouncedInject);
     stcmObserver.observe(container, { childList: true, subtree: false });
 
-    // Initial state
+    // Initial snapshot
     lastKnownCharacterAvatars = getCurrentAvatars();
+
+    // ✳️ Periodic check fallback in case MutationObserver doesn't fire
+    setInterval(() => {
+        const sidebar = document.getElementById('stcm_sidebar_folder_nav');
+        if (!sidebar && !suppressSidebarObserver) {
+            console.warn('[STCM] Periodic check triggered reinjection...');
+            updateSidebar(true);
+        }
+    }, 1000); // Adjust interval as needed
 }
+
 
 export function makeFolderNameEditable(span, folder, rerender) {
     const input = document.createElement('input');
