@@ -994,11 +994,23 @@ export function renderSidebarCharacterCard(entity) {
     }
 }
 
+let stcmCharTopObserver;
+let stcmCharTopObserver;
 
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
     if (!container) return;
     if (stcmObserver) stcmObserver.disconnect();
+
+    const charListTop = document.getElementById('charListFixedTop');
+    if (charListTop) {
+        if (stcmCharTopObserver) stcmCharTopObserver.disconnect(); // Avoid duplicate watchers
+        stcmCharTopObserver = new MutationObserver(() => {
+            rearrangeSearchAndSortRow();
+        });
+        stcmCharTopObserver.observe(charListTop, { childList: true, subtree: false });
+        rearrangeSearchAndSortRow(); // Initial run
+    }
 
     const getCurrentAvatars = () => {
         return Array.from(container.querySelectorAll('.character_select img[src*="/thumbnail?type=avatar&file="]'))
@@ -1019,7 +1031,6 @@ export function watchSidebarFolderInjection() {
         const sidebar = container.querySelector('#stcm_sidebar_folder_nav');
         const currentAvatars = getCurrentAvatars();
 
-        // Always inject if sidebar is missing
         if (!sidebar) {
             console.warn('[STCM] Sidebar missing — reinjecting...');
             await updateSidebar(true);
@@ -1028,7 +1039,6 @@ export function watchSidebarFolderInjection() {
             return;
         }
 
-        // Inject only if avatar set changed
         if (!arraysEqual(currentAvatars, lastKnownCharacterAvatars)) {
             await updateSidebar(true);
             lastKnownCharacterAvatars = getCurrentAvatars();
@@ -1039,21 +1049,18 @@ export function watchSidebarFolderInjection() {
         setTimeout(() => injectResetViewButton(), 10);
     }, 150);
 
-    // Reconnect observer
     stcmObserver = new MutationObserver(debouncedInject);
     stcmObserver.observe(container, { childList: true, subtree: false });
 
-    // Initial snapshot
     lastKnownCharacterAvatars = getCurrentAvatars();
 
-    // ✳️ Periodic check fallback in case MutationObserver doesn't fire
     setInterval(() => {
         const sidebar = document.getElementById('stcm_sidebar_folder_nav');
         if (!sidebar && !suppressSidebarObserver) {
             console.warn('[STCM] Periodic check triggered reinjection...');
             updateSidebar(true);
         }
-    }, 1000); // Adjust interval as needed
+    }, 1000);
 }
 
 
@@ -1952,29 +1959,32 @@ eventSource.on(event_types.CHARACTER_PAGE_LOADED, watchInjectFolderDropdown);
 eventSource.on(event_types.chat_id_changed || "chat_id_changed", watchInjectFolderDropdown);
 
 function rearrangeSearchAndSortRow() {
-    const topRow = document.getElementById('charListFixedTop');
-    const sortSelect = document.getElementById('character_sort_order');
-    const searchWrapper = document.querySelector('.stcm_search_bar_wrapper');
+    const top = document.getElementById('charListFixedTop');
+    if (!top) return;
+
+    const search = top.querySelector('.stcm_search_bar_wrapper');
+    const sort = document.getElementById('character_sort_order');
     const tagControls = document.querySelector('.rm_tag_controls');
 
-    if (!topRow || !sortSelect || !searchWrapper || !tagControls) return;
+    // Don't proceed unless all are present
+    if (!search || !sort || !tagControls) return;
 
-    // Prevent duplicate insertion
+    // Prevent duplicate move
     if (document.getElementById('stcm_search_sort_row')) return;
 
-    // Create new row
-    const row = document.createElement('div');
-    row.id = 'stcm_search_sort_row';
-    row.style.display = 'flex';
-    row.style.gap = '10px';
-    row.style.margin = '10px 0';
-    row.style.alignItems = 'center';
-    row.style.flexWrap = 'wrap';
+    // Create new row container
+    const newRow = document.createElement('div');
+    newRow.id = 'stcm_search_sort_row';
+    newRow.style.display = 'flex';
+    newRow.style.flexWrap = 'wrap';
+    newRow.style.alignItems = 'center';
+    newRow.style.gap = '10px';
+    newRow.style.margin = '8px 0';
 
-    // Move existing elements into new row
-    row.appendChild(searchWrapper);
-    row.appendChild(sortSelect);
+    // Move the existing elements into the new row
+    newRow.appendChild(search);
+    newRow.appendChild(sort);
 
-    // Insert above tag filters
-    tagControls.parentNode.insertBefore(row, tagControls);
+    // Insert above tag controls
+    tagControls.parentNode.insertBefore(newRow, tagControls);
 }
