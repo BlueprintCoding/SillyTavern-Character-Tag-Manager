@@ -995,7 +995,6 @@ export function renderSidebarCharacterCard(entity) {
 }
 
 let stcmCharTopObserver;
-let stcmCharTopObserver;
 
 export function watchSidebarFolderInjection() {
     const container = document.getElementById('rm_print_characters_block');
