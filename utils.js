@@ -8,6 +8,12 @@ import {
     POPUP_RESULT 
 } from '../../../popup.js';
 
+import {
+    eventSource,
+    event_types
+} from "../../../../script.js";
+
+
 let context = null;
 
 function ensureContext() {
