@@ -208,6 +208,7 @@ export function injectSidebarFolders(folders) {
     setupSortOrderListener();
     insertNoFolderLabelIfNeeded();
     injectTagManagerControlButton();
+    rearrangeSearchAndSortRow();
     setTimeout(() => {
         injectResetViewButton();
     }, 10);
@@ -1949,3 +1950,31 @@ function watchInjectFolderDropdown() {
 
 eventSource.on(event_types.CHARACTER_PAGE_LOADED, watchInjectFolderDropdown);
 eventSource.on(event_types.chat_id_changed || "chat_id_changed", watchInjectFolderDropdown);
+
+function rearrangeSearchAndSortRow() {
+    const topRow = document.getElementById('charListFixedTop');
+    const sortSelect = document.getElementById('character_sort_order');
+    const searchWrapper = document.querySelector('.stcm_search_bar_wrapper');
+    const tagControls = document.querySelector('.rm_tag_controls');
+
+    if (!topRow || !sortSelect || !searchWrapper || !tagControls) return;
+
+    // Prevent duplicate insertion
+    if (document.getElementById('stcm_search_sort_row')) return;
+
+    // Create new row
+    const row = document.createElement('div');
+    row.id = 'stcm_search_sort_row';
+    row.style.display = 'flex';
+    row.style.gap = '10px';
+    row.style.margin = '10px 0';
+    row.style.alignItems = 'center';
+    row.style.flexWrap = 'wrap';
+
+    // Move existing elements into new row
+    row.appendChild(searchWrapper);
+    row.appendChild(sortSelect);
+
+    // Insert above tag filters
+    tagControls.parentNode.insertBefore(row, tagControls);
+}
