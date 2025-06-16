@@ -763,7 +763,7 @@ function createEditSectionForCharacter(char) {
     section.style.borderTop = '1px solid var(--ac-style-color-border)';
     section.style.background = 'var(--ac-style-color-background-subtle)';
 
-    const skipTopLevel = ['spec', 'spec_version', 'json_data', 'chat_size', 'data_size', 'group_only_greetings'];
+    const skipTopLevel = ['spec', 'spec_version', 'json_data', 'chat_size', 'data_size', 'group_only_greetings', 'world', 'role', 'chat'];
     const readOnly = ['avatar', 'create_date'];
     const singleLine = ['name', 'talkativeness', 'create_date'];
 
