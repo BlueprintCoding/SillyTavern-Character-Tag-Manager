@@ -512,6 +512,60 @@
     text-shadow: 0 0 2px #fff;
 }
 
+/* Container for the edit panel below each character */
+.charEditSection {
+    display: none;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    background: var(--ac-style-color-background-subtle);
+    border-top: 1px solid var(--ac-style-color-border);
+    margin-top: 8px;
+}
+
+/* Each field row */
+.charEditSection .editFieldRow {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+}
+
+/* Labels */
+.charEditSection .editFieldRow label {
+    font-weight: bold;
+    margin-bottom: 4px;
+    color: var(--ac-style-color-text);
+}
+
+/* Inputs and textareas */
+.charEditSection .editFieldRow input,
+.charEditSection .editFieldRow textarea {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--ac-style-color-border);
+    border-radius: 4px;
+    background: var(--ac-style-color-background);
+    color: var(--ac-style-color-text);
+    font-family: inherit;
+    font-size: 0.95em;
+    resize: vertical;
+}
+
+/* Read-only inputs should look disabled */
+.charEditSection .editFieldRow input[readonly],
+.charEditSection .editFieldRow textarea[readonly] {
+    background: var(--ac-style-color-disabled-background);
+    color: var(--ac-style-color-disabled-text);
+    cursor: not-allowed;
+}
+
+/* Save button */
+.charEditSection .stcm_menu_button.small {
+    margin-top: 10px;
+    align-self: flex-start;
+}
+
+
 /* === Tag List, Tag Groups, Tag Chips === */
 .tagNameEditable {
     display: flex;

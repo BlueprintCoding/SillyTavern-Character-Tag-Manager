@@ -736,8 +736,18 @@ function createEditSectionForCharacter(char) {
     section.style.borderTop = '1px solid var(--ac-style-color-border)';
     section.style.background = 'var(--ac-style-color-background-subtle)';
 
+    // Keys to hide entirely
+    const hiddenKeys = ['spec', 'spec_version', 'json_date'];
+
+    // Keys that should be shown as single-line inputs
+    const singleLineKeys = ['name', 'spec', 'talkativeness', 'created_date'];
+
+    // Keys that should be read-only
+    const readOnlyKeys = ['avatar', 'created_date'];
+
     for (const [key, value] of Object.entries(char)) {
         if (typeof value !== 'string') continue;
+        if (hiddenKeys.includes(key)) continue;
 
         const row = document.createElement('div');
         row.className = 'editFieldRow';
@@ -747,13 +757,22 @@ function createEditSectionForCharacter(char) {
         label.textContent = key;
         label.style.marginRight = '8px';
         label.style.fontWeight = 'bold';
+        label.style.display = 'block';
 
-        const input = document.createElement('input');
-        input.type = 'text';
+        let input;
+        if (singleLineKeys.includes(key)) {
+            input = document.createElement('input');
+            input.type = 'text';
+        } else {
+            input = document.createElement('textarea');
+            input.rows = 3;
+        }
+
         input.name = key;
         input.value = value;
         input.className = 'charEditInput';
         input.style.width = '100%';
+        input.readOnly = readOnlyKeys.includes(key);
 
         row.appendChild(label);
         row.appendChild(input);
@@ -768,7 +787,10 @@ function createEditSectionForCharacter(char) {
     saveBtn.addEventListener('click', async () => {
         const inputs = section.querySelectorAll('.charEditInput');
         const updated = {};
-        inputs.forEach(i => updated[i.name] = i.value);
+        inputs.forEach(i => {
+            if (!i.readOnly) updated[i.name] = i.value;
+        });
+
         Object.assign(char, updated);
         await fetch('/api/characters/update', {
             method: 'POST',
@@ -782,14 +804,3 @@ function createEditSectionForCharacter(char) {
     section.appendChild(saveBtn);
     return section;
 }
-
-
-export {
-    renderCharacterList,
-    toggleCharacterList
-};
-
-export const stcmCharState = {
-    isBulkDeleteCharMode: false,
-    selectedCharacterIds: new Set(),
-};
