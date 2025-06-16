@@ -800,24 +800,33 @@ function createEditSectionForCharacter(char) {
         parent.appendChild(row);
     };
 
-    // Flatten top-level fields
+    const alreadyRenderedKeys = new Set();
+
+    // Top-level fields
     for (const [k, v] of Object.entries(char)) {
-        if (typeof v === 'string') renderField(section, k, v);
+        if (typeof v === 'string' && !skipTopLevel.includes(k)) {
+            renderField(section, k, v);
+            alreadyRenderedKeys.add(k);
+        }
     }
 
-    // Flatten nested fields from char.data
+    // Nested char.data fields — skip if already shown
     if (char.data) {
         for (const [k, v] of Object.entries(char.data)) {
-            if (typeof v === 'string') renderField(section, k, v, `data.${k}`);
+            if (typeof v === 'string' && !alreadyRenderedKeys.has(k)) {
+                renderField(section, k, v, `data.${k}`);
+                alreadyRenderedKeys.add(k); // Add to prevent extensions from showing dupes
+            }
         }
+
         // Nested: data.extensions
         if (char.data.extensions) {
             for (const [k, v] of Object.entries(char.data.extensions)) {
-                if (typeof v === 'string') {
+                if (typeof v === 'string' && !alreadyRenderedKeys.has(k)) {
                     renderField(section, k, v, `data.extensions.${k}`);
                 } else if (typeof v === 'object' && v !== null) {
                     for (const [subKey, subVal] of Object.entries(v)) {
-                        if (typeof subVal === 'string') {
+                        if (typeof subVal === 'string' && !alreadyRenderedKeys.has(subKey)) {
                             renderField(section, subKey, subVal, `data.extensions.${k}.${subKey}`);
                         }
                     }
@@ -868,8 +877,6 @@ function createEditSectionForCharacter(char) {
     section.appendChild(saveBtn);
     return section;
 }
-
-
 
 export {
     renderCharacterList,
