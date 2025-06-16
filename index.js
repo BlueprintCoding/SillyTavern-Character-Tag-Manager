@@ -12,6 +12,7 @@ getNotes,
 saveNotes, 
 cleanTagMap,
 promptInput,
+restoreCharEditModal
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
@@ -235,6 +236,15 @@ function openCharacterTagManagerModal() {
             </div>
         </div>
     </div>
+
+    <div id="stcmCharEditModal" class="stcm_char_edit_modal hidden">
+    <div class="stcm_modal_header">
+        <span id="stcmCharEditTitle">Edit Character</span>
+        <button id="stcmCharEditCloseBtn" class="stcm_menu_button small">✕</button>
+    </div>
+    <div id="stcmCharEditBody" class="stcm_char_edit_body"></div>
+    </div>
+
     `;
 
 
@@ -936,6 +946,7 @@ eventSource.on(event_types.APP_READY, async () => {
     hookFolderSidebarEvents();
     hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
     injectStcmSettingsPanel();    
+    restoreCharEditModal();
 
 });
 

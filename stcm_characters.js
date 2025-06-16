@@ -4,8 +4,13 @@ import { debouncePersist,
     getNotes,
     saveNotes,
     parseSearchGroups,
-    parseSearchTerm
+    parseSearchTerm,
+    resetModalScrollPositions, 
+    makeModalDraggable, 
+    saveModalPosSize,
+    clampModalSize
  } from './utils.js';
+    
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
 import { characters, selectCharacterById } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
@@ -496,14 +501,35 @@ async function renderCharacterList() {
         if (entity.type === 'character') {
             const char = characters.find(c => c.avatar === entity.id);
             if (char) {
-                const editSection = createEditSectionForCharacter(char);
-                li.appendChild(editSection); // APPEND EDIT SECTION BELOW THE META
-
                 editIcon.addEventListener('click', () => {
-                    const isOpen = editSection.style.display === 'block';
-                    editSection.style.display = isOpen ? 'none' : 'block';
-                    editIcon.style.color = isOpen ? '' : '#ca5';
+                    const modal = document.getElementById('stcmCharEditModal');
+                    const modalHeader = document.getElementById('stcmCharEditModalHeader');
+                    const modalBody = document.getElementById('stcmCharEditBody');
+                    const modalTitle = document.getElementById('stcmCharEditTitle');
+                    const modalClose = document.getElementById('stcmCharEditCloseBtn');
+                
+                    // Reset contents
+                    modalBody.innerHTML = '';
+                    modalBody.appendChild(createEditSectionForCharacter(char));
+                    modalTitle.textContent = `Edit: ${char.name}`;
+                    modal.classList.remove('hidden');
+                
+                    // Clamp modal size to viewport and reset scroll
+                    clampModalSize(modal, 20);
+                    resetModalScrollPositions();
+                
+                    // Enable dragging via header
+                    makeModalDraggable(modal, modalHeader, () => saveModalPosSize(modal));
+                    // Save current pos/size for restoration
+                    saveModalPosSize(modal);
+                
+                    // Optional: close handler
+                    modalClose.onclick = () => {
+                        modal.classList.add('hidden');
+                    };
                 });
+                
+                  
             }
         }
 

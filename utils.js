@@ -219,6 +219,26 @@ function clampModalSize(modalEl, margin = 20) {
     return changed;
   }
 
+  function restoreCharEditModal() {
+    const modal = document.getElementById('stcmCharEditModal');
+    const data = sessionStorage.getItem('stcm_char_edit_modal_pos_size');
+    if (!data) return;
+    try {
+        const rect = JSON.parse(data);
+        if (rect.width && rect.height) {
+            modal.style.width = `${rect.width}px`;
+            modal.style.height = `${rect.height}px`;
+        }
+        if (rect.left !== undefined && rect.top !== undefined) {
+            modal.style.left = `${rect.left}px`;
+            modal.style.top = `${rect.top}px`;
+        }
+    } catch (e) {
+        console.warn('Failed to restore edit modal position/size');
+    }
+}
+
+
 function cleanTagMap(tag_map, characters = [], groups = []) {
     // Build a list of every still-valid character / group id
     const validIds = new Set([
@@ -350,7 +370,7 @@ eventSource.emit = function(event, ...args) {
 
 export {
     debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
-    resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize,
+    resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize, restoreCharEditModal,
     cleanTagMap, buildTagMap,
     buildCharNameMap, getNotes, saveNotes,
     watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 

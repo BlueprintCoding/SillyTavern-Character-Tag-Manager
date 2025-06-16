@@ -573,6 +573,35 @@
     gap: 6px;
 }
 
+.stcm_char_edit_modal {
+    position: fixed;
+    top: 100px;
+    left: 100px;
+    width: 600px;
+    min-height: 300px;
+    background: var(--ac-style-color-module, #2a2a2a);
+    border: 1px solid var(--ac-style-color-border);
+    border-radius: 8px;
+    z-index: 99999;
+    resize: both;
+    overflow: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  }
+  
+  .stcm_char_edit_modal.hidden {
+    display: none;
+  }
+  
+  .stcm_char_edit_body {
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-top: 10px;
+  }
+  
+
 
 /* === Tag List, Tag Groups, Tag Chips === */
 .tagNameEditable {
