@@ -767,6 +767,24 @@ function createEditSectionForCharacter(char) {
     const readOnly = ['avatar', 'create_date'];
     const singleLine = ['name', 'talkativeness', 'create_date'];
 
+    const labelMap = {
+        name: 'Name',
+        description: 'Description',
+        personality: 'Personality Summary',
+        scenario: 'Scenario',
+        first_mes: 'First Message',
+        mes_example: 'Examples of dialogue',
+        creator: "Created by",
+        character_version: "Character Version",
+        creatorcomment: "Creator's Notes",
+        talkativeness: 'Talkativeness',
+        create_date: 'Date Created',
+        creator_notes: "Creator's Notes",
+        'data.extensions.depth_prompt.prompt': "Character Note's",
+        'data.extensions.depth_prompt.depth': "Character Note's Depth Level",
+        'data.extensions.depth_prompt.role': "Character Note's Role", 
+    };
+
     const renderField = (parent, key, value, path = key) => {
         if (typeof value !== 'string' || skipTopLevel.includes(key)) return;
 
@@ -775,19 +793,31 @@ function createEditSectionForCharacter(char) {
         row.style.marginBottom = '6px';
 
         const label = document.createElement('label');
-        label.textContent = key;
+        label.textContent = labelMap[path] || key;
         label.style.marginRight = '8px';
         label.style.fontWeight = 'bold';
         label.style.display = 'block';
 
         let input;
-        if (singleLine.includes(key)) {
+        if (path === 'data.extensions.depth_prompt.role') {
+            input = document.createElement('select');
+            ['system', 'user', 'assistant'].forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = opt;
+                if (value === opt) option.selected = true;
+                input.appendChild(option);
+            });
+        } else if (singleLine.includes(key)) {
             input = document.createElement('input');
             input.type = 'text';
+            input.value = value;
         } else {
             input = document.createElement('textarea');
             input.rows = 3;
+            input.value = value;
         }
+        
 
         input.name = path;
         input.value = value;
@@ -801,10 +831,16 @@ function createEditSectionForCharacter(char) {
     };
 
     const alreadyRenderedKeys = new Set();
+    // Unified creator notes field
+    const creatorNotes = (char.data?.creator_notes || '').trim() || (char.creatorcomment || '').trim() || '';
+    renderField(section, 'creator_notes', creatorNotes, 'unified.creator_notes');
+    alreadyRenderedKeys.add('creatorcomment');
+    alreadyRenderedKeys.add('creator_notes');
+
 
     // Top-level fields
     for (const [k, v] of Object.entries(char)) {
-        if (typeof v === 'string' && !skipTopLevel.includes(k)) {
+        if (typeof v === 'string' && !skipTopLevel.includes(k) && !alreadyRenderedKeys.has(k)) {
             renderField(section, k, v);
             alreadyRenderedKeys.add(k);
         }
@@ -845,14 +881,21 @@ function createEditSectionForCharacter(char) {
         const payload = {};
         inputs.forEach(i => {
             if (!i.readOnly) {
-                const keys = i.name.split('.');
-                let ref = payload;
-                while (keys.length > 1) {
-                    const k = keys.shift();
-                    ref[k] = ref[k] || {};
-                    ref = ref[k];
+                if (i.name === 'unified.creator_notes') {
+                    payload.creatorcomment = i.value;
+                    payload.data = payload.data || {};
+                    payload.data.creator_notes = i.value;
+                } else {
+                    const keys = i.name.split('.');
+                    let ref = payload;
+                    while (keys.length > 1) {
+                        const k = keys.shift();
+                        ref[k] = ref[k] || {};
+                        ref = ref[k];
+                    }
+                    ref[keys[0]] = i.value;
                 }
-                ref[keys[0]] = i.value;
+                
             }
         });
 
