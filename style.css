@@ -565,6 +565,14 @@
     align-self: flex-start;
 }
 
+.charListItemWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 10px;
+    gap: 6px;
+}
+
 
 /* === Tag List, Tag Groups, Tag Chips === */
 .tagNameEditable {
