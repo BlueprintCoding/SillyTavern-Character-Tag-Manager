@@ -763,9 +763,7 @@ function createEditSectionForCharacter(char) {
     section.style.borderTop = '1px solid var(--ac-style-color-border)';
     section.style.background = 'var(--ac-style-color-background-subtle)';
 
-    const skipTopLevel = ['spec', 'spec_version', 'json_data', 'chat_size', 'data_size', 'group_only_greetings', 'world', 'role', 'chat'];
     const readOnly = ['avatar', 'create_date'];
-    const singleLine = ['name', 'talkativeness', 'create_date'];
 
     const labelMap = {
         name: 'Name',
@@ -773,30 +771,29 @@ function createEditSectionForCharacter(char) {
         personality: 'Personality Summary',
         scenario: 'Scenario',
         first_mes: 'First Message',
-        mes_example: 'Examples of dialogue',
+        mes_example: 'Examples of Dialogue',
         creator: "Created by",
         character_version: "Character Version",
-        creatorcomment: "Creator's Notes",
         talkativeness: 'Talkativeness',
         create_date: 'Date Created',
+        creatorcomment: "Creator's Notes",
         creator_notes: "Creator's Notes",
-        'data.extensions.depth_prompt.prompt': "Character Note's",
-        'data.extensions.depth_prompt.depth': "Character Note's Depth Level",
-        'data.extensions.depth_prompt.role': "Character Note's Role", 
+        system_prompt: "Main Prompt",
+        post_history_instructions: "Post-History Instructions",
+        'data.extensions.depth_prompt.prompt': "Character Note",
+        'data.extensions.depth_prompt.depth': "Depth",
+        'data.extensions.depth_prompt.role': "Role"
     };
 
-    const renderField = (parent, key, value, path = key) => {
-        if (typeof value !== 'string' || skipTopLevel.includes(key)) return;
+    const alreadyRendered = new Set();
 
+    function renderField(label, value, path, multiline = true, readonly = false) {
         const row = document.createElement('div');
         row.className = 'editFieldRow';
-        row.style.marginBottom = '6px';
 
-        const label = document.createElement('label');
-        label.textContent = labelMap[path] || key;
-        label.style.marginRight = '8px';
-        label.style.fontWeight = 'bold';
-        label.style.display = 'block';
+        const lbl = document.createElement('label');
+        lbl.textContent = label;
+        lbl.className = 'editLabel';
 
         let input;
         if (path === 'data.extensions.depth_prompt.role') {
@@ -808,7 +805,7 @@ function createEditSectionForCharacter(char) {
                 if (value === opt) option.selected = true;
                 input.appendChild(option);
             });
-        } else if (singleLine.includes(key)) {
+        } else if (!multiline) {
             input = document.createElement('input');
             input.type = 'text';
             input.value = value;
@@ -817,60 +814,96 @@ function createEditSectionForCharacter(char) {
             input.rows = 3;
             input.value = value;
         }
-        
 
         input.name = path;
-        input.value = value;
         input.className = 'charEditInput';
-        input.style.width = '100%';
-        input.readOnly = readOnly.includes(key);
+        input.readOnly = readonly;
 
-        row.appendChild(label);
+        row.appendChild(lbl);
         row.appendChild(input);
-        parent.appendChild(row);
-    };
+        return row;
+    }
 
-    const alreadyRenderedKeys = new Set();
-    // Unified creator notes field
+    function makeSection(title, open = false) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'collapsibleSection';
+
+        const header = document.createElement('div');
+        header.className = 'collapsibleHeader';
+        header.textContent = title;
+
+        const content = document.createElement('div');
+        content.className = 'collapsibleContent';
+        if (open) {
+            content.classList.add('open');
+            header.classList.add('active');
+        }
+
+        header.addEventListener('click', () => {
+            content.classList.toggle('open');
+            header.classList.toggle('active');
+        });
+
+        wrapper.appendChild(header);
+        wrapper.appendChild(content);
+        return { wrapper, content };
+    }
+
+    // === Avatar + Name
+    const avatarRow = document.createElement('div');
+    avatarRow.style.display = 'flex';
+    avatarRow.style.alignItems = 'center';
+    avatarRow.style.marginBottom = '12px';
+
+    const img = document.createElement('img');
+    img.src = `/characters/${char.avatar}`;
+    img.alt = char.name;
+    img.title = char.avatar;
+    img.style.width = '64px';
+    img.style.height = '64px';
+    img.style.marginRight = '10px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '8px';
+    avatarRow.appendChild(img);
+
+    avatarRow.appendChild(renderField('Name', char.name || '', 'name', false, readOnly.includes('name')));
+    section.appendChild(avatarRow);
+
+    // === Basics (Open by default)
+    const { wrapper: basicsWrap, content: basicsFields } = makeSection('Basics', true);
+    section.appendChild(basicsWrap);
+    ['description', 'personality', 'scenario', 'first_mes', 'mes_example'].forEach(k => {
+        basicsFields.appendChild(renderField(labelMap[k], char[k] || '', k));
+        alreadyRendered.add(k);
+    });
+
+    // === Prompt Overrides
+    const { wrapper: promptWrap, content: promptFields } = makeSection('Prompt Overrides');
+    section.appendChild(promptWrap);
+
+    const noteRow = document.createElement('div');
+    noteRow.style.display = 'flex';
+    noteRow.style.gap = '10px';
+    noteRow.appendChild(renderField('Character Note', char.data?.extensions?.depth_prompt?.prompt || '', 'data.extensions.depth_prompt.prompt', false));
+    noteRow.appendChild(renderField('Depth', char.data?.extensions?.depth_prompt?.depth || '', 'data.extensions.depth_prompt.depth', false));
+    noteRow.appendChild(renderField('Role', char.data?.extensions?.depth_prompt?.role || '', 'data.extensions.depth_prompt.role', false));
+    promptFields.appendChild(noteRow);
+
+    promptFields.appendChild(renderField('Main Prompt', char.data?.system_prompt || '', 'data.system_prompt'));
+    promptFields.appendChild(renderField('Post-History Instructions', char.data?.post_history_instructions || '', 'data.post_history_instructions'));
+
+    // === Creator Metadata
+    const { wrapper: metaWrap, content: metaFields } = makeSection("Creator's Metadata (Not sent with the AI Prompt)");
+    section.appendChild(metaWrap);
+
+    metaFields.appendChild(renderField('Character Version', char.data?.character_version || '', 'data.character_version', false));
+    metaFields.appendChild(renderField('Created by', char.data?.creator || '', 'data.creator', false));
+
     const creatorNotes = (char.data?.creator_notes || '').trim() || (char.creatorcomment || '').trim() || '';
-    renderField(section, 'creator_notes', creatorNotes, 'unified.creator_notes');
-    alreadyRenderedKeys.add('creatorcomment');
-    alreadyRenderedKeys.add('creator_notes');
+    metaFields.appendChild(renderField("Creator's Notes", creatorNotes, 'unified.creator_notes'));
+    metaFields.appendChild(renderField('Tags to Embed (comma-separated)', (char.data?.tags || []).join(', '), 'data.tags'));
 
-
-    // Top-level fields
-    for (const [k, v] of Object.entries(char)) {
-        if (typeof v === 'string' && !skipTopLevel.includes(k) && !alreadyRenderedKeys.has(k)) {
-            renderField(section, k, v);
-            alreadyRenderedKeys.add(k);
-        }
-    }
-
-    // Nested char.data fields — skip if already shown
-    if (char.data) {
-        for (const [k, v] of Object.entries(char.data)) {
-            if (typeof v === 'string' && !alreadyRenderedKeys.has(k)) {
-                renderField(section, k, v, `data.${k}`);
-                alreadyRenderedKeys.add(k); // Add to prevent extensions from showing dupes
-            }
-        }
-
-        // Nested: data.extensions
-        if (char.data.extensions) {
-            for (const [k, v] of Object.entries(char.data.extensions)) {
-                if (typeof v === 'string' && !alreadyRenderedKeys.has(k)) {
-                    renderField(section, k, v, `data.extensions.${k}`);
-                } else if (typeof v === 'object' && v !== null) {
-                    for (const [subKey, subVal] of Object.entries(v)) {
-                        if (typeof subVal === 'string' && !alreadyRenderedKeys.has(subKey)) {
-                            renderField(section, subKey, subVal, `data.extensions.${k}.${subKey}`);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
+    // === Save Button
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save Changes';
     saveBtn.className = 'stcm_menu_button small';
@@ -895,7 +928,6 @@ function createEditSectionForCharacter(char) {
                     }
                     ref[keys[0]] = i.value;
                 }
-                
             }
         });
 
@@ -920,6 +952,7 @@ function createEditSectionForCharacter(char) {
     section.appendChild(saveBtn);
     return section;
 }
+
 
 export {
     renderCharacterList,

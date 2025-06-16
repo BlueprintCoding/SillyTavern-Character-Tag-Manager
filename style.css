@@ -567,6 +567,61 @@
     align-self: flex-start;
 }
 
+.collapsibleSection {
+    border: 1px solid var(--ac-style-color-border);
+    border-radius: 4px;
+    margin-bottom: 14px;
+    background: var(--ac-style-color-background);
+    overflow: hidden;
+}
+
+.collapsibleHeader {
+    padding: 8px 12px;
+    font-weight: bold;
+    background-color: var(--ac-style-color-secondary);
+    color: var(--ac-style-color-text);
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--ac-style-color-border);
+}
+
+.collapsibleHeader.active {
+    background-color: var(--ac-style-color-secondary-hover);
+}
+
+.collapsibleContent {
+    display: none;
+    padding: 10px;
+    background-color: var(--ac-style-color-background-subtle);
+}
+
+.collapsibleContent.open {
+    display: block;
+}
+
+.editFieldRow {
+    margin-bottom: 10px;
+}
+
+.editLabel {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.charEditSection input,
+.charEditSection textarea,
+.charEditSection select {
+    width: 100%;
+    background: var(--ac-style-color-background);
+    border: 1px solid var(--ac-style-color-border);
+    color: var(--ac-style-color-text);
+    padding: 6px;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+
 .charListItemWrapper {
     display: flex;
     flex-direction: column;
