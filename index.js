@@ -236,19 +236,23 @@ function openCharacterTagManagerModal() {
             </div>
         </div>
     </div>
+    `;
 
-    <div id="stcmCharEditModal" class="stcm_char_edit_modal hidden">
+    const editModal = document.createElement('div');
+    editModal.id = 'stcmCharEditModal';
+    editModal.className = 'stcm_char_edit_modal hidden';
+    editModal.innerHTML = `
     <div id="stcmCharEditModalHeader" class="stcm_modal_header modalHeader">
         <span id="stcmCharEditTitle">Edit Character</span>
         <button id="stcmCharEditCloseBtn" class="stcm_menu_button small">✕</button>
     </div>
     <div id="stcmCharEditBody" class="stcm_char_edit_body"></div>
-    </div>
-
     `;
 
 
+
     document.body.appendChild(overlay);
+    document.body.appendChild(editModal);
     resetModalScrollPositions();
     attachTagSectionListeners(overlay); 
     attachFolderSectionListeners(overlay);

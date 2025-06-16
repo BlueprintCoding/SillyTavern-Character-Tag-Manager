@@ -758,7 +758,6 @@ document.addEventListener('click', function(e) {
 function createEditSectionForCharacter(char) {
     const section = document.createElement('div');
     section.className = 'charEditSection';
-    section.style.display = 'none';
     section.style.marginTop = '10px';
     section.style.padding = '10px';
     section.style.borderTop = '1px solid var(--ac-style-color-border)';
