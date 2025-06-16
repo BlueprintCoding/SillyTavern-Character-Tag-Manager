@@ -503,7 +503,7 @@ async function renderCharacterList() {
             if (char) {
                 editIcon.addEventListener('click', () => {
                     const modal = document.getElementById('stcmCharEditModal');
-                    const modalHeader = document.getElementById('stcmCharEditModalHeader');
+                    const modalHeader = document.getElementById('stcmCharEditModalHeader');                    
                     const modalBody = document.getElementById('stcmCharEditBody');
                     const modalTitle = document.getElementById('stcmCharEditTitle');
                     const modalClose = document.getElementById('stcmCharEditCloseBtn');
@@ -519,7 +519,9 @@ async function renderCharacterList() {
                     resetModalScrollPositions();
                 
                     // Enable dragging via header
-                    makeModalDraggable(modal, modalHeader, () => saveModalPosSize(modal));
+                    if (modal && modalHeader) {
+                        makeModalDraggable(modal, modalHeader, () => saveModalPosSize(modal));
+                    }
                     // Save current pos/size for restoration
                     saveModalPosSize(modal);
                 

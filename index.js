@@ -238,7 +238,7 @@ function openCharacterTagManagerModal() {
     </div>
 
     <div id="stcmCharEditModal" class="stcm_char_edit_modal hidden">
-    <div class="stcm_modal_header">
+    <div id="stcmCharEditModalHeader" class="stcm_modal_header modalHeader">
         <span id="stcmCharEditTitle">Edit Character</span>
         <button id="stcmCharEditCloseBtn" class="stcm_menu_button small">✕</button>
     </div>
