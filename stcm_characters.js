@@ -437,6 +437,11 @@ async function renderCharacterList() {
         const rightControls = document.createElement('div');
         rightControls.className = 'charRowRightFixed';
 
+        const editIcon = document.createElement('i');
+        editIcon.className = 'fa-solid fa-pen-to-square interactable stcm_edit_icon';
+        editIcon.title = 'Edit Character';
+        
+
         const deleteIcon = document.createElement('i');
         deleteIcon.className = 'fa-solid fa-trash interactable stcm_delete_icon';
         deleteIcon.title = 'Delete Character';
@@ -483,9 +488,26 @@ async function renderCharacterList() {
 
         });
 
+        rightControls.appendChild(editIcon);
         rightControls.appendChild(deleteIcon);
         metaWrapper.appendChild(rightControls);
         li.appendChild(metaWrapper);
+
+        if (entity.type === 'character') {
+            const char = characters.find(c => c.avatar === entity.id);
+            if (char) {
+                const editSection = createEditSectionForCharacter(char);
+                li.appendChild(editSection); // APPEND EDIT SECTION BELOW THE META
+
+                editIcon.addEventListener('click', () => {
+                    const isOpen = editSection.style.display === 'block';
+                    editSection.style.display = isOpen ? 'none' : 'block';
+                    editIcon.style.color = isOpen ? '' : '#ca5';
+                });
+            }
+        }
+
+                
         list.appendChild(li);
     });
 
@@ -704,6 +726,63 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+function createEditSectionForCharacter(char) {
+    const section = document.createElement('div');
+    section.className = 'charEditSection';
+    section.style.display = 'none';
+    section.style.marginTop = '10px';
+    section.style.padding = '10px';
+    section.style.borderTop = '1px solid var(--ac-style-color-border)';
+    section.style.background = 'var(--ac-style-color-background-subtle)';
+
+    for (const [key, value] of Object.entries(char)) {
+        if (typeof value !== 'string') continue;
+
+        const row = document.createElement('div');
+        row.className = 'editFieldRow';
+        row.style.marginBottom = '6px';
+
+        const label = document.createElement('label');
+        label.textContent = key;
+        label.style.marginRight = '8px';
+        label.style.fontWeight = 'bold';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = key;
+        input.value = value;
+        input.className = 'charEditInput';
+        input.style.width = '100%';
+
+        row.appendChild(label);
+        row.appendChild(input);
+        section.appendChild(row);
+    }
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save Changes';
+    saveBtn.className = 'stcm_menu_button small';
+    saveBtn.style.marginTop = '10px';
+
+    saveBtn.addEventListener('click', async () => {
+        const inputs = section.querySelectorAll('.charEditInput');
+        const updated = {};
+        inputs.forEach(i => updated[i.name] = i.value);
+        Object.assign(char, updated);
+        await fetch('/api/characters/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(char),
+        });
+        toastr.success(`Saved updates to ${char.name}`);
+        renderCharacterList();
+    });
+
+    section.appendChild(saveBtn);
+    return section;
+}
+
 
 export {
     renderCharacterList,
