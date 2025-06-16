@@ -737,13 +737,13 @@ function createEditSectionForCharacter(char) {
     section.style.background = 'var(--ac-style-color-background-subtle)';
 
     // Keys to hide entirely
-    const hiddenKeys = ['spec', 'spec_version', 'json_date'];
+    const hiddenKeys = ['spec', 'spec_version', 'json_data'];
 
     // Keys that should be shown as single-line inputs
-    const singleLineKeys = ['name', 'spec', 'talkativeness', 'created_date'];
+    const singleLineKeys = ['name', 'spec', 'talkativeness', 'create_date'];
 
     // Keys that should be read-only
-    const readOnlyKeys = ['avatar', 'created_date'];
+    const readOnlyKeys = ['avatar', 'create_date'];
 
     for (const [key, value] of Object.entries(char)) {
         if (typeof value !== 'string') continue;
