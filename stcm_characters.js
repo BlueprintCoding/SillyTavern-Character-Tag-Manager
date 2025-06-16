@@ -804,3 +804,15 @@ function createEditSectionForCharacter(char) {
     section.appendChild(saveBtn);
     return section;
 }
+
+
+
+export {
+    renderCharacterList,
+    toggleCharacterList
+};
+
+export const stcmCharState = {
+    isBulkDeleteCharMode: false,
+    selectedCharacterIds: new Set(),
+};
