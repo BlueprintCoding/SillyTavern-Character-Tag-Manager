@@ -763,18 +763,12 @@ function createEditSectionForCharacter(char) {
     section.style.borderTop = '1px solid var(--ac-style-color-border)';
     section.style.background = 'var(--ac-style-color-background-subtle)';
 
-    // Keys to hide entirely
-    const hiddenKeys = ['spec', 'spec_version', 'json_data'];
+    const skipTopLevel = ['spec', 'spec_version', 'json_data', 'chat_size', 'data_size', 'group_only_greetings'];
+    const readOnly = ['avatar', 'create_date'];
+    const singleLine = ['name', 'talkativeness', 'create_date'];
 
-    // Keys that should be shown as single-line inputs
-    const singleLineKeys = ['name', 'spec', 'talkativeness', 'create_date'];
-
-    // Keys that should be read-only
-    const readOnlyKeys = ['avatar', 'create_date'];
-
-    for (const [key, value] of Object.entries(char)) {
-        if (typeof value !== 'string') continue;
-        if (hiddenKeys.includes(key)) continue;
+    const renderField = (parent, key, value, path = key) => {
+        if (typeof value !== 'string' || skipTopLevel.includes(key)) return;
 
         const row = document.createElement('div');
         row.className = 'editFieldRow';
@@ -787,7 +781,7 @@ function createEditSectionForCharacter(char) {
         label.style.display = 'block';
 
         let input;
-        if (singleLineKeys.includes(key)) {
+        if (singleLine.includes(key)) {
             input = document.createElement('input');
             input.type = 'text';
         } else {
@@ -795,15 +789,41 @@ function createEditSectionForCharacter(char) {
             input.rows = 3;
         }
 
-        input.name = key;
+        input.name = path;
         input.value = value;
         input.className = 'charEditInput';
         input.style.width = '100%';
-        input.readOnly = readOnlyKeys.includes(key);
+        input.readOnly = readOnly.includes(key);
 
         row.appendChild(label);
         row.appendChild(input);
-        section.appendChild(row);
+        parent.appendChild(row);
+    };
+
+    // Flatten top-level fields
+    for (const [k, v] of Object.entries(char)) {
+        if (typeof v === 'string') renderField(section, k, v);
+    }
+
+    // Flatten nested fields from char.data
+    if (char.data) {
+        for (const [k, v] of Object.entries(char.data)) {
+            if (typeof v === 'string') renderField(section, k, v, `data.${k}`);
+        }
+        // Nested: data.extensions
+        if (char.data.extensions) {
+            for (const [k, v] of Object.entries(char.data.extensions)) {
+                if (typeof v === 'string') {
+                    renderField(section, k, v, `data.extensions.${k}`);
+                } else if (typeof v === 'object' && v !== null) {
+                    for (const [subKey, subVal] of Object.entries(v)) {
+                        if (typeof subVal === 'string') {
+                            renderField(section, subKey, subVal, `data.extensions.${k}.${subKey}`);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     const saveBtn = document.createElement('button');
@@ -813,19 +833,36 @@ function createEditSectionForCharacter(char) {
 
     saveBtn.addEventListener('click', async () => {
         const inputs = section.querySelectorAll('.charEditInput');
-        const updated = {};
+        const payload = {};
         inputs.forEach(i => {
-            if (!i.readOnly) updated[i.name] = i.value;
+            if (!i.readOnly) {
+                const keys = i.name.split('.');
+                let ref = payload;
+                while (keys.length > 1) {
+                    const k = keys.shift();
+                    ref[k] = ref[k] || {};
+                    ref = ref[k];
+                }
+                ref[keys[0]] = i.value;
+            }
         });
 
-        Object.assign(char, updated);
-        await fetch('/api/characters/update', {
+        const result = await fetch('/api/characters/merge-attributes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(char),
+            body: JSON.stringify({
+                avatar_url: char.avatar,
+                ch_name: char.name,
+                updates: payload
+            })
         });
-        toastr.success(`Saved updates to ${char.name}`);
-        renderCharacterList();
+
+        if (result.ok) {
+            toastr.success(`Saved updates to ${char.name}`);
+            renderCharacterList();
+        } else {
+            toastr.error('Failed to save updates.');
+        }
     });
 
     section.appendChild(saveBtn);
