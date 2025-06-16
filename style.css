@@ -514,7 +514,6 @@
 
 /* Container for the edit panel below each character */
 .charEditSection {
-    display: none;
     width: 100%;
     box-sizing: border-box;
     padding: 12px;
