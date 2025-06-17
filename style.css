@@ -526,6 +526,7 @@
     display: flex;
     flex-direction: column;
     margin-bottom: 6px;
+    width: 100%;
 }
 
 /* Labels */

@@ -850,7 +850,7 @@ function createEditSectionForCharacter(char) {
     const avatarRow = document.createElement('div');
     avatarRow.style.display = 'flex';
     avatarRow.style.alignItems = 'center';
-    avatarRow.style.marginBottom = '12px';
+    avatarRow.style.marginBottom = '6px';
 
     const img = document.createElement('img');
     img.src = `/characters/${char.avatar}`;
