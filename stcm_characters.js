@@ -8,7 +8,8 @@ import { debouncePersist,
     resetModalScrollPositions, 
     makeModalDraggable, 
     saveModalPosSize,
-    clampModalSize
+    clampModalSize,
+    createMinimizableModalControls 
  } from './utils.js';
     
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
@@ -503,11 +504,14 @@ async function renderCharacterList() {
             if (char) {
                 editIcon.addEventListener('click', () => {
                     const modal = document.getElementById('stcmCharEditModal');
+                    const { minimizeBtn } = createMinimizableModalControls(modal, `Editing: ${char.name}`);
                     const modalHeader = document.getElementById('stcmCharEditModalHeader');                    
                     const modalBody = document.getElementById('stcmCharEditBody');
                     const modalTitle = document.getElementById('stcmCharEditTitle');
                     const modalClose = document.getElementById('stcmCharEditCloseBtn');
-                
+                    if (!modalHeader.querySelector('.minimize-modal-btn')) {
+                        modalHeader.appendChild(minimizeBtn);
+                    }
                     // Reset contents
                     modalBody.innerHTML = '';
                     modalBody.appendChild(createEditSectionForCharacter(char));

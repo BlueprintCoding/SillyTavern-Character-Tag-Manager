@@ -219,6 +219,34 @@ function clampModalSize(modalEl, margin = 20) {
     return changed;
   }
 
+  export function createMinimizableModalControls(modal, minimizeText = 'Restore') {
+    const minimizedBar = document.createElement('div');
+    minimizedBar.className = 'minimized-modal-bar';
+    minimizedBar.textContent = minimizeText;
+    minimizedBar.style.display = 'none';
+
+    // Minimize button (shown in modal header/footer as needed)
+    const minimizeBtn = document.createElement('button');
+    minimizeBtn.className = 'minimize-modal-btn';
+    minimizeBtn.textContent = '–'; // You can use an icon if you prefer
+    minimizeBtn.title = 'Minimize';
+
+    minimizeBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        minimizedBar.style.display = 'block';
+    });
+
+    minimizedBar.addEventListener('click', () => {
+        modal.style.display = 'block';
+        minimizedBar.style.display = 'none';
+    });
+
+    document.body.appendChild(minimizedBar);
+
+    return { minimizeBtn, minimizedBar };
+}
+
+
   function restoreCharEditModal() {
     const modal = document.getElementById('stcmCharEditModal');
     const data = sessionStorage.getItem('stcm_char_edit_modal_pos_size');

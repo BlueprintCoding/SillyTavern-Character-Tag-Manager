@@ -40,6 +40,34 @@
     pointer-events: auto;
 }
 
+.minimized-modal-bar {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    background: var(--ac-style-color-background);
+    color: var(--ac-style-color-text);
+    border: 1px solid var(--ac-style-color-border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 9999;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    font-size: 14px;
+}
+
+.minimize-modal-btn {
+    float: right;
+    margin-left: auto;
+    font-size: 1.2em;
+    line-height: 1;
+    padding: 2px 6px;
+    background: transparent;
+    border: none;
+    color: var(--ac-style-color-text);
+    cursor: pointer;
+}
+
+
 /* === Modal Header & Body === */
 .stcm_modal_header {
     flex-shrink: 0;
