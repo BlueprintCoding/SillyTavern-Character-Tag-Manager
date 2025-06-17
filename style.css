@@ -562,15 +562,22 @@
 }
 
 /* Save button */
-.charEditSection .stcm_menu_button.small {
+.stcm_char_edit_save {
     margin-top: 10px;
-    align-self: flex-start;
+    right: 16px;
+    position: absolute;
+    background-color: #3d8b44;
+    color: white;
 }
+
+.stcm_char_edit_save:hover {
+    background-color: #2e7035;
+}
+
 
 .collapsibleSection {
     border: 1px solid var(--ac-style-color-border);
     border-radius: 4px;
-    margin-bottom: 14px;
     background: var(--ac-style-color-background);
     overflow: hidden;
 }

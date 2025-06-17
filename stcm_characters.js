@@ -902,7 +902,7 @@ function createEditSectionForCharacter(char) {
     // === Save Button
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save Changes';
-    saveBtn.className = 'stcm_menu_button small';
+    saveBtn.className = 'stcm_menu_button stcm_char_edit_save small';
     saveBtn.style.marginTop = '10px';
 
     saveBtn.addEventListener('click', async () => {
