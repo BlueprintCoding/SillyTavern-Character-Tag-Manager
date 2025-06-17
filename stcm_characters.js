@@ -503,47 +503,48 @@ async function renderCharacterList() {
             const char = characters.find(c => c.avatar === entity.id);
             if (char) {
                 editIcon.addEventListener('click', () => {
-                    // Create a new modal wrapper
-                    const modal = document.createElement('div');
-                    modal.className = 'stcm_modal charEditModal';
-                    modal.id = `stcmCharEditModal-${char.avatar}`;
+                    // Check if modal for this character already exists
+                    let modal = document.getElementById(`stcmCharEditModal-${char.avatar}`);
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = `stcmCharEditModal-${char.avatar}`;
+                        modal.className = 'stcmCharEditModal modalWindow';
+                        document.body.appendChild(modal);
                 
-                    // Header
-                    const modalHeader = document.createElement('div');
-                    modalHeader.className = 'modalHeader';
-                    modalHeader.id = `modalHeader-${char.avatar}`;
-                    modal.appendChild(modalHeader);
+                        const header = document.createElement('div');
+                        header.className = 'modalHeader';
+                        header.id = `stcmCharEditModalHeader-${char.avatar}`;
                 
-                    const title = document.createElement('div');
-                    title.className = 'modalTitle';
-                    title.textContent = `Edit Character: ${char.name}`;
-                    modalHeader.appendChild(title);
+                        const title = document.createElement('div');
+                        title.className = 'modalTitle';
+                        title.textContent = `Edit Character: ${char.name}`;
                 
-                    const closeBtn = document.createElement('button');
-                    closeBtn.className = 'modalCloseBtn';
-                    closeBtn.innerHTML = '&times;';
-                    closeBtn.onclick = () => modal.remove();
-                    modalHeader.appendChild(closeBtn);
+                        const closeBtn = document.createElement('button');
+                        closeBtn.textContent = '×';
+                        closeBtn.className = 'modalCloseBtn';
+                        closeBtn.onclick = () => {
+                            modal.remove();
+                        };
                 
-                    // Body
-                    const modalBody = document.createElement('div');
-                    modalBody.className = 'modalBody';
-                    modal.appendChild(modalBody);
+                        const { minimizeBtn } = createMinimizableModalControls(modal, `Editing: ${char.name}`, img.src);
+                        header.appendChild(title);
+                        header.appendChild(minimizeBtn);
+                        header.appendChild(closeBtn);
                 
-                    modalBody.appendChild(createEditSectionForCharacter(char));
+                        const body = document.createElement('div');
+                        body.className = 'modalBody';
+                        body.appendChild(createEditSectionForCharacter(char));
                 
-                    // Minimize
-                    const { minimizeBtn, minimizedBar } = createMinimizableModalControls(modal, `Editing: ${char.name}`, img.src);
-                    modalHeader.insertBefore(minimizeBtn, closeBtn);
+                        modal.appendChild(header);
+                        modal.appendChild(body);
                 
-                    // Add to DOM
-                    document.body.appendChild(modal);
+                        // Clamp and drag
+                        clampModalSize(modal, 20);
+                        makeModalDraggable(modal, header, () => saveModalPosSize(modal));
+                        saveModalPosSize(modal);
+                    }
                 
-                    // Apply utilities
-                    clampModalSize(modal, 20);
-                    resetModalScrollPositions();
-                    makeModalDraggable(modal, modalHeader, () => saveModalPosSize(modal));
-                    saveModalPosSize(modal);
+                    modal.style.display = 'block';
                 });
                 
                 

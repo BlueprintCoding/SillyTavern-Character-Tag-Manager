@@ -743,6 +743,51 @@ color: white;
     scrollbar-width: thin;
   }
   
+  .modalWindow {
+    position: fixed;
+    top: 100px;
+    left: 100px;
+    width: 600px;
+    max-height: 80vh;
+    background: var(--ac-style-color-background);
+    border: 1px solid var(--ac-style-color-border);
+    border-radius: 8px;
+    z-index: 9998;
+    box-shadow: 0 0 10px rgba(0,0,0,0.4);
+    overflow: hidden;
+    display: none;
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--ac-style-color-background-subtle);
+    border-bottom: 1px solid var(--ac-style-color-border);
+    cursor: move;
+}
+
+.modalTitle {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.modalCloseBtn {
+    background: transparent;
+    border: none;
+    color: var(--ac-style-color-text);
+    font-size: 1.4em;
+    cursor: pointer;
+    padding: 0 8px;
+    margin-left: auto;
+}
+
+.modalBody {
+    padding: 10px;
+    overflow-y: auto;
+    max-height: calc(80vh - 50px);
+}
 
 
 /* === Tag List, Tag Groups, Tag Chips === */
