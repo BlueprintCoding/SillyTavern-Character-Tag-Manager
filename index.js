@@ -70,7 +70,7 @@ function openCharacterTagManagerModal() {
     overlay.id = 'characterTagManagerModal';
     overlay.className = 'modalOverlay';
     overlay.innerHTML = `
-    <div class="modalContent stcm_modal_main">
+    <div class="modalContent stcm_modal_main" id="stcm_modal_main">
         <div class="modalHeader stcm_modal_header">
             <h2>Character / Tag Manager</h2>
             <button id="closeCharacterTagManagerModal" class="stcm_menu_button interactable modal-close">
@@ -258,6 +258,7 @@ function openCharacterTagManagerModal() {
     attachFolderSectionListeners(overlay);
 
     // minimize modal
+    const modal = document.getElementById('stcm_modal_main');
     const { minimizeBtn } = createMinimizableModalControls(modal, 'Tag/Folder Manager', 'fa-solid fa-tags');
     const modalHeader = document.getElementById('stcm_modal_header');
     if (!modalHeader.querySelector('.minimize-modal-btn')) {
