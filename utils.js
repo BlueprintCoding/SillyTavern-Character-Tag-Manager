@@ -269,9 +269,15 @@ function clampModalSize(modalEl, margin = 20) {
     minimizeBtn.textContent = '–';
     minimizeBtn.title = 'Minimize';
 
-    minimizeBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-        minimizedBar.style.display = 'flex';
+    minimizedBar.addEventListener('click', () => {
+        modal.style.display = 'block';
+        modal.style.zIndex = getNextZIndex();  // ← bring to front
+        minimizedBar.style.display = 'none';
+    });
+
+    minimizedBar.addEventListener('click', () => {
+        modal.style.display = 'block';
+        minimizedBar.style.display = 'none';
     });
 
     // Add to the tray

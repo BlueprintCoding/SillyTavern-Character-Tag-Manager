@@ -265,19 +265,19 @@ function openCharacterTagManagerModal() {
     attachTagSectionListeners(overlay); 
     attachFolderSectionListeners(overlay);
 
+    overlay.style.zIndex = getNextZIndex();
+    overlay.addEventListener('mousedown', () => {
+    overlay.style.zIndex = getNextZIndex();
+    });
+
     // minimize modal
     const modal = document.getElementById('stcm_modal_main');
-    modal.style.zIndex = getNextZIndex();
     const { minimizeBtn } = createMinimizableModalControls(modal, 'Tag/Folder Manager', 'fa-solid fa-tags');
     const modalHeader = overlay.querySelector('.stcm_modal_header');
     const modalClose = overlay.querySelector('#closeCharacterTagManagerModal');
     if (!modalHeader.querySelector('.minimize-modal-btn')) {
         modalHeader.insertBefore(minimizeBtn, modalClose);
     }
-    // Bring to top on focus
-    modal.addEventListener('mousedown', () => {
-        modal.style.zIndex = getNextZIndex();
-    });
 
     // Folders: add create handler and render initial tree
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');
