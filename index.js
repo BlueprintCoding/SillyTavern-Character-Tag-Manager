@@ -260,7 +260,8 @@ function openCharacterTagManagerModal() {
     // minimize modal
     const modal = document.getElementById('stcm_modal_main');
     const { minimizeBtn } = createMinimizableModalControls(modal, 'Tag/Folder Manager', 'fa-solid fa-tags');
-    const modalHeader = document.getElementById('stcm_modal_header');
+    const modalHeader = overlay.querySelector('.stcm_modal_header');
+    const modalClose = overlay.querySelector('#closeCharacterTagManagerModal');
     if (!modalHeader.querySelector('.minimize-modal-btn')) {
         modalHeader.insertBefore(minimizeBtn, modalClose);
     }
