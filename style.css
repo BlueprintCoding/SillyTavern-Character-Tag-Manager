@@ -675,7 +675,6 @@ color: white;
   .stcm_char_edit_body {
     flex-grow: 1;
     overflow-y: auto;
-    margin-top: 10px;
     scrollbar-width: thin;
   }
   
