@@ -55,7 +55,8 @@ import {
 
 import {
     renderCharacterList,
-    stcmCharState 
+    stcmCharState,
+    getNextZIndex
 } from "./stcm_characters.js";
 
 import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
@@ -274,7 +275,7 @@ function openCharacterTagManagerModal() {
     }
     // Bring to top on focus
     modal.addEventListener('mousedown', () => {
-        modal.style.zIndex = ++highestZIndex;
+        modal.style.zIndex = getNextZIndex();
     });
 
     // Folders: add create handler and render initial tree

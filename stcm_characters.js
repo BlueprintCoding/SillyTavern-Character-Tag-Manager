@@ -24,6 +24,9 @@ import { createEditSectionForCharacter } from './stcm_char_panel.js'
 
 let highestZIndex = 10000;
 
+export function getNextZIndex() {
+    return ++highestZIndex;
+}
 
 async function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
