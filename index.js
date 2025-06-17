@@ -272,6 +272,10 @@ function openCharacterTagManagerModal() {
     if (!modalHeader.querySelector('.minimize-modal-btn')) {
         modalHeader.insertBefore(minimizeBtn, modalClose);
     }
+    // Bring to top on focus
+    modal.addEventListener('mousedown', () => {
+        modal.style.zIndex = ++highestZIndex;
+    });
 
     // Folders: add create handler and render initial tree
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');

@@ -527,7 +527,7 @@ async function renderCharacterList() {
                             title.textContent = `Edit Character: ${char.name}`;
             
                             const closeBtn = document.createElement('button');
-                            closeBtn.className = 'modalCloseBtn';
+                            closeBtn.className = 'stcm_menu_button interactable modal-close modalCloseBtn ';
                             closeBtn.textContent = '×';
                             closeBtn.onclick = () => modal.remove();
             
