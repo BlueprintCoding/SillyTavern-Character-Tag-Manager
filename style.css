@@ -673,6 +673,7 @@ color: white;
     flex-grow: 1;
     overflow-y: auto;
     margin-top: 10px;
+    scrollbar-width: thin;
   }
   
 
@@ -1706,30 +1707,35 @@ dialog.popup #stcm-popup-pin-input:focus {
 #characterTagManagerModal, 
 #characterTagManagerModal *, 
 #stcm_sidebar_folder_nav,
-#stcm_sidebar_folder_nav * {
+#stcm_sidebar_folder_nav *,
+.stcm_char_edit_body {
   scrollbar-width: thin;
   scrollbar-color: #666 #181818; /* thumb, track */
 }
 
 /* WebKit browsers: */
 #characterTagManagerModal ::-webkit-scrollbar,
-#stcm_sidebar_folder_nav ::-webkit-scrollbar {
+#stcm_sidebar_folder_nav ::-webkit-scrollbar,
+.stcm_char_edit_body ::-webkit-scrollbar {
   width: 12px;
   background: #181818;
 }
 #characterTagManagerModal ::-webkit-scrollbar-thumb,
-#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb {
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb,
+.stcm_char_edit_body ::-webkit-scrollbar-thumb {
   background: #666;
   border-radius: 8px;
   min-height: 24px;
   border: 2.5px solid #232323;
 }
 #characterTagManagerModal ::-webkit-scrollbar-thumb:hover,
-#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb:hover {
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb:hover,
+.stcm_char_edit_body ::-webkit-scrollbar-thumb:hover {
   background: #888;
 }
 #characterTagManagerModal ::-webkit-scrollbar-corner,
-#stcm_sidebar_folder_nav ::-webkit-scrollbar-corner {
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-corner,
+.stcm_char_edit_body ::-webkit-scrollbar-corner  {
   background: #181818;
 }
 
