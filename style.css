@@ -558,7 +558,7 @@
 .charEditSection .editFieldRow textarea[readonly] {
     background: var(--ac-style-color-disabled-background);
     color: var(--ac-style-color-disabled-text);
-    cursor: not-allowed;
+    cursor: not-allowed; 
 }
 
 /* Save button */
