@@ -9,7 +9,8 @@ import { debouncePersist,
     makeModalDraggable, 
     saveModalPosSize,
     clampModalSize,
-    createMinimizableModalControls 
+    createMinimizableModalControls,
+    getNextZIndex
  } from './utils.js';
     
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
@@ -21,12 +22,6 @@ import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 import * as stcmFolders from './stcm_folders.js';
 import { getFolderOptionsTree } from './stcm_folders_ui.js'; // adjust path if needed
 import { createEditSectionForCharacter } from './stcm_char_panel.js'
-
-let highestZIndex = 10000;
-
-export function getNextZIndex() {
-    return ++highestZIndex;
-}
 
 async function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
@@ -517,7 +512,7 @@ async function renderCharacterList() {
                             modal = document.createElement('div');
                             modal.id = `stcmCharEditModal-${char.avatar}`;
                             modal.className = 'stcmCharEditModal modalWindow';
-                            modal.style.zIndex = ++highestZIndex;
+                            modal.style.zIndex = getNextZIndex()
                             document.body.appendChild(modal);
             
                             // Create header
@@ -553,7 +548,7 @@ async function renderCharacterList() {
             
                             // Bring to top on focus
                             modal.addEventListener('mousedown', () => {
-                                modal.style.zIndex = ++highestZIndex;
+                                modal.style.zIndex = getNextZIndex();
                             });
             
                             // Clamp + Drag support
@@ -564,7 +559,7 @@ async function renderCharacterList() {
             
                         // Show it and bring to front
                         modal.style.display = 'block';
-                        modal.style.zIndex = ++highestZIndex;
+                        modal.style.zIndex = getNextZIndex();
                     });
                 }
             }

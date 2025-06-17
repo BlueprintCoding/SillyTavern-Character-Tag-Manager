@@ -302,6 +302,13 @@ function clampModalSize(modalEl, margin = 20) {
 }
 
 
+let highestZIndex = 10000;
+
+export function getNextZIndex() {
+    return ++highestZIndex;
+}
+
+
 function cleanTagMap(tag_map, characters = [], groups = []) {
     // Build a list of every still-valid character / group id
     const validIds = new Set([

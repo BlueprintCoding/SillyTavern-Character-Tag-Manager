@@ -12,7 +12,8 @@ getNotes,
 saveNotes, 
 cleanTagMap,
 restoreCharEditModal,
-createMinimizableModalControls 
+createMinimizableModalControls,
+getNextZIndex
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
@@ -56,7 +57,6 @@ import {
 import {
     renderCharacterList,
     stcmCharState,
-    getNextZIndex
 } from "./stcm_characters.js";
 
 import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
@@ -267,6 +267,7 @@ function openCharacterTagManagerModal() {
 
     // minimize modal
     const modal = document.getElementById('stcm_modal_main');
+    modal.style.zIndex = getNextZIndex();
     const { minimizeBtn } = createMinimizableModalControls(modal, 'Tag/Folder Manager', 'fa-solid fa-tags');
     const modalHeader = overlay.querySelector('.stcm_modal_header');
     const modalClose = overlay.querySelector('#closeCharacterTagManagerModal');
