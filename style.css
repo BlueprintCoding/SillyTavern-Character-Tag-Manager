@@ -715,7 +715,7 @@ justify-content: flex-end;
     background: var(--SmartThemeBlurTintColor, #2a2a2a);
     border: 1px solid var(--ac-style-color-border);
     border-radius: 8px;
-    z-index: 99999;
+    z-index: 10000;
     resize: both;
     overflow: auto;
     transition: box-shadow 0.2s;

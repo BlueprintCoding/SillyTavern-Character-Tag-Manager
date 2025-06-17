@@ -22,6 +22,8 @@ import * as stcmFolders from './stcm_folders.js';
 import { getFolderOptionsTree } from './stcm_folders_ui.js'; // adjust path if needed
 import { createEditSectionForCharacter } from './stcm_char_panel.js'
 
+let highestZIndex = 10000;
+
 
 async function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
@@ -501,54 +503,67 @@ async function renderCharacterList() {
 
         if (entity.type === 'character') {
             const char = characters.find(c => c.avatar === entity.id);
-            if (char) {
-                editIcon.addEventListener('click', () => {
-                    // Check if modal for this character already exists
-                    let modal = document.getElementById(`stcmCharEditModal-${char.avatar}`);
-                    if (!modal) {
-                        modal = document.createElement('div');
-                        modal.id = `stcmCharEditModal-${char.avatar}`;
-                        modal.className = 'stcmCharEditModal modalWindow';
-                        document.body.appendChild(modal);
-                
-                        const header = document.createElement('div');
-                        header.className = 'modalHeader';
-                        header.id = `stcmCharEditModalHeader-${char.avatar}`;
-                
-                        const title = document.createElement('div');
-                        title.className = 'modalTitle';
-                        title.textContent = `Edit Character: ${char.name}`;
-                
-                        const closeBtn = document.createElement('button');
-                        closeBtn.textContent = '×';
-                        closeBtn.className = 'modalCloseBtn';
-                        closeBtn.onclick = () => {
-                            modal.remove();
-                        };
-                
-                        const { minimizeBtn } = createMinimizableModalControls(modal, `Editing: ${char.name}`, img.src);
-                        header.appendChild(title);
-                        header.appendChild(minimizeBtn);
-                        header.appendChild(closeBtn);
-                
-                        const body = document.createElement('div');
-                        body.className = 'modalBody';
-                        body.appendChild(createEditSectionForCharacter(char));
-                
-                        modal.appendChild(header);
-                        modal.appendChild(body);
-                
-                        // Clamp and drag
-                        clampModalSize(modal, 20);
-                        makeModalDraggable(modal, header, () => saveModalPosSize(modal));
-                        saveModalPosSize(modal);
-                    }
-                
-                    modal.style.display = 'block';
-                });
-                
-                
-                  
+            if (entity.type === 'character') {
+                const char = characters.find(c => c.avatar === entity.id);
+                if (char) {
+                    editIcon.addEventListener('click', () => {
+                        // Check if modal already exists
+                        let modal = document.getElementById(`stcmCharEditModal-${char.avatar}`);
+                        if (!modal) {
+                            // Create modal
+                            modal = document.createElement('div');
+                            modal.id = `stcmCharEditModal-${char.avatar}`;
+                            modal.className = 'stcmCharEditModal modalWindow';
+                            modal.style.zIndex = ++highestZIndex;
+                            document.body.appendChild(modal);
+            
+                            // Create header
+                            const header = document.createElement('div');
+                            header.className = 'modalHeader';
+                            header.id = `stcmCharEditModalHeader-${char.avatar}`;
+            
+                            const title = document.createElement('div');
+                            title.className = 'modalTitle';
+                            title.textContent = `Edit Character: ${char.name}`;
+            
+                            const closeBtn = document.createElement('button');
+                            closeBtn.className = 'modalCloseBtn';
+                            closeBtn.textContent = '×';
+                            closeBtn.onclick = () => modal.remove();
+            
+                            // Optional: image icon for minimize bar
+                            const avatarSrc = `/characters/${char.avatar}`;
+                            const { minimizeBtn } = createMinimizableModalControls(modal, `Editing: ${char.name}`, avatarSrc);
+            
+                            header.appendChild(title);
+                            header.appendChild(minimizeBtn);
+                            header.appendChild(closeBtn);
+            
+                            // Create body
+                            const body = document.createElement('div');
+                            body.className = 'modalBody';
+                            body.appendChild(createEditSectionForCharacter(char));
+            
+                            // Assemble modal
+                            modal.appendChild(header);
+                            modal.appendChild(body);
+            
+                            // Bring to top on focus
+                            modal.addEventListener('mousedown', () => {
+                                modal.style.zIndex = ++highestZIndex;
+                            });
+            
+                            // Clamp + Drag support
+                            clampModalSize(modal, 20);
+                            makeModalDraggable(modal, header, () => saveModalPosSize(modal));
+                            saveModalPosSize(modal);
+                        }
+            
+                        // Show it and bring to front
+                        modal.style.display = 'block';
+                        modal.style.zIndex = ++highestZIndex;
+                    });
+                }
             }
         }
 
