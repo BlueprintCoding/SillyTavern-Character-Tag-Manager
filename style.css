@@ -48,7 +48,6 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: .7em;
 }
 
 .stcm_modal_header h2 {
@@ -520,16 +519,13 @@
     width: 100%;
     box-sizing: border-box;
     padding: 12px;
-    background: var(--ac-style-color-background-subtle);
-    border-top: 1px solid var(--ac-style-color-border);
-    margin-top: 8px;
 }
 
 /* Each field row */
 .charEditSection .editFieldRow {
     display: flex;
     flex-direction: column;
-    margin-bottom: 12px;
+    margin-bottom: 6px;
 }
 
 /* Labels */
@@ -551,6 +547,10 @@
     font-family: inherit;
     font-size: 0.95em;
     resize: vertical;
+}
+
+.charEditSection .editFieldRow textarea {
+    min-height: 40px;
 }
 
 /* Read-only inputs should look disabled */
