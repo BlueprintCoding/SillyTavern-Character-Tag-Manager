@@ -46,13 +46,16 @@
     left: 10px;
     background: var(--ac-style-color-background);
     color: var(--ac-style-color-text);
-    border: 1px solid var(--ac-style-color-border);
+    border: 1px solid #510082;
     padding: 6px 12px;
     border-radius: 6px;
     cursor: pointer;
     z-index: 9999;
     box-shadow: 0 2px 4px rgba(0,0,0,0.25);
     font-size: 14px;
+    display: flex;
+    align-items: center;    
+    gap: 8px;          
 }
 
 .minimize-modal-btn {
@@ -76,11 +79,14 @@
     height: 20px;
     object-fit: cover;
     border-radius: 4px;
+    display: inline-block;
 }
 
 .minimized-label {
     font-weight: bold;
     font-size: 0.9em;
+    display: inline-block;
+    line-height: 1;
 }
 
 
