@@ -73,7 +73,7 @@ function openCharacterTagManagerModal() {
     <div class="modalContent stcm_modal_main">
         <div class="modalHeader stcm_modal_header">
             <h2>Character / Tag Manager</h2>
-            <button id="closeCharacterTagManagerModal" class="stcm_menu_button interactable">
+            <button id="closeCharacterTagManagerModal" class="stcm_menu_button interactable modal-close">
                 <i class="fa-solid fa-times"></i>
             </button>
         </div>
@@ -256,6 +256,13 @@ function openCharacterTagManagerModal() {
     resetModalScrollPositions();
     attachTagSectionListeners(overlay); 
     attachFolderSectionListeners(overlay);
+
+    // minimize modal
+    const { minimizeBtn } = createMinimizableModalControls(modal, 'Tag/Folder Manager', 'fa-solid fa-tags');
+    const modalHeader = document.getElementById('stcm_modal_header');
+    if (!modalHeader.querySelector('.minimize-modal-btn')) {
+        modalHeader.insertBefore(minimizeBtn, modalClose);
+    }
 
     // Folders: add create handler and render initial tree
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');

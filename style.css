@@ -46,12 +46,12 @@
     left: 10px;
     background: var(--ac-style-color-background);
     color: var(--ac-style-color-text);
-    border: 1px solid #510082;
+    border: 1px solid #3a005f;
     padding: 6px 12px;
     border-radius: 6px;
     cursor: pointer;
     z-index: 9999;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    box-shadow: 0 2px 4px #51008287;
     font-size: 14px;
     display: flex;
     align-items: center;    
