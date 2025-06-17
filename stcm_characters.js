@@ -785,8 +785,6 @@ function createEditSectionForCharacter(char) {
         'data.extensions.depth_prompt.role': "Role"
     };
 
-    const alreadyRendered = new Set();
-
     function renderField(label, value, path, multiline = true, readonly = false) {
         const row = document.createElement('div');
         row.className = 'editFieldRow';
@@ -849,7 +847,10 @@ function createEditSectionForCharacter(char) {
         return { wrapper, content };
     }
 
-    // === Avatar + Name
+    // === Basics (Open by default)
+    const { wrapper: basicsWrap, content: basicsFields } = makeSection('Basics', true);
+    section.appendChild(basicsWrap);
+
     const avatarRow = document.createElement('div');
     avatarRow.style.display = 'flex';
     avatarRow.style.alignItems = 'center';
@@ -867,14 +868,10 @@ function createEditSectionForCharacter(char) {
     avatarRow.appendChild(img);
 
     avatarRow.appendChild(renderField('Name', char.name || '', 'name', false, readOnly.includes('name')));
-    section.appendChild(avatarRow);
+    basicsFields.appendChild(avatarRow);
 
-    // === Basics (Open by default)
-    const { wrapper: basicsWrap, content: basicsFields } = makeSection('Basics', true);
-    section.appendChild(basicsWrap);
     ['description', 'personality', 'scenario', 'first_mes', 'mes_example'].forEach(k => {
         basicsFields.appendChild(renderField(labelMap[k], char[k] || '', k));
-        alreadyRendered.add(k);
     });
 
     // === Prompt Overrides
@@ -898,7 +895,6 @@ function createEditSectionForCharacter(char) {
 
     metaFields.appendChild(renderField('Character Version', char.data?.character_version || '', 'data.character_version', false));
     metaFields.appendChild(renderField('Created by', char.data?.creator || '', 'data.creator', false));
-
     const creatorNotes = (char.data?.creator_notes || '').trim() || (char.creatorcomment || '').trim() || '';
     metaFields.appendChild(renderField("Creator's Notes", creatorNotes, 'unified.creator_notes'));
     metaFields.appendChild(renderField('Tags to Embed (comma-separated)', (char.data?.tags || []).join(', '), 'data.tags'));
