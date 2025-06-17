@@ -532,7 +532,7 @@
 .charEditSection .editFieldRow label {
     font-weight: bold;
     margin-bottom: 4px;
-    color: var(--ac-style-color-text);
+    color: var(--textColor, #fff);
 }
 
 /* Inputs and textareas */
@@ -543,7 +543,7 @@
     border: 1px solid var(--ac-style-color-border);
     border-radius: 4px;
     background: var(--ac-style-color-background);
-    color: var(--ac-style-color-text);
+    color: var(--textColor, #fff);
     font-family: inherit;
     font-size: 0.95em;
     resize: vertical;
@@ -597,7 +597,7 @@ color: white;
     padding: 8px 12px;
     font-weight: bold;
     background-color: #222;
-    color: var(--ac-style-color-text);
+    color: var(--textColor, #fff);
     cursor: pointer;
     user-select: none;
     border-bottom: 1px solid var(--ac-style-color-border);

@@ -511,7 +511,7 @@ async function renderCharacterList() {
                     // Reset contents
                     modalBody.innerHTML = '';
                     modalBody.appendChild(createEditSectionForCharacter(char));
-                    modalTitle.textContent = `Edit: ${char.name}`;
+                    modalTitle.textContent = `Edit Character: ${char.name}`;
                     modal.classList.remove('hidden');
                 
                     // Clamp modal size to viewport and reset scroll
