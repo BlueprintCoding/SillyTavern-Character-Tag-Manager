@@ -220,15 +220,25 @@ function clampModalSize(modalEl, margin = 20) {
   }
 
   export function createMinimizableModalControls(modal, minimizeText = 'Restore', icon = null) {
+    // Ensure the tray exists
+    let tray = document.getElementById('minimizedModalsTray');
+    if (!tray) {
+        tray = document.createElement('div');
+        tray.id = 'minimizedModalsTray';
+        tray.className = 'minimizedModalsTray';
+        document.body.appendChild(tray);
+    }
+
+    // Minimized bar (click to restore)
     const minimizedBar = document.createElement('div');
     minimizedBar.className = 'minimized-modal-bar';
     minimizedBar.style.display = 'none';
 
-    // Icon (optional)
+    // Optional icon (font-awesome or image)
     if (icon) {
-        const iconEl = document.createElement(
-            icon.startsWith('fa') ? 'i' : 'img'
-        );
+        const iconEl = icon.startsWith('fa')
+            ? document.createElement('i')
+            : document.createElement('img');
 
         if (icon.startsWith('fa')) {
             iconEl.className = icon + ' minimized-icon';
@@ -241,13 +251,19 @@ function clampModalSize(modalEl, margin = 20) {
         minimizedBar.appendChild(iconEl);
     }
 
-    // Label
+    // Text label
     const label = document.createElement('span');
     label.className = 'minimized-label';
     label.textContent = minimizeText;
     minimizedBar.appendChild(label);
 
-    // Minimize Button
+    // Clicking the bar restores the modal
+    minimizedBar.addEventListener('click', () => {
+        modal.style.display = 'block';
+        minimizedBar.style.display = 'none';
+    });
+
+    // Minimize button (goes inside the modal header typically)
     const minimizeBtn = document.createElement('button');
     minimizeBtn.className = 'minimize-modal-btn';
     minimizeBtn.textContent = '–';
@@ -258,15 +274,12 @@ function clampModalSize(modalEl, margin = 20) {
         minimizedBar.style.display = 'flex';
     });
 
-    minimizedBar.addEventListener('click', () => {
-        modal.style.display = 'block';
-        minimizedBar.style.display = 'none';
-    });
-
-    document.body.appendChild(minimizedBar);
+    // Add to the tray
+    tray.appendChild(minimizedBar);
 
     return { minimizeBtn, minimizedBar };
 }
+
 
 
   function restoreCharEditModal() {

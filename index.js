@@ -238,6 +238,12 @@ function openCharacterTagManagerModal() {
     </div>
     `;
 
+    
+
+    const minimizedModalTray = document.createElement('div');
+    minimizedModalTray.id = 'minimizedModalsTray';
+    minimizedModalTray.className = 'minimizedModalsTray';
+
     const editModal = document.createElement('div');
     editModal.id = 'stcmCharEditModal';
     editModal.className = 'stcm_char_edit_modal hidden';
@@ -253,6 +259,7 @@ function openCharacterTagManagerModal() {
 
     document.body.appendChild(overlay);
     document.body.appendChild(editModal);
+    document.body.appendChild(minimizedModalTray);
     resetModalScrollPositions();
     attachTagSectionListeners(overlay); 
     attachFolderSectionListeners(overlay);

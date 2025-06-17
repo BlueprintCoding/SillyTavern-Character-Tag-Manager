@@ -40,26 +40,39 @@
     pointer-events: auto;
 }
 
-.minimized-modal-bar {
+#minimizedModalsTray {
     position: fixed;
     bottom: 10px;
     left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 9999;
+    pointer-events: none; /* Prevent clicks from leaking through */
+}
+
+.minimized-modal-bar {
     background: var(--ac-style-color-background);
     color: var(--ac-style-color-text);
     border: 1px solid #3a005f;
     padding: 6px 12px;
     border-radius: 6px;
     cursor: pointer;
-    z-index: 9999;
     box-shadow: 0 2px 4px #51008287;
     font-size: 14px;
     display: flex;
-    align-items: center;    
-    gap: 8px;          
+    align-items: center;
+    gap: 8px;
+    z-index: 10000;
+    pointer-events: auto; /* Enable clicking inside bars */
+    min-width: 180px;
+    max-width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .minimize-modal-btn {
-    float: right;
     margin-left: auto;
     font-size: 1.2em;
     line-height: 1;
@@ -87,8 +100,9 @@
     font-size: 0.9em;
     display: inline-block;
     line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-
 
 /* === Modal Header & Body === */
 .stcm_modal_header {
