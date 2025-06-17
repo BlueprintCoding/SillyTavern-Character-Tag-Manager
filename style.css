@@ -574,6 +574,14 @@
     background-color: #2e7035;
 }
 
+#stcmCharEditCloseBtn {
+background-color: #d9534f;
+color: white;
+}
+
+#stcmCharEditCloseBtn:hover {
+    background-color: #c9302c;
+  }
 
 .collapsibleSection {
     border: 1px solid var(--ac-style-color-border);
