@@ -503,37 +503,49 @@ async function renderCharacterList() {
             const char = characters.find(c => c.avatar === entity.id);
             if (char) {
                 editIcon.addEventListener('click', () => {
-                    const modal = document.getElementById('stcmCharEditModal');
-                    const { minimizeBtn } = createMinimizableModalControls(modal, `Editing: ${char.name}`, img.src);
-                    const modalHeader = document.getElementById('stcmCharEditModalHeader');                    
-                    const modalBody = document.getElementById('stcmCharEditBody');
-                    const modalTitle = document.getElementById('stcmCharEditTitle');
-                    const modalClose = document.getElementById('stcmCharEditCloseBtn');
-                    if (!modalHeader.querySelector('.minimize-modal-btn')) {
-                        modalHeader.insertBefore(minimizeBtn, modalClose);
-                    }
-                    // Reset contents
-                    modalBody.innerHTML = '';
-                    modalBody.appendChild(createEditSectionForCharacter(char));
-                    modalTitle.textContent = `Edit Character: ${char.name}`;
-                    modal.classList.remove('hidden');
+                    // Create a new modal wrapper
+                    const modal = document.createElement('div');
+                    modal.className = 'stcm_modal charEditModal';
+                    modal.id = `stcmCharEditModal-${char.avatar}`;
                 
-                    // Clamp modal size to viewport and reset scroll
+                    // Header
+                    const modalHeader = document.createElement('div');
+                    modalHeader.className = 'modalHeader';
+                    modalHeader.id = `modalHeader-${char.avatar}`;
+                    modal.appendChild(modalHeader);
+                
+                    const title = document.createElement('div');
+                    title.className = 'modalTitle';
+                    title.textContent = `Edit Character: ${char.name}`;
+                    modalHeader.appendChild(title);
+                
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'modalCloseBtn';
+                    closeBtn.innerHTML = '&times;';
+                    closeBtn.onclick = () => modal.remove();
+                    modalHeader.appendChild(closeBtn);
+                
+                    // Body
+                    const modalBody = document.createElement('div');
+                    modalBody.className = 'modalBody';
+                    modal.appendChild(modalBody);
+                
+                    modalBody.appendChild(createEditSectionForCharacter(char));
+                
+                    // Minimize
+                    const { minimizeBtn, minimizedBar } = createMinimizableModalControls(modal, `Editing: ${char.name}`, img.src);
+                    modalHeader.insertBefore(minimizeBtn, closeBtn);
+                
+                    // Add to DOM
+                    document.body.appendChild(modal);
+                
+                    // Apply utilities
                     clampModalSize(modal, 20);
                     resetModalScrollPositions();
-                
-                    // Enable dragging via header
-                    if (modal && modalHeader) {
-                        makeModalDraggable(modal, modalHeader, () => saveModalPosSize(modal));
-                    }
-                    // Save current pos/size for restoration
+                    makeModalDraggable(modal, modalHeader, () => saveModalPosSize(modal));
                     saveModalPosSize(modal);
-                
-                    // Optional: close handler
-                    modalClose.onclick = () => {
-                        modal.classList.add('hidden');
-                    };
                 });
+                
                 
                   
             }
