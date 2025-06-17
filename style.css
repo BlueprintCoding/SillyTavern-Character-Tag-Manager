@@ -67,6 +67,22 @@
     cursor: pointer;
 }
 
+.minimized-icon {
+    font-size: 1.2em;
+}
+
+.minimized-img-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.minimized-label {
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
 
 /* === Modal Header & Body === */
 .stcm_modal_header {

@@ -2,8 +2,6 @@
 // stcm_char_panel.js
 // ----------------------------------------------------------------------------
 
-
-
 export function createEditSectionForCharacter(char) {
     const section = document.createElement('div');
     section.className = 'charEditSection';

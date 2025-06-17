@@ -219,21 +219,43 @@ function clampModalSize(modalEl, margin = 20) {
     return changed;
   }
 
-  export function createMinimizableModalControls(modal, minimizeText = 'Restore') {
+  export function createMinimizableModalControls(modal, minimizeText = 'Restore', icon = null) {
     const minimizedBar = document.createElement('div');
     minimizedBar.className = 'minimized-modal-bar';
-    minimizedBar.textContent = minimizeText;
     minimizedBar.style.display = 'none';
 
-    // Minimize button (shown in modal header/footer as needed)
+    // Icon (optional)
+    if (icon) {
+        const iconEl = document.createElement(
+            icon.startsWith('fa') ? 'i' : 'img'
+        );
+
+        if (icon.startsWith('fa')) {
+            iconEl.className = icon + ' minimized-icon';
+        } else {
+            iconEl.src = icon;
+            iconEl.alt = 'icon';
+            iconEl.className = 'minimized-img-icon';
+        }
+
+        minimizedBar.appendChild(iconEl);
+    }
+
+    // Label
+    const label = document.createElement('span');
+    label.className = 'minimized-label';
+    label.textContent = minimizeText;
+    minimizedBar.appendChild(label);
+
+    // Minimize Button
     const minimizeBtn = document.createElement('button');
     minimizeBtn.className = 'minimize-modal-btn';
-    minimizeBtn.textContent = '–'; // You can use an icon if you prefer
+    minimizeBtn.textContent = '–';
     minimizeBtn.title = 'Minimize';
 
     minimizeBtn.addEventListener('click', () => {
         modal.style.display = 'none';
-        minimizedBar.style.display = 'block';
+        minimizedBar.style.display = 'flex';
     });
 
     minimizedBar.addEventListener('click', () => {
