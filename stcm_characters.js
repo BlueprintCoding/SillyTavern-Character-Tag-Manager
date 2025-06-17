@@ -900,10 +900,13 @@ function createEditSectionForCharacter(char) {
     metaFields.appendChild(renderField('Tags to Embed (comma-separated)', (char.data?.tags || []).join(', '), 'data.tags'));
 
     // === Save Button
+    const btnRow = document.createElement('div');
+    btnRow.className = 'stcm_char_edit_save_row'
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save Changes';
     saveBtn.className = 'stcm_menu_button stcm_char_edit_save small';
-    saveBtn.style.marginTop = '10px';
+
+
 
     saveBtn.addEventListener('click', async () => {
         const inputs = section.querySelectorAll('.charEditInput');
@@ -945,7 +948,8 @@ function createEditSectionForCharacter(char) {
         }
     });
 
-    section.appendChild(saveBtn);
+    btnRow.appendChild(saveBtn);
+    section.appendChild(btnRow);
     return section;
 }
 
