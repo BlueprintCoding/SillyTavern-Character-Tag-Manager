@@ -492,59 +492,136 @@ eventSource.emit = function(event, ...args) {
 function createSwipeSelector() {
     ensureContext();
     const chat = context.chat;
-    if (!Array.isArray(chat) || chat.length === 0) return;
+
+    if (!Array.isArray(chat) || chat.length !== 1) return;
 
     const firstMsg = chat[0];
     const swipes = firstMsg.swipes;
     if (!Array.isArray(swipes) || swipes.length <= 1) return;
 
     const mesDiv = document.querySelector('#chat .mes[mesid="0"]');
-    if (!mesDiv) return;
+    if (!mesDiv || mesDiv.querySelector('.swipe-selector-container')) return;
 
-    // Avoid double-injecting
-    if (mesDiv.querySelector('.swipe-selector-container')) return;
+    const mesBlock = mesDiv.querySelector('.mes_block');
+    const chNameBlock = mesBlock?.querySelector('.ch_name');
+    if (!mesBlock || !chNameBlock) return;
 
-    const insertTarget = mesDiv.querySelector('.mes_block');
-    if (!insertTarget) return;
-
+    // Container
     const container = document.createElement('div');
     container.className = 'swipe-selector-container';
-    container.style.margin = '8px 0';
-    container.style.display = 'flex';
-    container.style.alignItems = 'center';
-    container.style.gap = '8px';
+    container.style.margin = '4px 0 8px 0';
 
-    const label = document.createElement('label');
-    label.textContent = 'Start with:';
-    label.style.fontSize = '0.9em';
-    label.style.fontWeight = '600';
+    // Button
+    const button = document.createElement('button');
+    button.textContent = 'Choose Alt Message';
+    button.style.padding = '4px 10px';
+    button.style.background = '#333';
+    button.style.color = '#fff';
+    button.style.border = '1px solid #666';
+    button.style.borderRadius = '4px';
+    button.style.cursor = 'pointer';
 
-    const select = document.createElement('select');
-    select.className = 'swipe-selector';
-    select.style.flex = '1';
+    container.appendChild(button);
+    mesBlock.insertBefore(container, chNameBlock);
 
-    swipes.forEach((text, idx) => {
-        const option = document.createElement('option');
-        option.value = idx;
-        option.textContent = `Swipe ${idx + 1}: ${text.slice(0, 60)}`;
-        if (text === firstMsg.mes) option.selected = true;
-        select.appendChild(option);
+    // Modal logic
+    button.addEventListener('click', () => {
+        const modal = document.createElement('div');
+        modal.className = 'swipe-modal';
+        modal.style.position = 'fixed';
+        modal.style.top = '50%';
+        modal.style.left = '50%';
+        modal.style.transform = 'translate(-50%, -50%)';
+        modal.style.background = '#1c1c1c';
+        modal.style.border = '1px solid #555';
+        modal.style.padding = '20px';
+        modal.style.zIndex = '10001';
+        modal.style.maxHeight = '80vh';
+        modal.style.overflowY = 'auto';
+        modal.style.maxWidth = '600px';
+        modal.style.width = '90%';
+        modal.style.borderRadius = '8px';
+        modal.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+
+        const header = document.createElement('div');
+        header.textContent = 'Select an Alternate Message';
+        header.style.fontSize = '1.1em';
+        header.style.marginBottom = '12px';
+        header.style.color = '#fff';
+        modal.appendChild(header);
+
+        swipes.forEach((text, idx) => {
+            const swipeContainer = document.createElement('div');
+            swipeContainer.style.marginBottom = '16px';
+            swipeContainer.style.border = '1px solid #444';
+            swipeContainer.style.borderRadius = '6px';
+            swipeContainer.style.padding = '10px';
+            swipeContainer.style.background = '#2a2a2a';
+
+            const swipeText = document.createElement('div');
+            swipeText.textContent = text;
+            swipeText.style.whiteSpace = 'pre-wrap';
+            swipeText.style.color = '#ddd';
+            swipeText.style.marginBottom = '10px';
+            swipeText.style.maxHeight = '100px';
+            swipeText.style.overflowY = 'auto';
+            swipeText.style.paddingRight = '4px';
+            swipeText.style.scrollbarWidth = 'thin'; // Firefox
+            swipeText.style.msOverflowStyle = 'none'; // IE/Edge legacy
+            
+            
+            const useBtn = document.createElement('button');
+            useBtn.textContent = `Use Alt ${idx + 1}`;
+            useBtn.style.padding = '4px 8px';
+            useBtn.style.background = '#007acc';
+            useBtn.style.color = '#fff';
+            useBtn.style.border = 'none';
+            useBtn.style.borderRadius = '4px';
+            useBtn.style.cursor = 'pointer';
+
+            useBtn.addEventListener('click', () => {
+                firstMsg.mes = text;
+                firstMsg.swipe_id = idx;
+            
+                // Re-render message (if renderMes exists)
+                if (typeof renderMes === 'function') {
+                    renderMes(0);
+                } else {
+                    const mesText = mesDiv.querySelector('.mes_text');
+                    if (mesText) mesText.innerHTML = `<p>${text}</p>`;
+                }
+            
+                // 🔥 Fire same event as arrow swipe
+                eventSource.emit('message_swiped', 0);
+            
+                // Close modal
+                document.body.removeChild(modal);
+                overlay.remove();
+            });
+            
+
+            swipeContainer.appendChild(swipeText);
+            swipeContainer.appendChild(useBtn);
+            modal.appendChild(swipeContainer);
+        });
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = 0;
+        overlay.style.left = 0;
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.background = 'rgba(0,0,0,0.6)';
+        overlay.style.zIndex = '10000';
+        overlay.addEventListener('click', () => {
+            document.body.removeChild(modal);
+            overlay.remove();
+        });
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(modal);
     });
-
-    select.addEventListener('change', (e) => {
-        const selectedIndex = parseInt(e.target.value, 10);
-        firstMsg.mes = swipes[selectedIndex];
-        firstMsg.swipe_id = selectedIndex;
-
-        const mesText = mesDiv.querySelector('.mes_text');
-        if (mesText) mesText.innerHTML = `<p>${swipes[selectedIndex]}</p>`;
-    });
-
-    container.appendChild(label);
-    container.appendChild(select);
-    insertTarget.appendChild(container);
 }
-
 
 
 
