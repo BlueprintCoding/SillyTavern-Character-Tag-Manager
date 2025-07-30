@@ -569,6 +569,7 @@ function createSwipeSelector() {
             swipeText.style.scrollbarWidth = 'thin'; // Firefox
             swipeText.style.msOverflowStyle = 'none'; // IE/Edge legacy
             
+            
             const useBtn = document.createElement('button');
             useBtn.textContent = `Use Alt ${idx + 1}`;
             useBtn.style.padding = '4px 8px';
