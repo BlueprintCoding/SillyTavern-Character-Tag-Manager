@@ -437,13 +437,12 @@ function hexToRgba(hex, alpha) {
     return `rgba(${r},${g},${b},${alpha})`;
 }
 
-// Show all ST events - Dev Mode
 const origEmit = eventSource.emit;
 
 eventSource.emit = function(event, ...args) {
     console.log('[EVENT]', event, ...args);
+
     if (event === 'chatLoaded') {
-        // Delay just a bit to ensure DOM is fully rendered
         setTimeout(() => {
             try {
                 createSwipeSelector();
@@ -454,9 +453,9 @@ eventSource.emit = function(event, ...args) {
     }
 
     if (event === 'message_sent' || event === 'user_message_rendered') {
-        const selector = document.querySelector('.swipe-selector');
+        const selector = document.querySelector('.swipe-selector-container');
         if (selector) {
-            selector.disabled = true;
+            selector.querySelector('button').disabled = true;
             selector.title = 'Disabled after message was sent';
         }
     }
@@ -464,28 +463,27 @@ eventSource.emit = function(event, ...args) {
     if (event === 'message_deleted') {
         setTimeout(() => {
             try {
-                const selector = document.querySelector('.swipe-selector');
+                const selector = document.querySelector('.swipe-selector-container');
                 const mesCount = document.querySelectorAll('#chat .mes').length;
 
                 if (mesCount === 1) {
-                    // Only one message left
+                    // Re-enable or inject
                     if (!selector) {
-                        createSwipeSelector(); // inject if missing
+                        createSwipeSelector();
                     } else {
-                        selector.disabled = false;
+                        selector.querySelector('button').disabled = false;
                         selector.title = '';
                     }
                 } else {
-                    // Still more than one message – ensure it's disabled
                     if (selector) {
-                        selector.disabled = true;
+                        selector.querySelector('button').disabled = true;
                         selector.title = 'Disabled after message was sent';
                     }
                 }
             } catch (err) {
                 console.warn('Swipe selector update on message_deleted failed:', err);
             }
-        }, 50); // slight delay for DOM update
+        }, 50);
     }
 
     return origEmit.apply(this, arguments);
@@ -494,7 +492,6 @@ eventSource.emit = function(event, ...args) {
 function createSwipeSelector() {
     ensureContext();
     const chat = context.chat;
-
     if (!Array.isArray(chat) || chat.length !== 1) return;
 
     const firstMsg = chat[0];
@@ -508,12 +505,12 @@ function createSwipeSelector() {
     const chNameBlock = mesBlock?.querySelector('.ch_name');
     if (!mesBlock || !chNameBlock) return;
 
-    // Container
+    // Create container
     const container = document.createElement('div');
     container.className = 'swipe-selector-container';
     container.style.margin = '4px 0 8px 0';
 
-    // Button
+    // Create button
     const button = document.createElement('button');
     button.textContent = 'Choose Alt Message';
     button.style.padding = '4px 10px';
@@ -526,91 +523,98 @@ function createSwipeSelector() {
     container.appendChild(button);
     mesBlock.insertBefore(container, chNameBlock);
 
-    // Modal logic
     button.addEventListener('click', () => {
+        // Ensure swipe_info is valid
+        if (!Array.isArray(firstMsg.swipe_info)) firstMsg.swipe_info = [];
+        while (firstMsg.swipe_info.length < swipes.length) {
+            firstMsg.swipe_info.push({
+                send_date: firstMsg.send_date,
+                gen_started: firstMsg.gen_started ?? null,
+                gen_finished: firstMsg.gen_finished ?? null,
+                extra: structuredClone(firstMsg.extra ?? {})
+            });
+        }
+
         const modal = document.createElement('div');
         modal.className = 'swipe-modal';
-        modal.style.position = 'fixed';
-        modal.style.top = '50%';
-        modal.style.left = '50%';
-        modal.style.transform = 'translate(-50%, -50%)';
-        modal.style.background = '#1c1c1c';
-        modal.style.border = '1px solid #555';
-        modal.style.padding = '20px';
-        modal.style.zIndex = '10001';
-        modal.style.maxHeight = '80vh';
-        modal.style.overflowY = 'auto';
-        modal.style.maxWidth = '600px';
-        modal.style.width = '90%';
-        modal.style.borderRadius = '8px';
-        modal.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+        Object.assign(modal.style, {
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: '#1c1c1c',
+            border: '1px solid #555',
+            padding: '20px',
+            zIndex: '10001',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            maxWidth: '600px',
+            width: '90%',
+            borderRadius: '8px',
+            boxShadow: '0 0 10px rgba(0,0,0,0.5)'
+        });
 
         const header = document.createElement('div');
         header.textContent = 'Select an Alternate Message';
-        header.style.fontSize = '1.1em';
-        header.style.marginBottom = '12px';
-        header.style.color = '#fff';
+        Object.assign(header.style, {
+            fontSize: '1.1em',
+            marginBottom: '12px',
+            color: '#fff'
+        });
         modal.appendChild(header);
 
         swipes.forEach((text, idx) => {
             const swipeContainer = document.createElement('div');
-            swipeContainer.style.marginBottom = '16px';
-            swipeContainer.style.border = '1px solid #444';
-            swipeContainer.style.borderRadius = '6px';
-            swipeContainer.style.padding = '10px';
-            swipeContainer.style.background = '#2a2a2a';
+            Object.assign(swipeContainer.style, {
+                marginBottom: '16px',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                padding: '10px',
+                background: '#2a2a2a'
+            });
 
             const swipeText = document.createElement('div');
             swipeText.textContent = text;
-            swipeText.style.whiteSpace = 'pre-wrap';
-            swipeText.style.color = '#ddd';
-            swipeText.style.marginBottom = '10px';
-            swipeText.style.maxHeight = '100px';
-            swipeText.style.overflowY = 'auto';
-            swipeText.style.paddingRight = '4px';
-            swipeText.style.scrollbarWidth = 'thin'; // Firefox
-            swipeText.style.msOverflowStyle = 'none'; // IE/Edge legacy
-            
-            
+            Object.assign(swipeText.style, {
+                whiteSpace: 'pre-wrap',
+                color: '#ddd',
+                marginBottom: '10px',
+                maxHeight: '100px',
+                overflowY: 'auto',
+                paddingRight: '4px',
+                scrollbarWidth: 'thin'
+            });
+
             const useBtn = document.createElement('button');
             useBtn.textContent = `Use Alt ${idx + 1}`;
-            useBtn.style.padding = '4px 8px';
-            useBtn.style.background = '#007acc';
-            useBtn.style.color = '#fff';
-            useBtn.style.border = 'none';
-            useBtn.style.borderRadius = '4px';
-            useBtn.style.cursor = 'pointer';
+            Object.assign(useBtn.style, {
+                padding: '4px 8px',
+                background: '#007acc',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+            });
 
             useBtn.addEventListener('click', () => {
-                // Set swipe ID and sync it to the main message
+                firstMsg.swipe_id = idx;
                 if (typeof syncSwipeToMes === 'function') {
-                    firstMsg.swipe_id = idx;
                     syncSwipeToMes(0, idx);
                 } else {
                     firstMsg.mes = swipes[idx];
-                    firstMsg.swipe_id = idx;
                 }
-            
-                // Find the message block for mesid="0"
+
                 const mesDiv = document.querySelector('#chat .mes[mesid="0"]');
-                if (!mesDiv) return;
-            
-                // Force a re-render of just this message with markdown
-                if (typeof renderMessage === 'function') {
+                if (mesDiv && typeof renderMessage === 'function') {
                     renderMessage(mesDiv, 0);
-                } else {
-                    // fallback: forcibly update HTML (no markdown parsing)
+                } else if (mesDiv) {
                     const mesText = mesDiv.querySelector('.mes_text');
                     if (mesText) mesText.innerHTML = `<p>${firstMsg.mes}</p>`;
                 }
-            
-                // Close the modal
+
                 document.body.removeChild(modal);
                 overlay.remove();
             });
-            
-            
-            
 
             swipeContainer.appendChild(swipeText);
             swipeContainer.appendChild(useBtn);
@@ -618,13 +622,15 @@ function createSwipeSelector() {
         });
 
         const overlay = document.createElement('div');
-        overlay.style.position = 'fixed';
-        overlay.style.top = 0;
-        overlay.style.left = 0;
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.background = 'rgba(0,0,0,0.6)';
-        overlay.style.zIndex = '10000';
+        Object.assign(overlay.style, {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: '10000'
+        });
         overlay.addEventListener('click', () => {
             document.body.removeChild(modal);
             overlay.remove();
@@ -634,7 +640,6 @@ function createSwipeSelector() {
         document.body.appendChild(modal);
     });
 }
-
 
 
 
