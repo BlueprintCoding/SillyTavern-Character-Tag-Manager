@@ -582,26 +582,33 @@ function createSwipeSelector() {
             useBtn.style.cursor = 'pointer';
 
             useBtn.addEventListener('click', () => {
-                firstMsg.swipe_id = idx;
-            
-                // Sync selected swipe into the message
+                // Set swipe ID and sync it to the main message
                 if (typeof syncSwipeToMes === 'function') {
-                    setTimeout(() => {
-                    syncSwipeToMes(0, idx); // 0 = first message
-                }, 50);
-                    reloadCurrentChat();
-                    
+                    firstMsg.swipe_id = idx;
+                    syncSwipeToMes(0, idx);
                 } else {
-                    firstMsg.mes = swipes[idx]; // fallback
+                    firstMsg.mes = swipes[idx];
+                    firstMsg.swipe_id = idx;
                 }
             
-                // Trigger full re-render
-                eventSource.emit(event_types.MESSAGE_EDITED);
+                // Find the message block for mesid="0"
+                const mesDiv = document.querySelector('#chat .mes[mesid="0"]');
+                if (!mesDiv) return;
             
-                // Close modal
+                // Force a re-render of just this message with markdown
+                if (typeof renderMessage === 'function') {
+                    renderMessage(mesDiv, 0);
+                } else {
+                    // fallback: forcibly update HTML (no markdown parsing)
+                    const mesText = mesDiv.querySelector('.mes_text');
+                    if (mesText) mesText.innerHTML = `<p>${firstMsg.mes}</p>`;
+                }
+            
+                // Close the modal
                 document.body.removeChild(modal);
                 overlay.remove();
             });
+            
             
             
 
