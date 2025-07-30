@@ -586,8 +586,11 @@ function createSwipeSelector() {
             
                 // Sync selected swipe into the message
                 if (typeof syncSwipeToMes === 'function') {
+                    setTimeout(() => {
                     syncSwipeToMes(0, idx); // 0 = first message
+                }, 50);
                     reloadCurrentChat();
+                    
                 } else {
                     firstMsg.mes = swipes[idx]; // fallback
                 }
