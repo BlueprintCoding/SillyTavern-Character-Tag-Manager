@@ -591,8 +591,9 @@ function createSwipeSelector() {
                     if (mesText) mesText.innerHTML = `<p>${text}</p>`;
                 }
             
-                // 🔥 Fire same event as arrow swipe
+                // Fire same event as arrow swipe
                 eventSource.emit('message_swiped', 0);
+                eventSource.emit(event_types.MESSAGE_EDITED);
             
                 // Close modal
                 document.body.removeChild(modal);
