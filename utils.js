@@ -582,13 +582,23 @@ function createSwipeSelector() {
             useBtn.addEventListener('click', () => {
                 firstMsg.mes = text;
                 firstMsg.swipe_id = idx;
-
-                const mesText = mesDiv.querySelector('.mes_text');
-                if (mesText) mesText.innerHTML = `<p>${text}</p>`;
-
+            
+                // Re-render message (if renderMes exists)
+                if (typeof renderMes === 'function') {
+                    renderMes(0);
+                } else {
+                    const mesText = mesDiv.querySelector('.mes_text');
+                    if (mesText) mesText.innerHTML = `<p>${text}</p>`;
+                }
+            
+                // Fire same event as arrow swipe
+                eventSource.emit('message_swiped', 0);
+            
+                // Close modal
                 document.body.removeChild(modal);
                 overlay.remove();
             });
+            
 
             swipeContainer.appendChild(swipeText);
             swipeContainer.appendChild(useBtn);
