@@ -559,11 +559,16 @@ function createSwipeSelector() {
             swipeContainer.style.background = '#2a2a2a';
 
             const swipeText = document.createElement('div');
+            swipeText.textContent = text;
             swipeText.style.whiteSpace = 'pre-wrap';
             swipeText.style.color = '#ddd';
             swipeText.style.marginBottom = '10px';
-            swipeText.textContent = text;
-
+            swipeText.style.maxHeight = '100px';
+            swipeText.style.overflowY = 'auto';
+            swipeText.style.paddingRight = '4px';
+            swipeText.style.scrollbarWidth = 'thin'; // Firefox
+            swipeText.style.msOverflowStyle = 'none'; // IE/Edge legacy
+            
             const useBtn = document.createElement('button');
             useBtn.textContent = `Use Alt ${idx + 1}`;
             useBtn.style.padding = '4px 8px';

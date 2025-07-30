@@ -15,9 +15,15 @@
     cursor: not-allowed;
 }
 
-.swipe-tooltip {
-    max-height: 200px;
-    overflow-y: auto;
+.swipe-selector-container ::-webkit-scrollbar {
+    width: 6px;
+}
+.swipe-selector-container ::-webkit-scrollbar-track {
+    background: transparent;
+}
+.swipe-selector-container ::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 3px;
 }
 
 
