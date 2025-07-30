@@ -451,6 +451,14 @@ eventSource.emit = function(event, ...args) {
         }, 50);
     }
 
+    if (event === 'message_sent' || event === 'user_message_rendered') {
+        const selector = document.querySelector('.swipe-selector');
+        if (selector) {
+            selector.disabled = true;
+            selector.title = 'Disabled after message was sent';
+        }
+    }
+
     return origEmit.apply(this, arguments);
 };
 
