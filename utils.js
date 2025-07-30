@@ -440,8 +440,76 @@ const origEmit = eventSource.emit;
 
 eventSource.emit = function(event, ...args) {
     console.log('[EVENT]', event, ...args);
+    if (event === 'chatLoaded') {
+        // Delay just a bit to ensure DOM is fully rendered
+        setTimeout(() => {
+            try {
+                createSwipeSelector();
+            } catch (err) {
+                console.warn('Swipe selector injection failed:', err);
+            }
+        }, 50);
+    }
+
     return origEmit.apply(this, arguments);
 };
+
+function createSwipeSelector() {
+    ensureContext();
+    const chat = context.chat;
+    if (!Array.isArray(chat) || chat.length === 0) return;
+
+    const firstMsg = chat[0];
+    const swipes = firstMsg.swipes;
+    if (!Array.isArray(swipes) || swipes.length <= 1) return;
+
+    const mesDiv = document.querySelector('#chat .mes[mesid="0"]');
+    if (!mesDiv) return;
+
+    // Avoid double-injecting
+    if (mesDiv.querySelector('.swipe-selector-container')) return;
+
+    const insertTarget = mesDiv.querySelector('.mes_block');
+    if (!insertTarget) return;
+
+    const container = document.createElement('div');
+    container.className = 'swipe-selector-container';
+    container.style.margin = '8px 0';
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.gap = '8px';
+
+    const label = document.createElement('label');
+    label.textContent = 'Start with:';
+    label.style.fontSize = '0.9em';
+    label.style.fontWeight = '600';
+
+    const select = document.createElement('select');
+    select.className = 'swipe-selector';
+    select.style.flex = '1';
+
+    swipes.forEach((text, idx) => {
+        const option = document.createElement('option');
+        option.value = idx;
+        option.textContent = `Swipe ${idx + 1}: ${text.slice(0, 60)}`;
+        if (text === firstMsg.mes) option.selected = true;
+        select.appendChild(option);
+    });
+
+    select.addEventListener('change', (e) => {
+        const selectedIndex = parseInt(e.target.value, 10);
+        firstMsg.mes = swipes[selectedIndex];
+        firstMsg.swipe_id = selectedIndex;
+
+        const mesText = mesDiv.querySelector('.mes_text');
+        if (mesText) mesText.innerHTML = `<p>${swipes[selectedIndex]}</p>`;
+    });
+
+    container.appendChild(label);
+    container.appendChild(select);
+    insertTarget.appendChild(container);
+}
+
 
 
 export {
@@ -450,5 +518,6 @@ export {
     cleanTagMap, buildTagMap,
     buildCharNameMap, getNotes, saveNotes,
     watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 
-    hashPin, getStoredPinHash, saveStoredPinHash, hexToRgba
+    hashPin, getStoredPinHash, saveStoredPinHash, hexToRgba,
+    createSwipeSelector
 };
