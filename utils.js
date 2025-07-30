@@ -459,6 +459,33 @@ eventSource.emit = function(event, ...args) {
         }
     }
 
+    if (event === 'message_deleted') {
+        setTimeout(() => {
+            try {
+                const selector = document.querySelector('.swipe-selector');
+                const mesCount = document.querySelectorAll('#chat .mes').length;
+
+                if (mesCount === 1) {
+                    // Only one message left
+                    if (!selector) {
+                        createSwipeSelector(); // inject if missing
+                    } else {
+                        selector.disabled = false;
+                        selector.title = '';
+                    }
+                } else {
+                    // Still more than one message – ensure it's disabled
+                    if (selector) {
+                        selector.disabled = true;
+                        selector.title = 'Disabled after message was sent';
+                    }
+                }
+            } catch (err) {
+                console.warn('Swipe selector update on message_deleted failed:', err);
+            }
+        }, 50); // slight delay for DOM update
+    }
+
     return origEmit.apply(this, arguments);
 };
 
@@ -499,6 +526,7 @@ function createSwipeSelector() {
     select.className = 'swipe-selector';
     select.style.flex = '1';
     select.style.padding = '2px 4px';
+    select.style.position = 'relative'; // for tooltip positioning
 
     swipes.forEach((text, idx) => {
         const option = document.createElement('option');
@@ -519,6 +547,43 @@ function createSwipeSelector() {
 
     container.appendChild(label);
     container.appendChild(select);
+
+    // Create a floating tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'swipe-tooltip';
+    tooltip.style.position = 'absolute';
+    tooltip.style.zIndex = '9999';
+    tooltip.style.background = '#333';
+    tooltip.style.color = '#fff';
+    tooltip.style.padding = '6px 10px';
+    tooltip.style.borderRadius = '6px';
+    tooltip.style.fontSize = '0.85em';
+    tooltip.style.maxWidth = '300px';
+    tooltip.style.display = 'none';
+    tooltip.style.whiteSpace = 'pre-wrap';
+    tooltip.style.pointerEvents = 'none';
+    document.body.appendChild(tooltip);
+
+    // Show preview on hover
+    select.addEventListener('mousemove', (e) => {
+        const rect = select.getBoundingClientRect();
+        const optionHeight = rect.height / swipes.length;
+        const relativeY = e.clientY - rect.top;
+        const hoveredIndex = Math.floor(relativeY / optionHeight);
+    
+        if (hoveredIndex >= 0 && hoveredIndex < swipes.length) {
+            tooltip.textContent = swipes[hoveredIndex];
+            tooltip.style.display = 'block';
+            tooltip.style.left = `${e.pageX + 15}px`;
+            tooltip.style.top = `${e.pageY + 10}px`;
+        } else {
+            tooltip.style.display = 'none';
+        }
+    });
+    
+select.addEventListener('mouseleave', () => {
+    tooltip.style.display = 'none';
+});
 
     // Insert BEFORE the character name block
     mesBlock.insertBefore(container, chNameBlock);

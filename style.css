@@ -9,6 +9,18 @@
     opacity: 1;
 }
 
+/* === Alternative Message Selector === */
+.swipe-selector:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.swipe-tooltip {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+
 /* === Modal Overlay & Container === */
 .modalOverlay {
     position: fixed;
