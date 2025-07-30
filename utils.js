@@ -563,6 +563,26 @@ function createSwipeSelector() {
         });
         modal.appendChild(header);
 
+        const searchInput = document.createElement('input');
+        Object.assign(searchInput.style, {
+            width: '100%',
+            padding: '6px 8px',
+            marginBottom: '12px',
+            fontSize: '14px',
+            border: '1px solid #555',
+            borderRadius: '4px',
+            background: '#2c2c2c',
+            color: '#fff',
+        });
+        searchInput.placeholder = 'Search alternate messages...';
+        modal.appendChild(searchInput);
+
+
+        const swipeList = document.createElement('div');
+        modal.appendChild(swipeList);
+
+        const swipeContainers = [];
+
         swipes.forEach((text, idx) => {
             const swipeContainer = document.createElement('div');
             Object.assign(swipeContainer.style, {
@@ -574,7 +594,13 @@ function createSwipeSelector() {
             });
 
             const swipeText = document.createElement('div');
-            swipeText.textContent = text;
+            swipeText.innerHTML = messageFormatting(
+                text,
+                firstMsg.name ?? '',
+                !!firstMsg.is_system,
+                !!firstMsg.is_user,
+                0
+            );
             Object.assign(swipeText.style, {
                 whiteSpace: 'pre-wrap',
                 color: '#ddd',
@@ -617,7 +643,6 @@ function createSwipeSelector() {
                         mesText.innerHTML = formatted;
                     }
                 }
-                
 
                 document.body.removeChild(modal);
                 overlay.remove();
@@ -625,7 +650,9 @@ function createSwipeSelector() {
 
             swipeContainer.appendChild(swipeText);
             swipeContainer.appendChild(useBtn);
-            modal.appendChild(swipeContainer);
+
+            swipeContainers.push({ text, element: swipeContainer });
+            swipeList.appendChild(swipeContainer);
         });
 
         const overlay = document.createElement('div');
@@ -642,6 +669,15 @@ function createSwipeSelector() {
             document.body.removeChild(modal);
             overlay.remove();
         });
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase();
+            swipeContainers.forEach(({ text, element }) => {
+                const plainText = text.toLowerCase();
+                element.style.display = plainText.includes(query) ? '' : 'none';
+            });
+        });
+        
 
         document.body.appendChild(overlay);
         document.body.appendChild(modal);
