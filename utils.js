@@ -594,6 +594,7 @@ function createSwipeSelector() {
                 // Fire same event as arrow swipe
                 eventSource.emit('message_swiped', 0);
                 eventSource.emit(event_types.MESSAGE_EDITED);
+                debouncePersist();
             
                 // Close modal
                 document.body.removeChild(modal);
