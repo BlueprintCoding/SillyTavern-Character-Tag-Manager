@@ -12,7 +12,7 @@ import {
     eventSource,
     event_types,
     syncSwipeToMes,
-    reloadCurrentChat
+    messageFormatting
 } from "../../../../script.js";
 
 
@@ -604,13 +604,20 @@ function createSwipeSelector() {
                     firstMsg.mes = swipes[idx];
                 }
 
-                const mesDiv = document.querySelector('#chat .mes[mesid="0"]');
-                if (mesDiv && typeof renderMessage === 'function') {
-                    renderMessage(mesDiv, 0);
-                } else if (mesDiv) {
+                if (mesDiv) {
                     const mesText = mesDiv.querySelector('.mes_text');
-                    if (mesText) mesText.innerHTML = `<p>${firstMsg.mes}</p>`;
+                    if (mesText && typeof messageFormatting === 'function') {
+                        const formatted = messageFormatting(
+                            firstMsg.mes,
+                            firstMsg.name ?? '',
+                            !!firstMsg.is_system,
+                            !!firstMsg.is_user,
+                            0
+                        );
+                        mesText.innerHTML = formatted;
+                    }
                 }
+                
 
                 document.body.removeChild(modal);
                 overlay.remove();
@@ -640,8 +647,6 @@ function createSwipeSelector() {
         document.body.appendChild(modal);
     });
 }
-
-
 
 export {
     debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
