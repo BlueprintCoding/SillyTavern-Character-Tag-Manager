@@ -492,9 +492,7 @@ eventSource.emit = function(event, ...args) {
 function createSwipeSelector() {
     ensureContext();
     const chat = context.chat;
-
-    // Abort if there are more than one message in chat
-    if (!Array.isArray(chat) || chat.length !== 1) return;
+    if (!Array.isArray(chat) || chat.length === 0) return;
 
     const firstMsg = chat[0];
     const swipes = firstMsg.swipes;
@@ -506,31 +504,29 @@ function createSwipeSelector() {
     // Avoid double-injecting
     if (mesDiv.querySelector('.swipe-selector-container')) return;
 
-    const mesBlock = mesDiv.querySelector('.mes_block');
-    const chNameBlock = mesBlock?.querySelector('.ch_name');
-    if (!mesBlock || !chNameBlock) return;
+    const insertTarget = mesDiv.querySelector('.mes_block');
+    if (!insertTarget) return;
 
     const container = document.createElement('div');
     container.className = 'swipe-selector-container';
-    container.style.margin = '4px 0 8px 0';
+    container.style.margin = '8px 0';
     container.style.display = 'flex';
     container.style.alignItems = 'center';
     container.style.gap = '8px';
 
     const label = document.createElement('label');
     label.textContent = 'Start with:';
-    label.style.fontSize = '0.85em';
+    label.style.fontSize = '0.9em';
     label.style.fontWeight = '600';
 
     const select = document.createElement('select');
     select.className = 'swipe-selector';
     select.style.flex = '1';
-    select.style.padding = '2px 4px';
 
     swipes.forEach((text, idx) => {
         const option = document.createElement('option');
         option.value = idx;
-        option.textContent = `Alt Msg ${idx + 1}: ${text.slice(0, 60)}`;
+        option.textContent = `Swipe ${idx + 1}: ${text.slice(0, 60)}`;
         if (text === firstMsg.mes) option.selected = true;
         select.appendChild(option);
     });
@@ -546,10 +542,9 @@ function createSwipeSelector() {
 
     container.appendChild(label);
     container.appendChild(select);
-
-    // Insert BEFORE the character name block
-    mesBlock.insertBefore(container, chNameBlock);
+    insertTarget.appendChild(container);
 }
+
 
 
 
