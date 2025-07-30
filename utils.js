@@ -10,7 +10,8 @@ import {
 
 import {
     eventSource,
-    event_types
+    event_types,
+    syncSwipeToMes
 } from "../../../../script.js";
 
 
@@ -580,26 +581,23 @@ function createSwipeSelector() {
             useBtn.style.cursor = 'pointer';
 
             useBtn.addEventListener('click', () => {
-                firstMsg.mes = text;
                 firstMsg.swipe_id = idx;
             
-                // Re-render message (if renderMes exists)
-                if (typeof renderMes === 'function') {
-                    renderMes(0);
+                // Sync selected swipe into the message
+                if (typeof syncSwipeToMes === 'function') {
+                    syncSwipeToMes(0, idx); // 0 = first message
                 } else {
-                    const mesText = mesDiv.querySelector('.mes_text');
-                    if (mesText) mesText.innerHTML = `<p>${text}</p>`;
+                    firstMsg.mes = swipes[idx]; // fallback
                 }
             
-                // Fire same event as arrow swipe
-                eventSource.emit('message_swiped', 0);
+                // Trigger full re-render
                 eventSource.emit(event_types.MESSAGE_EDITED);
-                debouncePersist();
             
                 // Close modal
                 document.body.removeChild(modal);
                 overlay.remove();
             });
+            
             
 
             swipeContainer.appendChild(swipeText);
