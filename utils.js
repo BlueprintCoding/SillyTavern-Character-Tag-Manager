@@ -11,7 +11,8 @@ import {
 import {
     eventSource,
     event_types,
-    syncSwipeToMes
+    syncSwipeToMes,
+    reloadCurrentChat
 } from "../../../../script.js";
 
 
@@ -586,6 +587,7 @@ function createSwipeSelector() {
                 // Sync selected swipe into the message
                 if (typeof syncSwipeToMes === 'function') {
                     syncSwipeToMes(0, idx); // 0 = first message
+                    reloadCurrentChat();
                 } else {
                     firstMsg.mes = swipes[idx]; // fallback
                 }
