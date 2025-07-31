@@ -4,8 +4,15 @@ import { debouncePersist,
     getNotes,
     saveNotes,
     parseSearchGroups,
-    parseSearchTerm
+    parseSearchTerm,
+    resetModalScrollPositions, 
+    makeModalDraggable, 
+    saveModalPosSize,
+    clampModalSize,
+    createMinimizableModalControls,
+    getNextZIndex
  } from './utils.js';
+    
 import { tags, tag_map, removeTagFromEntity } from "../../../tags.js";
 import { characters, selectCharacterById } from "../../../../script.js";
 import { groups, getGroupAvatar } from "../../../../scripts/group-chats.js";
@@ -14,8 +21,7 @@ import { callSaveandReload } from "./index.js";
 import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 import * as stcmFolders from './stcm_folders.js';
 import { getFolderOptionsTree } from './stcm_folders_ui.js'; // adjust path if needed
-
-
+import { createEditSectionForCharacter } from './stcm_char_panel.js'
 
 async function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
@@ -437,6 +443,11 @@ async function renderCharacterList() {
         const rightControls = document.createElement('div');
         rightControls.className = 'charRowRightFixed';
 
+        const editIcon = document.createElement('i');
+        editIcon.className = 'fa-solid fa-pen-to-square interactable stcm_edit_icon';
+        editIcon.title = 'Edit Character';
+        
+
         const deleteIcon = document.createElement('i');
         deleteIcon.className = 'fa-solid fa-trash interactable stcm_delete_icon';
         deleteIcon.title = 'Delete Character';
@@ -483,9 +494,78 @@ async function renderCharacterList() {
 
         });
 
+        rightControls.appendChild(editIcon);
         rightControls.appendChild(deleteIcon);
         metaWrapper.appendChild(rightControls);
         li.appendChild(metaWrapper);
+
+        if (entity.type === 'character') {
+            const char = characters.find(c => c.avatar === entity.id);
+            if (entity.type === 'character') {
+                const char = characters.find(c => c.avatar === entity.id);
+                if (char) {
+                    editIcon.addEventListener('click', () => {
+                        // Check if modal already exists
+                        let modal = document.getElementById(`stcmCharEditModal-${char.avatar}`);
+                        if (!modal) {
+                            // Create modal
+                            modal = document.createElement('div');
+                            modal.id = `stcmCharEditModal-${char.avatar}`;
+                            modal.className = 'stcmCharEditModal modalWindow';
+                            modal.style.zIndex = getNextZIndex()
+                            document.body.appendChild(modal);
+            
+                            // Create header
+                            const header = document.createElement('div');
+                            header.className = 'modalHeader';
+                            header.id = `stcmCharEditModalHeader-${char.avatar}`;
+            
+                            const title = document.createElement('div');
+                            title.className = 'modalTitle';
+                            title.textContent = `Edit Character: ${char.name}`;
+            
+                            const closeBtn = document.createElement('button');
+                            closeBtn.className = 'stcm_menu_button interactable modal-close modalCloseBtn ';
+                            closeBtn.textContent = '×';
+                            closeBtn.onclick = () => modal.remove();
+            
+                            // Optional: image icon for minimize bar
+                            const avatarSrc = `/characters/${char.avatar}`;
+                            const { minimizeBtn } = createMinimizableModalControls(modal, `Editing: ${char.name}`, avatarSrc);
+            
+                            header.appendChild(title);
+                            header.appendChild(minimizeBtn);
+                            header.appendChild(closeBtn);
+            
+                            // Create body
+                            const body = document.createElement('div');
+                            body.className = 'modalBody';
+                            body.appendChild(createEditSectionForCharacter(char));
+            
+                            // Assemble modal
+                            modal.appendChild(header);
+                            modal.appendChild(body);
+            
+                            // Bring to top on focus
+                            modal.addEventListener('mousedown', () => {
+                                modal.style.zIndex = getNextZIndex();
+                            });
+            
+                            // Clamp + Drag support
+                            clampModalSize(modal, 20);
+                            makeModalDraggable(modal, header, () => saveModalPosSize(modal));
+                            saveModalPosSize(modal);
+                        }
+            
+                        // Show it and bring to front
+                        modal.style.display = 'block';
+                        modal.style.zIndex = getNextZIndex();
+                    });
+                }
+            }
+        }
+
+                
         list.appendChild(li);
     });
 
@@ -704,6 +784,8 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+
 
 export {
     renderCharacterList,

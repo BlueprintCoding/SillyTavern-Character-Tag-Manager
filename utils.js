@@ -8,6 +8,14 @@ import {
     POPUP_RESULT 
 } from '../../../popup.js';
 
+import {
+    eventSource,
+    event_types,
+    syncSwipeToMes,
+    messageFormatting
+} from "../../../../script.js";
+
+
 let context = null;
 
 function ensureContext() {
@@ -213,6 +221,102 @@ function clampModalSize(modalEl, margin = 20) {
     return changed;
   }
 
+  export function createMinimizableModalControls(modal, minimizeText = 'Restore', icon = null) {
+    // Ensure the tray exists
+    let tray = document.getElementById('minimizedModalsTray');
+    if (!tray) {
+        tray = document.createElement('div');
+        tray.id = 'minimizedModalsTray';
+        tray.className = 'minimizedModalsTray';
+        document.body.appendChild(tray);
+    }
+
+    // Minimized bar (click to restore)
+    const minimizedBar = document.createElement('div');
+    minimizedBar.className = 'minimized-modal-bar';
+    minimizedBar.style.display = 'none';
+
+    // Optional icon (font-awesome or image)
+    if (icon) {
+        const iconEl = icon.startsWith('fa')
+            ? document.createElement('i')
+            : document.createElement('img');
+
+        if (icon.startsWith('fa')) {
+            iconEl.className = icon + ' minimized-icon';
+        } else {
+            iconEl.src = icon;
+            iconEl.alt = 'icon';
+            iconEl.className = 'minimized-img-icon';
+        }
+
+        minimizedBar.appendChild(iconEl);
+    }
+
+    // Text label
+    const label = document.createElement('span');
+    label.className = 'minimized-label';
+    label.textContent = minimizeText;
+    minimizedBar.appendChild(label);
+
+    // Clicking the bar restores the modal
+    minimizedBar.addEventListener('click', () => {
+        modal.style.display = 'block';
+        minimizedBar.style.display = 'none';
+    });
+
+    // Minimize button (goes inside the modal header typically)
+    const minimizeBtn = document.createElement('button');
+    minimizeBtn.className = 'minimize-modal-btn';
+    minimizeBtn.textContent = '–';
+    minimizeBtn.title = 'Minimize';
+
+    minimizedBar.addEventListener('click', () => {
+        modal.style.display = 'block';
+        modal.style.zIndex = getNextZIndex();  // ← bring to front
+        minimizedBar.style.display = 'none';
+    });
+
+    minimizedBar.addEventListener('click', () => {
+        modal.style.display = 'block';
+        minimizedBar.style.display = 'none';
+    });
+
+    // Add to the tray
+    tray.appendChild(minimizedBar);
+
+    return { minimizeBtn, minimizedBar };
+}
+
+
+
+  function restoreCharEditModal() {
+    const modal = document.getElementById('stcmCharEditModal');
+    const data = sessionStorage.getItem('stcm_char_edit_modal_pos_size');
+    if (!data) return;
+    try {
+        const rect = JSON.parse(data);
+        if (rect.width && rect.height) {
+            modal.style.width = `${rect.width}px`;
+            modal.style.height = `${rect.height}px`;
+        }
+        if (rect.left !== undefined && rect.top !== undefined) {
+            modal.style.left = `${rect.left}px`;
+            modal.style.top = `${rect.top}px`;
+        }
+    } catch (e) {
+        console.warn('Failed to restore edit modal position/size');
+    }
+}
+
+
+let highestZIndex = 10000;
+
+export function getNextZIndex() {
+    return ++highestZIndex;
+}
+
+
 function cleanTagMap(tag_map, characters = [], groups = []) {
     // Build a list of every still-valid character / group id
     const validIds = new Set([
@@ -333,11 +437,259 @@ function hexToRgba(hex, alpha) {
     return `rgba(${r},${g},${b},${alpha})`;
 }
 
+const origEmit = eventSource.emit;
+
+eventSource.emit = function(event, ...args) {
+    console.log('[EVENT]', event, ...args);
+
+    if (event === 'chatLoaded') {
+        setTimeout(() => {
+            try {
+                createSwipeSelector();
+            } catch (err) {
+                console.warn('Swipe selector injection failed:', err);
+            }
+        }, 50);
+    }
+
+    if (event === 'message_sent' || event === 'user_message_rendered') {
+        const selector = document.querySelector('.swipe-selector-container');
+        if (selector) {
+            selector.querySelector('button').disabled = true;
+            selector.title = 'Disabled after message was sent';
+        }
+    }
+
+    if (event === 'message_deleted') {
+        setTimeout(() => {
+            try {
+                const selector = document.querySelector('.swipe-selector-container');
+                const mesCount = document.querySelectorAll('#chat .mes').length;
+
+                if (mesCount === 1) {
+                    // Re-enable or inject
+                    if (!selector) {
+                        createSwipeSelector();
+                    } else {
+                        selector.querySelector('button').disabled = false;
+                        selector.title = '';
+                    }
+                } else {
+                    if (selector) {
+                        selector.querySelector('button').disabled = true;
+                        selector.title = 'Disabled after message was sent';
+                    }
+                }
+            } catch (err) {
+                console.warn('Swipe selector update on message_deleted failed:', err);
+            }
+        }, 50);
+    }
+
+    return origEmit.apply(this, arguments);
+};
+
+function createSwipeSelector() {
+    ensureContext();
+    const chat = context.chat;
+    if (!Array.isArray(chat) || chat.length !== 1) return;
+
+    const firstMsg = chat[0];
+    const swipes = firstMsg.swipes;
+    if (!Array.isArray(swipes) || swipes.length <= 1) return;
+
+    const mesDiv = document.querySelector('#chat .mes[mesid="0"]');
+    if (!mesDiv || mesDiv.querySelector('.swipe-selector-container')) return;
+
+    const mesBlock = mesDiv.querySelector('.mes_block');
+    const chNameBlock = mesBlock?.querySelector('.ch_name');
+    if (!mesBlock || !chNameBlock) return;
+
+    // Create container
+    const container = document.createElement('div');
+    container.className = 'swipe-selector-container';
+    container.style.margin = '4px 0 8px 0';
+
+    // Create button
+    const button = document.createElement('button');
+    button.textContent = 'Choose Alt Greeting';
+    button.style.padding = '4px 10px';
+    button.style.background = '#333';
+    button.style.color = '#fff';
+    button.style.border = '1px solid #666';
+    button.style.borderRadius = '4px';
+    button.style.cursor = 'pointer';
+
+    container.appendChild(button);
+    mesBlock.insertBefore(container, chNameBlock);
+
+    button.addEventListener('click', () => {
+        // Ensure swipe_info is valid
+        if (!Array.isArray(firstMsg.swipe_info)) firstMsg.swipe_info = [];
+        while (firstMsg.swipe_info.length < swipes.length) {
+            firstMsg.swipe_info.push({
+                send_date: firstMsg.send_date,
+                gen_started: firstMsg.gen_started ?? null,
+                gen_finished: firstMsg.gen_finished ?? null,
+                extra: structuredClone(firstMsg.extra ?? {})
+            });
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'swipe-modal';
+        Object.assign(modal.style, {
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: '#1c1c1c',
+            border: '1px solid #555',
+            padding: '20px',
+            zIndex: '10001',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            maxWidth: '600px',
+            width: '90%',
+            borderRadius: '8px',
+            boxShadow: '0 0 10px rgba(0,0,0,0.5)'
+        });
+
+        const header = document.createElement('div');
+        header.textContent = 'Select an Alternate Greeting';
+        Object.assign(header.style, {
+            fontSize: '1.1em',
+            marginBottom: '12px',
+            color: '#fff'
+        });
+        modal.appendChild(header);
+
+        const searchInput = document.createElement('input');
+        Object.assign(searchInput.style, {
+            width: '100%',
+            padding: '6px 8px',
+            marginBottom: '12px',
+            fontSize: '14px',
+            border: '1px solid #555',
+            borderRadius: '4px',
+            background: '#2c2c2c',
+            color: '#fff',
+        });
+        searchInput.placeholder = 'Search alternate greetings...';
+        modal.appendChild(searchInput);
+
+
+        const swipeList = document.createElement('div');
+        modal.appendChild(swipeList);
+
+        const swipeContainers = [];
+
+        swipes.forEach((text, idx) => {
+            const swipeContainer = document.createElement('div');
+            Object.assign(swipeContainer.style, {
+                marginBottom: '16px',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                padding: '10px',
+                background: '#2a2a2a'
+            });
+
+            const swipeText = document.createElement('div');
+            swipeText.innerHTML = messageFormatting(
+                text,
+                firstMsg.name ?? '',
+                !!firstMsg.is_system,
+                !!firstMsg.is_user,
+                0
+            );
+            Object.assign(swipeText.style, {
+                whiteSpace: 'pre-wrap',
+                color: '#ddd',
+                marginBottom: '10px',
+                maxHeight: '100px',
+                overflowY: 'auto',
+                paddingRight: '4px',
+                scrollbarWidth: 'thin'
+            });
+
+            const useBtn = document.createElement('button');
+            useBtn.textContent = idx === 0 ? 'Use First Message' : `Use Alt ${idx}`;
+            Object.assign(useBtn.style, {
+                padding: '4px 8px',
+                background: '#007acc',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+            });
+
+            useBtn.addEventListener('click', () => {
+                firstMsg.swipe_id = idx;
+                if (typeof syncSwipeToMes === 'function') {
+                    syncSwipeToMes(0, idx);
+                } else {
+                    firstMsg.mes = swipes[idx];
+                }
+
+                if (mesDiv) {
+                    const mesText = mesDiv.querySelector('.mes_text');
+                    if (mesText && typeof messageFormatting === 'function') {
+                        const formatted = messageFormatting(
+                            firstMsg.mes,
+                            firstMsg.name ?? '',
+                            !!firstMsg.is_system,
+                            !!firstMsg.is_user,
+                            0
+                        );
+                        mesText.innerHTML = formatted;
+                    }
+                }
+
+                document.body.removeChild(modal);
+                overlay.remove();
+            });
+
+            swipeContainer.appendChild(swipeText);
+            swipeContainer.appendChild(useBtn);
+
+            swipeContainers.push({ text, element: swipeContainer });
+            swipeList.appendChild(swipeContainer);
+        });
+
+        const overlay = document.createElement('div');
+        Object.assign(overlay.style, {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: '10000'
+        });
+        overlay.addEventListener('click', () => {
+            document.body.removeChild(modal);
+            overlay.remove();
+        });
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase();
+            swipeContainers.forEach(({ text, element }) => {
+                const plainText = text.toLowerCase();
+                element.style.display = plainText.includes(query) ? '' : 'none';
+            });
+        });
+        
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(modal);
+    });
+}
+
 export {
     debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
-    resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize,
+    resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize, restoreCharEditModal,
     cleanTagMap, buildTagMap,
     buildCharNameMap, getNotes, saveNotes,
     watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 
-    hashPin, getStoredPinHash, saveStoredPinHash, hexToRgba
+    hashPin, getStoredPinHash, saveStoredPinHash, hexToRgba,
+    createSwipeSelector
 };

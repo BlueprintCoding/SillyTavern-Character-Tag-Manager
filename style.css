@@ -9,6 +9,24 @@
     opacity: 1;
 }
 
+/* === Alternative Message Selector === */
+.swipe-selector:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.swipe-selector-container ::-webkit-scrollbar {
+    width: 6px;
+}
+.swipe-selector-container ::-webkit-scrollbar-track {
+    background: transparent;
+}
+.swipe-selector-container ::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 3px;
+}
+
+
 /* === Modal Overlay & Container === */
 .modalOverlay {
     position: fixed;
@@ -40,6 +58,70 @@
     pointer-events: auto;
 }
 
+#minimizedModalsTray {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 9999;
+    pointer-events: none; /* Prevent clicks from leaking through */
+}
+
+.minimized-modal-bar {
+    background: var(--ac-style-color-background);
+    color: var(--ac-style-color-text);
+    border: 1px solid #3a005f;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px #51008287;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 10000;
+    pointer-events: auto; /* Enable clicking inside bars */
+    min-width: 180px;
+    max-width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.minimize-modal-btn {
+    margin-left: auto;
+    font-size: 1.2em;
+    line-height: 1;
+    padding: 2px 6px;
+    background: transparent;
+    border: none;
+    color: var(--ac-style-color-text);
+    cursor: pointer;
+}
+
+.minimized-icon {
+    font-size: 1.2em;
+}
+
+.minimized-img-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.minimized-label {
+    font-weight: bold;
+    font-size: 0.9em;
+    display: inline-block;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* === Modal Header & Body === */
 .stcm_modal_header {
     flex-shrink: 0;
@@ -48,7 +130,6 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: .7em;
 }
 
 .stcm_modal_header h2 {
@@ -362,12 +443,15 @@
 }
 
 /* === Scroll Areas & Banding (Lists) === */
+#characterListContainer {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
 .charList {
     list-style: none;
     padding-left: 0;
     margin-top: 5px;
-    max-height: 50vh;
-    overflow-y: auto;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -511,6 +595,212 @@
     color: #e33;
     text-shadow: 0 0 2px #fff;
 }
+
+/* Container for the edit panel below each character */
+.charEditSection {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Each field row */
+.charEditSection .editFieldRow {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+    width: 100%;
+}
+
+/* Labels */
+.charEditSection .editFieldRow label {
+    font-weight: bold;
+    margin-bottom: 4px;
+    color: var(--textColor, #fff);
+}
+
+/* Inputs and textareas */
+.charEditSection .editFieldRow input,
+.charEditSection .editFieldRow textarea {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--ac-style-color-border);
+    border-radius: 4px;
+    background: var(--ac-style-color-background);
+    color: var(--textColor, #fff);
+    font-family: inherit;
+    font-size: 0.95em;
+    resize: vertical;
+}
+
+.charEditSection .editFieldRow textarea {
+    min-height: 40px;
+}
+
+/* Read-only inputs should look disabled */
+.charEditSection .editFieldRow input[readonly],
+.charEditSection .editFieldRow textarea[readonly] {
+    background: var(--ac-style-color-disabled-background);
+    color: var(--ac-style-color-disabled-text);
+    cursor: not-allowed; 
+}
+
+/* Save button */
+.stcm_char_edit_save_row {
+display: flex;
+margin-top: 10px;
+justify-content: flex-end;
+}
+
+.stcm_char_edit_save {
+    background-color: #3d8b44;
+    color: white;
+}
+
+.stcm_char_edit_save:hover {
+    background-color: #2e7035;
+}
+
+
+.collapsibleSection {
+    border: 1px solid var(--ac-style-color-border);
+    border-radius: 4px;
+    background: var(--ac-style-color-background);
+    overflow: hidden;
+}
+
+.collapsibleHeader {
+    padding: 8px 12px;
+    font-weight: bold;
+    background-color: #222;
+    color: var(--textColor, #fff);
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--ac-style-color-border);
+}
+
+.collapsibleHeader.active {
+    background-color: #222;
+}
+
+.collapsibleContent {
+    display: none;
+    padding: 10px;
+    background-color: #242424;
+}
+
+.collapsibleContent.open {
+    display: block;
+}
+
+.editFieldRow {
+    margin-bottom: 10px;
+}
+
+.editLabel {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.charEditSection input,
+.charEditSection textarea,
+.charEditSection select {
+    width: 100%;
+    background-color: var(--black30a);
+    outline: none;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 5px;
+    color: var(--SmartThemeBodyColor);
+    font-size: var(--mainFontSize);
+    font-family: var(--mainFontFamily);
+    padding: 5px 10px;
+}
+
+
+.charListItemWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 10px;
+    gap: 6px;
+}
+
+.stcm_char_edit_modal {
+    position: fixed;
+    top: 100px;
+    left: 100px;
+    width: 600px;
+    min-height: 300px;
+    background: var(--SmartThemeBlurTintColor, #2a2a2a);
+    border: 1px solid var(--ac-style-color-border);
+    border-radius: 8px;
+    z-index: 10000;
+    resize: both;
+    overflow: auto;
+    transition: box-shadow 0.2s;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  }
+  
+  .stcm_char_edit_modal.hidden {
+    display: none;
+  }
+  
+  .stcm_char_edit_body {
+    flex-grow: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    max-height: calc(100vh - 150px);
+  }
+  
+  .modalWindow {
+    position: fixed;
+    top: 100px;
+    left: 100px;
+    width: 600px;
+    max-height: 80vh;
+    background: var(--ac-style-color-background);
+    border: 1px solid var(--ac-style-color-border);
+    border-radius: 8px;
+    z-index: 9998;
+    box-shadow: 0 0 10px rgba(0,0,0,0.4);
+    overflow: hidden;
+    display: none;
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--ac-style-color-background-subtle);
+    border-bottom: 1px solid var(--ac-style-color-border);
+    cursor: move;
+}
+
+.modalTitle {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.modalCloseBtn {
+    background-color: #d9534f;
+    color: white;
+    cursor: pointer;
+    padding: 0 8px;
+}
+
+.modalCloseBtn:hover {
+        background-color: #c9302c;
+      }
+
+.modalBody {
+    padding: 10px;
+    overflow-y: auto;
+    max-height: calc(80vh - 50px);
+}
+
 
 /* === Tag List, Tag Groups, Tag Chips === */
 .tagNameEditable {
@@ -1541,30 +1831,35 @@ dialog.popup #stcm-popup-pin-input:focus {
 #characterTagManagerModal, 
 #characterTagManagerModal *, 
 #stcm_sidebar_folder_nav,
-#stcm_sidebar_folder_nav * {
+#stcm_sidebar_folder_nav *,
+.modalBody {
   scrollbar-width: thin;
   scrollbar-color: #666 #181818; /* thumb, track */
 }
 
 /* WebKit browsers: */
 #characterTagManagerModal ::-webkit-scrollbar,
-#stcm_sidebar_folder_nav ::-webkit-scrollbar {
+#stcm_sidebar_folder_nav ::-webkit-scrollbar,
+.modalBody ::-webkit-scrollbar {
   width: 12px;
   background: #181818;
 }
 #characterTagManagerModal ::-webkit-scrollbar-thumb,
-#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb {
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb,
+.modalBody ::-webkit-scrollbar-thumb {
   background: #666;
   border-radius: 8px;
   min-height: 24px;
   border: 2.5px solid #232323;
 }
 #characterTagManagerModal ::-webkit-scrollbar-thumb:hover,
-#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb:hover {
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb:hover,
+.modalBody ::-webkit-scrollbar-thumb:hover {
   background: #888;
 }
 #characterTagManagerModal ::-webkit-scrollbar-corner,
-#stcm_sidebar_folder_nav ::-webkit-scrollbar-corner {
+#stcm_sidebar_folder_nav ::-webkit-scrollbar-corner,
+.modalBody ::-webkit-scrollbar-corner  {
   background: #181818;
 }
 

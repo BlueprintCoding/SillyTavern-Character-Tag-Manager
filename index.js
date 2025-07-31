@@ -11,7 +11,9 @@ clampModalSize,
 getNotes, 
 saveNotes, 
 cleanTagMap,
-promptInput,
+restoreCharEditModal,
+createMinimizableModalControls,
+getNextZIndex
 } from './utils.js';
 
 import * as stcmFolders from './stcm_folders.js';
@@ -54,7 +56,7 @@ import {
 
 import {
     renderCharacterList,
-    stcmCharState 
+    stcmCharState,
 } from "./stcm_characters.js";
 
 import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
@@ -69,10 +71,10 @@ function openCharacterTagManagerModal() {
     overlay.id = 'characterTagManagerModal';
     overlay.className = 'modalOverlay';
     overlay.innerHTML = `
-    <div class="modalContent stcm_modal_main">
+    <div class="modalContent stcm_modal_main" id="stcm_modal_main">
         <div class="modalHeader stcm_modal_header">
             <h2>Character / Tag Manager</h2>
-            <button id="closeCharacterTagManagerModal" class="stcm_menu_button interactable">
+            <button id="closeCharacterTagManagerModal" class="stcm_menu_button interactable modal-close">
                 <i class="fa-solid fa-times"></i>
             </button>
         </div>
@@ -237,11 +239,45 @@ function openCharacterTagManagerModal() {
     </div>
     `;
 
+    
+
+    const minimizedModalTray = document.createElement('div');
+    minimizedModalTray.id = 'minimizedModalsTray';
+    minimizedModalTray.className = 'minimizedModalsTray';
+
+    const editModal = document.createElement('div');
+    editModal.id = 'stcmCharEditModal';
+    editModal.className = 'stcm_char_edit_modal hidden';
+    editModal.innerHTML = `
+    <div id="stcmCharEditModalHeader" class="stcm_modal_header modalHeader">
+        <span id="stcmCharEditTitle">Edit Character</span>
+        <button id="stcmCharEditCloseBtn" class="stcm_menu_button small modal-close">✕</button>
+    </div>
+    <div id="stcmCharEditBody" class="stcm_char_edit_body"></div>
+    `;
+
+
 
     document.body.appendChild(overlay);
+    document.body.appendChild(editModal);
+    document.body.appendChild(minimizedModalTray);
     resetModalScrollPositions();
     attachTagSectionListeners(overlay); 
     attachFolderSectionListeners(overlay);
+
+    overlay.style.zIndex = getNextZIndex();
+    overlay.addEventListener('mousedown', () => {
+    overlay.style.zIndex = getNextZIndex();
+    });
+
+    // minimize modal
+    const modal = document.getElementById('stcm_modal_main');
+    const { minimizeBtn } = createMinimizableModalControls(modal, 'Tag/Folder Manager', 'fa-solid fa-tags');
+    const modalHeader = overlay.querySelector('.stcm_modal_header');
+    const modalClose = overlay.querySelector('#closeCharacterTagManagerModal');
+    if (!modalHeader.querySelector('.minimize-modal-btn')) {
+        modalHeader.insertBefore(minimizeBtn, modalClose);
+    }
 
     // Folders: add create handler and render initial tree
 const foldersTreeContainer = document.getElementById('foldersTreeContainer');
@@ -936,6 +972,7 @@ eventSource.on(event_types.APP_READY, async () => {
     hookFolderSidebarEvents();
     hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
     injectStcmSettingsPanel();    
+    restoreCharEditModal();
 
 });
 
