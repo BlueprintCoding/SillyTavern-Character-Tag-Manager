@@ -512,7 +512,7 @@ function createSwipeSelector() {
 
     // Create button
     const button = document.createElement('button');
-    button.textContent = 'Choose Alt Message';
+    button.textContent = 'Choose Alt Greeting';
     button.style.padding = '4px 10px';
     button.style.background = '#333';
     button.style.color = '#fff';
@@ -555,7 +555,7 @@ function createSwipeSelector() {
         });
 
         const header = document.createElement('div');
-        header.textContent = 'Select an Alternate Message';
+        header.textContent = 'Select an Alternate Greeting';
         Object.assign(header.style, {
             fontSize: '1.1em',
             marginBottom: '12px',
@@ -574,7 +574,7 @@ function createSwipeSelector() {
             background: '#2c2c2c',
             color: '#fff',
         });
-        searchInput.placeholder = 'Search alternate messages...';
+        searchInput.placeholder = 'Search alternate greetings...';
         modal.appendChild(searchInput);
 
 
