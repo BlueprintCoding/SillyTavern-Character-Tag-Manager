@@ -82,6 +82,18 @@ SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a cen
 `A:John, T:Elf T:Magic` finds entries with "John" in any field, **or** both "Elf" and "Magic" tags together.
 
 ---
+### Alternative Greeting Easy Change Modal
+A Choose Alt Message" button that appears on the first character message (if multiple swipe options exist). Clicking the button opens a modal displaying all alternate swipes in scrollable containers and a search bar to filter options.
+
+**Features:**
+- Only appears if there is exactly one message in chat (i.e. startup/scenario phase).
+- Modal shows all swipe alternative greetings
+- Real-time search filter added to find alt messages quickly.
+- Clicking a "Choose Alt Message" button updates the first message with the chosen Alternative Greeting
+
+<img width="453" height="149" alt="image" src="https://github.com/user-attachments/assets/7a3ace00-76d4-4975-bfac-7cfc83a2f198" />
+
+<img width="749" height="709" alt="image" src="https://github.com/user-attachments/assets/7a40b18a-2d72-484f-99d0-8b5ba3b3a8ba" />
 
 
 ### Data Persistence
