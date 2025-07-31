@@ -612,7 +612,7 @@ function createSwipeSelector() {
             });
 
             const useBtn = document.createElement('button');
-            useBtn.textContent = `Use Alt ${idx + 1}`;
+            useBtn.textContent = idx === 0 ? 'Use First Message' : `Use Alt ${idx}`;
             Object.assign(useBtn.style, {
                 padding: '4px 8px',
                 background: '#007acc',
