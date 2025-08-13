@@ -10,8 +10,6 @@ import {
     messageFormatting,
     syncSwipeToMes,
     generateRaw as stGenerateRaw,
-    characters as stCharacters,    
-    selectCharacterById as stCharacterId,   
 } from "../../../../script.js";
 
 let ctx = null;
@@ -42,49 +40,50 @@ function safeJSONStringify(obj) {
 function getActiveCharacterFull() {
     ensureCtx();
 
-    // Try context first
-    const ctxId = ctx?.characterId ?? ctx?.charID ?? ctx?.currentCharacterId;
-    const ctxArr = Array.isArray(ctx?.characters) ? ctx.characters : null;
-    const fromCtxArr = (ctxArr && ctxId != null) ? ctxArr[ctxId] : null;
-    const fromCtxObj = ctx?.character || ctx?.charInfo || null;
-    const fromGrp    = ctx?.group?.members?.find?.(m => m?.id === ctxId) || null;
-    const fromSel    = ctx?.selected_group_member || null;
-
-    // Hard fallback to script.js exports (most reliable across builds)
-    const fromScriptArr = (Array.isArray(stCharacters) && (typeof stCharacterId === 'number'))
-        ? stCharacters[stCharacterId]
+    // Active index from context (string or number)
+    const idxFromCtx = ctx?.characterId != null
+        ? Number.isNaN(Number(ctx.characterId)) ? null : Number(ctx.characterId)
         : null;
 
-    // Some builds don’t export characterId – try to infer
-    const inferIdx = (!fromScriptArr && Array.isArray(stCharacters) && stCharacters.length)
-        ? (ctxId != null ? ctxId : 0)
+    // Primary source: ctx.characters + index
+    const fromCtxArray = (Array.isArray(ctx?.characters) && idxFromCtx != null && idxFromCtx >= 0 && idxFromCtx < ctx.characters.length)
+        ? ctx.characters[idxFromCtx]
         : null;
-    const fromScriptGuess = (inferIdx != null) ? stCharacters[inferIdx] : null;
+
+    // Fallbacks seen across ST forks
+    const fromCtxObj   = ctx?.character || ctx?.charInfo || null;
+    const fromGroupSel = ctx?.selected_group_member || null;
+    const fromGroupArr = ctx?.group?.members?.find?.(m => (m?.id === idxFromCtx || m?.name === ctx?.name2)) || null;
+
+    // Last-resort name match (if index didn’t work)
+    const byName = (!fromCtxArray && Array.isArray(ctx?.characters) && ctx?.name2)
+        ? ctx.characters.find(c => c?.name === ctx.name2) || null
+        : null;
 
     // Merge (later only fills missing keys)
     const merged = Object.assign(
         {},
         fromCtxObj || {},
-        fromGrp || {},
-        fromSel || {},
-        fromCtxArr || {},
-        fromScriptArr || {},
-        fromScriptGuess || {},
+        fromGroupSel || {},
+        fromGroupArr || {},
+        fromCtxArray || {},
+        byName || {},
     );
 
     if (!merged || !Object.keys(merged).length) {
-        console.warn('[Greeting Workshop] Character object is empty. Check exports/ctx wiring.');
+        console.warn('[Greeting Workshop] Character object is empty. Check context wiring:', {
+            idxFromCtx, hasArray: Array.isArray(ctx?.characters), name2: ctx?.name2
+        });
     }
     return merged;
 }
 
+
 /** Build XML-wrapped JSON block for the LLM. */
 function buildCharacterJSONBlock() {
     const char = getActiveCharacterFull();
-    if (!char || !Object.keys(char).length) {
-        console.warn('[Greeting Workshop] Active character object is empty. Check ctx.characters/ctx.characterId availability.');
-    }
-    return `<CHARACTER_DATA_JSON>\n${safeJSONStringify(char)}\n</CHARACTER_DATA_JSON>`;
+    const json = safeJSONStringify(char); // already handles circulars
+    return `<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`;
 }
 
 /* --------------------- PREFS + PROMPTS --------------------- */
@@ -114,20 +113,24 @@ const S = (x) => String(x ?? '');
 
 function buildSystemPrompt(prefs) {
     ensureCtx();
-    const lang = (prefs.language || ctx?.locale || 'en').trim();
+    const lang = (prefs.language || ctx.locale || 'en').trim();
     const ch   = getActiveCharacterFull();
-    const who  = ch?.name ? `${ch.name}${ch.role ? ` (${ch.role})` : ''}` : 'Assistant';
+    const charEdit  = ch?.name || ctx?.name2 || 'Assistant';
+    const who  = 'A Character Card Greeting Editing Assistant';
 
     return [
         `You are ${who}. Your task is to craft a SHORT opening line to begin a brand-new chat.`,
         `Language: ${lang}. Target tone: ${prefs.style}. Max length: ${prefs.maxChars} characters.`,
-        prefs.allowOneShortQuestion ? `Optionally include ONE brief, relevant icebreaker question.` : `Do not include any questions.`,
+        prefs.allowOneShortQuestion
+            ? `Optionally include ONE brief, relevant icebreaker question.`
+            : `Do not include any questions.`,
         `No meta/system talk. No disclaimers. Avoid repetition.`,
-        `You will receive the COMPLETE character object as JSON under <CHARACTER_DATA_JSON>.`,
+        `You will receive the COMPLETE character object for the character ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
-        `Return only the greeting text.`
+        `Output only the greeting text unless the user explicitly asks for analysis.`,
     ].join('\n\n');
 }
+
 
 /* --------------------- UI --------------------- */
 
@@ -314,6 +317,8 @@ async function onSendToLLM(isRegen = false) {
 
     // Always read what’s currently in the box
     const typed = String((inputEl.value || '').trim());
+    console.debug('[GW] using character snapshot:', getActiveCharacterFull());
+
 
     // If user hit Send, append it to the mini chat (and do NOT clear the box)
     if (!isRegen && typed) {
