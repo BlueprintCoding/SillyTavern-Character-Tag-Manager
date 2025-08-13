@@ -144,16 +144,15 @@ function loadPrefs() {
             style: 'Follow Character Personality',
             numParagraphs: 3,
             sentencesPerParagraph: 3,
-            allowOneShortQuestion: true,
-            language: ''
+            historyCount: 5,
+
         };
     } catch {
         return {
             style: 'Follow Character Personality',
             numParagraphs: 3,
             sentencesPerParagraph: 3,
-            allowOneShortQuestion: true,
-            language: ''
+            historyCount: 5,
         };
     }
 }
@@ -169,7 +168,6 @@ const S = (x) => String(x ?? '');
 
 function buildSystemPrompt(prefs) {
     ensureCtx();
-    const lang = (prefs.language || ctx.locale || 'en').trim();
     const ch   = getActiveCharacterFull();
     const charEdit  = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
     const who  = 'A Character Card Greeting Editing Assistant';
@@ -180,7 +178,7 @@ function buildSystemPrompt(prefs) {
     return [
         `You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.`,
         `Format strictly as ${nParas} paragraph${nParas === 1 ? '' : 's'}, with exactly ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`,
-        `Language: ${lang}. Target tone: ${prefs.style}.`,
+        `Target tone: ${prefs.style}.`,
         `Your top priority is to FOLLOW THE USER'S INSTRUCTION.`,
         `- If they ask for a brief greeting/opening line instead of a scene, keep it to 1–2 sentences and ignore the paragraph/sentence settings.`,
         `- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.`,
@@ -194,12 +192,13 @@ function buildSystemPrompt(prefs) {
     ].join('\n\n');
 }
 
-
 /* --------------------- UI --------------------- */
 
 let modal, overlay;
 let chatLogEl, inputEl, sendBtn, regenBtn, acceptBtn, editBtn, copyBtn, closeBtn;
-let styleInputEl, paraInputEl, sentInputEl, iceToggleEl, langInputEl;
+let styleInputEl, paraInputEl, sentInputEl, histInputEl;
+
+
 
 
 let miniTurns = []; // [{role:'user'|'assistant', content: string}]
@@ -236,22 +235,19 @@ function openWorkshop() {
         borderBottom:'1px solid #333'
     });
     settings.innerHTML = `
-        <label>Paragraphs
-            <input id="gw-paras" type="number" min="1" max="10" value="${prefs.numParagraphs ?? 3}" style="width:80px;margin-left:6px">
-        </label>
-        <label>Sentences/para
-            <input id="gw-sent" type="number" min="1" max="10" value="${prefs.sentencesPerParagraph ?? 3}" style="width:80px;margin-left:6px">
-        </label>
-        <label>Language
-            <input id="gw-lang" type="text" placeholder="auto" value="${esc(prefs.language || '')}" style="width:100%;margin-left:6px">
-        </label>
-        <label style="display:flex;gap:6px;align-items:center;justify-self:end">
-            <input type="checkbox" id="gw-ice" ${prefs.allowOneShortQuestion ? 'checked' : ''}> One short Q?
-        </label>
-        <label style="grid-column: 1 / -1">Style
-            <input id="gw-style" type="text" value="${esc(prefs.style)}" style="width:100%;margin-left:6px;margin-top:6px">
-        </label>
-    `;
+    <label>Paragraphs
+        <input id="gw-paras" type="number" min="1" max="10" value="${prefs.numParagraphs ?? 3}" style="width:80px;margin-left:6px">
+    </label>
+    <label>Sentences/para
+        <input id="gw-sent" type="number" min="1" max="10" value="${prefs.sentencesPerParagraph ?? 3}" style="width:80px;margin-left:6px">
+    </label>
+    <label>History
+        <input id="gw-hist" type="number" min="0" max="20" value="${prefs.historyCount ?? 5}" style="width:80px;margin-left:6px" title="How many recent messages to include when sending to the LLM">
+    </label>
+    <label style="grid-column: 1 / -1">Style
+        <input id="gw-style" type="text" value="${esc(prefs.style)}" style="width:100%;margin-left:6px;margin-top:6px">
+    </label>
+`;
 
     const body = document.createElement('div');
     Object.assign(body.style, { display:'grid', gridTemplateRows:'1fr auto', padding:'0 12px 12px 12px', gap:'10px', height:'60vh' });
@@ -292,16 +288,15 @@ function openWorkshop() {
     styleInputEl = settings.querySelector('#gw-style');
     paraInputEl  = settings.querySelector('#gw-paras');
     sentInputEl  = settings.querySelector('#gw-sent');
-    langInputEl  = settings.querySelector('#gw-lang');
-    iceToggleEl  = settings.querySelector('#gw-ice');
+    histInputEl  = settings.querySelector('#gw-hist');
 
     settings.addEventListener('change', () => {
         const next = {
-            style: (styleInputEl.value || 'friendly, concise, welcoming').trim(),
+            style: (styleInputEl.value || 'Follow Character Personality').trim(),
             numParagraphs: Math.max(1, Math.min(10, Number(paraInputEl.value) || 3)),
             sentencesPerParagraph: Math.max(1, Math.min(10, Number(sentInputEl.value) || 3)),
-            allowOneShortQuestion: !!iceToggleEl.checked,
-            language: (langInputEl.value || '').trim()
+            historyCount: Math.max(0, Math.min(20, Number(histInputEl.value) || 5))
+
         };
         savePrefs(next);
     });
@@ -388,6 +383,24 @@ async function onRegenerate() {
     await onSendToLLM(true);
 }
 
+function buildRecentHistoryBlock(limit = 5) {
+    // take last `limit` messages (user/assistant) in chronological order
+    const recent = miniTurns.slice(-limit);
+    if (!recent.length) return '';
+
+    const lines = recent.map((t, i) => {
+        const role = t.role === 'assistant' ? 'assistant' : 'user';
+        // Keep it plain; the system prompt already handles formatting rules.
+        return `${i + 1}. ${role.toUpperCase()}: ${t.content}`;
+    });
+
+    return [
+        '<RECENT_HISTORY>',
+        ...lines,
+        '</RECENT_HISTORY>'
+    ].join('\n');
+}
+
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
@@ -395,6 +408,7 @@ async function onSendToLLM(isRegen = false) {
     const typed = String((inputEl.value || '').trim());
     if (!typed && !isRegen) return;
 
+    // Insert user's message into the workshop chat history + UI (tracked history)
     if (!isRegen && typed) {
         miniTurns.push({ role: 'user', content: typed });
         appendBubble('user', typed);
@@ -408,12 +422,20 @@ async function onSendToLLM(isRegen = false) {
 
     try {
         const systemPrompt = buildSystemPrompt(prefs);
-        const instruction  = typed || miniTurns.slice().reverse().find(t => t.role === 'user')?.content || '(no new edits)';
 
+        // Use the most recent user instruction (typed or last user turn)
+        const instruction = typed || miniTurns.slice().reverse().find(t => t.role === 'user')?.content || '(no new edits)';
+
+        // Include the last 5 messages of mini chat history on every call
+        const historyBlock = buildRecentHistoryBlock(5);
+
+        // Optional: transform placeholders in the instruction (already done before)
         const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
         const instrTransformed = maskUserPlaceholders(replaceCharPlaceholders(instruction, charName));
 
         const rawPrompt = [
+            historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
+            '',
             'USER_INSTRUCTION:',
             instruction,
             '',
@@ -427,7 +449,7 @@ async function onSendToLLM(isRegen = false) {
         );
 
         const res = await stGenerateRaw(
-            String(rawPrompt),
+            String(rawPrompt), // prompt includes the recent history + instruction
             null,
             true,
             true,
@@ -452,6 +474,7 @@ async function onSendToLLM(isRegen = false) {
         spinner.remove();
     }
 }
+
 
 function onAccept() {
     const last = [...miniTurns].reverse().find(t => t.role === 'assistant');
