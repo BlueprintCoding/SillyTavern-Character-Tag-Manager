@@ -177,7 +177,8 @@ function buildSystemPrompt(prefs) {
         `Use ONLY the provided JSON as ground truth for the scene.`,
         `Formatting rules:`,
         `- Return only what the user asked for; no meta/system talk; no disclaimers.`,
-        `- If the user asked for a greeting, return only the greeting text (no extra commentary).`
+        `- If the user asked for a greeting, return only the greeting text (no extra commentary).`,
+        buildCharacterJSONBlock()
     ].join('\n\n');
 }
 
