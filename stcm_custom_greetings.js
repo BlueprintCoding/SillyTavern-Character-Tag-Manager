@@ -65,13 +65,19 @@ function markPreferred(wrap, bubble, text) {
     badge.className = 'gw-preferred-badge';
     badge.textContent = 'Preferred';
     Object.assign(badge.style, {
+        position: 'absolute',
+        roght: '8px',
+        bottom: '8px',
         fontSize: '10px',
-        opacity: '0.75',
-        marginTop: '4px',
-        textAlign: 'right',
-        color: '#ffd54f'
+        opacity: '0.9',
+        padding: '2px 6px',
+        borderRadius: '6px',
+        border: '1px solid #ffd54f66',
+        color: '#ffd54f',
+        pointerEvents: 'none' // don’t block clicks on the star/trash
     });
     bubble.appendChild(badge);
+    
 }
 
 
@@ -412,7 +418,7 @@ function appendBubble(role, text) {
     wrap.style.margin = '6px 0';
     wrap.style.justifyContent = role === 'user' ? 'flex-end' : 'flex-start';
 
-    // style
+    // style (bubble)
     Object.assign(bubble.style, {
         padding: '8px 10px',
         borderRadius: '8px',
@@ -420,7 +426,8 @@ function appendBubble(role, text) {
         border: '1px solid #3a3a3a',
         maxWidth: '90%',
         whiteSpace: 'pre-wrap',
-        position: 'relative'
+        position: 'relative',
+        paddingBottom: '32px' // reserve room for the badge/buttons row
     });
 
     wrap.appendChild(bubble);
@@ -429,13 +436,16 @@ function appendBubble(role, text) {
     // Action bar for assistant bubbles only
     if (role === 'assistant') {
         const bar = document.createElement('div');
-        bar.style.position = 'absolute';
-        bar.style.right = '6px';
-        bar.style.bottom = '-22px';
-        bar.style.display = 'flex';
-        bar.style.gap = '8px';
-        bar.style.fontSize = '12px';
-        bar.style.opacity = '0.8';
+        // Put it INSIDE the bubble
+        Object.assign(bar.style, {
+            position: 'absolute',
+            right: '8px',
+            bottom: '6px',
+            display: 'flex',
+            gap: '8px',
+            fontSize: '12px',
+            opacity: '0.9'
+        });
 
         const starBtn = document.createElement('button');
         starBtn.type = 'button';
@@ -461,36 +471,47 @@ function appendBubble(role, text) {
             color: '#f06292'
         });
 
+
         // Click: STAR
         starBtn.addEventListener('click', () => {
             markPreferred(wrap, bubble, text);
             starBtn.setAttribute('aria-pressed', preferredScene && preferredScene.ts === wrap.dataset.ts ? 'true' : 'false');
         });
-        
+
         // Click: TRASH
-        trashBtn.addEventListener('click', () => {
-            // Find this assistant turn in miniTurns
-            const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.content === text);
-            if (idx !== -1) {
-                // Remove assistant message
-                miniTurns.splice(idx, 1);
-                // Also remove the previous user message if it exists
-                if (idx - 1 >= 0 && miniTurns[idx - 1]?.role === 'user') {
-                    miniTurns.splice(idx - 1, 1);
-                    // Remove the previous user bubble in DOM if present
-                    const prevNode = wrap.previousElementSibling;
-                    if (prevNode && prevNode.dataset.role === 'user') {
-                        prevNode.remove();
-                    }
-                }
+        // Click: TRASH
+trashBtn.addEventListener('click', () => {
+    const thisTs = wrap.dataset.ts;
+
+    // Find this assistant turn by ts
+    const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
+    if (idx !== -1) {
+        // Remove assistant message
+        miniTurns.splice(idx, 1);
+
+        // Also remove the previous user message if it exists
+        if (idx - 1 >= 0 && miniTurns[idx - 1]?.role === 'user') {
+            const prevTs = miniTurns[idx - 1].ts;
+            miniTurns.splice(idx - 1, 1);
+
+            // Remove the previous user bubble in DOM if present
+            const prevNode = wrap.previousElementSibling;
+            if (prevNode && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs) {
+                prevNode.remove();
             }
-            // If this was the preferred scene, clear it
-            if (preferredScene && preferredScene.ts === wrap.dataset.ts) {
-                preferredScene = null;
-            }
-            // Remove the assistant bubble node
-            wrap.remove();
-        });
+        }
+    }
+
+    // If this was the preferred scene, clear it
+    if (preferredScene && preferredScene.ts === thisTs) {
+        preferredScene = null;
+        clearPreferredUI();
+    }
+
+    // Remove the assistant bubble node
+    wrap.remove();
+});
+
 
         bar.appendChild(starBtn);
         bar.appendChild(trashBtn);
@@ -574,16 +595,18 @@ async function onSendToLLM(isRegen = false) {
     const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
     const typedForSend = typedRaw ? maskUserPlaceholders(replaceCharPlaceholders(typedRaw, charName)) : '';
 
-    // Insert user's message into the workshop chat history + UI (tracked history)
-    if (!regen && typedForSend) {
-        miniTurns.push({ role: 'user', content: typedForSend });
-        appendBubble('user', typedForSend);
+// Insert user's message into the workshop chat history + UI (tracked history)
+if (!regen && typedForSend) {
+    const userWrap = appendBubble('user', typedForSend);
+    const userTs = userWrap?.dataset?.ts || String(Date.now());
+    miniTurns.push({ role: 'user', content: typedForSend, ts: userTs });
 
-        // clear input and keep focus for fast iteration
-        inputEl.value = '';
-        inputEl.dispatchEvent(new Event('input'));
-        inputEl.focus();
-    }
+    // clear input and keep focus for fast iteration
+    inputEl.value = '';
+    inputEl.dispatchEvent(new Event('input'));
+    inputEl.focus();
+}
+
 
     // spinner
     const spinner = document.createElement('div');
@@ -638,9 +661,11 @@ async function onSendToLLM(isRegen = false) {
         if (!llmResText) {
             appendBubble('assistant', '(empty response)');
         } else {
-            miniTurns.push({ role: 'assistant', content: llmResText });
-            appendBubble('assistant', llmResText);
+            const asstWrap = appendBubble('assistant', llmResText);
+            const asstTs = asstWrap?.dataset?.ts || String(Date.now());
+            miniTurns.push({ role: 'assistant', content: llmResText, ts: asstTs });
         }
+        
     } catch (e) {
         console.error('[Greeting Workshop] LLM call failed:', e);
         appendBubble('assistant', '⚠️ Error generating text. See console for details.');
