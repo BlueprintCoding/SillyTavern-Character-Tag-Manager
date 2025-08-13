@@ -310,6 +310,14 @@ function openWorkshop() {
     acceptBtn.addEventListener('click', onAccept);
     closeBtn.addEventListener('click', closeWorkshop);
 
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            sendBtn.click();
+        }
+    });
+    
+
     inputEl.focus();
 }
 
@@ -328,24 +336,41 @@ function mkBtn(label, bg) { const b = document.createElement('button'); b.textCo
 function spacer() { const s = document.createElement('div'); s.style.flex = '1'; return s; }
 
 function appendBubble(role, text) {
+    if (!chatLogEl || !chatLogEl.appendChild) return;
+
     const wrap = document.createElement('div');
+    wrap.className = 'gw-row';
+    wrap.dataset.role = role;
+    wrap.dataset.ts = String(Date.now());
+
     const bubble = document.createElement('div');
+    bubble.className = 'gw-bubble';
+    bubble.innerHTML = esc(text);
+
+    // layout
     wrap.style.display = 'flex';
     wrap.style.margin = '6px 0';
+    wrap.style.justifyContent = role === 'user' ? 'flex-end' : 'flex-start';
 
-    const isUser = role === 'user';
-    bubble.innerHTML = esc(text);
+    // style
     Object.assign(bubble.style, {
-        padding:'8px 10px', borderRadius:'8px',
-        background: isUser ? '#2b2b2b' : '#242424',
-        border: '1px solid #3a3a3a', maxWidth:'90%', whiteSpace:'pre-wrap'
+        padding: '8px 10px',
+        borderRadius: '8px',
+        background: role === 'user' ? '#2b2b2b' : '#242424',
+        border: '1px solid #3a3a3a',
+        maxWidth: '90%',
+        whiteSpace: 'pre-wrap'
     });
-    wrap.style.justifyContent = isUser ? 'flex-end' : 'flex-start';
 
-    wrap.append(bubble);
-    chatLogEl.append(wrap);
+    wrap.appendChild(bubble);
+    chatLogEl.appendChild(wrap);
+
+    // ensure it is visible
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
+
+    return wrap; // useful if you ever want to reference/remove/update it later
 }
+
 
 function onCopyLastAssistant() {
     const last = [...miniTurns].reverse().find(t => t.role === 'assistant');
@@ -405,15 +430,26 @@ async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
 
-    const typed = String((inputEl.value || '').trim());
-    if (!typed && !isRegen) return;
+    // normalize input
+    const typedRaw = (inputEl.value ?? '').replace(/\s+/g, ' ').trim();
+    if (!typedRaw && !isRegen) return;
+
+    // transform once so the bubble shows exactly what we send
+    const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
+    const typedForSend = typedRaw ? maskUserPlaceholders(replaceCharPlaceholders(typedRaw, charName)) : '';
 
     // Insert user's message into the workshop chat history + UI (tracked history)
-    if (!isRegen && typed) {
-        miniTurns.push({ role: 'user', content: typed });
-        appendBubble('user', typed);
+    if (!isRegen && typedForSend) {
+        miniTurns.push({ role: 'user', content: typedForSend });
+        appendBubble('user', typedForSend);
+
+        // clear input and keep focus for fast iteration
+        inputEl.value = '';
+        inputEl.dispatchEvent(new Event('input'));
+        inputEl.focus();
     }
 
+    // spinner
     const spinner = document.createElement('div');
     spinner.textContent = 'Thinking…';
     Object.assign(spinner.style, { fontSize: '12px', opacity: .7, margin: '4px 0 0 2px' });
@@ -423,22 +459,19 @@ async function onSendToLLM(isRegen = false) {
     try {
         const systemPrompt = buildSystemPrompt(prefs);
 
-        // Use the most recent user instruction (typed or last user turn)
-        const instruction = typed || miniTurns.slice().reverse().find(t => t.role === 'user')?.content || '(no new edits)';
+        // Most recent user instruction (already transformed if newly sent)
+        const lastUserMsg = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
 
-        // Include the last 5 messages of mini chat history on every call
+        // Include the last N messages of mini chat history on every call
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const historyBlock = buildRecentHistoryBlock(historyLimit);
 
-        // Optional: transform placeholders in the instruction (already done before)
-        const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
-        const instrTransformed = maskUserPlaceholders(replaceCharPlaceholders(instruction, charName));
-
+        // Compose the two-block prompt (history → instruction)
         const rawPrompt = [
             historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
             '',
             'USER_INSTRUCTION:',
-            instrTransformed,
+            lastUserMsg,
             '',
             'Follow the instruction above using the character data as context. ' +
             'If the instruction is to make a greeting, output only the greeting text.'
@@ -450,7 +483,7 @@ async function onSendToLLM(isRegen = false) {
         );
 
         const res = await stGenerateRaw(
-            String(rawPrompt), // prompt includes the recent history + instruction
+            String(rawPrompt),
             null,
             true,
             true,
