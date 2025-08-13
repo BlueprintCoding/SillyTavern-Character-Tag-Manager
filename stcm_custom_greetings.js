@@ -1,5 +1,5 @@
 // stcm_custom_greetings.js
-// SillyTavern Character Manager – Custom Greeting Workshop (RAW-ONLY)
+// SillyTavern Character Manager – Custom Greeting Workshop
 // Opens a mini chat with the active LLM to craft the first greeting,
 // then replaces the starting message in the main chat on accept.
 
@@ -9,7 +9,7 @@ import {
     eventSource,
     messageFormatting,
     syncSwipeToMes,
-    generateRaw as stGenerateRaw, // raw only
+    generateRaw as stGenerateRaw,
 } from "../../../../script.js";
 
 let ctx = null;
@@ -19,21 +19,11 @@ function ensureCtx() {
     ctx.extensionSettings.stcm ??= {};
 }
 
-// Small helper to resolve generateRaw even if the import alias isn't present on a given build
-function getGenerateRaw() {
-    if (typeof stGenerateRaw === 'function') return stGenerateRaw;
-    if (typeof window?.generateRaw === 'function') return window.generateRaw;
-    throw new ReferenceError('generateRaw is not available on this build.');
-}
+/* --------------------- CHARACTER JSON --------------------- */
 
-// --- FULL CHARACTER JSON PLUMBING ---
-
-/**
- * Safely stringify ANY object (handles circular refs, functions, BigInt).
- */
 function safeJSONStringify(obj) {
     const seen = new WeakSet();
-    const replacer = (_k, v) => {
+    return JSON.stringify(obj, (k, v) => {
         if (typeof v === 'function') return undefined;
         if (typeof v === 'bigint') return v.toString();
         if (v && typeof Node !== 'undefined' && v instanceof Node) return undefined;
@@ -43,40 +33,36 @@ function safeJSONStringify(obj) {
             seen.add(v);
         }
         return v;
-    };
-    return JSON.stringify(obj, replacer, 2);
+    }, 2);
 }
 
-/**
- * Returns the most complete character object we can find from ST context.
- */
+/** Try hard to fetch the current character object across ST variants. */
 function getActiveCharacterFull() {
     ensureCtx();
 
-    // Primary sources
-    const fromIndexed = (ctx.characters && ctx.characterId != null) ? ctx.characters[ctx.characterId] : null;
-    const fallback    = ctx.character || null;
+    const id = ctx?.characterId ?? ctx?.charID ?? ctx?.currentCharacterId;
+    const arr = ctx?.characters || window?.characters || [];
 
-    // Try a few extra ST locations commonly used across builds
-    const alt1 = ctx?.group?.members?.find?.(m => m?.id === ctx?.characterId) || null;
-    const alt2 = ctx?.selected_group_member || null;
-    const alt3 = (window?.characters && ctx?.characterId != null) ? window.characters[ctx.characterId] : null;
-    const alt4 = ctx?.charInfo || null;
+    const fromArray = (id != null && Array.isArray(arr)) ? arr[id] : null;
+    const fromCtx   = ctx?.character || ctx?.charInfo || null;
+    const fromGrp1  = ctx?.group?.members?.find?.(m => m?.id === id) || null;
+    const fromSel   = ctx?.selected_group_member || null;
 
-    // Merge (later sources only fill missing fields)
-    const full = Object.assign({}, alt3 || {}, alt2 || {}, alt1 || {}, fallback || {}, fromIndexed || {}, alt4 || {});
-
-    return full;
+    // Merge left-to-right, later sources only fill missing keys
+    const merged = Object.assign({}, fromCtx || {}, fromGrp1 || {}, fromSel || {}, fromArray || {});
+    return merged && Object.keys(merged).length ? merged : {};
 }
 
-/**
- * Provides the serialized JSON payload we’ll send along with the instruction.
- */
+/** Build XML-wrapped JSON block for the LLM. */
 function buildCharacterJSONBlock() {
     const char = getActiveCharacterFull();
-    const json = String(safeJSONStringify(char));
-    return `<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`;
+    if (!char || !Object.keys(char).length) {
+        console.warn('[Greeting Workshop] Active character object is empty. Check ctx.characters/ctx.characterId availability.');
+    }
+    return `<CHARACTER_DATA_JSON>\n${safeJSONStringify(char)}\n</CHARACTER_DATA_JSON>`;
 }
+
+/* --------------------- PREFS + PROMPTS --------------------- */
 
 const PREFS_KEY = 'stcm_greeting_workshop_prefs';
 
@@ -86,7 +72,7 @@ function loadPrefs() {
             style: 'friendly, concise, welcoming',
             maxChars: 320,
             allowOneShortQuestion: true,
-            language: '', // empty = auto from ctx.locale
+            language: ''
         };
     } catch {
         return { style: 'friendly, concise, welcoming', maxChars: 320, allowOneShortQuestion: true, language: '' };
@@ -99,11 +85,11 @@ function esc(s) {
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
+const S = (x) => String(x ?? '');
 
-// Build a system prompt using current character & prefs.
 function buildSystemPrompt(prefs) {
     ensureCtx();
-    const lang = (prefs.language || ctx.locale || 'en').trim();
+    const lang = (prefs.language || ctx?.locale || 'en').trim();
     const ch   = getActiveCharacterFull();
     const who  = ch?.name ? `${ch.name}${ch.role ? ` (${ch.role})` : ''}` : 'Assistant';
 
@@ -114,44 +100,42 @@ function buildSystemPrompt(prefs) {
         `No meta/system talk. No disclaimers. Avoid repetition.`,
         `You will receive the COMPLETE character object as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
-        `Return only the greeting text.`,
+        `Return only the greeting text.`
     ].join('\n\n');
 }
 
-// ------------------------- UI: modal & interactions -------------------------
+/* --------------------- UI --------------------- */
+
 let modal, overlay;
 let chatLogEl, inputEl, sendBtn, regenBtn, acceptBtn, editBtn, copyBtn, closeBtn;
 let styleInputEl, maxInputEl, iceToggleEl, langInputEl;
 
-let miniTurns = []; // mini chat history for user instructions (strings only)
+let miniTurns = []; // [{role:'user'|'assistant', content: string}]
 
 function openWorkshop() {
     ensureCtx();
-    if (modal) return; // already open
+    if (modal) return;
 
     const prefs = loadPrefs();
 
     overlay = document.createElement('div');
-    Object.assign(overlay.style, {
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000
-    });
+    Object.assign(overlay.style, { position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:10000 });
 
     modal = document.createElement('div');
     Object.assign(modal.style, {
-        position: 'fixed',
-        top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 'min(720px, 92vw)', maxHeight: '85vh', overflow: 'hidden',
-        background: '#1b1b1b', color: '#ddd', border: '1px solid #555',
-        borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.5)', zIndex: 10001,
-        display: 'flex', flexDirection: 'column'
+        position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
+        width:'min(720px,92vw)', maxHeight:'85vh', overflow:'hidden',
+        background:'#1b1b1b', color:'#ddd', border:'1px solid #555',
+        borderRadius:'10px', boxShadow:'0 8px 30px rgba(0,0,0,.5)', zIndex:10001,
+        display:'flex', flexDirection:'column'
     });
 
     const header = document.createElement('div');
     header.textContent = 'Greeting Workshop';
-    Object.assign(header.style, { padding: '10px 12px', borderBottom: '1px solid #444', fontWeight: 600, background: '#222' });
+    Object.assign(header.style, { padding:'10px 12px', borderBottom:'1px solid #444', fontWeight:600, background:'#222' });
 
     const settings = document.createElement('div');
-    Object.assign(settings.style, { display:'grid', gridTemplateColumns:'120px 1fr 1fr 140px', gap:'8px', padding:'8px 12px', alignItems:'center', borderBottom:'1px solid #333' });
+    Object.assign(settings.style, { display:'grid', gridTemplateColumns:'120px 1fr 1fr 130px', gap:'8px', padding:'8px 12px', alignItems:'center', borderBottom:'1px solid #333' });
     settings.innerHTML = `
         <label>Max
             <input id="gw-max" type="number" min="60" max="600" value="${prefs.maxChars}" style="width:80px;margin-left:6px">
@@ -175,6 +159,7 @@ function openWorkshop() {
 
     const composer = document.createElement('div');
     Object.assign(composer.style, { display:'grid', gridTemplateColumns:'1fr auto', gap:'8px' });
+
     inputEl = document.createElement('textarea');
     inputEl.placeholder = 'Describe the greeting you want (tone, topics, constraints)…';
     Object.assign(inputEl.style, { resize:'vertical', minHeight:'48px', maxHeight:'160px', padding:'8px', background:'#222', color:'#eee', border:'1px solid #444', borderRadius:'6px' });
@@ -197,8 +182,8 @@ function openWorkshop() {
 
     modal.append(header, settings, body, footer);
     body.append(chatLogEl, composer);
-
     document.body.append(overlay, modal);
+
     makeDraggable(modal, header);
 
     // wire settings
@@ -217,10 +202,8 @@ function openWorkshop() {
         savePrefs(next);
     });
 
-    // seed a helper message
     appendBubble('assistant', 'I’ve loaded the FULL character data. Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
 
-    // actions
     sendBtn.addEventListener('click', onSendToLLM);
     regenBtn.addEventListener('click', onRegenerate);
     editBtn.addEventListener('click', onEditLastAssistant);
@@ -239,10 +222,7 @@ function closeWorkshop() {
 }
 
 function btnStyle(bg) {
-    return {
-        padding:'8px 12px', background:bg, color:'#fff',
-        border:'1px solid #444', borderRadius:'6px', cursor:'pointer', fontWeight:600
-    };
+    return { padding:'8px 12px', background:bg, color:'#fff', border:'1px solid #444', borderRadius:'6px', cursor:'pointer', fontWeight:600 };
 }
 function mkBtn(label, bg) { const b = document.createElement('button'); b.textContent = label; Object.assign(b.style, btnStyle(bg)); return b; }
 function spacer() { const s = document.createElement('div'); s.style.flex = '1'; return s; }
@@ -299,7 +279,7 @@ async function onRegenerate() {
         callGenericPopup('No prior user instruction to regenerate from.', POPUP_TYPE.ALERT, 'Greeting Workshop');
         return;
     }
-    inputEl.value = lastUser.content;
+    inputEl.value = lastUser.content; // keep visible
     await onSendToLLM(true);
 }
 
@@ -309,59 +289,55 @@ async function onSendToLLM(isRegen = false) {
     const userText = (inputEl.value || '').trim();
     if (!userText && !isRegen) return;
 
-    // Append user text to the mini chat log (do NOT clear input)
     if (!isRegen) {
-        miniTurns.push({ role: 'user', content: String(userText) });
+        miniTurns.push({ role:'user', content: userText });
         appendBubble('user', userText);
-        // inputEl.value = ''; // keep input for iterative edits
+        // Intentionally do NOT clear input
     }
 
     const spinner = document.createElement('div');
     spinner.textContent = 'Thinking…';
-    Object.assign(spinner.style, { fontSize: '12px', opacity: .7, margin: '4px 0 0 2px' });
+    Object.assign(spinner.style, { fontSize:'12px', opacity:.7, margin:'4px 0 0 2px' });
     chatLogEl.append(spinner);
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
     try {
-        const approxRespLen = Math.ceil(prefs.maxChars * 1.2);
+        const approxRespLen = Math.ceil((prefs.maxChars || 320) * 1.2);
 
-        const lastInstr =
-            miniTurns.length && miniTurns[miniTurns.length - 1].role === 'user'
-                ? String(miniTurns[miniTurns.length - 1].content ?? '')
-                : '(no new edits)';
+        // Use the last USER instruction, not the last turn
+        const lastUser = [...miniTurns].reverse().find(t => t.role === 'user');
+        const instruction = lastUser?.content ? String(lastUser.content) : '(no new edits)';
 
         const systemPrompt = buildSystemPrompt(prefs);
         const rawPrompt =
             buildCharacterJSONBlock() + '\n\n' +
             'Now craft the greeting based on the following instruction:\n' +
-            lastInstr + '\n\n' +
+            instruction + '\n\n' +
             'Return only the greeting text.';
 
-        const generateRaw = getGenerateRaw();
-
-        // generateRaw(prompt, api, instructOverride, quietToLoud, systemPrompt, responseLength, trimNames, prefill, jsonSchema)
-        const res = await generateRaw(
-            String(rawPrompt),     // prompt
-            null,                  // api (use current)
-            true,                  // instructOverride: force "text" path
-            true,                  // quietToLoud: send as system/system-like
-            String(systemPrompt),  // systemPrompt
-            approxRespLen,         // responseLength
-            true,                  // trimNames
-            '',                    // prefill
-            null                   // jsonSchema
+        // Positional signature of generateRaw in your build:
+        // (prompt, api, instructOverride, quietToLoud, systemPrompt, responseLength, trimNames, prefill, jsonSchema)
+        const res = await stGenerateRaw(
+            String(rawPrompt),   // prompt (string)
+            null,                // api (current)
+            true,                // instructOverride -> use text/instruct path, not RP scaffolding
+            true,                // quietToLoud -> send as system style, avoid name injection
+            String(systemPrompt),
+            approxRespLen,
+            true,
+            '',
+            null
         );
 
         const llmResText = String(res || '').trim();
-
         if (!llmResText) {
             appendBubble('assistant', '(empty response)');
         } else {
-            miniTurns.push({ role: 'assistant', content: llmResText });
+            miniTurns.push({ role:'assistant', content: llmResText });
             appendBubble('assistant', llmResText);
         }
     } catch (e) {
-        console.error('[Greeting Workshop] generateRaw failed:', e);
+        console.error('[Greeting Workshop] LLM call failed (raw):', e);
         appendBubble('assistant', '⚠️ Error generating text. See console for details.');
     } finally {
         spinner.remove();
@@ -408,7 +384,6 @@ function replaceStartingMessage(text) {
         }];
     }
 
-    // Update DOM immediately
     const mesDiv = document.querySelector('#chat .mes[mesid="0"] .mes_text');
     if (mesDiv) {
         const first = ctx.chat[0];
@@ -421,7 +396,6 @@ function replaceStartingMessage(text) {
         );
     }
 
-    // Sync with ST swipe machinery (preferred)
     if (typeof syncSwipeToMes === 'function') {
         syncSwipeToMes(0, 0);
     }
@@ -429,7 +403,8 @@ function replaceStartingMessage(text) {
     try { eventSource.emit?.('message_updated', 0); } catch {}
 }
 
-// ------------------------- Draggable header (lightweight) -------------------
+/* --------------------- helpers --------------------- */
+
 function makeDraggable(panel, handle) {
     let sx=0, sy=0, px=0, py=0, dragging=false;
     handle.style.cursor = 'move';
@@ -453,7 +428,6 @@ function makeDraggable(panel, handle) {
     document.addEventListener('mouseup', up);
 }
 
-// ------------------------- Header button injection --------------------------
 function findHeaderMount() {
     const firstMesBlock = document.querySelector('#chat .mes[mesid="0"] .mes_block');
     if (firstMesBlock) return firstMesBlock.querySelector('.ch_name')?.parentElement || firstMesBlock;
@@ -474,7 +448,8 @@ function injectWorkshopButton() {
     mount.prepend(btn);
 }
 
-// ------------------------- Public API & lifecycle ---------------------------
+/* --------------------- lifecycle --------------------- */
+
 export function initCustomGreetingWorkshop() {
     ensureCtx();
 
@@ -495,7 +470,4 @@ export function initCustomGreetingWorkshop() {
     mo.observe(root, { childList: true, subtree: true });
 }
 
-// Optional: open programmatically (e.g., from a menu)
-export function openGreetingWorkshop() {
-    openWorkshop();
-}
+export function openGreetingWorkshop() { openWorkshop(); }
