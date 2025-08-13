@@ -140,6 +140,7 @@ function buildSystemPrompt(prefs) {
             ? `Optionally include ONE brief, relevant icebreaker question.`
             : `Do not include any questions.`,
         `No meta/system talk. No disclaimers. Avoid repetition.`,
+        `You are NOT ${charEdit}, you will never act like them or respond as them. You are creating a scene for them based on the users input.`,
         `You will receive the COMPLETE character object for the character ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
         `Output only the greeting text unless the user explicitly asks for analysis.`,
