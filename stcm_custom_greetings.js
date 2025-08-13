@@ -23,7 +23,6 @@ function ensureCtx() {
 let activeCharCache = null;   // { name, description, personality, scenario, ... }
 let activeCharId = null;
 
-
 /** Try hard to fetch the current character object across ST variants. */
 function getActiveCharacterFull() {
     ensureCtx();
@@ -52,9 +51,36 @@ function getActiveCharacterFull() {
     return merged;
 }
 
-function escapeDoubleCurlies(str) {
-    // prevent ST macros from matching {{user}} etc.
-    return String(str).replaceAll('{{', '{\u200B{').replaceAll('}}', '}\u200B}');
+/** Only mask `{{user}}`; keep other curlies intact. */
+function maskUserPlaceholders(str) {
+    // break macro match ONLY for {{user}}, leaving {{char}} intact
+    return String(str).replace(/\{\{\s*user\s*\}\}/gi, '{\u200B{user}}');
+}
+
+/** Replace {{char}} (any case / whitespace) with the actual char name. */
+function replaceCharPlaceholders(str, charName) {
+    return String(str).replace(/\{\{\s*char\s*\}\}/gi, String(charName ?? ''));
+}
+
+/** Deep transform: replace {{char}}, mask {{user}} across all string leaves. */
+function transformCardForLLM(obj, charName) {
+    if (obj == null) return obj;
+    if (typeof obj === 'string') {
+        const withChar = replaceCharPlaceholders(obj, charName);
+        const withMaskedUser = maskUserPlaceholders(withChar);
+        return withMaskedUser;
+    }
+    if (Array.isArray(obj)) {
+        return obj.map(v => transformCardForLLM(v, charName));
+    }
+    if (typeof obj === 'object') {
+        const out = {};
+        for (const k of Object.keys(obj)) {
+            out[k] = transformCardForLLM(obj[k], charName);
+        }
+        return out;
+    }
+    return obj;
 }
 
 function pickCardFields(ch) {
@@ -91,15 +117,22 @@ function safeJSONStringify(obj) {
     }, 2);
 }
 
+/**
+ * Build JSON block:
+ *  - Replaces {{char}} with the actual name
+ *  - Masks ONLY {{user}} to prevent macro replacement/leakage
+ *  - Leaves other curlies as-is
+ */
 function buildCharacterJSONBlock() {
     const rawChar = getActiveCharacterFull();
     const card = pickCardFields(rawChar);
+    const charName = card.name || ctx?.name2 || '';
 
-    // Stringify and escape {{ }}
-    const json = escapeDoubleCurlies(safeJSONStringify(card));
+    const transformed = transformCardForLLM(card, charName);
+    const json = safeJSONStringify(transformed);
+
     return `<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`;
 }
-
 
 /* --------------------- PREFS + PROMPTS --------------------- */
 
@@ -143,11 +176,9 @@ function buildSystemPrompt(prefs) {
         `You are NOT ${charEdit}, you will never act like them or respond as them. You are creating a scene for them based on the users input.`,
         `You will receive the COMPLETE character object for the character ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
-        `Output only the greeting text unless the user explicitly asks for analysis.'`,
-        buildCharacterJSONBlock()
+        `Output only the greeting text unless the user explicitly asks for analysis.`,
     ].join('\n\n');
 }
-
 
 /* --------------------- UI --------------------- */
 
@@ -350,9 +381,16 @@ async function onSendToLLM(isRegen = false) {
     try {
         const systemPrompt = buildSystemPrompt(prefs);
         const instruction  = typed || miniTurns.slice().reverse().find(t => t.role === 'user')?.content || '(no new edits)';
+
+        // Also apply the same transform to the user instruction for safety:
+        // replace {{char}} with name; keep {{user}} masked.
+        const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
+        const instrTransformed = maskUserPlaceholders(replaceCharPlaceholders(instruction, charName));
+
         const rawPrompt =
+            buildCharacterJSONBlock() + '\n\n' +
             'Now craft the greeting based on the following instruction:\n' +
-            instruction + '\n\n' +
+            instrTransformed + '\n\n' +
             'Return only the greeting text.';
 
         const approxRespLen = Math.ceil((prefs.maxChars || 320) * 1.2);
@@ -383,8 +421,6 @@ async function onSendToLLM(isRegen = false) {
         spinner.remove();
     }
 }
-
-
 
 function onAccept() {
     const last = [...miniTurns].reverse().find(t => t.role === 'assistant');
@@ -506,7 +542,6 @@ export function initCustomGreetingWorkshop() {
                 if (ctx && (ctx.characterId == null) && activeCharId != null) {
                     ctx.characterId = String(activeCharId);
                 }
-                // console.debug('[GW] cached character from event:', activeCharId, activeCharCache?.name);
             }
         } catch (e) {
             console.warn('[GW] failed to cache character from chatLoaded:', e);
