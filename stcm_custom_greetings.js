@@ -301,7 +301,7 @@ function restoreUIFromState() {
     chatLogEl.innerHTML = '';
   
     // Re-add a gentle header line
-    appendBubble('assistant', 'I’ve loaded the FULL character data. Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
+    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
   
     // Render saved turns, preserving timestamps
     for (const t of miniTurns) {
@@ -427,7 +427,7 @@ function openWorkshop() {
         savePrefs(next);
     });
 
-    appendBubble('assistant', 'I’ve loaded the FULL character data. Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
+    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
 
     sendBtn.addEventListener('click', () => onSendToLLM(false));
     regenBtn.addEventListener('click', onRegenerate);
@@ -437,21 +437,36 @@ function openWorkshop() {
     closeBtn.addEventListener('click', closeWorkshop);
 
     clearBtn.addEventListener('click', () => {
-        if (!confirm('Clear workshop memory (history & preferred scene)?')) return;
+        callGenericPopup(
+          'Clear workshop memory (history & preferred scene)?',
+          POPUP_TYPE.CONFIRM,
+          'Greeting Workshop',
+          () => {
+            // OK / Confirm
       
-        // wipe state
-        miniTurns = [];
-        preferredScene = null;
-        clearPreferredUI();
+            // wipe state
+            miniTurns = [];
+            preferredScene = null;
+            clearPreferredUI();
       
-        // wipe persisted
-        localStorage.removeItem(STATE_KEY());
+            // wipe persisted
+            localStorage.removeItem(STATE_KEY());
       
-        // reset UI
-        chatLogEl.innerHTML = '';
-        appendBubble('assistant', 'Memory cleared. Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
-        inputEl.value = '';
-        inputEl.focus();
+            // reset UI
+            if (chatLogEl) chatLogEl.innerHTML = '';
+            appendBubble(
+              'assistant',
+              'Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).'
+            );
+            if (inputEl) {
+              inputEl.value = '';
+              inputEl.focus();
+            }
+          },
+          () => {
+            // Cancel — do nothing
+          }
+        );
       });
       
 
