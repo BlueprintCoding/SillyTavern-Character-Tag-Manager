@@ -391,6 +391,9 @@ function openWorkshop() {
     Object.assign(sendBtn.style, btnStyle('#2e7d32'));
     composer.append(inputEl, sendBtn);
 
+    closeBtn = mkBtn('X', '#9e2a2a');
+    header.append(closeBtn);
+
     const footer = document.createElement('div');
     Object.assign(footer.style, { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #333', background: '#1f1f1f' });
 
@@ -398,10 +401,10 @@ function openWorkshop() {
     editBtn = mkBtn('Edit Last', '#8e44ad');
     copyBtn = mkBtn('Copy Last', '#616161');
     acceptBtn = mkBtn('Accept → Replace Start', '#d35400');
-    closeBtn = mkBtn('Close', '#444');
-    const clearBtn = mkBtn('Clear Memory', '#9e2a2a'); // or theme color
 
-    footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn, closeBtn);
+    const clearBtn = mkBtn('Clear Memory', '#9e2a2a'); // or theme color
+    
+    footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn);
     
 
     modal.append(header, settings, body, footer);
