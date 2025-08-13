@@ -141,15 +141,23 @@ const PREFS_KEY = 'stcm_greeting_workshop_prefs';
 function loadPrefs() {
     try {
         return JSON.parse(localStorage.getItem(PREFS_KEY)) || {
-            style: 'friendly, concise, welcoming',
-            maxChars: 320,
+            style: 'Follow Character Personality',
+            numParagraphs: 3,
+            sentencesPerParagraph: 3,
             allowOneShortQuestion: true,
             language: ''
         };
     } catch {
-        return { style: 'friendly, concise, welcoming', maxChars: 320, allowOneShortQuestion: true, language: '' };
+        return {
+            style: 'Follow Character Personality',
+            numParagraphs: 3,
+            sentencesPerParagraph: 3,
+            allowOneShortQuestion: true,
+            language: ''
+        };
     }
 }
+
 function savePrefs(p) { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); }
 
 function esc(s) {
@@ -166,14 +174,18 @@ function buildSystemPrompt(prefs) {
     const charEdit  = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
     const who  = 'A Character Card Greeting Editing Assistant';
 
+    const nParas = Math.max(1, Number(prefs.numParagraphs || 3));
+    const nSents = Math.max(1, Number(prefs.sentencesPerParagraph || 3));
+
     return [
-        `You are ${who}. Your task is to craft a long opening scene to begin a brand-new chat. Your response should be three, 3 to 4 sentence paragraphs`,
+        `You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.`,
+        `Format strictly as ${nParas} paragraph${nParas === 1 ? '' : 's'}, with exactly ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`,
         `Language: ${lang}. Target tone: ${prefs.style}.`,
         `Your top priority is to FOLLOW THE USER'S INSTRUCTION.`,
-        `- If they ask for a greeting/opening line, write a short greeting (≤ ${prefs.maxChars} characters).`,
+        `- If they ask for a brief greeting/opening line instead of a scene, keep it to 1–2 sentences and ignore the paragraph/sentence settings.`,
         `- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.`,
-        `You are NOT ${charEdit}, you will never act like them or respond as them. You are creating a scene for them based on the users input.`,
-        `You will receive the COMPLETE character object for the character ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
+        `You are NOT ${charEdit}; never roleplay as them. You are creating a scene for them based on the user's input.`,
+        `You will receive the COMPLETE character object for ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for the scene.`,
         `Formatting rules:`,
         `- Return only what the user asked for; no meta/system talk; no disclaimers.`,
@@ -182,11 +194,13 @@ function buildSystemPrompt(prefs) {
     ].join('\n\n');
 }
 
+
 /* --------------------- UI --------------------- */
 
 let modal, overlay;
 let chatLogEl, inputEl, sendBtn, regenBtn, acceptBtn, editBtn, copyBtn, closeBtn;
-let styleInputEl, maxInputEl, iceToggleEl, langInputEl;
+let styleInputEl, paraInputEl, sentInputEl, iceToggleEl, langInputEl;
+
 
 let miniTurns = []; // [{role:'user'|'assistant', content: string}]
 
@@ -213,19 +227,29 @@ function openWorkshop() {
     Object.assign(header.style, { padding:'10px 12px', borderBottom:'1px solid #444', fontWeight:600, background:'#222' });
 
     const settings = document.createElement('div');
-    Object.assign(settings.style, { display:'grid', gridTemplateColumns:'120px 1fr 1fr 130px', gap:'8px', padding:'8px 12px', alignItems:'center', borderBottom:'1px solid #333' });
+    Object.assign(settings.style, {
+        display:'grid',
+        gridTemplateColumns:'160px 160px 1fr 130px',
+        gap:'8px',
+        padding:'8px 12px',
+        alignItems:'center',
+        borderBottom:'1px solid #333'
+    });
     settings.innerHTML = `
-        <label>Max
-            <input id="gw-max" type="number" min="60" max="600" value="${prefs.maxChars}" style="width:80px;margin-left:6px">
+        <label>Paragraphs
+            <input id="gw-paras" type="number" min="1" max="10" value="${prefs.numParagraphs ?? 3}" style="width:80px;margin-left:6px">
+        </label>
+        <label>Sentences/para
+            <input id="gw-sent" type="number" min="1" max="10" value="${prefs.sentencesPerParagraph ?? 3}" style="width:80px;margin-left:6px">
         </label>
         <label>Language
             <input id="gw-lang" type="text" placeholder="auto" value="${esc(prefs.language || '')}" style="width:100%;margin-left:6px">
         </label>
-        <label>Style
-            <input id="gw-style" type="text" value="${esc(prefs.style)}" style="width:100%;margin-left:6px">
-        </label>
         <label style="display:flex;gap:6px;align-items:center;justify-self:end">
             <input type="checkbox" id="gw-ice" ${prefs.allowOneShortQuestion ? 'checked' : ''}> One short Q?
+        </label>
+        <label style="grid-column: 1 / -1">Style
+            <input id="gw-style" type="text" value="${esc(prefs.style)}" style="width:100%;margin-left:6px;margin-top:6px">
         </label>
     `;
 
@@ -266,14 +290,16 @@ function openWorkshop() {
 
     // wire settings
     styleInputEl = settings.querySelector('#gw-style');
-    maxInputEl   = settings.querySelector('#gw-max');
+    paraInputEl  = settings.querySelector('#gw-paras');
+    sentInputEl  = settings.querySelector('#gw-sent');
     langInputEl  = settings.querySelector('#gw-lang');
     iceToggleEl  = settings.querySelector('#gw-ice');
 
     settings.addEventListener('change', () => {
         const next = {
             style: (styleInputEl.value || 'friendly, concise, welcoming').trim(),
-            maxChars: Math.max(60, Math.min(600, Number(maxInputEl.value) || 320)),
+            numParagraphs: Math.max(1, Math.min(10, Number(paraInputEl.value) || 3)),
+            sentencesPerParagraph: Math.max(1, Math.min(10, Number(sentInputEl.value) || 3)),
             allowOneShortQuestion: !!iceToggleEl.checked,
             language: (langInputEl.value || '').trim()
         };
@@ -291,6 +317,7 @@ function openWorkshop() {
 
     inputEl.focus();
 }
+
 
 function closeWorkshop() {
     if (modal) modal.remove();
@@ -371,7 +398,6 @@ async function onSendToLLM(isRegen = false) {
     if (!isRegen && typed) {
         miniTurns.push({ role: 'user', content: typed });
         appendBubble('user', typed);
-        // do NOT clear input — leave it for iterative edits
     }
 
     const spinner = document.createElement('div');
@@ -384,32 +410,32 @@ async function onSendToLLM(isRegen = false) {
         const systemPrompt = buildSystemPrompt(prefs);
         const instruction  = typed || miniTurns.slice().reverse().find(t => t.role === 'user')?.content || '(no new edits)';
 
-        // Also apply the same transform to the user instruction for safety:
-        // replace {{char}} with name; keep {{user}} masked.
         const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
         const instrTransformed = maskUserPlaceholders(replaceCharPlaceholders(instruction, charName));
 
-            const rawPrompt = [
-                'USER_INSTRUCTION:',
-                instruction,
-                '',
-                'Follow the instruction above using the character data as context. ' +
-                'If the instruction is to make a greeting, output only the greeting text.'
-            ].join('\n');
-            
+        const rawPrompt = [
+            'USER_INSTRUCTION:',
+            instruction,
+            '',
+            'Follow the instruction above using the character data as context. ' +
+            'If the instruction is to make a greeting, output only the greeting text.'
+        ].join('\n');
 
-        const approxRespLen = Math.ceil((prefs.maxChars || 320) * 1.2);
+        // Rough sizing: ~90 chars per sentence
+        const approxRespLen = Math.ceil(
+            (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
+        );
 
         const res = await stGenerateRaw(
-            String(rawPrompt), // prompt
-            null,              // api (current)
-            true,              // instructOverride
-            true,              // quietToLoud (system-style)
+            String(rawPrompt),
+            null,
+            true,
+            true,
             String(systemPrompt),
-            approxRespLen,     // responseLength
-            true,              // trimNames
-            '',                // prefill
-            null               // jsonSchema
+            approxRespLen,
+            true,
+            '',
+            null
         );
 
         const llmResText = String(res || '').trim();
