@@ -5,7 +5,13 @@
 
 import { getContext } from "../../../extensions.js";
 import { callGenericPopup, POPUP_TYPE } from "../../../popup.js";
-import { eventSource, messageFormatting, syncSwipeToMes } from "../../../../script.js";
+import {
+    eventSource,
+    messageFormatting,
+    syncSwipeToMes,
+    generateRaw as stGenerateRaw,
+    generateQuietPrompt as stGenerateQuietPrompt,
+  } from "../../../../script.js";
 
 let ctx = null;
 function ensureCtx() {
@@ -13,6 +19,70 @@ function ensureCtx() {
     ctx.extensionSettings ??= {};
     ctx.extensionSettings.stcm ??= {};
 }
+
+// --- FULL CHARACTER JSON PLUMBING ---
+
+/**
+ * Safely stringify ANY object (handles circular refs, functions, BigInt).
+ * We only skip functions and DOM nodes; everything else goes through.
+ */
+function safeJSONStringify(obj) {
+    const seen = new WeakSet();
+    const replacer = (_k, v) => {
+        if (typeof v === 'function') return undefined;
+        if (typeof v === 'bigint') return v.toString();
+        if (v && typeof Node !== 'undefined' && v instanceof Node) return undefined;
+        if (v && typeof Window !== 'undefined' && v === window) return undefined;
+        if (v && typeof v === 'object') {
+            if (seen.has(v)) return '[Circular]';
+            seen.add(v);
+        }
+        return v;
+    };
+    return JSON.stringify(obj, replacer, 2);
+}
+
+/**
+ * Returns the most complete character object we can find from ST context.
+ * Falls back to ctx.character if characters[characterId] is not populated.
+ */
+function getActiveCharacterFull() {
+    ensureCtx();
+
+    // Prefer indexed characters map/array with an active id
+    const fromIndexed = (ctx.characters && ctx.characterId != null)
+        ? ctx.characters[ctx.characterId]
+        : null;
+
+    // Fallback: legacy/current character slot
+    const fallback = ctx.character || null;
+
+    // Merge to keep "whole" data (fallback fields won’t overwrite real ones)
+    const full = Object.assign({}, fallback || {}, fromIndexed || {});
+
+    // Include some useful ambient context that often lives outside the char object
+    // (kept lightweight; does not replace anything)
+    full.__environment = {
+        locale: ctx.locale ?? '',
+        groupId: ctx.groupId ?? null,
+        chatId: ctx.chatId ?? null,
+        apiSource: ctx.api_source ?? '',   // often useful to the model
+        model: ctx.model ?? '',
+    };
+
+    return full;
+}
+
+/**
+ * Provides the serialized JSON payload we’ll send along with the instruction.
+ * Wrapped in tags to reduce hallucinated edits by the LLM.
+ */
+function buildCharacterJSONBlock() {
+    const char = getActiveCharacterFull();
+    const json = safeJSONStringify(char);
+    return `<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`;
+}
+
 
 const PREFS_KEY = 'stcm_greeting_workshop_prefs';
 
@@ -42,29 +112,20 @@ function esc(s) {
 function buildSystemPrompt(prefs) {
     ensureCtx();
     const lang = (prefs.language || ctx.locale || 'en').trim();
-    const ch = ctx.characters?.[ctx.characterId] || ctx.character || {};
-    const who = ch?.name ? `${ch.name}${ch.role ? ` (${ch.role})` : ''}` : 'Assistant';
-
-    // Pull what we can from common ST character fields:
-    const lore = ch?.description || ch?.comment || ch?.scenario || ch?.summary || '';
-    const tags = Array.isArray(ch?.tags) ? ch.tags.filter(Boolean) : [];
-    const starterHint = ch?.first_mes || ch?.greeting || '';
-
-    const rules = [
-        `You are ${who}. Your task is to craft a SHORT opening line to begin a brand-new chat.`,
-        `Language: ${lang}. Target tone: ${prefs.style}. Max length: ${prefs.maxChars} characters.`,
-        prefs.allowOneShortQuestion
-            ? `Optionally include ONE brief, relevant icebreaker question.`
-            : `Do not include any questions.`,
-        `No meta/system talk. No disclaimers. Avoid repetition.`,
-        lore ? `Character context:\n${lore}` : '',
-        tags.length ? `Tags: ${tags.join(', ')}` : '',
-        starterHint ? `If aligned, echo the intended opener's theme: ${starterHint}` : '',
-        `Output only the greeting text unless directly asked for analysis.`
-    ].filter(Boolean).join('\n\n');
-
-    return rules;
-}
+    const ch   = getActiveCharacterFull();
+    const who  = ch?.name ? `${ch.name}${ch.role ? ` (${ch.role})` : ''}` : 'Assistant';
+  
+    return [
+      `You are ${who}. Your task is to craft a SHORT opening line to begin a brand-new chat.`,
+      `Language: ${lang}. Target tone: ${prefs.style}. Max length: ${prefs.maxChars} characters.`,
+      prefs.allowOneShortQuestion ? `Optionally include ONE brief, relevant icebreaker question.` : `Do not include any questions.`,
+      `No meta/system talk. No disclaimers. Avoid repetition.`,
+      `You will receive the COMPLETE character object as JSON under <CHARACTER_DATA_JSON>.`,
+      `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
+      `Output only the greeting text unless the user explicitly asks for analysis.`,
+    ].join('\n\n');
+  }
+  
 
 // Convert our mini “chat” state to Chat Completion format for generateRaw()
 function buildChatPromptFromTurns(turns) {
@@ -297,26 +358,45 @@ async function onSendToLLM(isRegen = false) {
     try {
         let llmResText = '';
 
-        if (prefs.useQuietPrompt && typeof ctx.generateQuietPrompt === 'function') {
-            // Single-turn: use full chat/character context; send the user's wish as a post-history instruction.
-            const quietPrompt = [
-                buildSystemPrompt(prefs),
-                '',
-                'Now craft the greeting based on the following instruction:',
-                miniTurns[miniTurns.length - 1]?.role === 'user' ? miniTurns[miniTurns.length - 1].content : '(no new edits)'
-            ].join('\n');
+        const systemPrompt = buildSystemPrompt(prefs);
+        const approxRespLen = Math.ceil(prefs.maxChars * 1.5); // safe hedge
 
-            const res = await ctx.generateQuietPrompt({ quietPrompt });
-            llmResText = (normalizeLLMText(res) || '').trim();
-        } else if (typeof ctx.generateRaw === 'function') {
-            // Multi-turn conversation: our own message history + a strong system prompt.
-            const systemPrompt = buildSystemPrompt(prefs);
-            const prompt = buildChatPromptFromTurns(miniTurns);
-            const res = await ctx.generateRaw({ systemPrompt, prompt });
-            llmResText = (normalizeLLMText(res) || '').trim();
-        } else {
-            throw new Error('Neither generateRaw() nor generateQuietPrompt() is available.');
-        }
+        if (prefs.useQuietPrompt) {
+            // Single-turn with full ST chat/character context, plus explicit full JSON block
+            const quietPrompt = [
+              systemPrompt,
+              '',
+              buildCharacterJSONBlock(),
+              '',
+              'Now craft the greeting based on the following instruction:',
+              miniTurns[miniTurns.length - 1]?.role === 'user'
+                ? miniTurns[miniTurns.length - 1].content
+                : '(no new edits)'
+            ].join('\n');
+          
+            const res = await stGenerateQuietPrompt({
+              quietPrompt,
+              responseLength: approxRespLen,
+            });
+          
+            llmResText = (res || '').trim();
+          } else {
+            // Multi-turn: our mini conversation + full character JSON as a system turn
+            const prompt = [
+              { role: 'system', content: buildCharacterJSONBlock() },
+              ...buildChatPromptFromTurns(miniTurns),
+            ];
+          
+            const res = await stGenerateRaw({
+              systemPrompt,
+              prompt,
+              responseLength: approxRespLen,
+              trimNames: true,
+            });
+          
+            llmResText = (res || '').trim();
+          }
+        
 
         if (!llmResText) {
             appendBubble('assistant', '(empty response)');
