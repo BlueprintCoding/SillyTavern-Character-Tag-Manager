@@ -163,20 +163,25 @@ function buildSystemPrompt(prefs) {
     ensureCtx();
     const lang = (prefs.language || ctx.locale || 'en').trim();
     const ch   = getActiveCharacterFull();
-    const charEdit  = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
-    const who  = 'A Character Card Greeting Editing Assistant';
+    const charName = ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}';
 
     return [
-        `You are ${who}. Your task is to craft a long opening scene to begin a brand-new chat. Your response should be three, 3 to 4 sentence paragraphs`,
-        `Language: ${lang}. Target tone: ${prefs.style}. Max length: ${prefs.maxChars} characters.`,
+        // Primary rule: follow the user's instruction, not “always make a greeting”.
+        `You are a Character Card Greeting Editing Assistant.`,
+        `Language: ${lang}. Target tone: ${prefs.style}.`,
+        `Your top priority is to FOLLOW THE USER'S INSTRUCTION.`,
+        `- If they ask for a greeting/opening line, write a short greeting (≤ ${prefs.maxChars} characters).`,
+        `- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.`,
         prefs.allowOneShortQuestion
-            ? `Optionally include ONE brief, relevant icebreaker question.`
-            : `Do not include any questions.`,
-        `No meta/system talk. No disclaimers. Avoid repetition.`,
-        `You are NOT ${charEdit}, you will never act like them or respond as them. You are creating a scene for them based on the users input.`,
-        `You will receive the COMPLETE character object for the character ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
-        `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
-        `Output only the greeting text unless the user explicitly asks for analysis.`,
+            ? `You may include ONE tiny icebreaker only when the user explicitly wants a greeting.`
+            : `Do not include icebreakers or extra questions unless explicitly requested.`,
+
+        `You will receive the complete character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.`,
+        `Use ONLY that JSON for persona/lore/tags/starters/settings. Don’t invent facts that contradict it.`,
+
+        `Formatting rules:`,
+        `- Return only what the user asked for; no meta/system talk; no disclaimers.`,
+        `- If the user asked for a greeting, return only the greeting text (no extra commentary).`,
         buildCharacterJSONBlock()
     ].join('\n\n');
 }
