@@ -19,6 +19,37 @@ function ensureCtx() {
     ctx.extensionSettings.stcm ??= {};
 }
 
+// Persist per character so sessions don't collide
+const STATE_KEY = () => {
+    const id = (ctx?.characterId ?? 'global');
+    return `stcm_gw_state_${id}`;
+  };
+  
+  function saveSession() {
+    try {
+      const payload = {
+        miniTurns,
+        preferredScene,
+      };
+      localStorage.setItem(STATE_KEY(), JSON.stringify(payload));
+    } catch {}
+  }
+  
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem(STATE_KEY());
+      if (!raw) return { miniTurns: [], preferredScene: null };
+      const parsed = JSON.parse(raw);
+      return {
+        miniTurns: Array.isArray(parsed?.miniTurns) ? parsed.miniTurns : [],
+        preferredScene: parsed?.preferredScene ?? null,
+      };
+    } catch {
+      return { miniTurns: [], preferredScene: null };
+    }
+  }
+
+  
 
 // Store the user's preferred scene (if they star one)
 let preferredScene = null; // { text: string, ts: string }
@@ -66,7 +97,7 @@ function markPreferred(wrap, bubble, text) {
     badge.textContent = 'Preferred';
     Object.assign(badge.style, {
         position: 'absolute',
-        roght: '8px',
+        right: '8px',
         bottom: '8px',
         fontSize: '10px',
         opacity: '0.9',
@@ -265,6 +296,33 @@ let chatLogEl, inputEl, sendBtn, regenBtn, acceptBtn, editBtn, copyBtn, closeBtn
 let styleInputEl, paraInputEl, sentInputEl, histInputEl;
 
 
+function restoreUIFromState() {
+    // Clear the DOM log
+    chatLogEl.innerHTML = '';
+  
+    // Re-add a gentle header line
+    appendBubble('assistant', 'I’ve loaded the FULL character data. Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
+  
+    // Render saved turns, preserving timestamps
+    for (const t of miniTurns) {
+      const w = appendBubble(t.role, t.content);
+      if (w && t.ts) w.dataset.ts = t.ts;
+    }
+  
+    // Re-apply preferred badge/outline if present
+    if (preferredScene) {
+      // Find the assistant bubble with the matching ts
+      const node = [...chatLogEl.querySelectorAll('.gw-row[data-role="assistant"]')]
+        .find(n => n.dataset.ts === preferredScene.ts);
+      if (node) {
+        const bubble = node.querySelector('.gw-bubble');
+        if (bubble) markPreferred(node, bubble, preferredScene.text);
+      }
+    }
+  
+    chatLogEl.scrollTop = chatLogEl.scrollHeight;
+  }
+  
 
 
 let miniTurns = []; // [{role:'user'|'assistant', content: string}]
@@ -341,8 +399,10 @@ function openWorkshop() {
     copyBtn = mkBtn('Copy Last', '#616161');
     acceptBtn = mkBtn('Accept → Replace Start', '#d35400');
     closeBtn = mkBtn('Close', '#444');
+    const clearBtn = mkBtn('Clear Memory', '#9e2a2a'); // or theme color
 
-    footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, spacer(), closeBtn);
+    footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn, closeBtn);
+    
 
     modal.append(header, settings, body, footer);
     body.append(chatLogEl, composer);
@@ -376,12 +436,38 @@ function openWorkshop() {
     acceptBtn.addEventListener('click', onAccept);
     closeBtn.addEventListener('click', closeWorkshop);
 
+    clearBtn.addEventListener('click', () => {
+        if (!confirm('Clear workshop memory (history & preferred scene)?')) return;
+      
+        // wipe state
+        miniTurns = [];
+        preferredScene = null;
+        clearPreferredUI();
+      
+        // wipe persisted
+        localStorage.removeItem(STATE_KEY());
+      
+        // reset UI
+        chatLogEl.innerHTML = '';
+        appendBubble('assistant', 'Memory cleared. Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
+        inputEl.value = '';
+        inputEl.focus();
+      });
+      
+
     inputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             onSendToLLM(false);
         }
     });
+
+    // hydrate state first
+        const restored = loadSession();
+        miniTurns = restored.miniTurns;
+        preferredScene = restored.preferredScene;
+        restoreUIFromState();
+
 
 
     inputEl.focus();
@@ -392,7 +478,6 @@ function closeWorkshop() {
     if (modal) modal.remove();
     if (overlay) overlay.remove();
     modal = overlay = null;
-    miniTurns = [];
 }
 
 function btnStyle(bg) {
@@ -475,6 +560,7 @@ function appendBubble(role, text) {
         // Click: STAR
         starBtn.addEventListener('click', () => {
             markPreferred(wrap, bubble, text);
+            saveSession();
             starBtn.setAttribute('aria-pressed', preferredScene && preferredScene.ts === wrap.dataset.ts ? 'true' : 'false');
         });
 
@@ -507,7 +593,7 @@ trashBtn.addEventListener('click', () => {
         preferredScene = null;
         clearPreferredUI();
     }
-
+    saveSession();
     // Remove the assistant bubble node
     wrap.remove();
 });
@@ -547,6 +633,7 @@ function onEditLastAssistant() {
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
     saveBtn.addEventListener('click', () => {
         last.content = ta.value.trim();
+        saveSession();
         appendBubble('assistant', last.content);
         editorWrap.remove();
     });
@@ -600,6 +687,7 @@ if (!regen && typedForSend) {
     const userWrap = appendBubble('user', typedForSend);
     const userTs = userWrap?.dataset?.ts || String(Date.now());
     miniTurns.push({ role: 'user', content: typedForSend, ts: userTs });
+    saveSession();
 
     // clear input and keep focus for fast iteration
     inputEl.value = '';
@@ -664,6 +752,8 @@ if (!regen && typedForSend) {
             const asstWrap = appendBubble('assistant', llmResText);
             const asstTs = asstWrap?.dataset?.ts || String(Date.now());
             miniTurns.push({ role: 'assistant', content: llmResText, ts: asstTs });
+            saveSession();
+
         }
         
     } catch (e) {
@@ -779,6 +869,8 @@ function injectWorkshopButton() {
     btn.addEventListener('click', openWorkshop);
     mount.prepend(btn);
 }
+
+
 
 /* --------------------- lifecycle --------------------- */
 
