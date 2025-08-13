@@ -163,26 +163,21 @@ function buildSystemPrompt(prefs) {
     ensureCtx();
     const lang = (prefs.language || ctx.locale || 'en').trim();
     const ch   = getActiveCharacterFull();
-    const charName = ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}';
+    const charEdit  = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
+    const who  = 'A Character Card Greeting Editing Assistant';
 
     return [
-        // Primary rule: follow the user's instruction, not “always make a greeting”.
-        `You are a Character Card Greeting Editing Assistant.`,
+        `You are ${who}. Your task is to craft a long opening scene to begin a brand-new chat. Your response should be three, 3 to 4 sentence paragraphs`,
         `Language: ${lang}. Target tone: ${prefs.style}.`,
         `Your top priority is to FOLLOW THE USER'S INSTRUCTION.`,
         `- If they ask for a greeting/opening line, write a short greeting (≤ ${prefs.maxChars} characters).`,
         `- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.`,
-        prefs.allowOneShortQuestion
-            ? `You may include ONE tiny icebreaker only when the user explicitly wants a greeting.`
-            : `Do not include icebreakers or extra questions unless explicitly requested.`,
-
-        `You will receive the complete character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.`,
-        `Use ONLY that JSON for persona/lore/tags/starters/settings. Don’t invent facts that contradict it.`,
-
+        `You are NOT ${charEdit}, you will never act like them or respond as them. You are creating a scene for them based on the users input.`,
+        `You will receive the COMPLETE character object for the character ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
+        `Use ONLY the provided JSON as ground truth for the scene.`,
         `Formatting rules:`,
         `- Return only what the user asked for; no meta/system talk; no disclaimers.`,
-        `- If the user asked for a greeting, return only the greeting text (no extra commentary).`,
-        buildCharacterJSONBlock()
+        `- If the user asked for a greeting, return only the greeting text (no extra commentary).`
     ].join('\n\n');
 }
 
@@ -393,9 +388,14 @@ async function onSendToLLM(isRegen = false) {
         const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
         const instrTransformed = maskUserPlaceholders(replaceCharPlaceholders(instruction, charName));
 
-        const rawPrompt =
-            'Follow the users instructions:\n' +
-            instrTransformed 
+            const rawPrompt = [
+                'USER_INSTRUCTION:',
+                instruction,
+                '',
+                'Follow the instruction above using the character data as context. ' +
+                'If the instruction is to make a greeting, output only the greeting text.'
+            ].join('\n');
+            
 
         const approxRespLen = Math.ceil((prefs.maxChars || 320) * 1.2);
 
