@@ -9,7 +9,7 @@ import {
     eventSource,
     messageFormatting,
     syncSwipeToMes,
-    generateQuietPrompt as stGenerateQuietPrompt,
+    generateRaw as stGenerateRaw,
 } from "../../../../script.js";
 
 let ctx = null;
