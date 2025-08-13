@@ -326,7 +326,7 @@ async function onSendToLLM(isRegen = false) {
     if (!userText && !isRegen) return;
 
     if (!isRegen) {
-        miniTurns.push({ role:'user', content:S(userText) });
+        miniTurns.push({ role:'user', content:String(userText) });
         appendBubble('user', userText);
         inputEl.value = '';
     }
@@ -343,7 +343,7 @@ async function onSendToLLM(isRegen = false) {
 
         const lastInstr =
             miniTurns.length && miniTurns[miniTurns.length - 1].role === 'user'
-                ? S(miniTurns[miniTurns.length - 1].content)
+                ? String(miniTurns[miniTurns.length - 1].content ?? '')
                 : '(no new edits)';
 
         // Build a SINGLE concatenated string (no arrays, no join)
@@ -358,17 +358,20 @@ async function onSendToLLM(isRegen = false) {
             'Return only the greeting text.';
 
         // Final hardening: guarantee a string
-        if (typeof qp !== 'string') {
-            try { qp = JSON.stringify(qp); } catch { qp = String(qp); }
-        }
         qp = String(qp);
 
-        const res = await stGenerateQuietPrompt({
-            quietPrompt: qp,         // MUST be a plain string
-            responseLength: approxRespLen,
-            skipWIAN: true,
-            quietToLoud: false,
-        });
+        // IMPORTANT: positional call (your ST build expects this)
+        // generateQuietPrompt(quietPrompt, quietToLoud, skipWIAN, quietImage, quietName, responseLength, forceChId, jsonSchema)
+        const res = await stGenerateQuietPrompt(
+            qp,                // quietPrompt (string only)
+            false,             // quietToLoud
+            true,              // skipWIAN
+            null,              // quietImage
+            null,              // quietName
+            approxRespLen,     // responseLength
+            null,              // forceChId
+            null               // jsonSchema
+        );
 
         llmResText = String(res || '').trim();
 
