@@ -303,7 +303,7 @@ function openWorkshop() {
 
     appendBubble('assistant', 'I’ve loaded the FULL character data. Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
 
-    sendBtn.addEventListener('click', onSendToLLM);
+    sendBtn.addEventListener('click', () => onSendToLLM(false));
     regenBtn.addEventListener('click', onRegenerate);
     editBtn.addEventListener('click', onEditLastAssistant);
     copyBtn.addEventListener('click', onCopyLastAssistant);
@@ -313,7 +313,7 @@ function openWorkshop() {
     inputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
-            sendBtn.click();
+            onSendToLLM(false);
         }
     });
     
@@ -430,16 +430,19 @@ async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
 
+    // coerce truthiness to a real boolean (protects against event objects)
+    const regen = isRegen === true;
+
     // normalize input
     const typedRaw = (inputEl.value ?? '').replace(/\s+/g, ' ').trim();
-    if (!typedRaw && !isRegen) return;
+    if (!typedRaw && !regen) return;
 
     // transform once so the bubble shows exactly what we send
     const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
     const typedForSend = typedRaw ? maskUserPlaceholders(replaceCharPlaceholders(typedRaw, charName)) : '';
 
     // Insert user's message into the workshop chat history + UI (tracked history)
-    if (!isRegen && typedForSend) {
+    if (!regen && typedForSend) {
         miniTurns.push({ role: 'user', content: typedForSend });
         appendBubble('user', typedForSend);
 
@@ -466,7 +469,7 @@ async function onSendToLLM(isRegen = false) {
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const historyBlock = buildRecentHistoryBlock(historyLimit);
 
-        // Compose the two-block prompt (history → instruction)
+        // Two-block prompt: history → instruction (instruction last for recency)
         const rawPrompt = [
             historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
             '',
@@ -508,6 +511,7 @@ async function onSendToLLM(isRegen = false) {
         spinner.remove();
     }
 }
+
 
 
 function onAccept() {
