@@ -19,6 +19,63 @@ function ensureCtx() {
     ctx.extensionSettings.stcm ??= {};
 }
 
+
+// Store the user's preferred scene (if they star one)
+let preferredScene = null; // { text: string, ts: string }
+let preferredEls = null;   // { wrap: HTMLElement, bubble: HTMLElement }
+
+
+// Build an optional block the LLM can use to preserve the liked scene
+function buildPreferredSceneBlock() {
+    if (!preferredScene || !preferredScene.text) return '';
+    return [
+        '<PREFERRED_SCENE>',
+        preferredScene.text,
+        '</PREFERRED_SCENE>'
+    ].join('\n');
+}
+
+function clearPreferredUI() {
+    if (!preferredEls) return;
+    const { bubble } = preferredEls;
+    bubble.style.boxShadow = '';
+    const oldBadge = bubble.querySelector('.gw-preferred-badge');
+    if (oldBadge) oldBadge.remove();
+    preferredEls = null;
+}
+
+function markPreferred(wrap, bubble, text) {
+    // if clicking the same one again → toggle off
+    if (preferredScene && preferredScene.ts === wrap.dataset.ts) {
+        preferredScene = null;
+        clearPreferredUI();
+        return;
+    }
+
+    // new preferred → clear any previous one
+    clearPreferredUI();
+
+    preferredScene = { text, ts: wrap.dataset.ts };
+    preferredEls = { wrap, bubble };
+
+    bubble.style.boxShadow = '0 0 0 2px #ffd54f66';
+
+    // create a single badge
+    const badge = document.createElement('div');
+    badge.className = 'gw-preferred-badge';
+    badge.textContent = 'Preferred';
+    Object.assign(badge.style, {
+        fontSize: '10px',
+        opacity: '0.75',
+        marginTop: '4px',
+        textAlign: 'right',
+        color: '#ffd54f'
+    });
+    bubble.appendChild(badge);
+}
+
+
+
 /* --------------------- CHARACTER JSON --------------------- */
 let activeCharCache = null;   // { name, description, personality, scenario, ... }
 let activeCharId = null;
@@ -37,8 +94,8 @@ function getActiveCharacterFull() {
     const fromArray = (Array.isArray(ctx?.characters) && idx != null && idx >= 0 && idx < ctx.characters.length)
         ? ctx.characters[idx] : null;
 
-    const fromCtxObj   = ctx?.character || ctx?.charInfo || null;
-    const byName2      = (Array.isArray(ctx?.characters) && ctx?.name2)
+    const fromCtxObj = ctx?.character || ctx?.charInfo || null;
+    const byName2 = (Array.isArray(ctx?.characters) && ctx?.name2)
         ? ctx.characters.find(c => c?.name === ctx.name2) || null
         : null;
 
@@ -161,16 +218,16 @@ function savePrefs(p) { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); }
 
 function esc(s) {
     return (s ?? '').toString()
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 
 function buildSystemPrompt(prefs) {
     ensureCtx();
-    const ch   = getActiveCharacterFull();
-    const charEdit  = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
-    const who  = 'A Character Card Greeting Editing Assistant';
+    const ch = getActiveCharacterFull();
+    const charEdit = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
+    const who = 'A Character Card Greeting Editing Assistant';
 
     const nParas = Math.max(1, Number(prefs.numParagraphs || 3));
     const nSents = Math.max(1, Number(prefs.sentencesPerParagraph || 3));
@@ -180,6 +237,8 @@ function buildSystemPrompt(prefs) {
         `Format strictly as ${nParas} paragraph${nParas === 1 ? '' : 's'}, with exactly ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`,
         `Target tone: ${prefs.style}.`,
         `Your top priority is to FOLLOW THE USER'S INSTRUCTION.`,
+        `- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.`,
+        `- Maintain the same structure (paragraph count and sentences per paragraph).`,
         `- If they ask for a brief greeting/opening line instead of a scene, keep it to 1–2 sentences and ignore the paragraph/sentence settings.`,
         `- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.`,
         `You are NOT ${charEdit}; never roleplay as them. You are creating a scene for them based on the user's input.`,
@@ -191,6 +250,7 @@ function buildSystemPrompt(prefs) {
         buildCharacterJSONBlock()
     ].join('\n\n');
 }
+
 
 /* --------------------- UI --------------------- */
 
@@ -210,29 +270,29 @@ function openWorkshop() {
     const prefs = loadPrefs();
 
     overlay = document.createElement('div');
-    Object.assign(overlay.style, { position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:10000 });
+    Object.assign(overlay.style, { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 10000 });
 
     modal = document.createElement('div');
     Object.assign(modal.style, {
-        position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
-        width:'min(720px,92vw)', maxHeight:'85vh', overflow:'hidden',
-        background:'#1b1b1b', color:'#ddd', border:'1px solid #555',
-        borderRadius:'10px', boxShadow:'0 8px 30px rgba(0,0,0,.5)', zIndex:10001,
-        display:'flex', flexDirection:'column'
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+        width: 'min(720px,92vw)', maxHeight: '85vh', overflow: 'hidden',
+        background: '#1b1b1b', color: '#ddd', border: '1px solid #555',
+        borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.5)', zIndex: 10001,
+        display: 'flex', flexDirection: 'column'
     });
 
     const header = document.createElement('div');
     header.textContent = 'Greeting Workshop';
-    Object.assign(header.style, { padding:'10px 12px', borderBottom:'1px solid #444', fontWeight:600, background:'#222' });
+    Object.assign(header.style, { padding: '10px 12px', borderBottom: '1px solid #444', fontWeight: 600, background: '#222' });
 
     const settings = document.createElement('div');
     Object.assign(settings.style, {
-        display:'grid',
-        gridTemplateColumns:'160px 160px 1fr 130px',
-        gap:'8px',
-        padding:'8px 12px',
-        alignItems:'center',
-        borderBottom:'1px solid #333'
+        display: 'grid',
+        gridTemplateColumns: '160px 160px 1fr 130px',
+        gap: '8px',
+        padding: '8px 12px',
+        alignItems: 'center',
+        borderBottom: '1px solid #333'
     });
     settings.innerHTML = `
     <label>Paragraphs
@@ -250,17 +310,17 @@ function openWorkshop() {
 `;
 
     const body = document.createElement('div');
-    Object.assign(body.style, { display:'grid', gridTemplateRows:'1fr auto', padding:'0 12px 12px 12px', gap:'10px', height:'60vh' });
+    Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '60vh' });
 
     chatLogEl = document.createElement('div');
-    Object.assign(chatLogEl.style, { overflowY:'auto', padding:'10px 4px', border:'1px solid #333', borderRadius:'8px', background:'#181818' });
+    Object.assign(chatLogEl.style, { overflowY: 'auto', padding: '10px 4px', border: '1px solid #333', borderRadius: '8px', background: '#181818' });
 
     const composer = document.createElement('div');
-    Object.assign(composer.style, { display:'grid', gridTemplateColumns:'1fr auto', gap:'8px' });
+    Object.assign(composer.style, { display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' });
 
     inputEl = document.createElement('textarea');
     inputEl.placeholder = 'Describe the greeting you want (tone, topics, constraints)…';
-    Object.assign(inputEl.style, { resize:'vertical', minHeight:'48px', maxHeight:'160px', padding:'8px', background:'#222', color:'#eee', border:'1px solid #444', borderRadius:'6px' });
+    Object.assign(inputEl.style, { resize: 'vertical', minHeight: '48px', maxHeight: '160px', padding: '8px', background: '#222', color: '#eee', border: '1px solid #444', borderRadius: '6px' });
 
     sendBtn = document.createElement('button');
     sendBtn.textContent = 'Send to LLM';
@@ -268,13 +328,13 @@ function openWorkshop() {
     composer.append(inputEl, sendBtn);
 
     const footer = document.createElement('div');
-    Object.assign(footer.style, { display:'flex', gap:'8px', padding:'10px 12px', borderTop:'1px solid #333', background:'#1f1f1f' });
+    Object.assign(footer.style, { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #333', background: '#1f1f1f' });
 
-    regenBtn  = mkBtn('Regenerate', '#007acc');
-    editBtn   = mkBtn('Edit Last', '#8e44ad');
-    copyBtn   = mkBtn('Copy Last', '#616161');
+    regenBtn = mkBtn('Regenerate', '#007acc');
+    editBtn = mkBtn('Edit Last', '#8e44ad');
+    copyBtn = mkBtn('Copy Last', '#616161');
     acceptBtn = mkBtn('Accept → Replace Start', '#d35400');
-    closeBtn  = mkBtn('Close', '#444');
+    closeBtn = mkBtn('Close', '#444');
 
     footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, spacer(), closeBtn);
 
@@ -286,9 +346,9 @@ function openWorkshop() {
 
     // wire settings
     styleInputEl = settings.querySelector('#gw-style');
-    paraInputEl  = settings.querySelector('#gw-paras');
-    sentInputEl  = settings.querySelector('#gw-sent');
-    histInputEl  = settings.querySelector('#gw-hist');
+    paraInputEl = settings.querySelector('#gw-paras');
+    sentInputEl = settings.querySelector('#gw-sent');
+    histInputEl = settings.querySelector('#gw-hist');
 
     settings.addEventListener('change', () => {
         const next = {
@@ -316,7 +376,7 @@ function openWorkshop() {
             onSendToLLM(false);
         }
     });
-    
+
 
     inputEl.focus();
 }
@@ -330,7 +390,7 @@ function closeWorkshop() {
 }
 
 function btnStyle(bg) {
-    return { padding:'8px 12px', background:bg, color:'#fff', border:'1px solid #444', borderRadius:'6px', cursor:'pointer', fontWeight:600 };
+    return { padding: '8px 12px', background: bg, color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 };
 }
 function mkBtn(label, bg) { const b = document.createElement('button'); b.textContent = label; Object.assign(b.style, btnStyle(bg)); return b; }
 function spacer() { const s = document.createElement('div'); s.style.flex = '1'; return s; }
@@ -359,17 +419,90 @@ function appendBubble(role, text) {
         background: role === 'user' ? '#2b2b2b' : '#242424',
         border: '1px solid #3a3a3a',
         maxWidth: '90%',
-        whiteSpace: 'pre-wrap'
+        whiteSpace: 'pre-wrap',
+        position: 'relative'
     });
 
     wrap.appendChild(bubble);
     chatLogEl.appendChild(wrap);
 
+    // Action bar for assistant bubbles only
+    if (role === 'assistant') {
+        const bar = document.createElement('div');
+        bar.style.position = 'absolute';
+        bar.style.right = '6px';
+        bar.style.bottom = '-22px';
+        bar.style.display = 'flex';
+        bar.style.gap = '8px';
+        bar.style.fontSize = '12px';
+        bar.style.opacity = '0.8';
+
+        const starBtn = document.createElement('button');
+        starBtn.type = 'button';
+        starBtn.title = 'Mark as preferred (keep almost the same next time)';
+        starBtn.textContent = '⭐';
+        Object.assign(starBtn.style, {
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0 2px',
+            color: '#ffd54f'
+        });
+
+        const trashBtn = document.createElement('button');
+        trashBtn.type = 'button';
+        trashBtn.title = 'Delete this assistant message and the previous user message';
+        trashBtn.textContent = '🗑';
+        Object.assign(trashBtn.style, {
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0 2px',
+            color: '#f06292'
+        });
+
+        // Click: STAR
+        starBtn.addEventListener('click', () => {
+            markPreferred(wrap, bubble, text);
+            starBtn.setAttribute('aria-pressed', preferredScene && preferredScene.ts === wrap.dataset.ts ? 'true' : 'false');
+        });
+        
+        // Click: TRASH
+        trashBtn.addEventListener('click', () => {
+            // Find this assistant turn in miniTurns
+            const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.content === text);
+            if (idx !== -1) {
+                // Remove assistant message
+                miniTurns.splice(idx, 1);
+                // Also remove the previous user message if it exists
+                if (idx - 1 >= 0 && miniTurns[idx - 1]?.role === 'user') {
+                    miniTurns.splice(idx - 1, 1);
+                    // Remove the previous user bubble in DOM if present
+                    const prevNode = wrap.previousElementSibling;
+                    if (prevNode && prevNode.dataset.role === 'user') {
+                        prevNode.remove();
+                    }
+                }
+            }
+            // If this was the preferred scene, clear it
+            if (preferredScene && preferredScene.ts === wrap.dataset.ts) {
+                preferredScene = null;
+            }
+            // Remove the assistant bubble node
+            wrap.remove();
+        });
+
+        bar.appendChild(starBtn);
+        bar.appendChild(trashBtn);
+        bubble.appendChild(bar);
+    }
+
     // ensure it is visible
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
-    return wrap; // useful if you ever want to reference/remove/update it later
+    return wrap;
 }
+
 
 
 function onCopyLastAssistant() {
@@ -382,10 +515,10 @@ function onEditLastAssistant() {
     const last = [...miniTurns].reverse().find(t => t.role === 'assistant');
     if (!last) return;
     const ta = document.createElement('textarea');
-    Object.assign(ta.style, { width:'100%', minHeight:'80px', background:'#222', color:'#eee', border:'1px solid #444', borderRadius:'6px', padding:'8px' });
+    Object.assign(ta.style, { width: '100%', minHeight: '80px', background: '#222', color: '#eee', border: '1px solid #444', borderRadius: '6px', padding: '8px' });
     ta.value = last.content;
     const editorWrap = document.createElement('div');
-    Object.assign(editorWrap.style, { margin:'6px 0' });
+    Object.assign(editorWrap.style, { margin: '6px 0' });
     const saveBtn = mkBtn('Save Edit', '#8e44ad');
     saveBtn.style.marginTop = '6px';
     editorWrap.append(ta, saveBtn);
@@ -469,15 +602,19 @@ async function onSendToLLM(isRegen = false) {
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const historyBlock = buildRecentHistoryBlock(historyLimit);
 
-        // Two-block prompt: history → instruction (instruction last for recency)
+        // Optional preferred scene block
+        const preferredBlock = buildPreferredSceneBlock();
+
+        // Two-block prompt (+ optional third block for preferred scene)
+        // Order: HISTORY → (PREFERRED_SCENE if any) → INSTRUCTION
         const rawPrompt = [
             historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
-            '',
+            preferredBlock ? `\n${preferredBlock}\n` : '',
             'USER_INSTRUCTION:',
             lastUserMsg,
             '',
             'Follow the instruction above using the character data as context. ' +
-            'If the instruction is to make a greeting, output only the greeting text.'
+            'If a preferred scene is provided, keep it almost the same and apply only the requested edits.'
         ].join('\n');
 
         // Rough sizing: ~90 chars per sentence
@@ -570,13 +707,13 @@ function replaceStartingMessage(text) {
         syncSwipeToMes(0, 0);
     }
 
-    try { eventSource.emit?.('message_updated', 0); } catch {}
+    try { eventSource.emit?.('message_updated', 0); } catch { }
 }
 
 /* --------------------- helpers --------------------- */
 
 function makeDraggable(panel, handle) {
-    let sx=0, sy=0, px=0, py=0, dragging=false;
+    let sx = 0, sy = 0, px = 0, py = 0, dragging = false;
     handle.style.cursor = 'move';
     handle.addEventListener('mousedown', e => {
         dragging = true;
@@ -591,7 +728,7 @@ function makeDraggable(panel, handle) {
         const nl = px + (e.clientX - sx);
         const nt = py + (e.clientY - sy);
         panel.style.left = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, nl)) + 'px';
-        panel.style.top  = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, nt)) + 'px';
+        panel.style.top = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, nt)) + 'px';
     };
     const up = () => { dragging = false; document.body.style.userSelect = ''; };
     document.addEventListener('mousemove', move);
@@ -612,7 +749,7 @@ function injectWorkshopButton() {
     btn.textContent = '✨ Greeting Workshop';
     Object.assign(btn.style, {
         padding: '4px 10px', margin: '4px 0',
-        background: '#333', color:'#fff', border:'1px solid #666', borderRadius:'6px', cursor:'pointer'
+        background: '#333', color: '#fff', border: '1px solid #666', borderRadius: '6px', cursor: 'pointer'
     });
     btn.addEventListener('click', openWorkshop);
     mount.prepend(btn);
@@ -641,19 +778,19 @@ export function initCustomGreetingWorkshop() {
     };
 
     // If ST dispatches a DOM CustomEvent:
-    try { document.addEventListener?.('chatLoaded', (e) => cacheFromEvent(e)); } catch {}
+    try { document.addEventListener?.('chatLoaded', (e) => cacheFromEvent(e)); } catch { }
 
     // If ST routes via its event bus:
     const origEmit = eventSource.emit;
-    eventSource.emit = function(event, ...args) {
+    eventSource.emit = function (event, ...args) {
         if (event === 'chatLoaded' && args?.[0]) cacheFromEvent(args[0]);
         if (event === 'message_deleted' || event === 'swipe_change' || event === 'chatLoaded') {
-            setTimeout(() => { try { injectWorkshopButton(); } catch {} }, 80);
+            setTimeout(() => { try { injectWorkshopButton(); } catch { } }, 80);
         }
         return origEmit.apply(this, arguments);
     };
 
-    const tryInject = () => { try { injectWorkshopButton(); } catch {} };
+    const tryInject = () => { try { injectWorkshopButton(); } catch { } };
     if (document.readyState !== 'loading') setTimeout(tryInject, 60);
     document.addEventListener('DOMContentLoaded', () => setTimeout(tryInject, 120));
 
