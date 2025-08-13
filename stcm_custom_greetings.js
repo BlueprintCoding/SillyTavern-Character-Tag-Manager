@@ -347,8 +347,16 @@ function openWorkshop() {
 
     const header = document.createElement('div');
     header.textContent = 'Greeting Workshop';
-    Object.assign(header.style, { padding: '10px 12px', borderBottom: '1px solid #444', fontWeight: 600, background: '#222' });
-
+    Object.assign(header.style, {  
+        padding: '10px 12px',  
+        borderBottom: '1px solid #444',  
+        fontWeight: 600,  
+        background: '#222',  
+        display: 'flex',  
+        alignItems: 'center',  
+        justifyContent: 'space-between'  
+    });
+    
     const settings = document.createElement('div');
     Object.assign(settings.style, {
         display: 'grid',
