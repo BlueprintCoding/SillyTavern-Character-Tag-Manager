@@ -342,7 +342,7 @@ function openWorkshop() {
         width: 'min(720px,92vw)', maxHeight: '85vh', overflow: 'hidden',
         background: '#1b1b1b', color: '#ddd', border: '1px solid #555',
         borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.5)', zIndex: 10001,
-        display: 'flex', flexDirection: 'column'
+        display: 'flex', flexDirection: 'column', resize: 'both', overflow: 'auto'
     });
 
     const header = document.createElement('div');
