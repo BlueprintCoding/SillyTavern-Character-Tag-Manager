@@ -40,6 +40,7 @@ function safeJSONStringify(obj) {
 function getActiveCharacterFull() {
     ensureCtx();
 
+    console.log(ctx);
     // Active index from context (string or number)
     const idxFromCtx = ctx?.characterId != null
         ? Number.isNaN(Number(ctx.characterId)) ? null : Number(ctx.characterId)
