@@ -10,6 +10,8 @@ import {
     messageFormatting,
     syncSwipeToMes,
     generateRaw as stGenerateRaw,
+    characters as stCharacters,    
+    characterId as stCharacterId,   
 } from "../../../../script.js";
 
 let ctx = null;
@@ -40,17 +42,40 @@ function safeJSONStringify(obj) {
 function getActiveCharacterFull() {
     ensureCtx();
 
-    const id = ctx?.characterId ?? ctx?.charID ?? ctx?.currentCharacterId;
-    const arr = ctx?.characters || window?.characters || [];
+    // Try context first
+    const ctxId = ctx?.characterId ?? ctx?.charID ?? ctx?.currentCharacterId;
+    const ctxArr = Array.isArray(ctx?.characters) ? ctx.characters : null;
+    const fromCtxArr = (ctxArr && ctxId != null) ? ctxArr[ctxId] : null;
+    const fromCtxObj = ctx?.character || ctx?.charInfo || null;
+    const fromGrp    = ctx?.group?.members?.find?.(m => m?.id === ctxId) || null;
+    const fromSel    = ctx?.selected_group_member || null;
 
-    const fromArray = (id != null && Array.isArray(arr)) ? arr[id] : null;
-    const fromCtx   = ctx?.character || ctx?.charInfo || null;
-    const fromGrp1  = ctx?.group?.members?.find?.(m => m?.id === id) || null;
-    const fromSel   = ctx?.selected_group_member || null;
+    // Hard fallback to script.js exports (most reliable across builds)
+    const fromScriptArr = (Array.isArray(stCharacters) && (typeof stCharacterId === 'number'))
+        ? stCharacters[stCharacterId]
+        : null;
 
-    // Merge left-to-right, later sources only fill missing keys
-    const merged = Object.assign({}, fromCtx || {}, fromGrp1 || {}, fromSel || {}, fromArray || {});
-    return merged && Object.keys(merged).length ? merged : {};
+    // Some builds don’t export characterId – try to infer
+    const inferIdx = (!fromScriptArr && Array.isArray(stCharacters) && stCharacters.length)
+        ? (ctxId != null ? ctxId : 0)
+        : null;
+    const fromScriptGuess = (inferIdx != null) ? stCharacters[inferIdx] : null;
+
+    // Merge (later only fills missing keys)
+    const merged = Object.assign(
+        {},
+        fromCtxObj || {},
+        fromGrp || {},
+        fromSel || {},
+        fromCtxArr || {},
+        fromScriptArr || {},
+        fromScriptGuess || {},
+    );
+
+    if (!merged || !Object.keys(merged).length) {
+        console.warn('[Greeting Workshop] Character object is empty. Check exports/ctx wiring.');
+    }
+    return merged;
 }
 
 /** Build XML-wrapped JSON block for the LLM. */
@@ -286,13 +311,15 @@ async function onRegenerate() {
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
-    const userText = (inputEl.value || '').trim();
-    if (!userText && !isRegen) return;
 
-    if (!isRegen) {
-        miniTurns.push({ role:'user', content: userText });
-        appendBubble('user', userText);
-        // Intentionally do NOT clear input
+    // Always read what’s currently in the box
+    const typed = String((inputEl.value || '').trim());
+
+    // If user hit Send, append it to the mini chat (and do NOT clear the box)
+    if (!isRegen && typed) {
+        miniTurns.push({ role: 'user', content: typed });
+        appendBubble('user', typed);
+        // keep inputEl.value as-is so they can tweak/resend
     }
 
     const spinner = document.createElement('div');
@@ -304,9 +331,9 @@ async function onSendToLLM(isRegen = false) {
     try {
         const approxRespLen = Math.ceil((prefs.maxChars || 320) * 1.2);
 
-        // Use the last USER instruction, not the last turn
-        const lastUser = [...miniTurns].reverse().find(t => t.role === 'user');
-        const instruction = lastUser?.content ? String(lastUser.content) : '(no new edits)';
+        // Prefer the box text; otherwise last user turn; otherwise fallback
+        const lastUserTurn = [...miniTurns].reverse().find(t => t.role === 'user');
+        const instruction = typed || lastUserTurn?.content || '(no new edits)';
 
         const systemPrompt = buildSystemPrompt(prefs);
         const rawPrompt =
@@ -315,16 +342,14 @@ async function onSendToLLM(isRegen = false) {
             instruction + '\n\n' +
             'Return only the greeting text.';
 
-        // Positional signature of generateRaw in your build:
-        // (prompt, api, instructOverride, quietToLoud, systemPrompt, responseLength, trimNames, prefill, jsonSchema)
         const res = await stGenerateRaw(
-            String(rawPrompt),   // prompt (string)
-            null,                // api (current)
-            true,                // instructOverride -> use text/instruct path, not RP scaffolding
-            true,                // quietToLoud -> send as system style, avoid name injection
+            String(rawPrompt),   // prompt
+            null,                // api
+            true,                // instructOverride
+            true,                // quietToLoud (send as system-style)
             String(systemPrompt),
             approxRespLen,
-            true,
+            true,                // trimNames
             '',
             null
         );
@@ -343,6 +368,7 @@ async function onSendToLLM(isRegen = false) {
         spinner.remove();
     }
 }
+
 
 function onAccept() {
     const last = [...miniTurns].reverse().find(t => t.role === 'assistant');
