@@ -20,14 +20,69 @@ function ensureCtx() {
 }
 
 /* --------------------- CHARACTER JSON --------------------- */
+let activeCharCache = null;   // { name, description, personality, scenario, ... }
+let activeCharId = null;
+
+
+/** Try hard to fetch the current character object across ST variants. */
+function getActiveCharacterFull() {
+    ensureCtx();
+
+    // Prefer the cache populated by chatLoaded
+    if (activeCharCache && Object.keys(activeCharCache).length) return activeCharCache;
+
+    // Fallbacks
+    const idx = (ctx?.characterId != null && !Number.isNaN(Number(ctx.characterId)))
+        ? Number(ctx.characterId) : null;
+
+    const fromArray = (Array.isArray(ctx?.characters) && idx != null && idx >= 0 && idx < ctx.characters.length)
+        ? ctx.characters[idx] : null;
+
+    const fromCtxObj   = ctx?.character || ctx?.charInfo || null;
+    const byName2      = (Array.isArray(ctx?.characters) && ctx?.name2)
+        ? ctx.characters.find(c => c?.name === ctx.name2) || null
+        : null;
+
+    const merged = Object.assign({}, fromCtxObj || {}, fromArray || {}, byName2 || {});
+    if (!merged || !Object.keys(merged).length) {
+        console.warn('[Greeting Workshop] Character object is empty. Check context wiring:', {
+            idxFromCtx: idx, hasArray: Array.isArray(ctx?.characters), name2: ctx?.name2
+        });
+    }
+    return merged;
+}
+
+function escapeDoubleCurlies(str) {
+    // prevent ST macros from matching {{user}} etc.
+    return String(str).replaceAll('{{', '{\u200B{').replaceAll('}}', '}\u200B}');
+}
+
+function pickCardFields(ch) {
+    // card data can live both top-level and under ch.data.*
+    const d = ch?.data || {};
+    const pick = (k) => ch?.[k] ?? d?.[k] ?? null;
+
+    return {
+        name: pick('name'),
+        description: pick('description'),
+        personality: pick('personality'),
+        scenario: pick('scenario'),
+        first_mes: pick('first_mes'),
+        alternate_greetings: pick('alternate_greetings') || [],
+        mes_example: pick('mes_example'),
+        // keep anything else you explicitly want:
+        creator_notes: pick('creator_notes') ?? ch?.creatorcomment ?? null,
+        tags: pick('tags') || ch?.tags || [],
+        spec: ch?.spec ?? null,
+        spec_version: ch?.spec_version ?? null,
+    };
+}
 
 function safeJSONStringify(obj) {
     const seen = new WeakSet();
     return JSON.stringify(obj, (k, v) => {
         if (typeof v === 'function') return undefined;
         if (typeof v === 'bigint') return v.toString();
-        if (v && typeof Node !== 'undefined' && v instanceof Node) return undefined;
-        if (v && typeof Window !== 'undefined' && v === window) return undefined;
         if (v && typeof v === 'object') {
             if (seen.has(v)) return '[Circular]';
             seen.add(v);
@@ -36,56 +91,15 @@ function safeJSONStringify(obj) {
     }, 2);
 }
 
-/** Try hard to fetch the current character object across ST variants. */
-function getActiveCharacterFull() {
-    ensureCtx();
-
-    console.log(ctx);
-    // Active index from context (string or number)
-    const idxFromCtx = ctx?.characterId != null
-        ? Number.isNaN(Number(ctx.characterId)) ? null : Number(ctx.characterId)
-        : null;
-
-    // Primary source: ctx.characters + index
-    const fromCtxArray = (Array.isArray(ctx?.characters) && idxFromCtx != null && idxFromCtx >= 0 && idxFromCtx < ctx.characters.length)
-        ? ctx.characters[idxFromCtx]
-        : null;
-
-    // Fallbacks seen across ST forks
-    const fromCtxObj   = ctx?.character || ctx?.charInfo || null;
-    const fromGroupSel = ctx?.selected_group_member || null;
-    const fromGroupArr = ctx?.group?.members?.find?.(m => (m?.id === idxFromCtx || m?.name === ctx?.name2)) || null;
-
-    // Last-resort name match (if index didn’t work)
-    const byName = (!fromCtxArray && Array.isArray(ctx?.characters) && ctx?.name2)
-        ? ctx.characters.find(c => c?.name === ctx.name2) || null
-        : null;
-
-    // Merge (later only fills missing keys)
-    const merged = Object.assign(
-        {},
-        fromCtxObj || {},
-        fromGroupSel || {},
-        fromGroupArr || {},
-        fromCtxArray || {},
-        byName || {},
-    );
-
-    if (!merged || !Object.keys(merged).length) {
-        console.warn('[Greeting Workshop] Character object is empty. Check context wiring:', {
-            idxFromCtx, hasArray: Array.isArray(ctx?.characters), name2: ctx?.name2
-        });
-    }
-    return merged;
-}
-
-
-/** Build XML-wrapped JSON block for the LLM. */
 function buildCharacterJSONBlock() {
-    const char = getActiveCharacterFull();
-    const json = safeJSONStringify(char); // already handles circulars
+    const rawChar = getActiveCharacterFull();
+    const card = pickCardFields(rawChar);
+
+    // Stringify and escape {{ }}
+    const json = escapeDoubleCurlies(safeJSONStringify(card));
     return `<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`;
 }
+
 
 /* --------------------- PREFS + PROMPTS --------------------- */
 
@@ -116,7 +130,7 @@ function buildSystemPrompt(prefs) {
     ensureCtx();
     const lang = (prefs.language || ctx.locale || 'en').trim();
     const ch   = getActiveCharacterFull();
-    const charEdit  = ch?.name || ctx?.name2 || 'Assistant';
+    const charEdit  = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
     const who  = 'A Character Card Greeting Editing Assistant';
 
     return [
@@ -316,64 +330,59 @@ async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
 
-    // Always read what’s currently in the box
     const typed = String((inputEl.value || '').trim());
-    console.debug('[GW] using character snapshot:', getActiveCharacterFull());
+    if (!typed && !isRegen) return;
 
-
-    // If user hit Send, append it to the mini chat (and do NOT clear the box)
     if (!isRegen && typed) {
         miniTurns.push({ role: 'user', content: typed });
         appendBubble('user', typed);
-        // keep inputEl.value as-is so they can tweak/resend
+        // do NOT clear input — leave it for iterative edits
     }
 
     const spinner = document.createElement('div');
     spinner.textContent = 'Thinking…';
-    Object.assign(spinner.style, { fontSize:'12px', opacity:.7, margin:'4px 0 0 2px' });
+    Object.assign(spinner.style, { fontSize: '12px', opacity: .7, margin: '4px 0 0 2px' });
     chatLogEl.append(spinner);
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
     try {
-        const approxRespLen = Math.ceil((prefs.maxChars || 320) * 1.2);
-
-        // Prefer the box text; otherwise last user turn; otherwise fallback
-        const lastUserTurn = [...miniTurns].reverse().find(t => t.role === 'user');
-        const instruction = typed || lastUserTurn?.content || '(no new edits)';
-
         const systemPrompt = buildSystemPrompt(prefs);
+        const instruction  = typed || miniTurns.slice().reverse().find(t => t.role === 'user')?.content || '(no new edits)';
         const rawPrompt =
             buildCharacterJSONBlock() + '\n\n' +
             'Now craft the greeting based on the following instruction:\n' +
             instruction + '\n\n' +
             'Return only the greeting text.';
 
+        const approxRespLen = Math.ceil((prefs.maxChars || 320) * 1.2);
+
         const res = await stGenerateRaw(
-            String(rawPrompt),   // prompt
-            null,                // api
-            true,                // instructOverride
-            true,                // quietToLoud (send as system-style)
+            String(rawPrompt), // prompt
+            null,              // api (current)
+            true,              // instructOverride
+            true,              // quietToLoud (system-style)
             String(systemPrompt),
-            approxRespLen,
-            true,                // trimNames
-            '',
-            null
+            approxRespLen,     // responseLength
+            true,              // trimNames
+            '',                // prefill
+            null               // jsonSchema
         );
 
         const llmResText = String(res || '').trim();
         if (!llmResText) {
             appendBubble('assistant', '(empty response)');
         } else {
-            miniTurns.push({ role:'assistant', content: llmResText });
+            miniTurns.push({ role: 'assistant', content: llmResText });
             appendBubble('assistant', llmResText);
         }
     } catch (e) {
-        console.error('[Greeting Workshop] LLM call failed (raw):', e);
+        console.error('[Greeting Workshop] LLM call failed:', e);
         appendBubble('assistant', '⚠️ Error generating text. See console for details.');
     } finally {
         spinner.remove();
     }
 }
+
 
 
 function onAccept() {
@@ -485,17 +494,40 @@ function injectWorkshopButton() {
 export function initCustomGreetingWorkshop() {
     ensureCtx();
 
-    const tryInject = () => { try { injectWorkshopButton(); } catch {} };
-    if (document.readyState !== 'loading') setTimeout(tryInject, 60);
-    document.addEventListener('DOMContentLoaded', () => setTimeout(tryInject, 120));
+    // --- capture chatLoaded to cache the full character object
+    const cacheFromEvent = (payload) => {
+        try {
+            const detail = payload?.detail || payload; // supports both patterns
+            if (detail?.character) {
+                activeCharCache = detail.character;
+                activeCharId = detail.id ?? null;
+                // keep ctx.characterId up to date if missing
+                if (ctx && (ctx.characterId == null) && activeCharId != null) {
+                    ctx.characterId = String(activeCharId);
+                }
+                // console.debug('[GW] cached character from event:', activeCharId, activeCharCache?.name);
+            }
+        } catch (e) {
+            console.warn('[GW] failed to cache character from chatLoaded:', e);
+        }
+    };
 
+    // If ST dispatches a DOM CustomEvent:
+    try { document.addEventListener?.('chatLoaded', (e) => cacheFromEvent(e)); } catch {}
+
+    // If ST routes via its event bus:
     const origEmit = eventSource.emit;
     eventSource.emit = function(event, ...args) {
-        if (event === 'chatLoaded' || event === 'message_deleted' || event === 'swipe_change') {
-            setTimeout(tryInject, 80);
+        if (event === 'chatLoaded' && args?.[0]) cacheFromEvent(args[0]);
+        if (event === 'message_deleted' || event === 'swipe_change' || event === 'chatLoaded') {
+            setTimeout(() => { try { injectWorkshopButton(); } catch {} }, 80);
         }
         return origEmit.apply(this, arguments);
     };
+
+    const tryInject = () => { try { injectWorkshopButton(); } catch {} };
+    if (document.readyState !== 'loading') setTimeout(tryInject, 60);
+    document.addEventListener('DOMContentLoaded', () => setTimeout(tryInject, 120));
 
     const root = document.getElementById('chat') || document.body;
     const mo = new MutationObserver(() => tryInject());
