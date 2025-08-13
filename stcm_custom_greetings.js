@@ -143,7 +143,8 @@ function buildSystemPrompt(prefs) {
         `You are NOT ${charEdit}, you will never act like them or respond as them. You are creating a scene for them based on the users input.`,
         `You will receive the COMPLETE character object for the character ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
-        `Output only the greeting text unless the user explicitly asks for analysis.`,
+        `Output only the greeting text unless the user explicitly asks for analysis.'`,
+        buildCharacterJSONBlock()
     ].join('\n\n');
 }
 
@@ -350,7 +351,6 @@ async function onSendToLLM(isRegen = false) {
         const systemPrompt = buildSystemPrompt(prefs);
         const instruction  = typed || miniTurns.slice().reverse().find(t => t.role === 'user')?.content || '(no new edits)';
         const rawPrompt =
-            buildCharacterJSONBlock() + '\n\n' +
             'Now craft the greeting based on the following instruction:\n' +
             instruction + '\n\n' +
             'Return only the greeting text.';
