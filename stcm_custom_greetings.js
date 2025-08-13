@@ -164,7 +164,7 @@ function esc(s) {
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
-const S = (x) => String(x ?? '');
+
 
 function buildSystemPrompt(prefs) {
     ensureCtx();
@@ -427,7 +427,8 @@ async function onSendToLLM(isRegen = false) {
         const instruction = typed || miniTurns.slice().reverse().find(t => t.role === 'user')?.content || '(no new edits)';
 
         // Include the last 5 messages of mini chat history on every call
-        const historyBlock = buildRecentHistoryBlock(5);
+        const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
+        const historyBlock = buildRecentHistoryBlock(historyLimit);
 
         // Optional: transform placeholders in the instruction (already done before)
         const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
@@ -437,7 +438,7 @@ async function onSendToLLM(isRegen = false) {
             historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
             '',
             'USER_INSTRUCTION:',
-            instruction,
+            instrTransformed,
             '',
             'Follow the instruction above using the character data as context. ' +
             'If the instruction is to make a greeting, output only the greeting text.'
