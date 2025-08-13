@@ -1,5 +1,5 @@
 // stcm_custom_greetings.js
-// SillyTavern Character Manager – Custom Greeting Workshop
+// SillyTavern Character Manager – Custom Greeting Workshop (RAW-ONLY)
 // Opens a mini chat with the active LLM to craft the first greeting,
 // then replaces the starting message in the main chat on accept.
 
@@ -9,7 +9,7 @@ import {
     eventSource,
     messageFormatting,
     syncSwipeToMes,
-    generateRaw as stGenerateRaw,
+    generateRaw as stGenerateRaw, // raw only
 } from "../../../../script.js";
 
 let ctx = null;
@@ -19,11 +19,17 @@ function ensureCtx() {
     ctx.extensionSettings.stcm ??= {};
 }
 
+// Small helper to resolve generateRaw even if the import alias isn't present on a given build
+function getGenerateRaw() {
+    if (typeof stGenerateRaw === 'function') return stGenerateRaw;
+    if (typeof window?.generateRaw === 'function') return window.generateRaw;
+    throw new ReferenceError('generateRaw is not available on this build.');
+}
+
 // --- FULL CHARACTER JSON PLUMBING ---
 
 /**
  * Safely stringify ANY object (handles circular refs, functions, BigInt).
- * We only skip functions and DOM nodes; everything else goes through.
  */
 function safeJSONStringify(obj) {
     const seen = new WeakSet();
@@ -43,7 +49,6 @@ function safeJSONStringify(obj) {
 
 /**
  * Returns the most complete character object we can find from ST context.
- * Falls back to ctx.character if characters[characterId] is not populated.
  */
 function getActiveCharacterFull() {
     ensureCtx();
@@ -56,23 +61,21 @@ function getActiveCharacterFull() {
     const alt1 = ctx?.group?.members?.find?.(m => m?.id === ctx?.characterId) || null;
     const alt2 = ctx?.selected_group_member || null;
     const alt3 = (window?.characters && ctx?.characterId != null) ? window.characters[ctx.characterId] : null;
-    const alt4 = ctx?.charInfo || null; // some forks expose this
+    const alt4 = ctx?.charInfo || null;
 
     // Merge (later sources only fill missing fields)
-    const full = Object.assign({}, alt3 || {}, alt2 || {}, alt1 || {}, fallback || {}, fromIndexed || {}, ctx?.charInfo || {});
+    const full = Object.assign({}, alt3 || {}, alt2 || {}, alt1 || {}, fallback || {}, fromIndexed || {}, alt4 || {});
 
     return full;
 }
 
-
 /**
  * Provides the serialized JSON payload we’ll send along with the instruction.
- * Wrapped in tags to reduce hallucinated edits by the LLM.
  */
 function buildCharacterJSONBlock() {
     const char = getActiveCharacterFull();
-    const json = S(safeJSONStringify(char));
-    return S(`<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`);
+    const json = String(safeJSONStringify(char));
+    return `<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`;
 }
 
 const PREFS_KEY = 'stcm_greeting_workshop_prefs';
@@ -83,11 +86,10 @@ function loadPrefs() {
             style: 'friendly, concise, welcoming',
             maxChars: 320,
             allowOneShortQuestion: true,
-            useQuietPrompt: true,  // quiet only
-            language: ''           // empty = auto from ctx.locale
+            language: '', // empty = auto from ctx.locale
         };
     } catch {
-        return { style: 'friendly, concise, welcoming', maxChars: 320, allowOneShortQuestion: true, useQuietPrompt: true, language: '' };
+        return { style: 'friendly, concise, welcoming', maxChars: 320, allowOneShortQuestion: true, language: '' };
     }
 }
 function savePrefs(p) { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); }
@@ -97,8 +99,6 @@ function esc(s) {
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
-function S(x){ return String(x ?? ''); }
-function J(x){ try { return JSON.stringify(x); } catch { return String(x); } }
 
 // Build a system prompt using current character & prefs.
 function buildSystemPrompt(prefs) {
@@ -107,21 +107,21 @@ function buildSystemPrompt(prefs) {
     const ch   = getActiveCharacterFull();
     const who  = ch?.name ? `${ch.name}${ch.role ? ` (${ch.role})` : ''}` : 'Assistant';
 
-    return S([
+    return [
         `You are ${who}. Your task is to craft a SHORT opening line to begin a brand-new chat.`,
         `Language: ${lang}. Target tone: ${prefs.style}. Max length: ${prefs.maxChars} characters.`,
         prefs.allowOneShortQuestion ? `Optionally include ONE brief, relevant icebreaker question.` : `Do not include any questions.`,
         `No meta/system talk. No disclaimers. Avoid repetition.`,
         `You will receive the COMPLETE character object as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
-        `Output only the greeting text unless the user explicitly asks for analysis.`,
-    ].join('\n\n'));
+        `Return only the greeting text.`,
+    ].join('\n\n');
 }
 
 // ------------------------- UI: modal & interactions -------------------------
 let modal, overlay;
 let chatLogEl, inputEl, sendBtn, regenBtn, acceptBtn, editBtn, copyBtn, closeBtn;
-let useQuietToggleEl, styleInputEl, maxInputEl, iceToggleEl, langInputEl;
+let styleInputEl, maxInputEl, iceToggleEl, langInputEl;
 
 let miniTurns = []; // mini chat history for user instructions (strings only)
 
@@ -151,11 +151,8 @@ function openWorkshop() {
     Object.assign(header.style, { padding: '10px 12px', borderBottom: '1px solid #444', fontWeight: 600, background: '#222' });
 
     const settings = document.createElement('div');
-    Object.assign(settings.style, { display:'grid', gridTemplateColumns:'1fr 120px 180px 1fr 110px', gap:'8px', padding:'8px 12px', alignItems:'center', borderBottom:'1px solid #333' });
+    Object.assign(settings.style, { display:'grid', gridTemplateColumns:'120px 1fr 1fr 140px', gap:'8px', padding:'8px 12px', alignItems:'center', borderBottom:'1px solid #333' });
     settings.innerHTML = `
-        <label style="display:flex;gap:6px;align-items:center">
-            <input type="checkbox" id="gw-use-quiet"> Use chat context (quiet)
-        </label>
         <label>Max
             <input id="gw-max" type="number" min="60" max="600" value="${prefs.maxChars}" style="width:80px;margin-left:6px">
         </label>
@@ -166,7 +163,7 @@ function openWorkshop() {
             <input id="gw-style" type="text" value="${esc(prefs.style)}" style="width:100%;margin-left:6px">
         </label>
         <label style="display:flex;gap:6px;align-items:center;justify-self:end">
-            <input type="checkbox" id="gw-ice"> One short Q?
+            <input type="checkbox" id="gw-ice" ${prefs.allowOneShortQuestion ? 'checked' : ''}> One short Q?
         </label>
     `;
 
@@ -205,19 +202,13 @@ function openWorkshop() {
     makeDraggable(modal, header);
 
     // wire settings
-    useQuietToggleEl = settings.querySelector('#gw-use-quiet');
-    styleInputEl     = settings.querySelector('#gw-style');
-    maxInputEl       = settings.querySelector('#gw-max');
-    langInputEl      = settings.querySelector('#gw-lang');
-    iceToggleEl      = settings.querySelector('#gw-ice');
-
-    useQuietToggleEl.checked = true; // quiet only
-    useQuietToggleEl.disabled = true;
-    iceToggleEl.checked      = !!prefs.allowOneShortQuestion;
+    styleInputEl = settings.querySelector('#gw-style');
+    maxInputEl   = settings.querySelector('#gw-max');
+    langInputEl  = settings.querySelector('#gw-lang');
+    iceToggleEl  = settings.querySelector('#gw-ice');
 
     settings.addEventListener('change', () => {
         const next = {
-            useQuietPrompt: true,
             style: (styleInputEl.value || 'friendly, concise, welcoming').trim(),
             maxChars: Math.max(60, Math.min(600, Number(maxInputEl.value) || 320)),
             allowOneShortQuestion: !!iceToggleEl.checked,
@@ -318,11 +309,11 @@ async function onSendToLLM(isRegen = false) {
     const userText = (inputEl.value || '').trim();
     if (!userText && !isRegen) return;
 
-    // 1) append user text to the mini chat log (and DO NOT clear input)
+    // Append user text to the mini chat log (do NOT clear input)
     if (!isRegen) {
         miniTurns.push({ role: 'user', content: String(userText) });
         appendBubble('user', userText);
-        // inputEl.value = ''; // ← keep input as-is
+        // inputEl.value = ''; // keep input for iterative edits
     }
 
     const spinner = document.createElement('div');
@@ -339,8 +330,6 @@ async function onSendToLLM(isRegen = false) {
                 ? String(miniTurns[miniTurns.length - 1].content ?? '')
                 : '(no new edits)';
 
-        // Build one flat string prompt and a separate systemPrompt.
-        // This path avoids ST’s RP scaffolding and name injection.
         const systemPrompt = buildSystemPrompt(prefs);
         const rawPrompt =
             buildCharacterJSONBlock() + '\n\n' +
@@ -348,47 +337,22 @@ async function onSendToLLM(isRegen = false) {
             lastInstr + '\n\n' +
             'Return only the greeting text.';
 
-        // IMPORTANT: use positional args for generateRaw on your build:
-        // generateRaw(prompt='', api=null, instructOverride=false, quietToLoud=false,
-        //             systemPrompt='', responseLength=null, trimNames=true, prefill='', jsonSchema=null)
-        let llmResText = await (async () => {
-            try {
-                const res = await stGenerateRaw(
-                    String(rawPrompt),     // prompt
-                    null,                  // api (use current)
-                    true,                  // instructOverride: force "text" path
-                    true,                  // quietToLoud: send as system-style, not character
-                    String(systemPrompt),  // systemPrompt
-                    approxRespLen,         // responseLength
-                    true,                  // trimNames
-                    '',                    // prefill
-                    null                   // jsonSchema
-                );
-                return String(res || '').trim();
-            } catch (e) {
-                // As a fallback only (should rarely run), try quiet prompt positionally.
-                console.warn('[Greeting Workshop] generateRaw failed, trying quiet:', e);
-                const qp = String(
-                    systemPrompt + '\n\n' +
-                    buildCharacterJSONBlock() + '\n\n' +
-                    'Now craft the greeting based on the following instruction:\n' +
-                    lastInstr + '\n\n' +
-                    'Return only the greeting text.'
-                );
-                // generateQuietPrompt(quietPrompt, quietToLoud, skipWIAN, quietImage, quietName, responseLength, forceChId, jsonSchema)
-                const res2 = await stGenerateQuietPrompt(
-                    qp,       // quietPrompt (string)
-                    false,    // quietToLoud
-                    true,     // skipWIAN
-                    null,     // quietImage
-                    null,     // quietName
-                    approxRespLen,
-                    null,
-                    null
-                );
-                return String(res2 || '').trim();
-            }
-        })();
+        const generateRaw = getGenerateRaw();
+
+        // generateRaw(prompt, api, instructOverride, quietToLoud, systemPrompt, responseLength, trimNames, prefill, jsonSchema)
+        const res = await generateRaw(
+            String(rawPrompt),     // prompt
+            null,                  // api (use current)
+            true,                  // instructOverride: force "text" path
+            true,                  // quietToLoud: send as system/system-like
+            String(systemPrompt),  // systemPrompt
+            approxRespLen,         // responseLength
+            true,                  // trimNames
+            '',                    // prefill
+            null                   // jsonSchema
+        );
+
+        const llmResText = String(res || '').trim();
 
         if (!llmResText) {
             appendBubble('assistant', '(empty response)');
@@ -397,7 +361,7 @@ async function onSendToLLM(isRegen = false) {
             appendBubble('assistant', llmResText);
         }
     } catch (e) {
-        console.error('[Greeting Workshop] LLM call failed:', e);
+        console.error('[Greeting Workshop] generateRaw failed:', e);
         appendBubble('assistant', '⚠️ Error generating text. See console for details.');
     } finally {
         spinner.remove();
@@ -444,6 +408,7 @@ function replaceStartingMessage(text) {
         }];
     }
 
+    // Update DOM immediately
     const mesDiv = document.querySelector('#chat .mes[mesid="0"] .mes_text');
     if (mesDiv) {
         const first = ctx.chat[0];
@@ -456,6 +421,7 @@ function replaceStartingMessage(text) {
         );
     }
 
+    // Sync with ST swipe machinery (preferred)
     if (typeof syncSwipeToMes === 'function') {
         syncSwipeToMes(0, 0);
     }
