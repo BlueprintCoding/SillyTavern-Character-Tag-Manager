@@ -167,7 +167,7 @@ function buildSystemPrompt(prefs) {
     const who  = 'A Character Card Greeting Editing Assistant';
 
     return [
-        `You are ${who}. Your task is to craft a SHORT opening line to begin a brand-new chat.`,
+        `You are ${who}. Your task is to craft a long opening scene to begin a brand-new chat. Your response should be three, 3 to 4 sentence paragraphs`,
         `Language: ${lang}. Target tone: ${prefs.style}. Max length: ${prefs.maxChars} characters.`,
         prefs.allowOneShortQuestion
             ? `Optionally include ONE brief, relevant icebreaker question.`
@@ -177,6 +177,7 @@ function buildSystemPrompt(prefs) {
         `You will receive the COMPLETE character object for the character ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
         `Output only the greeting text unless the user explicitly asks for analysis.`,
+        buildCharacterJSONBlock()
     ].join('\n\n');
 }
 
@@ -388,10 +389,8 @@ async function onSendToLLM(isRegen = false) {
         const instrTransformed = maskUserPlaceholders(replaceCharPlaceholders(instruction, charName));
 
         const rawPrompt =
-            buildCharacterJSONBlock() + '\n\n' +
-            'Now craft the greeting based on the following instruction:\n' +
-            instrTransformed + '\n\n' +
-            'Return only the greeting text.';
+            'Follow the users instructions:\n' +
+            instrTransformed 
 
         const approxRespLen = Math.ceil((prefs.maxChars || 320) * 1.2);
 
