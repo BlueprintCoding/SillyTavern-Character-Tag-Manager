@@ -129,20 +129,9 @@ function buildSystemPrompt(prefs) {
 
 // Convert our mini “chat” state to Chat Completion format for generateRaw()
 function buildChatPromptFromTurns(turns) {
-    // turns: [{role:'user'|'assistant', content:'...'}]
-    // return array compatible with Chat Completions
-    return turns.map(t => ({ role: t.role, content: t.content }));
-}
+         return turns.map(t => ({ role: t.role, content: String(t.content ?? '') }));
+     }
 
-function normalizeLLMText(res) {
-    return (
-        res?.text ??
-        res?.response ??
-        res?.choices?.[0]?.message?.content ??
-        res?.choices?.[0]?.text ??
-        ''
-    );
-}
 
 // ------------------------- UI: modal & interactions -------------------------
 let modal, overlay;
@@ -381,19 +370,30 @@ async function onSendToLLM(isRegen = false) {
           
             llmResText = (res || '').trim();
           } else {
-            // Multi-turn: our mini conversation + full character JSON as a system turn
-            const prompt = [
-              { role: 'system', content: buildCharacterJSONBlock() },
-              ...buildChatPromptFromTurns(miniTurns),
-            ];
-          
+            // Build a single text prompt to avoid macro errors on array items
+            const lastInstr =
+              miniTurns.length && miniTurns[miniTurns.length - 1].role === 'user'
+                ? String(miniTurns[miniTurns.length - 1].content ?? '')
+                : '(no new edits)';
+         
+            const rawPrompt =
+              [
+                // rules live in systemPrompt; here we attach the full JSON + instruction
+                buildCharacterJSONBlock(),
+                '',
+                'Now craft the greeting based on the following instruction:',
+                lastInstr,
+                '',
+                'Return only the greeting text.'
+              ].join('\n');
+         
             const res = await stGenerateRaw({
               systemPrompt,
-              prompt,
+              prompt: rawPrompt,            // <-- string, not array
               responseLength: approxRespLen,
               trimNames: true,
             });
-          
+         
             llmResText = (res || '').trim();
           }
         
