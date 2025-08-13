@@ -79,8 +79,8 @@ function getActiveCharacterFull() {
  */
 function buildCharacterJSONBlock() {
     const char = getActiveCharacterFull();
-    const json = safeJSONStringify(char);
-    return `<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`;
+    const json = S(safeJSONStringify(char));
+    return S(`<CHARACTER_DATA_JSON>\n${json}\n</CHARACTER_DATA_JSON>`);
 }
 
 
@@ -107,6 +107,9 @@ function esc(s) {
         .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
+function S(x){ return String(x ?? ''); }
+function J(x){ try { return JSON.stringify(x); } catch { return String(x); } }
+
 // Build a system prompt using current character & prefs.
 // This is used for generateRaw() (multi-turn).
 function buildSystemPrompt(prefs) {
@@ -115,7 +118,7 @@ function buildSystemPrompt(prefs) {
     const ch   = getActiveCharacterFull();
     const who  = ch?.name ? `${ch.name}${ch.role ? ` (${ch.role})` : ''}` : 'Assistant';
   
-    return [
+    return S([
       `You are ${who}. Your task is to craft a SHORT opening line to begin a brand-new chat.`,
       `Language: ${lang}. Target tone: ${prefs.style}. Max length: ${prefs.maxChars} characters.`,
       prefs.allowOneShortQuestion ? `Optionally include ONE brief, relevant icebreaker question.` : `Do not include any questions.`,
@@ -123,7 +126,7 @@ function buildSystemPrompt(prefs) {
       `You will receive the COMPLETE character object as JSON under <CHARACTER_DATA_JSON>.`,
       `Use ONLY the provided JSON as ground truth for persona, lore, tags, starters, and settings.`,
       `Output only the greeting text unless the user explicitly asks for analysis.`,
-    ].join('\n\n');
+    ].join('\n\n'));
   }
   
 
@@ -332,7 +335,7 @@ async function onSendToLLM(isRegen = false) {
     if (!userText && !isRegen) return;
 
     if (!isRegen) {
-        miniTurns.push({ role:'user', content:userText });
+        miniTurns.push({ role:'user', content:S(userText) });
         appendBubble('user', userText);
         inputEl.value = '';
     }
@@ -351,51 +354,68 @@ async function onSendToLLM(isRegen = false) {
         const approxRespLen = Math.ceil(prefs.maxChars * 1.5); // safe hedge
 
         if (prefs.useQuietPrompt) {
-            // Single-turn with full ST chat/character context, plus explicit full JSON block
-            const quietPrompt = [
-              systemPrompt,
+            const quietPrompt = S([
+              buildSystemPrompt(prefs),
               '',
               buildCharacterJSONBlock(),
               '',
               'Now craft the greeting based on the following instruction:',
               miniTurns[miniTurns.length - 1]?.role === 'user'
-                ? miniTurns[miniTurns.length - 1].content
+                ? S(miniTurns[miniTurns.length - 1].content)
                 : '(no new edits)'
-            ].join('\n');
+            ].join('\n'));
           
             const res = await stGenerateQuietPrompt({
-              quietPrompt,
+              quietPrompt: S(quietPrompt),
               responseLength: approxRespLen,
             });
           
-            llmResText = (res || '').trim();
-          } else {
-            // Build a single text prompt to avoid macro errors on array items
+            llmResText = S(res).trim();
+          }  else {
             const lastInstr =
               miniTurns.length && miniTurns[miniTurns.length - 1].role === 'user'
-                ? String(miniTurns[miniTurns.length - 1].content ?? '')
+                ? S(miniTurns[miniTurns.length - 1].content)
                 : '(no new edits)';
-         
-            const rawPrompt =
-              [
-                // rules live in systemPrompt; here we attach the full JSON + instruction
+          
+            const rawPrompt = S([
+              buildCharacterJSONBlock(),
+              '',
+              'Now craft the greeting based on the following instruction:',
+              lastInstr,
+              '',
+              'Return only the greeting text.'
+            ].join('\n'));
+          
+            try {
+              const res = await stGenerateRaw({
+                prompt: rawPrompt,              // <- PLAIN STRING
+                systemPrompt: S(buildSystemPrompt(prefs)), // <- PLAIN STRING
+                responseLength: approxRespLen,
+                trimNames: true,
+                instructOverride: true,         // <- avoid auto chat conversion
+                quietToLoud: false,             // <- keep in character/text path
+              });
+              llmResText = S(res).trim();
+            } catch (e) {
+              // If macros still crash (content.replace/includes), retry via quiet mode
+              console.warn('[Greeting Workshop] raw failed; retrying quiet:', e);
+              const quietPrompt = S([
+                buildSystemPrompt(prefs),
+                '',
                 buildCharacterJSONBlock(),
                 '',
                 'Now craft the greeting based on the following instruction:',
                 lastInstr,
-                '',
-                'Return only the greeting text.'
-              ].join('\n');
-         
-            const res = await stGenerateRaw({
-              systemPrompt,
-              prompt: rawPrompt,            // <-- string, not array
-              responseLength: approxRespLen,
-              trimNames: true,
-            });
-         
-            llmResText = (res || '').trim();
+              ].join('\n'));
+          
+              const res2 = await stGenerateQuietPrompt({
+                quietPrompt,
+                responseLength: approxRespLen,
+              });
+              llmResText = S(res2).trim();
+            }
           }
+          
         
 
         if (!llmResText) {
