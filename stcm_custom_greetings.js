@@ -48,29 +48,22 @@ function safeJSONStringify(obj) {
 function getActiveCharacterFull() {
     ensureCtx();
 
-    // Prefer indexed characters map/array with an active id
-    const fromIndexed = (ctx.characters && ctx.characterId != null)
-        ? ctx.characters[ctx.characterId]
-        : null;
+    // Primary sources
+    const fromIndexed = (ctx.characters && ctx.characterId != null) ? ctx.characters[ctx.characterId] : null;
+    const fallback    = ctx.character || null;
 
-    // Fallback: legacy/current character slot
-    const fallback = ctx.character || null;
+    // Try a few extra ST locations commonly used across builds
+    const alt1 = ctx?.group?.members?.find?.(m => m?.id === ctx?.characterId) || null;
+    const alt2 = ctx?.selected_group_member || null;
+    const alt3 = (window?.characters && ctx?.characterId != null) ? window.characters[ctx.characterId] : null;
+    const alt4 = ctx?.charInfo || null; // some forks expose this
 
-    // Merge to keep "whole" data (fallback fields won’t overwrite real ones)
-    const full = Object.assign({}, fallback || {}, fromIndexed || {});
-
-    // Include some useful ambient context that often lives outside the char object
-    // (kept lightweight; does not replace anything)
-    full.__environment = {
-        locale: ctx.locale ?? '',
-        groupId: ctx.groupId ?? null,
-        chatId: ctx.chatId ?? null,
-        apiSource: ctx.api_source ?? '',
-        model: ctx.model ?? '',
-    };
+    // Merge (later sources only fill missing fields)
+    const full = Object.assign({}, alt3 || {}, alt2 || {}, alt1 || {}, fallback || {}, fromIndexed || {}, ctx?.charInfo || {});
 
     return full;
 }
+
 
 /**
  * Provides the serialized JSON payload we’ll send along with the instruction.
@@ -325,20 +318,20 @@ async function onSendToLLM(isRegen = false) {
     const userText = (inputEl.value || '').trim();
     if (!userText && !isRegen) return;
 
+    // 1) append user text to the mini chat log (and DO NOT clear input)
     if (!isRegen) {
-        miniTurns.push({ role:'user', content:String(userText) });
+        miniTurns.push({ role: 'user', content: String(userText) });
         appendBubble('user', userText);
-        inputEl.value = '';
+        // inputEl.value = ''; // ← keep input as-is
     }
 
     const spinner = document.createElement('div');
     spinner.textContent = 'Thinking…';
-    Object.assign(spinner.style, { fontSize:'12px', opacity:.7, margin:'4px 0 0 2px' });
+    Object.assign(spinner.style, { fontSize: '12px', opacity: .7, margin: '4px 0 0 2px' });
     chatLogEl.append(spinner);
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
     try {
-        let llmResText = '';
         const approxRespLen = Math.ceil(prefs.maxChars * 1.2);
 
         const lastInstr =
@@ -346,39 +339,61 @@ async function onSendToLLM(isRegen = false) {
                 ? String(miniTurns[miniTurns.length - 1].content ?? '')
                 : '(no new edits)';
 
-        // Build a SINGLE concatenated string (no arrays, no join)
-        let qp =
-            buildSystemPrompt(prefs) +
-            '\n\n' +
-            buildCharacterJSONBlock() +
-            '\n\n' +
+        // Build one flat string prompt and a separate systemPrompt.
+        // This path avoids ST’s RP scaffolding and name injection.
+        const systemPrompt = buildSystemPrompt(prefs);
+        const rawPrompt =
+            buildCharacterJSONBlock() + '\n\n' +
             'Now craft the greeting based on the following instruction:\n' +
-            lastInstr +
-            '\n\n' +
+            lastInstr + '\n\n' +
             'Return only the greeting text.';
 
-        // Final hardening: guarantee a string
-        qp = String(qp);
-
-        // IMPORTANT: positional call (your ST build expects this)
-        // generateQuietPrompt(quietPrompt, quietToLoud, skipWIAN, quietImage, quietName, responseLength, forceChId, jsonSchema)
-        const res = await stGenerateQuietPrompt(
-            qp,                // quietPrompt (string only)
-            false,             // quietToLoud
-            true,              // skipWIAN
-            null,              // quietImage
-            null,              // quietName
-            approxRespLen,     // responseLength
-            null,              // forceChId
-            null               // jsonSchema
-        );
-
-        llmResText = String(res || '').trim();
+        // IMPORTANT: use positional args for generateRaw on your build:
+        // generateRaw(prompt='', api=null, instructOverride=false, quietToLoud=false,
+        //             systemPrompt='', responseLength=null, trimNames=true, prefill='', jsonSchema=null)
+        let llmResText = await (async () => {
+            try {
+                const res = await stGenerateRaw(
+                    String(rawPrompt),     // prompt
+                    null,                  // api (use current)
+                    true,                  // instructOverride: force "text" path
+                    true,                  // quietToLoud: send as system-style, not character
+                    String(systemPrompt),  // systemPrompt
+                    approxRespLen,         // responseLength
+                    true,                  // trimNames
+                    '',                    // prefill
+                    null                   // jsonSchema
+                );
+                return String(res || '').trim();
+            } catch (e) {
+                // As a fallback only (should rarely run), try quiet prompt positionally.
+                console.warn('[Greeting Workshop] generateRaw failed, trying quiet:', e);
+                const qp = String(
+                    systemPrompt + '\n\n' +
+                    buildCharacterJSONBlock() + '\n\n' +
+                    'Now craft the greeting based on the following instruction:\n' +
+                    lastInstr + '\n\n' +
+                    'Return only the greeting text.'
+                );
+                // generateQuietPrompt(quietPrompt, quietToLoud, skipWIAN, quietImage, quietName, responseLength, forceChId, jsonSchema)
+                const res2 = await stGenerateQuietPrompt(
+                    qp,       // quietPrompt (string)
+                    false,    // quietToLoud
+                    true,     // skipWIAN
+                    null,     // quietImage
+                    null,     // quietName
+                    approxRespLen,
+                    null,
+                    null
+                );
+                return String(res2 || '').trim();
+            }
+        })();
 
         if (!llmResText) {
             appendBubble('assistant', '(empty response)');
         } else {
-            miniTurns.push({ role:'assistant', content: llmResText });
+            miniTurns.push({ role: 'assistant', content: llmResText });
             appendBubble('assistant', llmResText);
         }
     } catch (e) {
