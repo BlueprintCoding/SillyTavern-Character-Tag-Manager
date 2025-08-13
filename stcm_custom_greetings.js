@@ -11,7 +11,7 @@ import {
     syncSwipeToMes,
     generateRaw as stGenerateRaw,
     characters as stCharacters,    
-    characterId as stCharacterId,   
+    selectCharacterById as stCharacterId,   
 } from "../../../../script.js";
 
 let ctx = null;
