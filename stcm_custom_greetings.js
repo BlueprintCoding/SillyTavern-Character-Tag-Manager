@@ -303,7 +303,7 @@ function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
 }
 
 // --- Enforcement config: single retry, no fallback injection ---
-const MAX_USER_TOKEN_REVISIONS = 1;
+const MAX_USER_TOKEN_REVISIONS = 0;
 
 /**
  * One retry to encourage literal {{user}}.
