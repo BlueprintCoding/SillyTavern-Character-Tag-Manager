@@ -501,6 +501,8 @@ function openWorkshop() {
 `;
 
     const body = document.createElement('div');
+    body.className = 'gw-chat-body';   
+    body.id = 'gw-chat-body';
     Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '70vh' });
 
     chatLogEl = document.createElement('div');
@@ -709,17 +711,26 @@ function appendBubble(role, text, opts = {}) {
         editBtn.addEventListener('click', () => {
             // prevent multiple editors
             if (bubble.querySelector('.gw-inline-editor')) return;
-
+        
             const thisTs = wrap.dataset.ts;
             const itemIdx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
             const current = itemIdx !== -1 ? miniTurns[itemIdx].content : (content.textContent ?? text);
-
+        
+            // --- lock bubble width to match original message width ---
+            const computed = window.getComputedStyle(bubble);
+            const lockedWidthPx = bubble.getBoundingClientRect().width; // exact pixels
+            const prevWidth = bubble.style.width;
+            const prevMaxWidth = bubble.style.maxWidth;
+        
+            bubble.style.width = lockedWidthPx + 'px'; // lock to current width
+            bubble.style.maxWidth = 'none';            // prevent 90% clamp while editing
+        
             // hide original content + action bar; shrink bottom padding
             content.style.display = 'none';
             bar.style.display = 'none';
             bubble.classList.add('gw-editing');
             bubble.style.paddingBottom = '8px';
-
+        
             const editor = document.createElement('textarea');
             editor.className = 'gw-inline-editor';
             Object.assign(editor.style, {
@@ -732,10 +743,11 @@ function appendBubble(role, text, opts = {}) {
                 borderRadius: '6px',
                 padding: '8px',
                 marginTop: '6px',
-                resize: 'vertical'
+                resize: 'vertical',
+                boxSizing: 'border-box' // <-- ensures full-width equals bubble width
             });
             editor.value = current;
-
+        
             // auto-grow to content
             const autoGrow = () => {
                 editor.style.height = 'auto';
@@ -743,13 +755,13 @@ function appendBubble(role, text, opts = {}) {
             };
             editor.addEventListener('input', autoGrow);
             setTimeout(autoGrow, 0);
-
+        
             const row = document.createElement('div');
             Object.assign(row.style, { display: 'flex', gap: '8px', marginTop: '6px' });
-
+        
             const saveBtn = mkBtn('Save', '#8e44ad');
             const cancelBtn = mkBtn('Cancel', '#616161');
-
+        
             const finish = (didSave) => {
                 if (didSave) {
                     const next = editor.value.trim();
@@ -764,11 +776,15 @@ function appendBubble(role, text, opts = {}) {
                 bar.style.display = 'flex';
                 bubble.classList.remove('gw-editing');
                 bubble.style.paddingBottom = hasActions ? '32px' : '8px';
+        
+                // --- restore bubble width behavior ---
+                bubble.style.width = prevWidth || '';
+                bubble.style.maxWidth = prevMaxWidth || '90%';
             };
-
+        
             saveBtn.addEventListener('click', () => finish(true));
             cancelBtn.addEventListener('click', () => finish(false));
-
+        
             // keyboard shortcuts
             editor.addEventListener('keydown', (e) => {
                 if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
@@ -780,12 +796,13 @@ function appendBubble(role, text, opts = {}) {
                     finish(false);
                 }
             });
-
+        
             row.append(saveBtn, cancelBtn);
             bubble.append(editor, row);
             editor.focus();
             editor.setSelectionRange(editor.value.length, editor.value.length);
         });
+        
 
         trashBtn.addEventListener('click', () => {
             const thisTs = wrap.dataset.ts;
