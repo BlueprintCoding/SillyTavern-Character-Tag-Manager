@@ -1339,6 +1339,7 @@ async function onSendToLLM(isRegen = false) {
         return Array.isArray(list) ? list.find(p => p.name === name) : null;
     };
     const getInstructConfig = () => ctx?.extensionSettings?.instruct || ctx?.instruct || null;
+    const profileInstructEnabled = (profile) => String(profile?.['instruct-state']).toLowerCase() === 'true';
     const getProfileStops = (profile) => {
         const raw = profile?.['stop-strings']; if (!raw) return [];
         try {
@@ -1351,8 +1352,17 @@ async function onSendToLLM(isRegen = false) {
         .replace(/[^\S\n]+/g, ' ')
         .replace(/[ \t]+\n/g, '\n')
         .trim();
+    const mergeStops = (...lists) => {
+        const out = [];
+        for (const lst of lists) {
+            if (!lst) continue;
+            const arr = typeof lst === 'string' ? [lst] : lst;
+            for (const s of arr) if (typeof s === 'string' && s.length && !out.includes(s)) out.push(s);
+        }
+        return out;
+    };
 
-    // Build recent history for CHAT mode (<RECENT_HISTORY>…)
+    // CHAT history (neutral block)
     function buildRecentHistoryBlock(limit = 5) {
         const recent = miniTurns.slice(-limit);
         if (!recent.length) return '';
@@ -1363,7 +1373,7 @@ async function onSendToLLM(isRegen = false) {
         return ['<RECENT_HISTORY>', ...lines, '</RECENT_HISTORY>'].join('\n');
     }
 
-    // Build recent history for INSTRUCT mode (wrap each past turn & CLOSE it)
+    // INSTRUCT history (each past turn wrapped & CLOSED)
     function buildInstructHistory(limit = 5, instruct = {}) {
         const recent = miniTurns.slice(-limit);
         if (!recent.length) return '';
@@ -1375,26 +1385,32 @@ async function onSendToLLM(isRegen = false) {
         for (const turn of recent) {
             const text = sanitize(turn.content);
             if (!text) continue;
-            if (turn.role === 'assistant') out += BOT + text + BOTs;
-            else                           out += USR + text + USRs;
+            out += (turn.role === 'assistant') ? (BOT + text + BOTs) : (USR + text + USRs);
         }
         return out;
     }
 
-    // Compose a full INSTRUCT prompt: system + history + new user + open bot cue
+    // Compose full INSTRUCT prompt: system + history + new user + open bot cue
     function buildInstructPrompt(instruct, systemContent, historyWrapped, userContent, assistantPrefill = '') {
-        const SYS  = instruct.system_sequence        ?? '';
-        const SYSs = instruct.system_suffix          ?? '';
+        const SYS  = instruct.system_sequence             ?? '';
+        const SYSs = instruct.system_suffix               ?? '';
         const sysPrefix = instruct.system_sequence_prefix ?? '';
         const sysSuffix = instruct.system_sequence_suffix ?? '';
-        const USR  = instruct.input_sequence         ?? '';
-        const USRs = instruct.input_suffix           ?? '';
-        const BOT  = instruct.output_sequence        ?? '';
+        const USR  = instruct.input_sequence              ?? '';
+        const USRs = instruct.input_suffix                ?? '';
+        const BOT  = instruct.output_sequence             ?? '';
+
+        // Guard: if any of the critical sequences are missing, fall back to linear
+        if (!SYS || !USR || !BOT) {
+            console.warn('[GW] Missing instruct tokens; falling back to linear prompt.');
+            return `${systemContent}\n\n${historyWrapped || ''}\n${userContent}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
+        }
+
         return (
-            SYS + sysPrefix + systemContent + sysSuffix + (SYSs || '') + // close system
-            (historyWrapped || '') +                                     // already closed turns
-            USR + userContent + (USRs || '') +                           // close the new user turn
-            BOT + (assistantPrefill || '')                               // OPEN assistant; no BOT suffix
+            SYS + sysPrefix + systemContent + sysSuffix + (SYSs || '') +  // close system
+            (historyWrapped || '') +                                      // closed history
+            USR + userContent + (USRs || '') +                            // close new user
+            BOT + (assistantPrefill || '')                                // OPEN assistant; no BOT suffix
         );
     }
 
@@ -1443,14 +1459,19 @@ async function onSendToLLM(isRegen = false) {
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const preferredBlock = buildPreferredSceneBlock();
 
-        // Build BOTH history variants now; we’ll pick the right one per route:
-        const chatHistoryBlock = buildRecentHistoryBlock(historyLimit);
-        const instructCfg = getInstructConfig();
-        const instructHistory = instructCfg?.enabled ? buildInstructHistory(historyLimit, instructCfg) : '';
+        // Build BOTH history variants now
+        const chatHistoryBlock   = buildRecentHistoryBlock(historyLimit);
+        const instructCfg        = getInstructConfig();
+        const instructIsOn       = !!(instructCfg && instructCfg.enabled) || false; // extension toggle
+        const profile            = getSelectedProfile();
+        const profileSaysInstruct= profileInstructEnabled(profile);                 // profile toggle
+        const instructEnabled    = instructIsOn || profileSaysInstruct;
 
-        // The “core” user instruction text used in either mode:
+        const instructHistory = instructEnabled ? buildInstructHistory(historyLimit, instructCfg || {}) : '';
+
+        // Core user instruction text
         const coreUserInstruction = [
-            chatHistoryBlock,                   // harmless markup if empty
+            chatHistoryBlock,                   // harmless if empty
             preferredBlock ? `\n${preferredBlock}\n` : '',
             '- Follow the USER_INSTRUCTION using the character data as context.' +
             '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
@@ -1465,7 +1486,6 @@ async function onSendToLLM(isRegen = false) {
         );
 
         // ===== Connection Manager profile =====
-        const profile = getSelectedProfile();
         if (!profile) { appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.'); return; }
         const apiMap = getApiMapForProfile(profile);
         if (!apiMap) { appendBubble('assistant', `Unsupported connection profile API: "${profile.api}".`); return; }
@@ -1478,10 +1498,6 @@ async function onSendToLLM(isRegen = false) {
             const modelResolved = profile.model || null;
             if (!modelResolved) { appendBubble('assistant', 'Selected profile is missing a model. Please set a model on the profile.'); return; }
 
-            // IMPORTANT: Chat mode should NOT include instruct tokens in the user message.
-            const userMessage = coreUserInstruction; // contains <RECENT_HISTORY> block, not instruct tokens.
-
-            // Optional routing
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
             const reverse_proxy = proxy?.url || null;
@@ -1491,7 +1507,7 @@ async function onSendToLLM(isRegen = false) {
                 stream: false,
                 messages: [
                     { role: 'system', content: String(systemPrompt) },
-                    { role: 'user',   content: String(userMessage)  },
+                    { role: 'user',   content: String(coreUserInstruction) },
                 ],
                 chat_completion_source: apiMap.source,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
@@ -1521,19 +1537,17 @@ async function onSendToLLM(isRegen = false) {
 
             llmResText = String(response?.content || '').trim();
 
-        // ===== TextCompletion-family (“tc” with instruct wrapping) =====
+        // ===== TextCompletion-family (TC) with instruct wrapping =====
         } else if (apiMap.selected === 'textgenerationwebui' || profile.mode === 'tc') {
             const api_server = profile['api-url'] || null;
             const model      = profile.model || null;
-
-            const useInstruct = !!(instructCfg && instructCfg.enabled);
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
             let stoppingStrings = getProfileStops(profile);
 
-            if (useInstruct) {
-                // Build a user content WITHOUT chat markup; history is already wrapped separately.
+            if (instructEnabled && instructCfg) {
+                // Build a clean user body (no <RECENT_HISTORY> markup; history already wrapped)
                 const userContent = [
                     preferredBlock ? `\n${preferredBlock}\n` : '',
                     '- Follow the USER_INSTRUCTION using the character data as context.' +
@@ -1546,33 +1560,39 @@ async function onSendToLLM(isRegen = false) {
                 promptToSend = buildInstructPrompt(
                     instructCfg,
                     String(systemPrompt),
-                    instructHistory,   // <— proper place for wrapped/closed history
+                    instructHistory,
                     String(userContent),
                     assistantPrefill
                 );
 
-                const instructStops = []
-                    .concat(instructCfg?.stop_sequence || [])
-                    .concat(instructCfg?.output_suffix || []);
-                for (const s of instructStops) {
-                    if (typeof s === 'string' && s.length) stoppingStrings.push(s);
-                }
-                stoppingStrings = [...new Set(stoppingStrings)];
+                // include instruct stops
+                stoppingStrings = mergeStops(
+                    stoppingStrings,
+                    instructCfg.stop_sequence,   // usually <|END_OF_TURN_TOKEN|>
+                    instructCfg.output_suffix    // often also <|END_OF_TURN_TOKEN|>
+                );
+
+                // OPTIONAL: guard phrase(s) like next speaker cue
+                // stoppingStrings = mergeStops(stoppingStrings, '\nJake:');
+
             } else {
-                // No instruct: simple linear prompt (system + chat-style user instruction)
-                const linearUser = coreUserInstruction;
-                promptToSend = `${String(systemPrompt)}\n\n${String(linearUser)}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
+                // No instruct: linear fallback
+                promptToSend = `${String(systemPrompt)}\n\n${String(coreUserInstruction)}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
             }
+
+            // Dedupe
+            stoppingStrings = [...new Set(stoppingStrings)];
 
             const requestPayload = {
                 stream: false,
                 prompt: promptToSend,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                api_type: apiMap.type,
+                api_type: apiMap.type, // e.g., 'koboldcpp'
                 temperature,
                 ...(api_server ? { api_server } : {}),
                 ...(model ? { model } : {}),
                 ...(stoppingStrings.length ? { stop: stoppingStrings, stopping_strings: stoppingStrings } : {}),
+                // You can also add: trim_stop: true, skip_special_tokens: true
             };
 
             console.log('[GW] TGW-family request (preview):', {
@@ -1581,7 +1601,7 @@ async function onSendToLLM(isRegen = false) {
                 model: requestPayload.model || '(none)',
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
-                prompt_len: promptToSend.length,
+                prompt_starts_with: requestPayload.prompt.slice(0, 120),
                 stops: stoppingStrings,
             });
 
