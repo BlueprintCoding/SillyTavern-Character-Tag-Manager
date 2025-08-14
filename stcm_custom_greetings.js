@@ -1267,33 +1267,41 @@ function buildRecentHistoryBlock(limit = 5) {
     ].join('\n');
 }
 
-function getMainApi() {
-    // Prefer ctx.mainApi, fall back to extensionSettings-like globals if any, default to textgenerationwebui
-    return (ctx?.mainApi || window?.mainApi || 'textgenerationwebui');
-}
-
-// Optional: pull a temperature if you keep one in settings; otherwise leave undefined.
-function getTemperature() {
-    return Number(ctx?.extensionSettings?.memory?.temperature) || undefined;
-}
 
 
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
 
-    // helpers (kept inline for clarity)
-    const getMainApi = () => (ctx?.mainApi || window?.mainApi || 'textgenerationwebui');
+    // --- helpers for Connection Manager routing ---
+    const getCM = () => ctx?.extensionSettings?.connectionManager || null;
+
+    const getSelectedProfile = () => {
+        const cm = getCM();
+        if (!cm) return null;
+        const id = cm.selectedProfile;
+        if (!id || !Array.isArray(cm.profiles)) return null;
+        return cm.profiles.find(p => p.id === id) || null;
+    };
+
+    const getApiMapForProfile = (profile) => {
+        // CONNECT_API_MAP is available from core (see your other snippet)
+        const cmap = ctx?.CONNECT_API_MAP || window?.CONNECT_API_MAP;
+        return (cmap && profile?.api) ? cmap[profile.api] : null;
+    };
+
+    // Optional knobs
     const getTemperature = () => {
         const t = Number(ctx?.extensionSettings?.memory?.temperature);
         return Number.isFinite(t) ? t : undefined;
     };
-    const getOpenAIModel = () =>
-        (ctx?.openai_settings?.model || ctx?.settings?.openai?.model || window?.openai_model || undefined);
-    const getTgwModel = () =>
-        (ctx?.textgen_settings?.model || ctx?.settings?.textgen?.model || window?.textgen_model || undefined);
-    const getTgwServer = () =>
-        (ctx?.extensionSettings?.apiUrl || ctx?.textgen_settings?.apiUrl || window?.textgen_server || undefined);
+
+    // Try to resolve a reverse proxy object by name (if your env exposes it)
+    const getProxyByName = (name) => {
+        const list = ctx?.proxies || window?.proxies || [];
+        if (!name || name === 'None') return null;
+        return Array.isArray(list) ? list.find(p => p.name === name) : null;
+    };
 
     // coerce truthiness to a real boolean (protects against event objects)
     const regen = isRegen === true;
@@ -1318,11 +1326,8 @@ async function onSendToLLM(isRegen = false) {
 
     // normalize input
     const typedRaw = (inputEl.value ?? '').replace(/\s+/g, ' ').trim();
-
-    // If not regenerating, require fresh input; if regenerating, we reuse history/instruction.
     if (!regen && !typedRaw) return;
 
-    // transform once so the bubble shows exactly what we send
     const charObj = getActiveCharacterFull();
     const charName = (charObj?.name || charObj?.data?.name || ctx?.name2 || '');
     const typedForSend = typedRaw ? maskUserPlaceholders(replaceCharPlaceholders(typedRaw, charName)) : '';
@@ -1333,8 +1338,6 @@ async function onSendToLLM(isRegen = false) {
         const userTs = userWrap?.dataset?.ts || String(Date.now());
         miniTurns.push({ role: 'user', content: typedForSend, ts: userTs });
         saveSession();
-
-        // clear input and keep focus for fast iteration
         inputEl.value = '';
         inputEl.dispatchEvent(new Event('input'));
         inputEl.focus();
@@ -1348,22 +1351,17 @@ async function onSendToLLM(isRegen = false) {
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
     try {
+        // --- Build prompts ---
         const systemPrompt = buildSystemPrompt(prefs);
-
-        // Most recent user instruction (already transformed if newly sent)
         const lastUserMsg = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
 
-        // Include the last N messages of mini chat history on every call
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const historyBlock = buildRecentHistoryBlock(historyLimit);
 
-        // Optional preferred scene block
         const preferredBlock = buildPreferredSceneBlock();
 
-        // Compose the working prompt for the model:
-        // Order: HISTORY → (PREFERRED_SCENE if any) → INSTRUCTION
         const rawPrompt = [
-            historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
+            historyBlock,
             preferredBlock ? `\n${preferredBlock}\n` : '',
             '- Follow the USER_INSTRUCTION using the character data as context.' +
             '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
@@ -1372,83 +1370,113 @@ async function onSendToLLM(isRegen = false) {
             lastUserMsg,
         ].join('\n');
 
-        // Rough sizing: ~90 chars per sentence
         const approxRespLen = Math.ceil(
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
 
-        const mainApi = getMainApi();
-        const temperature = getTemperature();
+        // --- Resolve Connection Manager profile ---
+        const profile = getSelectedProfile();
+        if (!profile) {
+            appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.');
+            return;
+        }
+        const apiMap = getApiMapForProfile(profile);
+        if (!apiMap) {
+            appendBubble('assistant', `Unsupported connection profile API: "${profile.api}".`);
+            return;
+        }
 
-        // Build payloads
+        const temperature = getTemperature();
         let llmResText = '';
-        if (mainApi === 'openai') {
-            // ChatCompletionService (messages-based). Most OpenAI backends require a model.
-            const model = getOpenAIModel();
+
+        // --- Route by apiMap.selected ---
+        if (apiMap.selected === 'openai') {
+            // Chat-style request
+            const modelResolved = profile.model || null;
+            if (!modelResolved) {
+                appendBubble('assistant', 'Selected profile is missing a model. Please set a model on the profile.');
+                return;
+            }
+
+            // Optional routing params: custom URL + reverse proxy
+            const custom_url = profile['api-url'] || null;
+            const proxy = getProxyByName(profile.proxy);
+            const reverse_proxy = proxy?.url || null;
+            const proxy_password = proxy?.password || null;
+
             const requestPayload = {
                 stream: false,
                 messages: [
                     { role: 'system', content: String(systemPrompt) },
                     { role: 'user',   content: String(rawPrompt)   },
                 ],
-                chat_completion_source: 'openai',
+                chat_completion_source: apiMap.source, // e.g., 'openai' / 'openrouter' / 'xai' (per CONNECT_API_MAP)
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                model,                 // include if available; some servers reject if missing
+                model: modelResolved,
                 temperature,
+                ...(custom_url     ? { custom_url } : {}),
+                ...(reverse_proxy  ? { reverse_proxy } : {}),
+                ...(proxy_password ? { proxy_password } : {}),
             };
 
-            // Debug: compact preview (no prompt/system text)
-            console.log('[GW] OpenAI request (preview):', {
-                chat_completion_source: requestPayload.chat_completion_source,
+            console.log('[GW] OpenAI-family request (preview):', {
+                source: requestPayload.chat_completion_source,
+                model: requestPayload.model,
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
-                model: requestPayload.model || '(none)',
-                messages_shape: requestPayload.messages?.map(m => m.role),
+                has_custom_url: !!custom_url,
+                has_reverse_proxy: !!reverse_proxy,
+                messages_shape: requestPayload.messages.map(m => m.role),
             });
 
             const response = await ChatCompletionService.processRequest(
                 requestPayload,
-                {},      // options
-                true,    // extractData
-                null,    // signal
+                { presetName: profile.preset || undefined }, // optional preset
+                true,
+                null,
             );
 
             llmResText = String(response?.content || '').trim();
-        } else {
-            // TextCompletionService (single prompt). We prepend system to the prompt text.
+
+        } else if (apiMap.selected === 'textgenerationwebui') {
+            // Text-completion request (single prompt). Prepend system.
             const tgPrompt = `${String(systemPrompt)}\n\n${String(rawPrompt)}`;
-            const model = getTgwModel();
-            const api_server = getTgwServer(); // optional; if set, helps avoid default mismatch
+            const api_server = profile['api-url'] || null;
 
             const requestPayload = {
                 stream: false,
                 prompt: tgPrompt,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                api_type: 'textgenerationwebui',
-                api_server,            // safe to include if present
-                model,                 // safe to include if present
+                api_type: apiMap.type, // e.g., 'koboldcpp', 'ooba', etc.
                 temperature,
-                // min_p: ctx?.textgen_settings?.min_p,
+                ...(api_server ? { api_server } : {}),
+                ...(profile.model ? { model: profile.model } : {}),
+                // If you want instruct formatting from profile:
+                // (We’re not passing instruct here because we already format our own prompts.)
             };
 
-            // Debug: compact preview (no full prompt)
-            console.log('[GW] TGW request (preview):', {
+            console.log('[GW] TGW-family request (preview):', {
                 api_type: requestPayload.api_type,
                 api_server: requestPayload.api_server || '(default)',
+                model: requestPayload.model || '(none)',
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
-                model: requestPayload.model || '(none)',
                 prompt_len: tgPrompt.length,
             });
 
             const response = await TextCompletionService.processRequest(
                 requestPayload,
-                {},      // options (e.g., { presetName: 'MyPreset' })
-                true,    // extractData
-                null,    // signal
+                { presetName: profile.preset || undefined, instructName: undefined },
+                true,
+                null,
             );
 
             llmResText = String(response?.content || '').trim();
+
+        } else {
+            // Any other apiMap.selected is not supported by this workshop
+            appendBubble('assistant', `This profile type (“${apiMap.selected}”) isn’t supported by Greeting Workshop.`);
+            return;
         }
 
         const realUsername = getRealUsername();
@@ -1462,7 +1490,7 @@ async function onSendToLLM(isRegen = false) {
             console.log('[GW] Initial status: NOT_CONTAINED (no {{user}} or real username). No retry will be attempted.');
         }
 
-        // --- Simple normalization only; no retries, no injections
+        // Simple normalization only; no retries, no injections
         let finalText = normalizeUserToken(llmResText, realUsername);
 
         // final outcome log
@@ -1477,18 +1505,14 @@ async function onSendToLLM(isRegen = false) {
         if (!finalText) {
             if (!regen) appendBubble('assistant', '(empty response)');
         } else if (regen && targetAssistantIdx !== -1 && targetAssistantNode) {
-            // Replace the last assistant turn
             const contentEl = targetAssistantNode.querySelector('.gw-content');
             if (contentEl) contentEl.textContent = finalText;
-
             miniTurns[targetAssistantIdx].content = finalText;
-
             if (preferredScene && preferredScene.ts === targetAssistantTs) {
                 preferredScene.text = finalText;
             }
             saveSession();
         } else {
-            // Append new assistant turn
             const asstWrap = appendBubble('assistant', finalText);
             const asstTs = asstWrap?.dataset?.ts || String(Date.now());
             miniTurns.push({ role: 'assistant', content: finalText, ts: asstTs });
@@ -1496,7 +1520,6 @@ async function onSendToLLM(isRegen = false) {
         }
 
     } catch (e) {
-        // Try to show a helpful error inline and in console
         console.error('[Greeting Workshop] LLM call failed:', e);
         let msg = 'Error generating text.';
         try {
@@ -1510,6 +1533,7 @@ async function onSendToLLM(isRegen = false) {
         spinner.remove();
     }
 }
+
 
 
 
