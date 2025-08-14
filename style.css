@@ -1826,6 +1826,48 @@ dialog.popup #stcm-popup-pin-input:focus {
     box-shadow: 0 0 0 2px #8e44ad55; 
 }
 
+.gw-var {
+    position: relative;
+    display: inline-block;
+    padding: 2px 6px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #242424;
+    color: #eaeaea;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    cursor: help;
+    line-height: 1.6;
+}
+.gw-var:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    min-width: 240px;
+    max-width: 420px;
+    white-space: normal;
+    background: #111;
+    color: #f0f0f0;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 8px 10px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    z-index: 100000;
+}
+.gw-var:hover::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    bottom: calc(100% + 4px);
+    width: 8px;
+    height: 8px;
+    background: #111;
+    border-left: 1px solid #444;
+    border-top: 1px solid #444;
+    transform: rotate(45deg);
+    z-index: 100001;
+}
   
 
 /* Scroll bar styling */
