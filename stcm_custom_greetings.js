@@ -112,27 +112,30 @@ function markPreferred(wrap, bubble, text) {
 }
 
 function clearWorkshopState() {
-    // wipe state
+    // 1) Clear any "preferred" UI BEFORE nulling references
+    try { clearPreferredUI(); } catch {}
+  
+    // 2) Wipe in-memory state
     miniTurns = [];
     preferredScene = null;
     preferredEls = null;
-    try { clearPreferredUI(); } catch {}
   
-    // wipe persisted
-    try { localStorage.removeItem(STATE_KEY()); } catch {}
+    // 3) Persist an empty state (avoids stale resurrection later)
+    try {
+      localStorage.setItem(STATE_KEY(), JSON.stringify({ miniTurns: [], preferredScene: null }));
+    } catch {}
   
-    // persist the empty state so future saves don't resurrect old data
-    try { saveSession(); } catch {}
+    // 4) Rebuild the chat UI fresh (after the confirm popup finishes closing)
+    const defer = window.requestAnimationFrame || ((fn) => setTimeout(fn, 0));
+    defer(() => {
+      // rebuild from the empty state; this also adds the starter line
+      if (chatLogEl) restoreUIFromState();
   
-    // reset UI
-    if (chatLogEl) {
-      chatLogEl.innerHTML = '';
-      appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
-    }
-    if (inputEl) {
-      inputEl.value = '';
-      inputEl.focus();
-    }
+      if (inputEl) {
+        inputEl.value = '';
+        inputEl.focus();
+      }
+    });
   }
   
 
@@ -449,8 +452,8 @@ settings.innerHTML = `
           'Clear workshop memory (history & preferred scene)?',
           POPUP_TYPE.CONFIRM,
           'Greeting Workshop',
-          () => { clearWorkshopState(); },   // OK
-          () => {}                           // Cancel
+          () => { clearWorkshopState(); },  // OK
+          () => {}                          // Cancel
         );
       });
       
