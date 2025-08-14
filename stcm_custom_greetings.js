@@ -1314,38 +1314,74 @@ async function onSendToLLM(isRegen = false) {
         };
     }
 
-    // ---- Instruct preset resolver (preset overrides > global) ----
+    // ---- Instruct preset resolver (profile.instruct > profile.preset > global) ----
     function resolveEffectiveInstruct(profile) {
         const globalCfg = getGlobalInstructConfig() || {};
-        const presetName = (profile?.preset || '').trim();
+        const instructName = (profile?.instruct || '').trim();
+        const presetName   = (profile?.preset   || '').trim();
+
         let presetCfg = null;
+        const pick = (name) => {
+            if (!name) return null;
+            try {
+                // 1) ctx.extensionSettings.instruct.presets[name]
+                const a = ctx?.extensionSettings?.instruct?.presets;
+                if (a && typeof a[name] === 'object') return a[name];
+                // 2) ctx.instruct.presets[name]
+                const b = ctx?.instruct?.presets;
+                if (b && typeof b[name] === 'object') return b[name];
+                // 3) ctx.presets[name].instruct
+                const c = ctx?.presets;
+                if (c && typeof c[name]?.instruct === 'object') return c[name].instruct;
+                // 4) ctx.presets.instruct[name]
+                const d = ctx?.presets?.instruct;
+                if (d && typeof d[name] === 'object') return d[name];
+            } catch {}
+            return null;
+        };
 
-        // Try common places ST/extensions store instruct presets
-        // (We defensively probe several likely shapes without throwing.)
-        try {
-            // 1) ctx.extensionSettings.instruct.presets[presetName]
-            const a = ctx?.extensionSettings?.instruct?.presets;
-            if (!presetCfg && a && presetName && typeof a[presetName] === 'object') presetCfg = a[presetName];
-
-            // 2) ctx.instruct.presets[presetName]
-            const b = ctx?.instruct?.presets;
-            if (!presetCfg && b && presetName && typeof b[presetName] === 'object') presetCfg = b[presetName];
-
-            // 3) ctx.presets[presetName].instruct
-            const c = ctx?.presets;
-            if (!presetCfg && c && presetName && typeof c[presetName]?.instruct === 'object') presetCfg = c[presetName].instruct;
-
-            // 4) ctx.presets.instruct[presetName] (alt shape)
-            const d = ctx?.presets?.instruct;
-            if (!presetCfg && d && presetName && typeof d[presetName] === 'object') presetCfg = d[presetName];
-        } catch { /* ignore shape errors */ }
+        // Try explicit instruct name first, then preset name
+        presetCfg = pick(instructName) || pick(presetName);
 
         // Shallow-merge: preset overrides global where defined
         const eff = Object.assign({}, globalCfg || {}, presetCfg || {});
-        // Only keep known instruct keys if you want to be strict:
-        // (We just pass through; services filter as needed.)
+        const nameChosen = instructName || presetName || undefined;
+        return { cfg: eff, name: nameChosen };
+    }
 
-        return { cfg: eff, name: presetName || undefined };
+    // ---- Fallback: supply Command‑R style sequences for koboldcpp if missing ----
+    function ensureKoboldcppInstruct(instructCfg, apiInfo, profile) {
+        if (apiInfo?.api_type !== 'koboldcpp') return instructCfg || {};
+        const cfg = Object.assign({}, instructCfg || {});
+        const hasSeq = (k) => typeof cfg[k] === 'string' && cfg[k].length > 0;
+
+        // If any of the core sequences are missing, backfill with common Command‑R tokens.
+        const NEED =
+            !hasSeq('system_sequence') ||
+            !hasSeq('input_sequence')  ||
+            !hasSeq('output_sequence');
+
+        if (!NEED) return cfg;
+
+        const fallback = {
+            system_sequence: '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
+            system_suffix:   '<|END_OF_TURN_TOKEN|>',
+            input_sequence:  '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+            input_suffix:    '<|END_OF_TURN_TOKEN|>',
+            output_sequence: '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
+            output_suffix:   '<|END_OF_TURN_TOKEN|>',
+            stop_sequence:   '<|END_OF_TURN_TOKEN|>',
+            // optional prefixes/suffixes:
+            system_sequence_prefix: '',
+            system_sequence_suffix: '',
+        };
+
+        // Prefer explicit profile.instruct names that hint this is Command‑R
+        const hint = String(profile?.instruct || '').toLowerCase();
+        const looksCommandR = hint.includes('command r') || hint.includes('command-r') || hint.includes('cohere');
+
+        // If not sure, we still apply fallback—koboldcpp with Command‑R weights usually needs these.
+        return Object.assign({}, fallback, cfg);
     }
 
     // CHAT history (neutral block)
@@ -1392,7 +1428,7 @@ async function onSendToLLM(isRegen = false) {
         }
 
         return (
-            SYS + sysPrefix + systemContent + sysSuffix + (SYSs || '') +
+            SYS + (sysPrefix || '') + systemContent + (sysSuffix || '') + (SYSs || '') +
             (historyWrapped || '') +
             USR + userContent + (USRs || '') +
             BOT + (assistantPrefill || '')
@@ -1459,11 +1495,13 @@ async function onSendToLLM(isRegen = false) {
 
         // Resolve instruct enablement and preset-aware config
         const instructGlobal = getGlobalInstructConfig();
-        const instructIsOn   = !!(instructGlobal && instructGlobal.enabled);
-        const profileSaysOn  = profileInstructEnabled(profile);
-        const instructEnabled = instructIsOn || profileSaysOn;
+        const instructIsOnGlobal = !!(instructGlobal && instructGlobal.enabled);
+        const instructIsOnProfile = profileInstructEnabled(profile);
+        const hasInstructName = !!(profile?.instruct && String(profile.instruct).trim().length);
+        const instructEnabled = instructIsOnGlobal || instructIsOnProfile || hasInstructName;
 
-        const { cfg: instructCfgEff, name: instructName } = resolveEffectiveInstruct(profile);
+        const { cfg: instructCfgRaw, name: instructName } = resolveEffectiveInstruct(profile);
+        const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo, profile);
 
         const temperature = getTemperature();
         let llmResText = '';
@@ -1473,9 +1511,7 @@ async function onSendToLLM(isRegen = false) {
 
         // ===== Chat-completion family (OpenAI-like) =====
         if (family === 'cc' || apiInfo.selected === 'openai') {
-            // model optional → omit to use provider default
-            const modelResolved = profile.model || null;
-
+            const modelResolved = profile.model || null; // optional (use provider default if omitted)
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
             const reverse_proxy = proxy?.url || null;
@@ -1524,17 +1560,6 @@ async function onSendToLLM(isRegen = false) {
                 ...(modelResolved  ? { model: modelResolved } : {}), // only include if set
             };
 
-            console.log('[GW] CC request (preview):', {
-                source: requestPayload.chat_completion_source,
-                model: modelResolved || '(default)',
-                max_tokens: requestPayload.max_tokens,
-                temperature: requestPayload.temperature,
-                stop: stoppingStrings,
-                has_custom_url: !!custom_url,
-                has_reverse_proxy: !!reverse_proxy,
-                instructName, // for debugging/telemetry
-            });
-
             const response = await ChatCompletionService.processRequest(
                 requestPayload,
                 { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
@@ -1552,7 +1577,7 @@ async function onSendToLLM(isRegen = false) {
         // ===== Text-completion family (TGW/Kobold/Novel/Horde) =====
         } else {
             const api_server = profile['api-url'] || null;
-            const modelResolved = profile.model || null; // optional (default if omitted)
+            const modelResolved = profile.model || null; // optional (use provider default if omitted)
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
@@ -1563,6 +1588,7 @@ async function onSendToLLM(isRegen = false) {
             );
 
             if (instructEnabled && instructCfgEff) {
+                // Build instruct-wrapped history & user content
                 const instructHistory = buildInstructHistory(historyLimit, instructCfgEff || {});
                 const userContent = [
                     preferredBlock ? `\n${preferredBlock}\n` : '',
@@ -1587,6 +1613,7 @@ async function onSendToLLM(isRegen = false) {
                     instructCfgEff.output_suffix
                 );
             } else {
+                // Linear fallback
                 const linearUserBody = [
                     chatHistoryBlock,
                     preferredBlock ? `\n${preferredBlock}\n` : '',
@@ -1613,17 +1640,6 @@ async function onSendToLLM(isRegen = false) {
                 ...(stoppingStrings.length ? { stop: stoppingStrings, stopping_strings: stoppingStrings } : {}),
             };
 
-            console.log('[GW] TC request (preview):', {
-                api_type: requestPayload.api_type || '(unspecified)',
-                api_server: requestPayload.api_server || '(default)',
-                model: modelResolved || '(default)',
-                max_tokens: requestPayload.max_tokens,
-                temperature: requestPayload.temperature,
-                prompt_starts_with: requestPayload.prompt.slice(0, 120),
-                stops: stoppingStrings,
-                instructName,
-            });
-
             const response = await TextCompletionService.processRequest(
                 requestPayload,
                 {
@@ -1639,15 +1655,7 @@ async function onSendToLLM(isRegen = false) {
 
         // ===== Normalization (no retries) =====
         const realUsername = getRealUsername();
-        if (containsUserToken(llmResText)) console.log('[GW] Initial status: CONTAINED ({{user}} found)');
-        else if (containsRealUsername(llmResText, realUsername)) console.log('[GW] Initial status: REAL_USERNAME (will normalize)');
-        else console.log('[GW] Initial status: NOT_CONTAINED');
-
         let finalText = normalizeUserToken(llmResText, realUsername);
-
-        if (containsUserToken(finalText)) console.log('[GW] Final status: CONTAINED');
-        else if (containsRealUsername(finalText, realUsername)) console.log('[GW] Final status: REAL_USERNAME (left as-is)');
-        else console.log('[GW] Final status: NOT_CONTAINED');
 
         // ===== UI commit =====
         if (!finalText) {
