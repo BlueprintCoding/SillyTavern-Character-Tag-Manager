@@ -241,8 +241,7 @@ function saveCustomSystemPrompt(cfg) {
 }
 
 function getDefaultSystemPromptTemplate() {
-    // Mirrors your current system prompt, but parameterized.
-    // IMPORTANT: buildCharacterJSONBlock() will always be appended after rendering.
+    // IMPORTANT: buildCharacterJSONBlock() is appended after rendering.
     return [
         'You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.',
         'Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.',
@@ -251,18 +250,86 @@ function getDefaultSystemPromptTemplate() {
         '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
         '- Maintain the same structure (paragraph count and sentences per paragraph).',
         '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
-
-        // ⬇️ Make it a hard requirement + add a silent self-check
-        'HARD REQUIREMENT (unless the user explicitly directs otherwise): Make the scene open-ended and action-oriented so the user can immediately engage. End with a direct user hook (a question or imperative addressed to the user) that invites a next step.',
-        'Before sending, silently self-check that: (1) the scene remains open-ended; (2) the final sentence contains a clear hook for the user; (3) no meta/system talk is present. Output only the scene.',
-
+        'Open-endedness: Make the scene action-oriented and explicitly invite user engagement (a hook, unresolved choice, or immediate next action for the user). Do not fully resolve conflicts or decisions unless the user directs otherwise.',
+        'HARD REQUIREMENT (unless the user explicitly forbids addressing the user): include the literal token "{{user}}" exactly as written at least once, either:',
+        '  (a) directly addressing {{user}} with a question, or',
+        '  (b) describing {{user}} participating in the scene in third person.',
+        'Do not alter the braces, casing, or spacing of {{user}}. Do not wrap it in code blocks.',
         'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
         'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
         'Use ONLY the provided JSON as ground truth for the scene.',
         'Formatting rules:',
         '- Return only what the user asked for; no meta/system talk; no disclaimers.',
-        '- If the user asked for a greeting, return only the greeting text (no extra commentary).'
+        '- If the user asked for a greeting, return only the greeting text (no extra commentary).',
+        '- Your output must contain {{user}} at least once. If it does not, your answer will be discarded and you will have wasted $3467.'
     ].join('\n\n');
+}
+
+function containsUserToken(text) {
+    return /\{\{\s*user\s*\}\}/i.test(String(text || ''));
+}
+
+function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
+    // Ask the model to revise while preserving structure and adding {{user}} once.
+    return [
+        'Revise the text below to meet ALL requirements:',
+        '- Include the literal token "{{user}}" exactly as written at least once, either',
+        '  (a) directly addressing {{user}} with a question, or',
+        '  (b) describing {{user}} participating in the scene in third person.',
+        `- Preserve the paragraph count (${nParas}) and sentences per paragraph (${nSents}).`,
+        '- Keep content otherwise the same and do not add meta commentary. Return only the revised text.',
+        '',
+        '--- TEXT START ---',
+        prevText,
+        '--- TEXT END ---'
+    ].join('\n');
+}
+
+// --- Enforcement config: single retry, no fallback injection ---
+const MAX_USER_TOKEN_REVISIONS = 1;
+
+/**
+ * Try at most once to revise the text to include {{user}} while preserving structure.
+ * If it still doesn't comply, return the latest model output anyway.
+ */
+async function enforceUserTokenSingleRetry(text, prefs, systemPrompt) {
+    let current = String(text || '');
+    if (containsUserToken(current)) return current;
+
+    let attempts = 0;
+    while (attempts < MAX_USER_TOKEN_REVISIONS) {
+        attempts += 1;
+
+        const revisionPrompt = buildUserHookRevisionPrompt(
+            current,
+            Math.max(1, Number(prefs?.numParagraphs || 3)),
+            Math.max(1, Number(prefs?.sentencesPerParagraph || 3))
+        );
+
+        try {
+            const revised = await stGenerateRaw(
+                String(revisionPrompt),
+                null,
+                true,
+                true,
+                String(systemPrompt),
+                current.length + 200,
+                true,
+                '',
+                null
+            );
+
+            const revisedText = String(revised || '').trim();
+            if (!revisedText) break;               // nothing came back; keep current
+            current = revisedText;                  // update to latest attempt
+            if (containsUserToken(current)) break;  // success
+        } catch (err) {
+            console.warn('[GW] Single retry to inject {{user}} failed:', err);
+            break; // on error, bail and return whatever we had
+        }
+    }
+
+    return current; // may or may not include {{user}} — we do not fallback-inject
 }
 
 
@@ -1292,28 +1359,33 @@ async function onSendToLLM(isRegen = false) {
 
         const llmResText = String(res || '').trim();
 
-        if (!llmResText) {
-            // nothing back — keep current UI as-is, just show a small message
+        // --- Enforcement pass: ensure {{user}} appears at least once ---
+        let finalText = llmResText;
+        if (finalText) {
+            finalText = await enforceUserTokenSingleRetry(finalText, prefs, systemPrompt);
+        }
+
+        if (!finalText) {
             if (!regen) appendBubble('assistant', '(empty response)');
         } else if (regen && targetAssistantIdx !== -1 && targetAssistantNode) {
-            // --- REPLACE the last assistant turn (both state and DOM) ---
+            // Replace the last assistant turn
             const contentEl = targetAssistantNode.querySelector('.gw-content');
-            if (contentEl) contentEl.textContent = llmResText;
+            if (contentEl) contentEl.textContent = finalText;
 
-            miniTurns[targetAssistantIdx].content = llmResText;
+            miniTurns[targetAssistantIdx].content = finalText;
 
-            // If this bubble is the preferred one, keep badge but update stored text
             if (preferredScene && preferredScene.ts === targetAssistantTs) {
-                preferredScene.text = llmResText;
+                preferredScene.text = finalText;
             }
             saveSession();
         } else {
-            // Not regenerating (or couldn't find the target) → append new assistant turn
-            const asstWrap = appendBubble('assistant', llmResText);
+            // Append new assistant turn
+            const asstWrap = appendBubble('assistant', finalText);
             const asstTs = asstWrap?.dataset?.ts || String(Date.now());
-            miniTurns.push({ role: 'assistant', content: llmResText, ts: asstTs });
+            miniTurns.push({ role: 'assistant', content: finalText, ts: asstTs });
             saveSession();
         }
+
     } catch (e) {
         console.error('[Greeting Workshop] LLM call failed:', e);
         if (!regen) appendBubble('assistant', '⚠️ Error generating text. See console for details.');
