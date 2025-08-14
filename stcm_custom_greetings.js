@@ -1270,7 +1270,7 @@ async function onSendToLLM(isRegen = false) {
         if (!name || name === 'None') return null;
         return Array.isArray(list) ? list.find(p => p.name === name) : null;
     };
-    const getInstructConfig = () => ctx?.extensionSettings?.instruct || ctx?.instruct || null;
+    const getGlobalInstructConfig = () => ctx?.extensionSettings?.instruct || ctx?.instruct || null;
     const profileInstructEnabled = (profile) => String(profile?.['instruct-state']).toLowerCase() === 'true';
     const getProfileStops = (profile) => {
         const raw = profile?.['stop-strings']; if (!raw) return [];
@@ -1294,7 +1294,7 @@ async function onSendToLLM(isRegen = false) {
         return out;
     };
 
-    // Resolve provider behavior from CONNECT_API_MAP (single source of truth)
+    // CONNECT_API_MAP resolution
     function getApiMapFromCtx(profile) {
         ensureCtx();
         if (!profile || !profile.api) return null;
@@ -1306,12 +1306,46 @@ async function onSendToLLM(isRegen = false) {
         if (!m) return null;
         const family = (m.selected === 'openai') ? 'cc' : 'tc';
         return {
-            family,               // 'cc' or 'tc' (chat vs text)
-            selected: m.selected, // e.g. 'openai', 'textgenerationwebui', 'novel', 'koboldhorde', 'kobold'
+            family,               // 'cc' or 'tc'
+            selected: m.selected, // 'openai' | 'textgenerationwebui' | 'novel' | 'koboldhorde' | 'kobold' | ...
             api_type: m.type,     // e.g. 'koboldcpp'
             source: m.source,     // e.g. 'openai'
             button: m.button || null,
         };
+    }
+
+    // ---- Instruct preset resolver (preset overrides > global) ----
+    function resolveEffectiveInstruct(profile) {
+        const globalCfg = getGlobalInstructConfig() || {};
+        const presetName = (profile?.preset || '').trim();
+        let presetCfg = null;
+
+        // Try common places ST/extensions store instruct presets
+        // (We defensively probe several likely shapes without throwing.)
+        try {
+            // 1) ctx.extensionSettings.instruct.presets[presetName]
+            const a = ctx?.extensionSettings?.instruct?.presets;
+            if (!presetCfg && a && presetName && typeof a[presetName] === 'object') presetCfg = a[presetName];
+
+            // 2) ctx.instruct.presets[presetName]
+            const b = ctx?.instruct?.presets;
+            if (!presetCfg && b && presetName && typeof b[presetName] === 'object') presetCfg = b[presetName];
+
+            // 3) ctx.presets[presetName].instruct
+            const c = ctx?.presets;
+            if (!presetCfg && c && presetName && typeof c[presetName]?.instruct === 'object') presetCfg = c[presetName].instruct;
+
+            // 4) ctx.presets.instruct[presetName] (alt shape)
+            const d = ctx?.presets?.instruct;
+            if (!presetCfg && d && presetName && typeof d[presetName] === 'object') presetCfg = d[presetName];
+        } catch { /* ignore shape errors */ }
+
+        // Shallow-merge: preset overrides global where defined
+        const eff = Object.assign({}, globalCfg || {}, presetCfg || {});
+        // Only keep known instruct keys if you want to be strict:
+        // (We just pass through; services filter as needed.)
+
+        return { cfg: eff, name: presetName || undefined };
     }
 
     // CHAT history (neutral block)
@@ -1411,48 +1445,35 @@ async function onSendToLLM(isRegen = false) {
         const preferredBlock = buildPreferredSceneBlock();
 
         const chatHistoryBlock   = buildRecentHistoryBlock(historyLimit);
-        const instructCfg        = getInstructConfig();
-        const instructIsOn       = !!(instructCfg && instructCfg.enabled) || false;
         const profile            = getSelectedProfile();
-        const profileSaysInstruct= profileInstructEnabled(profile);
-        const instructEnabled    = instructIsOn || profileSaysInstruct;
-
-        const instructHistory = instructEnabled ? buildInstructHistory(historyLimit, instructCfg || {}) : '';
-
-        const coreUserInstruction = [
-            chatHistoryBlock,
-            preferredBlock ? `\n${preferredBlock}\n` : '',
-            '- Follow the USER_INSTRUCTION using the character data as context.' +
-            '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
-            `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
-            'USER_INSTRUCTION:',
-            lastUserMsg,
-        ].join('\n');
-
-        const approxRespLen = Math.ceil(
-            (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
-        );
-
-        // ===== Connection Manager profile =====
         if (!profile) {
             appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.');
             return;
         }
+
         const apiInfo = resolveApiBehavior(profile);
         if (!apiInfo) {
             appendBubble('assistant', `Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`);
             return;
         }
 
-        // Prefer CM family but honor explicit profile.mode if present
-        const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
+        // Resolve instruct enablement and preset-aware config
+        const instructGlobal = getGlobalInstructConfig();
+        const instructIsOn   = !!(instructGlobal && instructGlobal.enabled);
+        const profileSaysOn  = profileInstructEnabled(profile);
+        const instructEnabled = instructIsOn || profileSaysOn;
+
+        const { cfg: instructCfgEff, name: instructName } = resolveEffectiveInstruct(profile);
 
         const temperature = getTemperature();
         let llmResText = '';
 
+        // Prefer CM family but honor explicit profile.mode if present
+        const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
+
         // ===== Chat-completion family (OpenAI-like) =====
         if (family === 'cc' || apiInfo.selected === 'openai') {
-            // model is OPTIONAL — omit to use provider default
+            // model optional → omit to use provider default
             const modelResolved = profile.model || null;
 
             const custom_url = profile['api-url'] || null;
@@ -1460,19 +1481,32 @@ async function onSendToLLM(isRegen = false) {
             const reverse_proxy = proxy?.url || null;
             const proxy_password = proxy?.password || null;
 
-            // profile tokens
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
             let stoppingStrings = getProfileStops(profile);
 
-            // merge instruct END_OF_TURN-like tokens when instruct is active
-            if (instructEnabled && instructCfg) {
+            // merge instruct stops when enabled (preset-aware)
+            if (instructEnabled && instructCfgEff) {
                 stoppingStrings = mergeStops(
                     stoppingStrings,
-                    instructCfg.stop_sequence,
-                    instructCfg.output_suffix
+                    instructCfgEff.stop_sequence,
+                    instructCfgEff.output_suffix
                 );
             }
             stoppingStrings = [...new Set(stoppingStrings)];
+
+            const coreUserInstruction = [
+                chatHistoryBlock,
+                preferredBlock ? `\n${preferredBlock}\n` : '',
+                '- Follow the USER_INSTRUCTION using the character data as context.' +
+                '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
+                `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
+                'USER_INSTRUCTION:',
+                lastUserMsg,
+            ].join('\n');
+
+            const approxRespLen = Math.ceil(
+                (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
+            );
 
             const requestPayload = {
                 stream: false,
@@ -1498,11 +1532,12 @@ async function onSendToLLM(isRegen = false) {
                 stop: stoppingStrings,
                 has_custom_url: !!custom_url,
                 has_reverse_proxy: !!reverse_proxy,
+                instructName, // for debugging/telemetry
             });
 
             const response = await ChatCompletionService.processRequest(
                 requestPayload,
-                { presetName: profile.preset || undefined },
+                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
                 true,
                 null,
             );
@@ -1517,14 +1552,18 @@ async function onSendToLLM(isRegen = false) {
         // ===== Text-completion family (TGW/Kobold/Novel/Horde) =====
         } else {
             const api_server = profile['api-url'] || null;
-            // model is OPTIONAL — omit to use provider default
-            const modelResolved = profile.model || null;
+            const modelResolved = profile.model || null; // optional (default if omitted)
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
             let stoppingStrings = getProfileStops(profile);
 
-            if (instructEnabled && instructCfg) {
+            const approxRespLen = Math.ceil(
+                (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
+            );
+
+            if (instructEnabled && instructCfgEff) {
+                const instructHistory = buildInstructHistory(historyLimit, instructCfgEff || {});
                 const userContent = [
                     preferredBlock ? `\n${preferredBlock}\n` : '',
                     '- Follow the USER_INSTRUCTION using the character data as context.' +
@@ -1534,9 +1573,8 @@ async function onSendToLLM(isRegen = false) {
                     lastUserMsg,
                 ].join('\n');
 
-                const instructHistory = buildInstructHistory(historyLimit, instructCfg || {});
                 promptToSend = buildInstructPrompt(
-                    instructCfg,
+                    instructCfgEff,
                     String(systemPrompt),
                     instructHistory,
                     String(userContent),
@@ -1545,11 +1583,10 @@ async function onSendToLLM(isRegen = false) {
 
                 stoppingStrings = mergeStops(
                     stoppingStrings,
-                    instructCfg.stop_sequence,
-                    instructCfg.output_suffix
+                    instructCfgEff.stop_sequence,
+                    instructCfgEff.output_suffix
                 );
             } else {
-                const chatHistoryBlock = buildRecentHistoryBlock(historyLimit);
                 const linearUserBody = [
                     chatHistoryBlock,
                     preferredBlock ? `\n${preferredBlock}\n` : '',
@@ -1569,7 +1606,7 @@ async function onSendToLLM(isRegen = false) {
                 stream: false,
                 prompt: promptToSend,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                api_type: apiInfo.api_type, // e.g., 'koboldcpp' if present
+                api_type: apiInfo.api_type, // 'koboldcpp' for koboldcpp/kcpp; undefined for others
                 temperature,
                 ...(api_server    ? { api_server } : {}),
                 ...(modelResolved ? { model: modelResolved } : {}), // only include if set
@@ -1584,11 +1621,15 @@ async function onSendToLLM(isRegen = false) {
                 temperature: requestPayload.temperature,
                 prompt_starts_with: requestPayload.prompt.slice(0, 120),
                 stops: stoppingStrings,
+                instructName,
             });
 
             const response = await TextCompletionService.processRequest(
                 requestPayload,
-                { presetName: profile.preset || undefined, instructName: undefined },
+                {
+                    presetName: profile.preset || undefined,
+                    instructName: instructEnabled ? (instructName || 'effective') : undefined
+                },
                 true,
                 null,
             );
