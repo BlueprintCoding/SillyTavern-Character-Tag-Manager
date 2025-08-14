@@ -588,8 +588,8 @@ function replaceCharPlaceholders(str, charName) {
 function transformCardForLLM(obj, charName) {
     if (obj == null) return obj;
     if (typeof obj === 'string') {
-        const withChar = replaceCharPlaceholders(obj, charName);
-        const withMaskedUser = maskUserPlaceholders(withChar);
+        // const withChar = replaceCharPlaceholders(obj, charName);
+        // const withMaskedUser = maskUserPlaceholders(withChar);
         return withMaskedUser;
     }
     if (Array.isArray(obj)) {
