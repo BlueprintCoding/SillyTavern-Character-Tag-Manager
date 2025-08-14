@@ -63,7 +63,7 @@ let preferredEls = null;   // { wrap: HTMLElement, bubble: HTMLElement }
 function buildPreferredSceneBlock() {
     if (!preferredScene || !preferredScene.text) return '';
     return [
-        'The user liked your last message, keep it ≈90–95% the same and apply only the explicit edits from USER_INSTRUCTION.',
+        'The user liked your last message below, keep it ≈90–95% the same and apply only the explicit edits from USER_INSTRUCTION.',
         '---',
         preferredScene.text,
         '---'
