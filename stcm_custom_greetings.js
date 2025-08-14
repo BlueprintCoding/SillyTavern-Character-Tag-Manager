@@ -250,7 +250,7 @@ function getDefaultSystemPromptTemplate() {
         '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
         '- Maintain the same structure (paragraph count and sentences per paragraph).',
         '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
-        'Open-endedness: Make the scene action-oriented and explicitly invite user engagement (a hook, unresolved choice, or immediate next action for the user). Do not fully resolve conflicts or decisions unless the user directs otherwise.',
+        'Open-endedness: Make the scene action-oriented and involve the user as a active participant and explicitly invite user engagement (a hook, unresolved choice, or immediate next action for the user). Do not fully resolve conflicts or decisions unless the user directs otherwise.',
         'HARD REQUIREMENT (unless the user explicitly forbids addressing the user): include the literal token "{{user}}" exactly as written at least once, either:',
         '  (a) directly addressing {{user}} with a question, or',
         '  (b) describing {{user}} participating in the scene in third person.',
