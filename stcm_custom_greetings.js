@@ -275,6 +275,92 @@ function ensureTooltipStyles() {
     document.head.appendChild(style);
 }
 
+let GW_TIP_HOST = null;
+let GW_TIP_ARROW = null;
+
+function ensureTipHost() {
+    if (!GW_TIP_HOST) {
+        GW_TIP_HOST = document.createElement('div');
+        GW_TIP_HOST.className = 'gw-tip-host';
+        document.body.appendChild(GW_TIP_HOST);
+    }
+    if (!GW_TIP_ARROW) {
+        GW_TIP_ARROW = document.createElement('div');
+        GW_TIP_ARROW.className = 'gw-tip-arrow';
+        document.body.appendChild(GW_TIP_ARROW);
+    }
+    return GW_TIP_HOST;
+}
+
+function showVarTooltip(targetEl, text) {
+    ensureTipHost();
+    GW_TIP_HOST.textContent = text;
+
+    // First show offscreen to measure size
+    GW_TIP_HOST.style.display = 'block';
+    GW_TIP_HOST.style.left = '-9999px';
+    GW_TIP_HOST.style.top  = '-9999px';
+    GW_TIP_ARROW.style.display = 'block';
+
+    const rect = targetEl.getBoundingClientRect();
+    const hostRect = GW_TIP_HOST.getBoundingClientRect();
+    const margin = 10;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Preferred: above
+    let top = rect.top - hostRect.height - margin;
+    let placeAbove = true;
+    if (top < 8) { // not enough space above → place below
+        top = rect.bottom + margin;
+        placeAbove = false;
+    }
+
+    // Horizontal clamp
+    let left = rect.left;
+    if (left + hostRect.width + 8 > vw) left = vw - hostRect.width - 8;
+    if (left < 8) left = 8;
+
+    GW_TIP_HOST.style.left = `${left}px`;
+    GW_TIP_HOST.style.top  = `${top}px`;
+
+    // Arrow position
+    const arrowX = Math.max(left + 12, Math.min(rect.left + 12, left + hostRect.width - 12));
+    let arrowY = placeAbove ? (rect.top - 4) : (rect.bottom + 4);
+    GW_TIP_ARROW.style.left = `${arrowX}px`;
+    GW_TIP_ARROW.style.top  = `${arrowY}px`;
+    GW_TIP_ARROW.style.transform = placeAbove ? 'rotate(225deg)' : 'rotate(45deg)';
+
+    // Keep fully in viewport vertically
+    const newHostRect = GW_TIP_HOST.getBoundingClientRect();
+    if (newHostRect.bottom > vh - 8) {
+        GW_TIP_HOST.style.top = `${vh - newHostRect.height - 8}px`;
+    }
+}
+
+function hideVarTooltip() {
+    if (GW_TIP_HOST) GW_TIP_HOST.style.display = 'none';
+    if (GW_TIP_ARROW) GW_TIP_ARROW.style.display = 'none';
+}
+
+function activateVarTooltips(root) {
+    // Attach listeners to elements with .gw-var and data-tip
+    root.querySelectorAll('.gw-var[data-tip]').forEach(el => {
+        const txt = el.getAttribute('data-tip') || '';
+        el.addEventListener('mouseenter', () => showVarTooltip(el, txt));
+        el.addEventListener('mouseleave', hideVarTooltip);
+        el.addEventListener('mousemove', (e) => {
+            // follow X a bit for a nicer feel
+            if (!GW_TIP_HOST || GW_TIP_HOST.style.display === 'none') return;
+            const hostRect = GW_TIP_HOST.getBoundingClientRect();
+            let x = Math.min(window.innerWidth - hostRect.width - 8, Math.max(8, e.clientX - 60));
+            GW_TIP_HOST.style.left = `${x}px`;
+            // keep arrow aligned under cursor tip
+            GW_TIP_ARROW.style.left = `${e.clientX - 4}px`;
+        });
+    });
+}
+
 
 
 /* --------------------- CHARACTER JSON --------------------- */
@@ -472,7 +558,7 @@ function buildSystemPrompt(prefs) {
 function openSystemPromptEditor() {
     const cfg = loadCustomSystemPrompt();
 
-    ensureTooltipStyles(); // <-- add this line
+    ensureTooltipStyles(); 
 
     const overlay = document.createElement('div');
     Object.assign(overlay.style, { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 11000 });
@@ -519,6 +605,8 @@ function openSystemPromptEditor() {
             You do <em>not</em> need to include character data yourself — <code>buildCharacterJSONBlock()</code> is automatically appended whenever the custom system prompt is enabled.
         </div>
     `;
+    activateVarTooltips(tips);
+
     // --- END tooltip-enabled tips content ---
 
     const body = document.createElement('div');

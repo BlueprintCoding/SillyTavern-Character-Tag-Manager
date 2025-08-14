@@ -1839,34 +1839,33 @@ dialog.popup #stcm-popup-pin-input:focus {
     cursor: help;
     line-height: 1.6;
 }
-.gw-var:hover::after {
-    content: attr(data-tip);
-    position: absolute;
-    left: 0;
-    bottom: calc(100% + 8px);
-    min-width: 240px;
+/* Floating host that lives on <body> (so it never gets clipped by the modal) */
+.gw-tip-host {
+    position: fixed;
+    inset: auto auto 0 0;
     max-width: 420px;
-    white-space: normal;
     background: #111;
     color: #f0f0f0;
     border: 1px solid #444;
     border-radius: 8px;
     padding: 8px 10px;
     box-shadow: 0 6px 18px rgba(0,0,0,.35);
-    z-index: 100000;
+    z-index: 12000; /* higher than modal (11001) */
+    pointer-events: none;
+    white-space: normal;
+    display: none;
 }
-.gw-var:hover::before {
-    content: '';
-    position: absolute;
-    left: 12px;
-    bottom: calc(100% + 4px);
+.gw-tip-arrow {
+    position: fixed;
     width: 8px;
     height: 8px;
     background: #111;
     border-left: 1px solid #444;
     border-top: 1px solid #444;
     transform: rotate(45deg);
-    z-index: 100001;
+    z-index: 12001;
+    pointer-events: none;
+    display: none;
 }
   
 
