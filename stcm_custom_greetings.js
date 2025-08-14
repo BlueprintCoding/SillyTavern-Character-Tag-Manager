@@ -469,45 +469,23 @@ settings.innerHTML = `
 
     closeBtn.addEventListener('click', closeWorkshop);
 
-    // Replace ONLY the Clear button handler
-clearBtn.addEventListener('click', async () => {
-    console.log('[GW] clear clicked');
-    try {
-        const res = await callGenericPopup(
+    clearBtn.addEventListener('click', () => {
+        callGenericPopup(
             'Clear workshop memory (history & preferred scene)?',
-            POPUP_TYPE.CONFIRM
-        );
-        console.log('[GW] popup resolved with:', res);
-
-        // Accept common result shapes across ST builds
-        const ok =
-            res === true ||
-            res === 'ok' ||
-            res === 'confirm' ||
-            res === 'yes' ||
-            res === 'confirmed' ||
-            (typeof res === 'object' && (
-                res?.ok === true ||
-                res?.confirmed === true ||
-                res?.value === true ||
-                /^(ok|yes|confirm|confirmed|true)$/i.test(String(res?.value ?? '')) ||
-                /^(ok|yes|confirm|confirmed)$/i.test(String(res?.result ?? ''))
-            ));
-
-        if (ok) {
-            clearWorkshopState(); // should print "clear called"
-        } else {
-            console.log('[GW] clear cancelled');
-        }
-    } catch (err) {
-        console.warn('[GW] popup threw; falling back to window.confirm', err);
-        if (window.confirm('Clear workshop memory (history & preferred scene)?')) {
-            clearWorkshopState(); // should print "clear called"
-        }
-    }
-});
-
-      
+            POPUP_TYPE.CONFIRM,
+            'Greeting Workshop',
+            {
+                okButton: 'OK',
+                cancelButton: 'Cancel'
+            }
+        ).then(result => {
+            if (result === POPUP_RESULT.AFFIRMATIVE) {
+                clearWorkshopState(); // should print "clear called"
+            }
+        });
+    });
+    
+    
     
     footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn);
     
