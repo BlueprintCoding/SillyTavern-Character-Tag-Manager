@@ -1514,7 +1514,7 @@ async function onSendToLLM(isRegen = false) {
         
         const llmResText = String(res || '').trim();
 
-        const realUsername = getRealUsername(); 
+        const realUsername = getRealUsername();
 
         // quick status logs before enforcement
         if (containsUserToken(llmResText)) {
