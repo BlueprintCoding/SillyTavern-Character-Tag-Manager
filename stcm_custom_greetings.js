@@ -584,6 +584,19 @@ function safeJSONStringify(obj) {
     }, 2);
 }
 
+function normalizeBlock(block) {
+    if (block == null) return '';
+    if (typeof block === 'string') return block;
+    if (typeof block === 'object') {
+        // Prefer common text fields; fall back to JSON for debugging visibility.
+        if (typeof block.text === 'string') return block.text;
+        if (typeof block.content === 'string') return block.content;
+        try { return JSON.stringify(block); } catch { return String(block); }
+    }
+    return String(block);
+}
+
+
 /**
  * Build JSON block:
  *  - Replaces {{char}} with the actual name
@@ -660,33 +673,26 @@ function buildSystemPrompt(prefs) {
         { who, nParas, nSents, style, charName, parasS, sentsS }
     );
 }
-
 function buildChatMessages(prefs, lastUserMsg) {
     const messages = [];
 
-    // Include the last N messages of mini chat history
+    // History (already role-separated)
     const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
     const historyMessages = buildRecentHistoryBlock(historyLimit);
-    if (historyMessages.length) {
-        messages.push(...historyMessages);
+    if (historyMessages.length) messages.push(...historyMessages);
+
+    // Preferred scene (may be object like { text, ts })
+    const preferredRaw = buildPreferredSceneBlock();
+    const preferredText = normalizeBlock(preferredRaw).trim();
+    if (preferredText) {
+        messages.push({ role: 'system', content: preferredText });
     }
 
-    // Optional preferred scene block
-    const preferredBlock = buildPreferredSceneBlock();
-    if (preferredBlock && preferredBlock.trim()) {
-        messages.push({
-            role: 'system',
-            content: preferredBlock.trim()
-        });
-    }
-
-    // Character data JSON block
-    const charJson = buildCharacterJSONBlock();
-    if (charJson && charJson.trim()) {
-        messages.push({
-            role: 'system',
-            content: charJson.trim()
-        });
+    // Character JSON (ensure it's string)
+    const charJsonRaw = buildCharacterJSONBlock();
+    const charJsonText = normalizeBlock(charJsonRaw).trim();
+    if (charJsonText) {
+        messages.push({ role: 'system', content: charJsonText });
     }
 
     // Final user instruction
@@ -701,10 +707,7 @@ function buildChatMessages(prefs, lastUserMsg) {
         `- Output should be ${nParas} paragraph${nParas === 1 ? '' : 's'} with ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`
     ].join('\n');
 
-    messages.push({
-        role: 'user',
-        content: instruction
-    });
+    messages.push({ role: 'user', content: instruction });
 
     return messages;
 }
@@ -1330,19 +1333,18 @@ async function onRegenerate() {
 }
 
 function buildRecentHistoryBlock(limit = 5) {
-    // Take last `limit` user/assistant messages in chronological order
     const recent = miniTurns.slice(-limit);
     if (!recent.length) return [];
 
     return recent.map(t => {
-        // Keep only valid roles ST expects: 'user' or 'assistant'
         const role = t.role === 'assistant' ? 'assistant' : 'user';
         return {
             role,
-            content: t.content
+            content: String(t.content ?? '')
         };
     });
 }
+
 
 
 async function onSendToLLM(isRegen = false) {
