@@ -1349,84 +1349,29 @@ function buildRecentHistoryBlock(limit = 5) {
     ].join('\n');
 }
 
+// ADD this helper (new)
+// REPLACE the previous callLLMWithProfile helper with this version
 async function callLLMWithProfile({ rawPrompt, systemPrompt, responseLength }) {
     const isOAI = (typeof window !== 'undefined' && window.main_api === 'openai');
 
-    // Always coerce to primitive strings (macros require strings)
     const promptStr = String(rawPrompt ?? '');
     const sysStr    = String(systemPrompt ?? '');
     const respLen   = Number(responseLength);
     const respLenArg = Number.isFinite(respLen) && respLen > 0 ? respLen : null;
 
-    // Primary attempt: match profile, but never instruct for OpenAI
-    try {
-        const res = await stGenerateRaw({
-            prompt: promptStr,               // force a plain string
-            api: null,                       // null => use main_api
-            instructOverride: !isOAI,        // OpenAI must NOT use instruct
-            quietToLoud: true,               // system/quiet mode generation
-            systemPrompt: sysStr,            // force a plain string
-            responseLength: respLenArg,
-            trimNames: true,
-            prefill: '',
-            jsonSchema: null,
-        });
-        return String(res ?? '').trim();
-    } catch (err) {
-        // If the core macro layer tripped on non-string content, do a safer fallback
-        const looksLikeMacroTypeError =
-            err && (String(err).includes('includes is not a function') || String(err.message || '').includes('includes is not a function'));
+    const msg = await stGenerateRaw({
+        prompt: promptStr,               // always a string
+        api: null,                       // null => use main_api
+        instructOverride: !isOAI,        // ⚠️ OpenAI does NOT use instruct
+        quietToLoud: true,               // system/quiet mode generation
+        systemPrompt: sysStr,            // always a string
+        responseLength: respLenArg,      // uses TempResponseLength internally
+        trimNames: true,
+        prefill: '',                     // no prefill needed here
+        jsonSchema: null,
+    });
 
-        if (!looksLikeMacroTypeError) throw err;
-
-        console.warn('[GW] Macro-safe fallback path triggered:', err);
-
-        // Fallback A: keep systemPrompt, but avoid "quiet/system" channel toggling
-        try {
-            const resA = await stGenerateRaw({
-                prompt: promptStr,
-                api: null,
-                instructOverride: !isOAI,
-                quietToLoud: false,           // avoid system-mode shaping that may create non-string blocks
-                systemPrompt: sysStr,
-                responseLength: respLenArg,
-                trimNames: true,
-                prefill: '',
-                jsonSchema: null,
-            });
-            return String(resA ?? '').trim();
-        } catch (errA) {
-            const stillMacroError =
-                errA && (String(errA).includes('includes is not a function') || String(errA.message || '').includes('includes is not a function'));
-
-            if (!stillMacroError) throw errA;
-
-            console.warn('[GW] Macro-safe fallback B (inline system) triggered:', errA);
-
-            // Fallback B: inline the system into the prompt to guarantee a single-string path through macros
-            // (Keeps behavior close enough for greeting crafting while avoiding message-objects.)
-            const inlinePrompt = [
-                '--- SYSTEM ---',
-                sysStr,
-                '--- END SYSTEM ---',
-                '',
-                promptStr,
-            ].join('\n');
-
-            const resB = await stGenerateRaw({
-                prompt: inlinePrompt,
-                api: null,
-                instructOverride: !isOAI,
-                quietToLoud: false,           // fully plain-text path
-                systemPrompt: '',             // avoid separate system message construction
-                responseLength: respLenArg,
-                trimNames: true,
-                prefill: '',
-                jsonSchema: null,
-            });
-            return String(resB ?? '').trim();
-        }
-    }
+    return String(msg || '').trim();
 }
 
 
