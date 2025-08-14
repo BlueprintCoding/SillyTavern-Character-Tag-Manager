@@ -113,7 +113,7 @@ function markPreferred(wrap, bubble, text) {
 
 function clearWorkshopState() {
     ensureCtx();
-  
+    console.log("clear called");
     // 1) Clear any preferred decorations BEFORE nulling handles
     try { clearPreferredUI(); } catch {}
   
