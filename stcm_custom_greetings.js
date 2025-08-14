@@ -1331,30 +1331,21 @@ async function onSendToLLM(isRegen = false) {
         return out;
     };
 
-    // ===== /model override =====
+    // ===== model lookup from context (chat/text completion settings + deep scan) =====
     function getModelFromContextByApi(profile) {
         const TAG = '[GW]/model(ctx)';
         try {
             ensureCtx();
             const apiRaw = String(profile?.api || '').toLowerCase();
             console.log(`${TAG} profile.api:`, apiRaw);
-    
-            if (!apiRaw) {
-                console.warn(`${TAG} missing profile.api`);
-                return null;
-            }
-    
-            // Canonical provider keys → "<provider>_model"
+            if (!apiRaw) { console.warn(`${TAG} missing profile.api`); return null; }
+
             const canonMap = {
-                oai: 'openai',
-                openai: 'openai',
-                claude: 'claude',
-                anthropic: 'claude',
-                google: 'google',
-                vertexai: 'vertexai',
+                oai: 'openai', openai: 'openai',
+                claude: 'claude', anthropic: 'claude',
+                google: 'google', vertexai: 'vertexai',
                 ai21: 'ai21',
-                mistralai: 'mistralai',
-                mistral: 'mistralai',
+                mistralai: 'mistralai', mistral: 'mistralai',
                 cohere: 'cohere',
                 perplexity: 'perplexity',
                 groq: 'groq',
@@ -1363,19 +1354,13 @@ async function onSendToLLM(isRegen = false) {
                 deepseek: 'deepseek',
                 xai: 'xai',
                 pollinations: 'pollinations',
-                // text providers that might map to others:
-                'openrouter-text': 'openai', // adjust if you keep a separate openrouter_model key
-                koboldcpp: 'koboldcpp',      // in case you actually keep koboldcpp_model keys
-                kcpp: 'koboldcpp',
+                'openrouter-text': 'openai',
+                koboldcpp: 'koboldcpp', kcpp: 'koboldcpp',
             };
-    
+
             const canonProvider = canonMap[apiRaw] || apiRaw;
-            const flatKeys = [
-                `${canonProvider}_model`,
-                `${apiRaw}_model`,
-            ];
-    
-            // Where to search (most likely first)
+            const flatKeys = [`${canonProvider}_model`, `${apiRaw}_model`];
+
             const containers = [
                 { name: 'ctx.chatCompletionSettings', obj: ctx?.chatCompletionSettings },
                 { name: 'ctx.textCompletionSettings', obj: ctx?.textCompletionSettings },
@@ -1386,10 +1371,10 @@ async function onSendToLLM(isRegen = false) {
                 { name: 'ctx', obj: ctx },
                 { name: 'window', obj: window },
             ];
-    
+
             console.log(`${TAG} flat key candidates:`, flatKeys, 'containers:', containers.map(c => c.name));
-    
-            // 1) Try flat <provider>_model keys at any of the containers
+
+            // 1) flat <provider>_model
             for (const key of flatKeys) {
                 for (const c of containers) {
                     const v = c.obj?.[key];
@@ -1400,15 +1385,14 @@ async function onSendToLLM(isRegen = false) {
                     }
                 }
             }
-    
-            // 2) Try nested provider sections with .model fields, e.g. chatCompletionSettings.openai.model
+
+            // 2) nested {provider: { model }}
             const providerSectionKeys = [canonProvider, apiRaw];
             console.log(`${TAG} nested provider candidates:`, providerSectionKeys);
-    
+
             for (const c of containers) {
                 const root = c.obj;
                 if (!root || typeof root !== 'object') continue;
-    
                 for (const pkey of providerSectionKeys) {
                     const section = root[pkey];
                     if (section && typeof section === 'object') {
@@ -1421,16 +1405,14 @@ async function onSendToLLM(isRegen = false) {
                     }
                 }
             }
-    
-            // 3) Deep search (limited depth) for either flatKey or {provider: {model:"..."}} patterns
+
+            // 3) limited deep scan
             const seen = new WeakSet();
             const maxDepth = 5;
-    
             function deepFind(obj, depth, path) {
                 if (!obj || typeof obj !== 'object' || seen.has(obj) || depth > maxDepth) return null;
                 seen.add(obj);
-    
-                // Check flat keys directly
+
                 for (const key of flatKeys) {
                     if (typeof obj[key] === 'string' && obj[key].trim()) {
                         const cleaned = obj[key].trim();
@@ -1438,8 +1420,6 @@ async function onSendToLLM(isRegen = false) {
                         return cleaned;
                     }
                 }
-    
-                // Check nested provider sections with .model
                 for (const pkey of providerSectionKeys) {
                     const sec = obj[pkey];
                     if (sec && typeof sec === 'object') {
@@ -1451,8 +1431,6 @@ async function onSendToLLM(isRegen = false) {
                         }
                     }
                 }
-    
-                // Recurse
                 for (const k of Object.keys(obj)) {
                     const child = obj[k];
                     const childPath = `${path}.${k}`;
@@ -1463,21 +1441,18 @@ async function onSendToLLM(isRegen = false) {
                 }
                 return null;
             }
-    
             for (const c of containers) {
                 const found = deepFind(c.obj, 0, c.name);
                 if (found) return found;
             }
-    
+
             console.log(`${TAG} no model found for provider:`, canonProvider);
             return null;
-    
         } catch (e) {
             console.warn('[GW]/model(ctx) error:', e);
             return null;
         }
     }
-    
 
     // CONNECT_API_MAP resolution
     function getApiMapFromCtx(profile) {
@@ -1492,14 +1467,14 @@ async function onSendToLLM(isRegen = false) {
         const family = (m.selected === 'openai') ? 'cc' : 'tc';
         return {
             family,               // 'cc' or 'tc'
-            selected: m.selected, // 'openai' | 'textgenerationwebui' | 'novel' | 'koboldhorde' | 'kobold' | ...
+            selected: m.selected, // 'openai' | 'textgenerationwebui' | ...
             api_type: m.type,     // e.g., 'koboldcpp'
             source: m.source,     // e.g., 'openai'
             button: m.button || null,
         };
     }
 
-    // ---- Instruct preset resolver (profile.instruct > profile.preset > global) ----
+    // Instruct preset resolver
     function resolveEffectiveInstruct(profile) {
         const globalCfg = getGlobalInstructConfig() || {};
         const instructName = (profile?.instruct || '').trim();
@@ -1509,45 +1484,30 @@ async function onSendToLLM(isRegen = false) {
         const pick = (name) => {
             if (!name) return null;
             try {
-                // 1) ctx.extensionSettings.instruct.presets[name]
                 const a = ctx?.extensionSettings?.instruct?.presets;
                 if (a && typeof a[name] === 'object') return a[name];
-                // 2) ctx.instruct.presets[name]
                 const b = ctx?.instruct?.presets;
                 if (b && typeof b[name] === 'object') return b[name];
-                // 3) ctx.presets[name].instruct
                 const c = ctx?.presets;
                 if (c && typeof c[name]?.instruct === 'object') return c[name].instruct;
-                // 4) ctx.presets.instruct[name]
                 const d = ctx?.presets?.instruct;
                 if (d && typeof d[name] === 'object') return d[name];
             } catch {}
             return null;
         };
 
-        // Try explicit instruct name first, then preset name
         presetCfg = pick(instructName) || pick(presetName);
-
-        // Shallow-merge: preset overrides global where defined
         const eff = Object.assign({}, globalCfg || {}, presetCfg || {});
         const nameChosen = instructName || presetName || undefined;
         return { cfg: eff, name: nameChosen };
     }
 
-    // ---- Fallback: supply Command-R style sequences for koboldcpp if missing ----
-    function ensureKoboldcppInstruct(instructCfg, apiInfo/*, profile*/) {
+    // Fallback sequences for koboldcpp if any are missing
+    function ensureKoboldcppInstruct(instructCfg, apiInfo) {
         if (apiInfo?.api_type !== 'koboldcpp') return instructCfg || {};
         const cfg = Object.assign({}, instructCfg || {});
         const hasSeq = (k) => typeof cfg[k] === 'string' && cfg[k].length > 0;
-
-        // If any of the core sequences are missing, backfill with common Command-R tokens.
-        const NEED =
-            !hasSeq('system_sequence') ||
-            !hasSeq('input_sequence')  ||
-            !hasSeq('output_sequence');
-
-        if (!NEED) return cfg;
-
+        if (hasSeq('system_sequence') && hasSeq('input_sequence') && hasSeq('output_sequence')) return cfg;
         const fallback = {
             system_sequence: '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
             system_suffix:   '<|END_OF_TURN_TOKEN|>',
@@ -1559,17 +1519,15 @@ async function onSendToLLM(isRegen = false) {
             system_sequence_prefix: '',
             system_sequence_suffix: '',
         };
-
         return Object.assign({}, fallback, cfg);
     }
 
-    // ---- Build final stop arrays & mirror "normal" koboldcpp payload ----
+    // stop arrays
     function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
         const fromProfile = getProfileStops(profile);
         const fromInstruct = (instructEnabled && instructCfgEff)
             ? [instructCfgEff.stop_sequence, instructCfgEff.output_suffix]
             : [];
-
         const KCPP_DEFAULT_STOPS = [
             '<|END_OF_TURN_TOKEN|>',
             '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
@@ -1577,22 +1535,16 @@ async function onSendToLLM(isRegen = false) {
             '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
             '<STOP>',
         ];
-
         let merged = mergeStops(fromProfile, fromInstruct);
-        if (apiInfo?.api_type === 'koboldcpp') {
-            merged = mergeStops(merged, KCPP_DEFAULT_STOPS);
-        }
+        if (apiInfo?.api_type === 'koboldcpp') merged = mergeStops(merged, KCPP_DEFAULT_STOPS);
 
-        // Dedupe & strip empties
         const unique = [];
-        for (const s of merged) {
-            if (typeof s === 'string' && s.length && !unique.includes(s)) unique.push(s);
-        }
-
+        for (const s of merged) if (typeof s === 'string' && s.length && !unique.includes(s)) unique.push(s);
+        console.log('[GW] stop fields:', unique);
         return unique.length ? { stop: unique, stopping_strings: unique } : {};
     }
 
-    // CHAT history (neutral block)
+    // CHAT history
     function buildRecentHistoryBlock(limit = 5) {
         const recent = miniTurns.slice(-limit);
         if (!recent.length) return '';
@@ -1603,7 +1555,7 @@ async function onSendToLLM(isRegen = false) {
         return ['<RECENT_HISTORY>', ...lines, '</RECENT_HISTORY>'].join('\n');
     }
 
-    // INSTRUCT history (each past turn wrapped & CLOSED)
+    // INSTRUCT history
     function buildInstructHistory(limit = 5, instruct = {}) {
         const recent = miniTurns.slice(-limit);
         if (!recent.length) return '';
@@ -1620,7 +1572,7 @@ async function onSendToLLM(isRegen = false) {
         return out;
     }
 
-    // Compose full INSTRUCT prompt: system + history + new user + open bot cue
+    // Compose INSTRUCT prompt
     function buildInstructPrompt(instruct, systemContent, historyWrapped, userContent, assistantPrefill = '') {
         const SYS  = instruct.system_sequence             ?? '';
         const SYSs = instruct.system_suffix               ?? '';
@@ -1634,7 +1586,6 @@ async function onSendToLLM(isRegen = false) {
             console.warn('[GW] Missing instruct tokens; falling back to linear prompt.');
             return `${systemContent}\n\n${historyWrapped || ''}\n${userContent}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
         }
-
         return (
             SYS + (sysPrefix || '') + systemContent + (sysSuffix || '') + (SYSs || '') +
             (historyWrapped || '') +
@@ -1695,6 +1646,10 @@ async function onSendToLLM(isRegen = false) {
         const apiInfo = resolveApiBehavior(profile);
         if (!apiInfo) { appendBubble('assistant', `Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`); return; }
 
+        // Determine family *before* logs that use it
+        const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
+        console.log('[GW] family:', family, 'apiInfo:', apiInfo);
+
         // Resolve instruct enablement and preset-aware config
         const instructGlobal = getGlobalInstructConfig();
         const instructIsOnGlobal = !!(instructGlobal && instructGlobal.enabled);
@@ -1704,22 +1659,20 @@ async function onSendToLLM(isRegen = false) {
 
         const { cfg: instructCfgRaw, name: instructName } = resolveEffectiveInstruct(profile);
         const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo);
+        console.log('[GW] instructEnabled:', instructEnabled, 'instructName:', instructName, 'eff cfg:', instructCfgEff);
 
-        // ---- Resolve model using /model override first
-        // NEW:
-        const modelResolved = modelFromCtx || profile.model || null;
-        console.log(`[GW] ${family.toUpperCase()} modelResolved:`, modelResolved);
+        // Resolve model from context first, then profile.model
+        const modelFromCtx = getModelFromContextByApi(profile);
+        console.log('[GW] modelFromCtx:', modelFromCtx, 'profile.model:', profile.model);
 
         const temperature = getTemperature();
         let llmResText = '';
 
-        // Prefer CM family but honor explicit profile.mode if present
-        const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
-
         // ===== Chat-completion family (OpenAI-like) =====
         if (family === 'cc' || apiInfo.selected === 'openai') {
             const modelResolved = modelFromCtx || profile.model || null;
-            console.log(`[GW] ${family.toUpperCase()} modelResolved:`, modelResolved);
+            console.log(`[GW] CC modelResolved:`, modelResolved);
+
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
             const reverse_proxy = proxy?.url || null;
@@ -1758,6 +1711,8 @@ async function onSendToLLM(isRegen = false) {
                 ...(modelResolved  ? { model: modelResolved } : {}), // only include if set
             };
 
+            console.log('[GW] CC requestPayload:', requestPayload);
+
             const response = await ChatCompletionService.processRequest(
                 requestPayload,
                 { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
@@ -1776,6 +1731,7 @@ async function onSendToLLM(isRegen = false) {
             const api_server = profile['api-url'] || null;
             const modelResolved = modelFromCtx || profile.model || null;
             console.log('[GW] TC modelResolved:', modelResolved);
+
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
@@ -1784,7 +1740,6 @@ async function onSendToLLM(isRegen = false) {
             );
 
             if (instructEnabled && instructCfgEff) {
-                // Build instruct-wrapped history & user content
                 const instructHistory = buildInstructHistory(historyLimit, instructCfgEff || {});
                 const userContent = [
                     preferredBlock ? `\n${preferredBlock}\n` : '',
@@ -1803,7 +1758,6 @@ async function onSendToLLM(isRegen = false) {
                     assistantPrefill
                 );
             } else {
-                // Linear fallback
                 const linearUserBody = [
                     buildRecentHistoryBlock(historyLimit),
                     preferredBlock ? `\n${preferredBlock}\n` : '',
@@ -1817,19 +1771,23 @@ async function onSendToLLM(isRegen = false) {
                 promptToSend = `${String(systemPrompt)}\n\n${linearUserBody}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
             }
 
-            // Build final stop fields (mirrors "normal" koboldcpp payload)
             const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
 
             const requestPayload = {
                 stream: false,
                 prompt: promptToSend,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                api_type: apiInfo.api_type, // 'koboldcpp' for koboldcpp/kcpp; undefined for others
+                api_type: apiInfo.api_type, // 'koboldcpp' for koboldcpp/kcpp
                 temperature,
                 ...(stopFields),
                 ...(api_server    ? { api_server } : {}),
                 ...(modelResolved ? { model: modelResolved } : {}), // only include if set
             };
+
+            console.log('[GW] TC requestPayload:', {
+                ...requestPayload,
+                prompt_preview: String(requestPayload.prompt).slice(0, 200)
+            });
 
             const response = await TextCompletionService.processRequest(
                 requestPayload,
@@ -1844,7 +1802,7 @@ async function onSendToLLM(isRegen = false) {
             llmResText = String(response?.content || '').trim();
         }
 
-        // ===== Normalization (no retries) =====
+        // ===== Normalization =====
         const realUsername = getRealUsername();
         let finalText = normalizeUserToken(llmResText, realUsername);
 
