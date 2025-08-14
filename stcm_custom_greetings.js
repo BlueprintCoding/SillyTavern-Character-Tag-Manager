@@ -577,53 +577,6 @@ function openSystemPromptEditor() {
 
 
 
-    const body = document.createElement('div');
-    Object.assign(body.style, { padding: '10px 12px', display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: '10px', height: '65vh' });
-
-    const useRow = document.createElement('label');
-    useRow.style.display = 'flex';
-    useRow.style.alignItems = 'center';
-    useRow.style.gap = '8px';
-    useRow.style.fontSize = '14px';
-    const chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.checked = !!cfg.enabled;
-    const lbl = document.createElement('span');
-    lbl.textContent = 'Use custom system prompt for the Greeting Workshop';
-    useRow.append(chk, lbl);
-
-    const ta = document.createElement('textarea');
-    ta.value = cfg.template || getDefaultSystemPromptTemplate();
-    Object.assign(ta.style, {
-        width: '100%', height: '100%', resize: 'vertical', minHeight: '240px',
-        background: '#222', color: '#eee', border: '1px solid #444', borderRadius: '6px', padding: '10px', fontFamily: 'monospace'
-    });
-
-    const footer = document.createElement('div');
-    Object.assign(footer.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end' });
-
-    const resetBtn = document.createElement('button');
-    resetBtn.textContent = 'Reset to Default';
-    Object.assign(resetBtn.style, { padding: '8px 12px', background: '#616161', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer' });
-    resetBtn.addEventListener('click', () => { ta.value = getDefaultSystemPromptTemplate(); });
-
-    const saveBtn = document.createElement('button');
-    saveBtn.textContent = 'Save';
-    Object.assign(saveBtn.style, { padding: '8px 12px', background: '#8e44ad', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 });
-    saveBtn.addEventListener('click', () => {
-        saveCustomSystemPrompt({ enabled: chk.checked, template: ta.value });
-        box.remove(); overlay.remove();
-    });
-
-    footer.append(resetBtn, saveBtn);
-    body.append(useRow, ta, footer);
-
-    box.append(header, tips, body);
-    document.body.append(overlay, box);
-}
-
-
-
 /* --------------------- UI --------------------- */
 
 let modal, overlay;
