@@ -287,8 +287,7 @@ function getRealUsername() {
 }
 
 function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
-    const safePrev = toPlainText(prevText);
-
+    // Ask the model to revise while preserving structure and adding {{user}} once.
     return [
         'Revise the text below to meet ALL requirements:',
         '- Include the literal token "{{user}}" exactly as written at least once, either',
@@ -298,14 +297,13 @@ function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
         '- Keep content otherwise the same and do not add meta commentary. Return only the revised text.',
         '',
         '--- TEXT START ---',
-        safePrev,
+        prevText,
         '--- TEXT END ---'
     ].join('\n');
 }
 
-
 // --- Enforcement config: single retry, no fallback injection ---
-const MAX_USER_TOKEN_REVISIONS = 0;
+const MAX_USER_TOKEN_REVISIONS = 1;
 
 /**
  * One retry to encourage literal {{user}}.
@@ -313,9 +311,7 @@ const MAX_USER_TOKEN_REVISIONS = 0;
  * No fallback injection.
  */
 async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
-    let current = toPlainText(text || '');
-
-    // Early accept if it's already compliant (or uses the real username)
+    let current = String(text || '');
     if (containsUserToken(current) || containsRealUsername(current, realUsername)) {
         current = replaceRealUsernameWithToken(current, realUsername);
         return current;
@@ -345,12 +341,10 @@ async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUserna
                 null
             );
 
-            let revisedText = toPlainText(revised || '').trim();
+            const revisedText = String(revised || '').trim();
             if (!revisedText) break;
 
-            revisedText = replaceRealUsernameWithToken(revisedText, realUsername);
-            current = revisedText;
-
+            current = replaceRealUsernameWithToken(revisedText, realUsername);
             if (containsUserToken(current)) {
                 console.log(`[GW] Success on attempt ${attempts}: {{user}} found`);
                 break;
@@ -590,19 +584,6 @@ function safeJSONStringify(obj) {
     }, 2);
 }
 
-function normalizeBlock(block) {
-    if (block == null) return '';
-    if (typeof block === 'string') return block;
-    if (typeof block === 'object') {
-        // Prefer common text fields; fall back to JSON for debugging visibility.
-        if (typeof block.text === 'string') return block.text;
-        if (typeof block.content === 'string') return block.content;
-        try { return JSON.stringify(block); } catch { return String(block); }
-    }
-    return String(block);
-}
-
-
 /**
  * Build JSON block:
  *  - Replaces {{char}} with the actual name
@@ -654,7 +635,6 @@ function esc(s) {
 
 function buildSystemPrompt(prefs) {
     ensureCtx();
-
     const ch = getActiveCharacterFull();
     const charName = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
     const who = 'A Character Card Greeting Editing Assistant';
@@ -667,78 +647,27 @@ function buildSystemPrompt(prefs) {
 
     const custom = loadCustomSystemPrompt();
 
-    // Only return the instruction text for the system message.
     if (custom.enabled) {
-        return renderSystemPromptTemplate(custom.template, {
+        const rendered = renderSystemPromptTemplate(custom.template, {
             who, nParas, nSents, style, charName, parasS, sentsS
         });
+        return [
+            rendered,
+            buildCharacterJSONBlock(),
+        ].join('\n\n');
     }
 
-    return renderSystemPromptTemplate(
+    // ✅ Render the default template with variables
+    const defaultPrompt = renderSystemPromptTemplate(
         getDefaultSystemPromptTemplate(),
         { who, nParas, nSents, style, charName, parasS, sentsS }
     );
+
+    return [
+        defaultPrompt,
+        buildCharacterJSONBlock()
+    ].join('\n\n');
 }
-
-function toPlainText(v) {
-    if (v == null) return '';
-    if (typeof v === 'string') return v;
-
-    if (Array.isArray(v)) {
-        // flatten arrays of strings/objects
-        return v.map(toPlainText).filter(Boolean).join('\n');
-    }
-
-    if (typeof v === 'object') {
-        // common rich shapes
-        if (typeof v.text === 'string') return v.text;
-        if (typeof v.content === 'string') return v.content;
-        if (Array.isArray(v.content)) return v.content.map(toPlainText).join('\n');
-        // last resort: JSON (keeps visibility if something unexpected appears)
-        try { return JSON.stringify(v); } catch { return String(v); }
-    }
-
-    return String(v);
-}
-
-
-function buildChatMessages(prefs, lastUserMsg) {
-    const messages = [];
-
-    // History
-    const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
-    const historyMessages = buildRecentHistoryBlock(historyLimit);
-    if (historyMessages.length) messages.push(...historyMessages);
-
-    // Preferred scene
-    const preferredRaw = buildPreferredSceneBlock();
-    const preferredText = toPlainText(preferredRaw).trim();
-    if (preferredText) messages.push({ role: 'system', content: preferredText });
-
-    // Character JSON
-    const charJsonText = toPlainText(buildCharacterJSONBlock()).trim();
-    if (charJsonText) messages.push({ role: 'system', content: charJsonText });
-
-    // Final user instruction
-    const nParas = Math.max(1, Number(prefs?.numParagraphs || 3));
-    const nSents = Math.max(1, Number(prefs?.sentencesPerParagraph || 3));
-    const instruction = [
-        'USER_INSTRUCTION:',
-        toPlainText(lastUserMsg) || '(no new edits)',
-        '',
-        '- Follow the instruction above using the character data as context.',
-        '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.',
-        `- Output should be ${nParas} paragraph${nParas === 1 ? '' : 's'} with ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`
-    ].join('\n');
-    messages.push({ role: 'user', content: instruction });
-
-    // FINAL HARD COERCION (guards against any upstream surprises)
-    return messages.map(m => ({
-        role: m.role,
-        content: toPlainText(m.content)
-    }));
-}
-
 
 
 function openSystemPromptEditor() {
@@ -1277,7 +1206,7 @@ function appendBubble(role, text, opts = {}) {
                 if (didSave) {
                     const next = editor.value.trim();
                     content.textContent = next;
-                    if (itemIdx !== -1) toPlainText(next);
+                    if (itemIdx !== -1) miniTurns[itemIdx].content = next;
                     if (preferredScene && preferredScene.ts === thisTs) preferredScene.text = next;
                     saveSession();
                 }
@@ -1360,17 +1289,22 @@ async function onRegenerate() {
 }
 
 function buildRecentHistoryBlock(limit = 5) {
+    // take last `limit` messages (user/assistant) in chronological order
     const recent = miniTurns.slice(-limit);
-    if (!recent.length) return [];
+    if (!recent.length) return '';
 
-    return recent.map(t => ({
-        role: t.role === 'assistant' ? 'assistant' : 'user',
-        content: toPlainText(t.content)
-    }));
+    const lines = recent.map((t, i) => {
+        const role = t.role === 'assistant' ? 'assistant' : 'user';
+        // Keep it plain; the system prompt already handles formatting rules.
+        return `${i + 1}. ${role.toUpperCase()}: ${t.content}`;
+    });
+
+    return [
+        '<RECENT_HISTORY>',
+        ...lines,
+        '</RECENT_HISTORY>'
+    ].join('\n');
 }
-
-
-
 
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
@@ -1411,8 +1345,7 @@ async function onSendToLLM(isRegen = false) {
     if (!regen && typedForSend) {
         const userWrap = appendBubble('user', typedForSend);
         const userTs = userWrap?.dataset?.ts || String(Date.now());
-        miniTurns.push({ role: 'user', content: toPlainText(typedForSend), ts: userTs });
-
+        miniTurns.push({ role: 'user', content: typedForSend, ts: userTs });
         saveSession();
 
         // clear input and keep focus for fast iteration
@@ -1429,34 +1362,47 @@ async function onSendToLLM(isRegen = false) {
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
     try {
-
+        const systemPrompt = buildSystemPrompt(prefs);
 
         // Most recent user instruction (already transformed if newly sent)
         const lastUserMsg = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
 
-        const systemPrompt = buildSystemPrompt(prefs);
-        const messages = buildChatMessages(prefs, lastUserMsg);
+        // Include the last N messages of mini chat history on every call
+        const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
+        const historyBlock = buildRecentHistoryBlock(historyLimit);
 
+        // Optional preferred scene block
+        const preferredBlock = buildPreferredSceneBlock();
+
+        // Two-block prompt (+ optional third block for preferred scene)
+        // Order: HISTORY → (PREFERRED_SCENE if any) → INSTRUCTION
+        const rawPrompt = [
+            historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
+            preferredBlock ? `\n${preferredBlock}\n` : '',
+            'USER_INSTRUCTION:',
+            lastUserMsg,
+            '',
+            '- Follow the instruction above using the character data as context.' +
+            '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.'+
+            `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
+
+        ].join('\n');
 
         // Rough sizing: ~90 chars per sentence
         const approxRespLen = Math.ceil(
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
 
-        const bad = messages.find(m => typeof m.content !== 'string');
-        if (bad) console.warn('[GW] Non-string message content detected before send:', bad);
-
-        // Hand chat-style messages to ST; createRawPrompt will prepend `systemPrompt`.
         const res = await stGenerateRaw(
-            messages,        // prompt as array of {role, content}
-            null,            // api (use main)
-            true,            // instructOverride
-            true,            // quietToLoud (system mode)
+            String(rawPrompt),
+            null,
+            true,
+            true,
             String(systemPrompt),
-            approxRespLen,   // responseLength
-            true,            // trimNames
-            '',              // prefill
-            null             // jsonSchema
+            approxRespLen,
+            true,
+            '',
+            null
         );
 
         const llmResText = String(res || '').trim();
@@ -1495,13 +1441,16 @@ async function onSendToLLM(isRegen = false) {
             if (contentEl) contentEl.textContent = finalText;
 
             miniTurns[targetAssistantIdx].content = finalText;
+
+            if (preferredScene && preferredScene.ts === targetAssistantTs) {
+                preferredScene.text = finalText;
+            }
             saveSession();
         } else {
             // Append new assistant turn
             const asstWrap = appendBubble('assistant', finalText);
             const asstTs = asstWrap?.dataset?.ts || String(Date.now());
-            miniTurns.push({ role: 'assistant', content: toPlainText(finalText), ts: asstTs });
-
+            miniTurns.push({ role: 'assistant', content: finalText, ts: asstTs });
             saveSession();
         }
 
