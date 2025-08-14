@@ -23,33 +23,33 @@ function ensureCtx() {
 const STATE_KEY = () => {
     const id = (ctx?.characterId ?? 'global');
     return `stcm_gw_state_${id}`;
-  };
-  
-  function saveSession() {
-    try {
-      const payload = {
-        miniTurns,
-        preferredScene,
-      };
-      localStorage.setItem(STATE_KEY(), JSON.stringify(payload));
-    } catch {}
-  }
-  
-  function loadSession() {
-    try {
-      const raw = localStorage.getItem(STATE_KEY());
-      if (!raw) return { miniTurns: [], preferredScene: null };
-      const parsed = JSON.parse(raw);
-      return {
-        miniTurns: Array.isArray(parsed?.miniTurns) ? parsed.miniTurns : [],
-        preferredScene: parsed?.preferredScene ?? null,
-      };
-    } catch {
-      return { miniTurns: [], preferredScene: null };
-    }
-  }
+};
 
-  
+function saveSession() {
+    try {
+        const payload = {
+            miniTurns,
+            preferredScene,
+        };
+        localStorage.setItem(STATE_KEY(), JSON.stringify(payload));
+    } catch { }
+}
+
+function loadSession() {
+    try {
+        const raw = localStorage.getItem(STATE_KEY());
+        if (!raw) return { miniTurns: [], preferredScene: null };
+        const parsed = JSON.parse(raw);
+        return {
+            miniTurns: Array.isArray(parsed?.miniTurns) ? parsed.miniTurns : [],
+            preferredScene: parsed?.preferredScene ?? null,
+        };
+    } catch {
+        return { miniTurns: [], preferredScene: null };
+    }
+}
+
+
 
 // Store the user's preferred scene (if they star one)
 let preferredScene = null; // { text: string, ts: string }
@@ -108,59 +108,59 @@ function markPreferred(wrap, bubble, text) {
         pointerEvents: 'none' // don’t block clicks on the star/trash
     });
     bubble.appendChild(badge);
-    
+
 }
 
 function clearWorkshopState() {
     ensureCtx();
     console.log("clear called");
     // 1) Clear any preferred decorations BEFORE nulling handles
-    try { clearPreferredUI(); } catch {}
-  
+    try { clearPreferredUI(); } catch { }
+
     // 2) Wipe in-memory state
     miniTurns = [];
     preferredScene = null;
     preferredEls = null;
-  
+
     // 3) Persist a clean state for this character
     try {
-      localStorage.setItem(STATE_KEY(), JSON.stringify({ miniTurns: [], preferredScene: null }));
-    } catch {}
-  
+        localStorage.setItem(STATE_KEY(), JSON.stringify({ miniTurns: [], preferredScene: null }));
+    } catch { }
+
     // 4) Hard reset the chat log DOM (replace the node, not just innerHTML)
     if (chatLogEl && chatLogEl.parentNode) {
-      const parent = chatLogEl.parentNode;
-  
-      const newLog = document.createElement('div');
-      // Reapply the same styles you set in openWorkshop()
-      Object.assign(newLog.style, {
-        overflowY: 'auto',
-        padding: '10px 4px',
-        border: '1px solid #333',
-        borderRadius: '8px',
-        background: '#181818'
-      });
-  
-      // Replace and rebind the global ref
-      parent.replaceChild(newLog, chatLogEl);
-      chatLogEl = newLog;
+        const parent = chatLogEl.parentNode;
+
+        const newLog = document.createElement('div');
+        // Reapply the same styles you set in openWorkshop()
+        Object.assign(newLog.style, {
+            overflowY: 'auto',
+            padding: '10px 4px',
+            border: '1px solid #333',
+            borderRadius: '8px',
+            background: '#181818'
+        });
+
+        // Replace and rebind the global ref
+        parent.replaceChild(newLog, chatLogEl);
+        chatLogEl = newLog;
     }
-  
+
     // 5) Rebuild the UI from the (now empty) state
     // Defer one frame so the popup can close cleanly first
     const defer = window.requestAnimationFrame || ((fn) => setTimeout(fn, 0));
     defer(() => {
-      // Starter line only (no actions)
-      appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
-  
-      if (inputEl) {
-        inputEl.value = '';
-        inputEl.focus();
-      }
-    });
-  }
+        // Starter line only (no actions)
+        appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
 
-  // Persist the last character the workshop was opened for
+        if (inputEl) {
+            inputEl.value = '';
+            inputEl.focus();
+        }
+    });
+}
+
+// Persist the last character the workshop was opened for
 const LAST_CHAR_KEY = 'stcm_gw_last_char_id';
 
 function getCharId() {
@@ -172,18 +172,47 @@ function getCharId() {
 function isWelcomePanelOpen() {
     const wp = document.querySelector('#chat .welcomePanel');
     if (!wp) return false;
-
-    // Robust visibility check (covers class-based and style-based hiding)
     const style = window.getComputedStyle(wp);
     const visuallyHidden = style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
     const noBox = (wp.offsetWidth === 0 && wp.offsetHeight === 0 && wp.getClientRects().length === 0);
-
     return !(visuallyHidden || noBox);
+}
+
+function chatMessageCount() {
+    // Count visible .mes nodes in #chat (covers assistant/user/system)
+    const all = Array.from(document.querySelectorAll('#chat .mes'));
+    return all.filter(el => {
+        const cs = window.getComputedStyle(el);
+        const hidden = cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0';
+        const noBox = (el.offsetWidth === 0 && el.offsetHeight === 0 && el.getClientRects().length === 0);
+        return !(hidden || noBox);
+    }).length;
+}
+
+function findTopMessageEl() {
+    const chat = document.getElementById('chat');
+    if (!chat) return null;
+
+    // Prefer explicit #0 if present, else the first visible .mes
+    let top = chat.querySelector('.mes[mesid="0"]');
+    if (!top) {
+        top = Array.from(chat.querySelectorAll('.mes'))
+            .find(el => {
+                const cs = window.getComputedStyle(el);
+                const hidden = cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0';
+                const noBox = (el.offsetWidth === 0 && el.offsetHeight === 0 && el.getClientRects().length === 0);
+                return !(hidden || noBox);
+            }) || null;
+    }
+    return top;
 }
 
 function removeWorkshopButton() {
     const btn = document.getElementById('stcm-gw-btn');
     if (btn) btn.remove();
+
+    const holder = document.getElementById('stcm-gw-holder');
+    if (holder) holder.remove();
 }
 
 
@@ -374,31 +403,31 @@ let styleInputEl, paraInputEl, sentInputEl, histInputEl;
 function restoreUIFromState() {
     // Clear the DOM log
     chatLogEl.innerHTML = '';
-  
+
     // Re-add a gentle header line
     appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
 
-  
+
     // Render saved turns, preserving timestamps
     for (const t of miniTurns) {
-      const w = appendBubble(t.role, t.content);
-      if (w && t.ts) w.dataset.ts = t.ts;
+        const w = appendBubble(t.role, t.content);
+        if (w && t.ts) w.dataset.ts = t.ts;
     }
-  
+
     // Re-apply preferred badge/outline if present
     if (preferredScene) {
-      // Find the assistant bubble with the matching ts
-      const node = [...chatLogEl.querySelectorAll('.gw-row[data-role="assistant"]')]
-        .find(n => n.dataset.ts === preferredScene.ts);
-      if (node) {
-        const bubble = node.querySelector('.gw-bubble');
-        if (bubble) markPreferred(node, bubble, preferredScene.text);
-      }
+        // Find the assistant bubble with the matching ts
+        const node = [...chatLogEl.querySelectorAll('.gw-row[data-role="assistant"]')]
+            .find(n => n.dataset.ts === preferredScene.ts);
+        if (node) {
+            const bubble = node.querySelector('.gw-bubble');
+            if (bubble) markPreferred(node, bubble, preferredScene.text);
+        }
     }
-  
+
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
-  }
-  
+}
+
 
 
 let miniTurns = []; // [{role:'user'|'assistant', content: string}]
@@ -414,11 +443,11 @@ function openWorkshop() {
         try {
             // Ensure the new character starts with a clean slate
             localStorage.setItem(`stcm_gw_state_${currId}`, JSON.stringify({ miniTurns: [], preferredScene: null }));
-        } catch {}
+        } catch { }
     }
 
     // Update "last opened for" marker
-    try { localStorage.setItem(LAST_CHAR_KEY, currId); } catch {}
+    try { localStorage.setItem(LAST_CHAR_KEY, currId); } catch { }
 
 
     if (modal) return;
@@ -439,26 +468,26 @@ function openWorkshop() {
 
     const header = document.createElement('div');
     header.textContent = '🧠 Greeting Workshop';
-    Object.assign(header.style, {  
-        padding: '10px 12px',  
-        borderBottom: '1px solid #444',  
-        fontWeight: 600,  
-        background: '#222',  
-        display: 'flex',  
-        alignItems: 'center',  
-        justifyContent: 'space-between'  
+    Object.assign(header.style, {
+        padding: '10px 12px',
+        borderBottom: '1px solid #444',
+        fontWeight: 600,
+        background: '#222',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
     });
-    
+
     const settings = document.createElement('div');
-Object.assign(settings.style, {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px 16px',
-    padding: '8px 12px',
-    alignItems: 'center',
-    borderBottom: '1px solid #333'
-});
-settings.innerHTML = `
+    Object.assign(settings.style, {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '8px 16px',
+        padding: '8px 12px',
+        alignItems: 'center',
+        borderBottom: '1px solid #333'
+    });
+    settings.innerHTML = `
     <label style="display:flex;align-items:center;">
         Paragraphs(¶)
         <input id="gw-paras" type="number" min="1" max="10" value="${prefs.numParagraphs ?? 3}" style="width:80px;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
@@ -526,11 +555,11 @@ settings.innerHTML = `
             }
         });
     });
-    
-    
-    
+
+
+
     footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn);
-    
+
 
     modal.append(header, settings, body, footer);
     body.append(chatLogEl, composer);
@@ -563,7 +592,7 @@ settings.innerHTML = `
     editBtn.addEventListener('click', onEditLastAssistant);
     copyBtn.addEventListener('click', onCopyLastAssistant);
     acceptBtn.addEventListener('click', onAccept);
-    
+
 
     inputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -573,10 +602,10 @@ settings.innerHTML = `
     });
 
     // hydrate state first
-        const restored = loadSession();
-        miniTurns = restored.miniTurns;
-        preferredScene = restored.preferredScene;
-        restoreUIFromState();
+    const restored = loadSession();
+    miniTurns = restored.miniTurns;
+    preferredScene = restored.preferredScene;
+    restoreUIFromState();
 
 
 
@@ -776,18 +805,18 @@ async function onSendToLLM(isRegen = false) {
     const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
     const typedForSend = typedRaw ? maskUserPlaceholders(replaceCharPlaceholders(typedRaw, charName)) : '';
 
-// Insert user's message into the workshop chat history + UI (tracked history)
-if (!regen && typedForSend) {
-    const userWrap = appendBubble('user', typedForSend);
-    const userTs = userWrap?.dataset?.ts || String(Date.now());
-    miniTurns.push({ role: 'user', content: typedForSend, ts: userTs });
-    saveSession();
+    // Insert user's message into the workshop chat history + UI (tracked history)
+    if (!regen && typedForSend) {
+        const userWrap = appendBubble('user', typedForSend);
+        const userTs = userWrap?.dataset?.ts || String(Date.now());
+        miniTurns.push({ role: 'user', content: typedForSend, ts: userTs });
+        saveSession();
 
-    // clear input and keep focus for fast iteration
-    inputEl.value = '';
-    inputEl.dispatchEvent(new Event('input'));
-    inputEl.focus();
-}
+        // clear input and keep focus for fast iteration
+        inputEl.value = '';
+        inputEl.dispatchEvent(new Event('input'));
+        inputEl.focus();
+    }
 
 
     // spinner
@@ -849,7 +878,7 @@ if (!regen && typedForSend) {
             saveSession();
 
         }
-        
+
     } catch (e) {
         console.error('[Greeting Workshop] LLM call failed:', e);
         appendBubble('assistant', '⚠️ Error generating text. See console for details.');
@@ -951,23 +980,58 @@ function findHeaderMount() {
 }
 
 function injectWorkshopButton() {
-        // If welcome panel is up, do not show the Greeting Workshop button
-        if (isWelcomePanelOpen()) {
-            removeWorkshopButton();
-            return;
-        }
+    // Conditions: no welcome panel AND exactly one visible message
+    if (isWelcomePanelOpen() || chatMessageCount() !== 1) {
+        removeWorkshopButton();
+        return;
+    }
 
+    const chat = document.getElementById('chat');
+    if (!chat) return;
+
+    // Ensure we don’t duplicate
     if (document.getElementById('stcm-gw-btn')) return;
-    const mount = findHeaderMount();
+
+    const topMes = findTopMessageEl();
+    if (!topMes || !topMes.parentNode) return;
+
+    // Create a holder that sits ABOVE the first message
+    let holder = document.getElementById('stcm-gw-holder');
+    if (!holder) {
+        holder = document.createElement('div');
+        holder.id = 'stcm-gw-holder';
+        Object.assign(holder.style, {
+            display: 'flex',
+            justifyContent: 'flex-start',
+            margin: '6px 0 8px 0'
+        });
+        // Insert before the top message node
+        topMes.parentNode.insertBefore(holder, topMes);
+    } else {
+        // If holder exists but isn’t in the right place, move it
+        if (holder.nextElementSibling !== topMes) {
+            holder.remove();
+            topMes.parentNode.insertBefore(holder, topMes);
+        }
+    }
+
+    // Build the button
     const btn = document.createElement('button');
     btn.id = 'stcm-gw-btn';
-    btn.textContent = '🧠 Greeting Workshop';
+    btn.textContent = '✨ Greeting Workshop';
     Object.assign(btn.style, {
-        padding: '4px 10px', margin: '4px 0',
-        background: '#333', color: '#fff', border: '1px solid #666', borderRadius: '6px', cursor: 'pointer'
+        padding: '4px 10px',
+        background: '#333',
+        color: '#fff',
+        border: '1px solid #666',
+        borderRadius: '6px',
+        cursor: 'pointer'
     });
     btn.addEventListener('click', openWorkshop);
-    mount.prepend(btn);
+
+    // Clean any stale children and attach fresh button
+    holder.innerHTML = '';
+    holder.appendChild(btn);
 }
 
 
@@ -983,37 +1047,37 @@ export function initCustomGreetingWorkshop() {
             const detail = payload?.detail || payload; // supports both patterns
             const prevId = String(activeCharId ?? '');
             const nextId = String(detail?.id ?? detail?.character?.id ?? '');
-    
+
             if (detail?.character) {
                 activeCharCache = detail.character;
                 activeCharId = nextId || null;
-    
+
                 // keep ctx.characterId up to date if missing
                 if (ctx && (ctx.characterId == null) && activeCharId != null) {
                     ctx.characterId = String(activeCharId);
                 }
             }
-    
+
             // If the character actually changed…
             if (nextId && prevId && nextId !== prevId) {
                 // Mark the new last-opened char id
-                try { localStorage.setItem(LAST_CHAR_KEY, String(nextId)); } catch {}
-    
+                try { localStorage.setItem(LAST_CHAR_KEY, String(nextId)); } catch { }
+
                 // Start the new character's workshop state clean
                 try {
                     localStorage.setItem(`stcm_gw_state_${String(nextId)}`, JSON.stringify({ miniTurns: [], preferredScene: null }));
-                } catch {}
-    
+                } catch { }
+
                 // If the workshop modal is currently open, clear its in-memory + UI state immediately
                 if (typeof modal !== 'undefined' && modal) {
-                    try { clearWorkshopState(); } catch {}
+                    try { clearWorkshopState(); } catch { }
                 }
             }
         } catch (e) {
             console.warn('[GW] failed to cache character from chatLoaded:', e);
         }
     };
-    
+
 
     // If ST dispatches a DOM CustomEvent:
     try { document.addEventListener?.('chatLoaded', (e) => cacheFromEvent(e)); } catch { }
@@ -1029,12 +1093,13 @@ export function initCustomGreetingWorkshop() {
     };
 
     const tryInject = () => {
-    if (isWelcomePanelOpen()) {
-        removeWorkshopButton(); // ensure it disappears if user lands on welcome
-        return;
-    }
-    try { injectWorkshopButton(); } catch {}
-};
+        if (isWelcomePanelOpen() || chatMessageCount() !== 1) {
+            removeWorkshopButton();
+            return;
+        }
+        try { injectWorkshopButton(); } catch { }
+    };
+
 
     if (document.readyState !== 'loading') setTimeout(tryInject, 60);
     document.addEventListener('DOMContentLoaded', () => setTimeout(tryInject, 120));
