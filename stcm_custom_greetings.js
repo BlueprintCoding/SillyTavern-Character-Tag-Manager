@@ -1361,6 +1361,40 @@ function buildRecentHistoryBlock(limit = 5) {
     ].join('\n');
 }
 
+async function gwGenerateMacroSafe({ rawPrompt, systemPrompt, responseLength = null }) {
+    const isOAI = (typeof window !== 'undefined' && window.main_api === 'openai');
+
+    // Build a chat-style prompt where EVERY content is a string.
+    // This avoids createRawPrompt(substituteParams) hitting non-string content.
+    const messages = [
+        { role: 'system', content: String(systemPrompt ?? '') },
+        { role: 'user',   content: String(rawPrompt ?? '') },
+    ];
+
+    const respLen = Number(responseLength);
+    const respLenArg = Number.isFinite(respLen) && respLen > 0 ? respLen : null;
+
+    // IMPORTANT:
+    // - Pass the messages array via `prompt`
+    // - Do NOT also pass `systemPrompt` (that would create mixed shapes)
+    // - For OpenAI, disable instructOverride (ST’s default behavior)
+    // - quietToLoud=false to keep the message array untouched
+    return String(
+        await stGenerateRaw({
+            prompt: messages,          // <-- array of {role, content:string}
+            api: null,                 // use main_api
+            instructOverride: !isOAI ? true : false,
+            quietToLoud: false,        // don't reshuffle into system mode
+            systemPrompt: '',          // <-- VERY important: keep empty here
+            responseLength: respLenArg,
+            trimNames: true,
+            prefill: '',
+            jsonSchema: null,
+        })
+    ).trim();
+}
+
+
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
@@ -1448,17 +1482,11 @@ async function onSendToLLM(isRegen = false) {
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
 
-        const res = await stGenerateRaw(
-            String(rawPrompt),
-            null,
-            true,
-            true,
-            String(systemPrompt),
-            approxRespLen,
-            true,
-            '',
-            null
-        );
+        const res = await gwGenerateMacroSafe({
+            rawPrompt,
+            systemPrompt,
+            responseLength: approxRespLen,
+        });
 
         const llmResText = String(res || '').trim();
 
