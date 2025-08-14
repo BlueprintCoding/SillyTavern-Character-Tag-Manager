@@ -1707,8 +1707,8 @@ async function onSendToLLM(isRegen = false) {
 
         // ---- Resolve model using /model override first
         // NEW:
-        const modelFromCtx = getModelFromContextByApi(profile);
-        console.log('[GW] modelFromCtx:', modelFromCtx, 'profile.model:', profile.model);
+        const modelResolved = modelFromCtx || profile.model || null;
+        console.log(`[GW] ${family.toUpperCase()} modelResolved:`, modelResolved);
 
         const temperature = getTemperature();
         let llmResText = '';
@@ -1719,7 +1719,7 @@ async function onSendToLLM(isRegen = false) {
         // ===== Chat-completion family (OpenAI-like) =====
         if (family === 'cc' || apiInfo.selected === 'openai') {
             const modelResolved = modelFromCtx || profile.model || null;
-            console.log('[GW] CC modelResolved:', modelResolved);
+            console.log(`[GW] ${family.toUpperCase()} modelResolved:`, modelResolved);
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
             const reverse_proxy = proxy?.url || null;
