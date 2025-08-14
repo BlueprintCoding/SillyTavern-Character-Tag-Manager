@@ -1333,43 +1333,83 @@ async function onSendToLLM(isRegen = false) {
 
     // ===== /model override =====
     async function getCurrentModelOverride() {
+        const TAG = '[GW]/model';
         try {
             const execWithOpts =
-                window?.executeSlashCommandsWithOptions ||
-                window?.executeSlashCommands || // legacy wrapper
+                window?.executeSlashCommandsWithOptions ??
+                window?.executeSlashCommands ?? // legacy wrapper
                 null;
-            if (!execWithOpts) return null;
-
+    
+            console.log(`${TAG} resolver:`, execWithOpts ? (execWithOpts.name || '(anonymous fn)') : null);
+    
+            if (!execWithOpts) {
+                console.warn(`${TAG} no executeSlashCommands* function found on window`);
+                return null;
+            }
+    
+            console.log(`${TAG} calling: /model --quiet=true`);
             const res = await execWithOpts('/model --quiet=true', {
                 handleParserErrors: true,
                 handleExecutionErrors: true,
                 source: 'GreetingWorkshop',
             });
-            // Heuristic extraction — support several possible shapes
+    
+            console.log(`${TAG} raw result:`, res);
+    
+            if (res == null) {
+                console.warn(`${TAG} result is null/undefined`);
+                return null;
+            }
+    
+            // Try a bunch of likely fields first
             const candidates = [
                 res?.returnValue, res?.result, res?.text, res?.message,
                 res?.output,
                 Array.isArray(res?.outputs) ? res.outputs.join(' ') : null,
                 res?.data?.model, res?.data?.value, res?.data?.text,
             ];
-            for (const c of candidates) {
+    
+            console.log(`${TAG} candidates (pre-filter):`, candidates);
+    
+            for (let i = 0; i < candidates.length; i++) {
+                const c = candidates[i];
                 if (typeof c === 'string' && c.trim()) {
-                    return c.trim().replace(/^"+|"+$/g, '');
+                    const cleaned = c.trim().replace(/^"+|"+$/g, '');
+                    console.log(`${TAG} matched candidate[${i}] =>`, cleaned);
+                    return cleaned;
                 }
             }
+    
+            // Fallback: scan variables object
             if (res?.variables && typeof res.variables === 'object') {
-                for (const k of Object.keys(res.variables)) {
+                const keys = Object.keys(res.variables);
+                console.log(`${TAG} scanning variables keys:`, keys);
+    
+                for (const k of keys) {
                     const v = res.variables[k];
-                    if (typeof v === 'string' && v.trim()) return v.trim();
-                    if (v && typeof v.value === 'string' && v.value.trim()) return v.value.trim();
+                    console.log(`${TAG} variables.${k}:`, v);
+    
+                    let val = null;
+                    if (typeof v === 'string') val = v;
+                    else if (v && typeof v.value === 'string') val = v.value;
+    
+                    if (val && val.trim()) {
+                        const cleaned = val.trim().replace(/^"+|"+$/g, '');
+                        console.log(`${TAG} matched from variables.${k} =>`, cleaned);
+                        return cleaned;
+                    }
                 }
             }
+    
+            console.log(`${TAG} no model string found; returning null`);
             return null;
+    
         } catch (e) {
-            console.warn('[GW] getCurrentModelOverride failed:', e);
+            console.warn(`${TAG} failed:`, e);
             return null;
         }
     }
+    
 
     // CONNECT_API_MAP resolution
     function getApiMapFromCtx(profile) {
