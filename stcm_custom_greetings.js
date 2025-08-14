@@ -60,9 +60,10 @@ let preferredEls = null;   // { wrap: HTMLElement, bubble: HTMLElement }
 function buildPreferredSceneBlock() {
     if (!preferredScene || !preferredScene.text) return '';
     return [
-        '<PREFERRED_SCENE>',
+        'The user liked your last message, keep it ≈90–95% the same and apply only the explicit edits from USER_INSTRUCTION.',
+        '---',
         preferredScene.text,
-        '</PREFERRED_SCENE>'
+        '---'
     ].join('\n');
 }
 
@@ -1381,8 +1382,10 @@ async function onSendToLLM(isRegen = false) {
             'USER_INSTRUCTION:',
             lastUserMsg,
             '',
-            'Follow the instruction above using the character data as context. ' +
-            'If a preferred scene is provided, keep it almost the same and apply only the requested edits.'
+            '- Follow the instruction above using the character data as context.' +
+            '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.'+
+            `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
+
         ].join('\n');
 
         // Rough sizing: ~90 chars per sentence
