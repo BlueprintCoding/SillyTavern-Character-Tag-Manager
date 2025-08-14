@@ -303,81 +303,60 @@ function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
 }
 
 // --- Enforcement config: single retry, no fallback injection ---
-const MAX_USER_TOKEN_REVISIONS = 0;
-
-/**
- * No retries. If the model used the real username, replace it with {{user}}.
- * Otherwise return text unchanged.
- */
-async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
-    let current = String(text || '');
-    if (!current) return current;
-
-    // If the literal {{user}} is already present, keep as-is.
-    if (containsUserToken(current)) return current;
-
-    // If the real username (optionally braced) appears, normalize it to {{user}}.
-    if (containsRealUsername(current, realUsername)) {
-        return replaceRealUsernameWithToken(current, realUsername);
-    }
-
-    // Otherwise, do nothing (no retries, no injection attempts).
-    return current;
-}
-
+const MAX_USER_TOKEN_REVISIONS = 1;
 
 /**
  * One retry to encourage literal {{user}}.
  * Accepts outputs that use the *real username* (no further retries).
  * No fallback injection.
  */
-// async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
-//     let current = String(text || '');
-//     if (containsUserToken(current) || containsRealUsername(current, realUsername)) {
-//         current = replaceRealUsernameWithToken(current, realUsername);
-//         return current;
-//     }
+async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
+    let current = String(text || '');
+    if (containsUserToken(current) || containsRealUsername(current, realUsername)) {
+        current = replaceRealUsernameWithToken(current, realUsername);
+        return current;
+    }
 
-//     let attempts = 0;
-//     while (attempts < MAX_USER_TOKEN_REVISIONS) {
-//         attempts += 1;
-//         console.log(`[GW] Attempt ${attempts}: {{user}} not found, retrying...`);
+    let attempts = 0;
+    while (attempts < MAX_USER_TOKEN_REVISIONS) {
+        attempts += 1;
+        console.log(`[GW] Attempt ${attempts}: {{user}} not found, retrying...`);
 
-//         const revisionPrompt = buildUserHookRevisionPrompt(
-//             current,
-//             Math.max(1, Number(prefs?.numParagraphs || 3)),
-//             Math.max(1, Number(prefs?.sentencesPerParagraph || 3))
-//         );
+        const revisionPrompt = buildUserHookRevisionPrompt(
+            current,
+            Math.max(1, Number(prefs?.numParagraphs || 3)),
+            Math.max(1, Number(prefs?.sentencesPerParagraph || 3))
+        );
 
-//         try {
-//             const revised = await stGenerateRaw(
-//                 String(revisionPrompt),
-//                 null,
-//                 true,
-//                 true,
-//                 String(systemPrompt),
-//                 current.length + 200,
-//                 true,
-//                 '',
-//                 null
-//             );
+        try {
+            const revised = await stGenerateRaw(
+                String(revisionPrompt),
+                null,
+                true,
+                true,
+                String(systemPrompt),
+                current.length + 200,
+                true,
+                '',
+                null
+            );
 
-//             const revisedText = String(revised || '').trim();
-//             if (!revisedText) break;
+            const revisedText = String(revised || '').trim();
+            if (!revisedText) break;
 
-//             current = replaceRealUsernameWithToken(revisedText, realUsername);
-//             if (containsUserToken(current)) {
-//                 console.log(`[GW] Success on attempt ${attempts}: {{user}} found`);
-//                 break;
-//             }
-//         } catch (err) {
-//             console.warn('[GW] Single retry to inject {{user}} failed:', err);
-//             break;
-//         }
-//     }
+            current = replaceRealUsernameWithToken(revisedText, realUsername);
+            if (containsUserToken(current)) {
+                console.log(`[GW] Success on attempt ${attempts}: {{user}} found`);
+                break;
+            }
+        } catch (err) {
+            console.warn('[GW] Single retry to inject {{user}} failed:', err);
+            break;
+        }
+    }
 
-//     return current;
-// }
+    return current;
+}
 
 function containsRealUsername(text, realUsername) {
     if (!realUsername) return false;
@@ -510,67 +489,33 @@ function activateVarTooltips(root) {
 /* --------------------- CHARACTER JSON --------------------- */
 let activeCharCache = null;   // { name, description, personality, scenario, ... }
 let activeCharId = null;
-/** Try hard to fetch the current character object across ST variants, with cleaning applied. */
+
+/** Try hard to fetch the current character object across ST variants. */
 function getActiveCharacterFull() {
     ensureCtx();
 
     // Prefer the cache populated by chatLoaded
-    let merged = (activeCharCache && Object.keys(activeCharCache).length) ? activeCharCache : {};
+    if (activeCharCache && Object.keys(activeCharCache).length) return activeCharCache;
 
-    if (!Object.keys(merged).length) {
-        // Fallbacks
-        const idx = (ctx?.characterId != null && !Number.isNaN(Number(ctx.characterId)))
-            ? Number(ctx.characterId) : null;
+    // Fallbacks
+    const idx = (ctx?.characterId != null && !Number.isNaN(Number(ctx.characterId)))
+        ? Number(ctx.characterId) : null;
 
-        const fromArray = (Array.isArray(ctx?.characters) && idx != null && idx >= 0 && idx < ctx.characters.length)
-            ? ctx.characters[idx] : null;
+    const fromArray = (Array.isArray(ctx?.characters) && idx != null && idx >= 0 && idx < ctx.characters.length)
+        ? ctx.characters[idx] : null;
 
-        const fromCtxObj = ctx?.character || ctx?.charInfo || null;
-        const byName2 = (Array.isArray(ctx?.characters) && ctx?.name2)
-            ? ctx.characters.find(c => c?.name === ctx.name2) || null
-            : null;
+    const fromCtxObj = ctx?.character || ctx?.charInfo || null;
+    const byName2 = (Array.isArray(ctx?.characters) && ctx?.name2)
+        ? ctx.characters.find(c => c?.name === ctx.name2) || null
+        : null;
 
-        merged = Object.assign({}, fromCtxObj || {}, fromArray || {}, byName2 || {});
-    }
-
+    const merged = Object.assign({}, fromCtxObj || {}, fromArray || {}, byName2 || {});
     if (!merged || !Object.keys(merged).length) {
         console.warn('[Greeting Workshop] Character object is empty. Check context wiring:', {
-            idxFromCtx: ctx?.characterId,
-            hasArray: Array.isArray(ctx?.characters),
-            name2: ctx?.name2
+            idxFromCtx: idx, hasArray: Array.isArray(ctx?.characters), name2: ctx?.name2
         });
-        return {};
     }
-
-    // --- Cleaning phase ---
-    const cleaned = { ...merged };
-
-    // Remove unwanted keys
-    delete cleaned.creator_notes;
-    delete cleaned.tags;
-    delete cleaned.spec;
-    delete cleaned.first_mes;
-
-    // Clean mes_example if exists
-    if (typeof cleaned.mes_example === 'string') {
-        cleaned.mes_example = cleaned.mes_example
-            .replace(/<start>/gi, '') // remove tags regardless of case
-            .trim();
-    }
-
-    // Remove empty values
-    for (const key in cleaned) {
-        if (
-            cleaned[key] === null ||
-            cleaned[key] === undefined ||
-            (typeof cleaned[key] === 'string' && cleaned[key].trim() === '') ||
-            (Array.isArray(cleaned[key]) && cleaned[key].length === 0)
-        ) {
-            delete cleaned[key];
-        }
-    }
-
-    return cleaned;
+    return merged;
 }
 
 /** Only mask `{{user}}`; keep other curlies intact. */
@@ -708,7 +653,7 @@ function buildSystemPrompt(prefs) {
         });
         return [
             rendered,
-            buildCharacterJSONBlock()
+            buildCharacterJSONBlock(),
         ].join('\n\n');
     }
 
@@ -1361,40 +1306,6 @@ function buildRecentHistoryBlock(limit = 5) {
     ].join('\n');
 }
 
-async function gwGenerateMacroSafe({ rawPrompt, systemPrompt, responseLength = null }) {
-    const isOAI = (typeof window !== 'undefined' && window.main_api === 'openai');
-
-    // Build a chat-style prompt where EVERY content is a string.
-    // This avoids createRawPrompt(substituteParams) hitting non-string content.
-    const messages = [
-        { role: 'system', content: String(systemPrompt ?? '') },
-        { role: 'user',   content: String(rawPrompt ?? '') },
-    ];
-
-    const respLen = Number(responseLength);
-    const respLenArg = Number.isFinite(respLen) && respLen > 0 ? respLen : null;
-
-    // IMPORTANT:
-    // - Pass the messages array via `prompt`
-    // - Do NOT also pass `systemPrompt` (that would create mixed shapes)
-    // - For OpenAI, disable instructOverride (ST’s default behavior)
-    // - quietToLoud=false to keep the message array untouched
-    return String(
-        await stGenerateRaw({
-            prompt: messages,          // <-- array of {role, content:string}
-            api: null,                 // use main_api
-            instructOverride: !isOAI ? true : false,
-            quietToLoud: false,        // don't reshuffle into system mode
-            systemPrompt: '',          // <-- VERY important: keep empty here
-            responseLength: respLenArg,
-            trimNames: true,
-            prefill: '',
-            jsonSchema: null,
-        })
-    ).trim();
-}
-
-
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
@@ -1482,11 +1393,17 @@ async function onSendToLLM(isRegen = false) {
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
 
-        const res = await gwGenerateMacroSafe({
-            rawPrompt,
-            systemPrompt,
-            responseLength: approxRespLen,
-        });
+        const res = await stGenerateRaw(
+            String(rawPrompt),
+            null,
+            true,
+            true,
+            String(systemPrompt),
+            approxRespLen,
+            true,
+            '',
+            null
+        );
 
         const llmResText = String(res || '').trim();
 
