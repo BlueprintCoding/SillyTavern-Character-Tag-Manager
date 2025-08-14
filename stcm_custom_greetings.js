@@ -1400,17 +1400,16 @@ async function onSendToLLM(isRegen = false) {
         const USRs = instruct.input_suffix                ?? '';
         const BOT  = instruct.output_sequence             ?? '';
 
-        // Guard: if any of the critical sequences are missing, fall back to linear
         if (!SYS || !USR || !BOT) {
             console.warn('[GW] Missing instruct tokens; falling back to linear prompt.');
             return `${systemContent}\n\n${historyWrapped || ''}\n${userContent}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
         }
 
         return (
-            SYS + sysPrefix + systemContent + sysSuffix + (SYSs || '') +  // close system
-            (historyWrapped || '') +                                      // closed history
-            USR + userContent + (USRs || '') +                            // close new user
-            BOT + (assistantPrefill || '')                                // OPEN assistant; no BOT suffix
+            SYS + sysPrefix + systemContent + sysSuffix + (SYSs || '') +
+            (historyWrapped || '') +
+            USR + userContent + (USRs || '') +
+            BOT + (assistantPrefill || '')
         );
     }
 
@@ -1459,19 +1458,17 @@ async function onSendToLLM(isRegen = false) {
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const preferredBlock = buildPreferredSceneBlock();
 
-        // Build BOTH history variants now
         const chatHistoryBlock   = buildRecentHistoryBlock(historyLimit);
         const instructCfg        = getInstructConfig();
-        const instructIsOn       = !!(instructCfg && instructCfg.enabled) || false; // extension toggle
+        const instructIsOn       = !!(instructCfg && instructCfg.enabled) || false;
         const profile            = getSelectedProfile();
-        const profileSaysInstruct= profileInstructEnabled(profile);                 // profile toggle
+        const profileSaysInstruct= profileInstructEnabled(profile);
         const instructEnabled    = instructIsOn || profileSaysInstruct;
 
         const instructHistory = instructEnabled ? buildInstructHistory(historyLimit, instructCfg || {}) : '';
 
-        // Core user instruction text
         const coreUserInstruction = [
-            chatHistoryBlock,                   // harmless if empty
+            chatHistoryBlock,
             preferredBlock ? `\n${preferredBlock}\n` : '',
             '- Follow the USER_INSTRUCTION using the character data as context.' +
             '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
@@ -1480,7 +1477,6 @@ async function onSendToLLM(isRegen = false) {
             lastUserMsg,
         ].join('\n');
 
-        // token target
         const approxRespLen = Math.ceil(
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
@@ -1495,13 +1491,28 @@ async function onSendToLLM(isRegen = false) {
 
         // ===== OpenAI-family (chat completion) =====
         if (apiMap.selected === 'openai' || profile.mode === 'cc') {
-            const modelResolved = profile.model || null;
+            const modelResolved='';
             if (!modelResolved) { appendBubble('assistant', 'Selected profile is missing a model. Please set a model on the profile.'); return; }
 
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
             const reverse_proxy = proxy?.url || null;
             const proxy_password = proxy?.password || null;
+
+            // NEW: read profile start/stop
+            const assistantPrefill = (profile['start-reply-with'] || '').trim();
+            let stoppingStrings = getProfileStops(profile);
+
+            // If instruct is enabled, merge in stop sequences (common END_OF_TURN)
+            if (instructEnabled && instructCfg) {
+                stoppingStrings = mergeStops(
+                    stoppingStrings,
+                    instructCfg.stop_sequence,
+                    instructCfg.output_suffix
+                );
+            }
+            // dedupe
+            stoppingStrings = [...new Set(stoppingStrings)];
 
             const requestPayload = {
                 stream: false,
@@ -1511,8 +1522,9 @@ async function onSendToLLM(isRegen = false) {
                 ],
                 chat_completion_source: apiMap.source,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                model: modelResolved,
+                model,
                 temperature,
+                ...(stoppingStrings.length ? { stop: stoppingStrings } : {}),
                 ...(custom_url     ? { custom_url } : {}),
                 ...(reverse_proxy  ? { reverse_proxy } : {}),
                 ...(proxy_password ? { proxy_password } : {}),
@@ -1520,12 +1532,13 @@ async function onSendToLLM(isRegen = false) {
 
             console.log('[GW] OpenAI-family request (preview):', {
                 source: requestPayload.chat_completion_source,
-                model: requestPayload.model,
+                model,
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
                 has_custom_url: !!custom_url,
                 has_reverse_proxy: !!reverse_proxy,
                 messages_shape: requestPayload.messages.map(m => m.role),
+                stop: stoppingStrings,
             });
 
             const response = await ChatCompletionService.processRequest(
@@ -1537,17 +1550,21 @@ async function onSendToLLM(isRegen = false) {
 
             llmResText = String(response?.content || '').trim();
 
+            // NEW: enforce "start-reply-with" if provided and missing at the front
+            if (assistantPrefill && llmResText && !llmResText.startsWith(assistantPrefill)) {
+                llmResText = assistantPrefill + llmResText;
+            }
+
         // ===== TextCompletion-family (TC) with instruct wrapping =====
         } else if (apiMap.selected === 'textgenerationwebui' || profile.mode === 'tc') {
             const api_server = profile['api-url'] || null;
-            const model      = profile.model || null;
+            const model = '';
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
             let stoppingStrings = getProfileStops(profile);
 
             if (instructEnabled && instructCfg) {
-                // Build a clean user body (no <RECENT_HISTORY> markup; history already wrapped)
                 const userContent = [
                     preferredBlock ? `\n${preferredBlock}\n` : '',
                     '- Follow the USER_INSTRUCTION using the character data as context.' +
@@ -1565,22 +1582,15 @@ async function onSendToLLM(isRegen = false) {
                     assistantPrefill
                 );
 
-                // include instruct stops
                 stoppingStrings = mergeStops(
                     stoppingStrings,
-                    instructCfg.stop_sequence,   // usually <|END_OF_TURN_TOKEN|>
-                    instructCfg.output_suffix    // often also <|END_OF_TURN_TOKEN|>
+                    instructCfg.stop_sequence,
+                    instructCfg.output_suffix
                 );
-
-                // OPTIONAL: guard phrase(s) like next speaker cue
-                // stoppingStrings = mergeStops(stoppingStrings, '\nJake:');
-
             } else {
-                // No instruct: linear fallback
                 promptToSend = `${String(systemPrompt)}\n\n${String(coreUserInstruction)}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
             }
 
-            // Dedupe
             stoppingStrings = [...new Set(stoppingStrings)];
 
             const requestPayload = {
@@ -1592,13 +1602,12 @@ async function onSendToLLM(isRegen = false) {
                 ...(api_server ? { api_server } : {}),
                 ...(model ? { model } : {}),
                 ...(stoppingStrings.length ? { stop: stoppingStrings, stopping_strings: stoppingStrings } : {}),
-                // You can also add: trim_stop: true, skip_special_tokens: true
             };
 
             console.log('[GW] TGW-family request (preview):', {
                 api_type: requestPayload.api_type,
                 api_server: requestPayload.api_server || '(default)',
-                model: requestPayload.model || '(none)',
+                model,
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
                 prompt_starts_with: requestPayload.prompt.slice(0, 120),
