@@ -1332,83 +1332,73 @@ async function onSendToLLM(isRegen = false) {
     };
 
     // ===== /model override =====
-    async function getCurrentModelOverride() {
-        const TAG = '[GW]/model';
+    function getModelFromContextByApi(profile) {
+        const TAG = '[GW]/model(ctx)';
         try {
-            const execWithOpts =
-                window?.executeSlashCommandsWithOptions ??
-                window?.executeSlashCommands ?? // legacy wrapper
-                null;
+            ensureCtx();
+            const apiRaw = String(profile?.api || '').toLowerCase();
+            console.log(`${TAG} profile.api:`, apiRaw);
     
-            console.log(`${TAG} resolver:`, execWithOpts ? (execWithOpts.name || '(anonymous fn)') : null);
-    
-            if (!execWithOpts) {
-                console.warn(`${TAG} no executeSlashCommands* function found on window`);
+            if (!apiRaw) {
+                console.warn(`${TAG} missing profile.api`);
                 return null;
             }
     
-            console.log(`${TAG} calling: /model --quiet=true`);
-            const res = await execWithOpts('/model --quiet=true', {
-                handleParserErrors: true,
-                handleExecutionErrors: true,
-                source: 'GreetingWorkshop',
-            });
+            // Normalize a few common aliases to a canonical provider key
+            const alias = {
+                oai: 'openai',
+                openai: 'openai',
+                google: 'google',
+                vertexai: 'vertexai',
+                ai21: 'ai21',
+                mistralai: 'mistralai',
+                cohere: 'cohere',
+                perplexity: 'perplexity',
+                groq: 'groq',
+                nanogpt: 'nanogpt',
+                zerooneai: 'zerooneai',
+                deepseek: 'deepseek',
+                xai: 'xai',
+                pollinations: 'pollinations',
+                koboldcpp: 'koboldcpp',
+                kcpp: 'koboldcpp',
+                // you can add more here as needed (e.g. openrouter -> openrouter)
+            };
     
-            console.log(`${TAG} raw result:`, res);
+            const canon = alias[apiRaw] || apiRaw;
     
-            if (res == null) {
-                console.warn(`${TAG} result is null/undefined`);
-                return null;
-            }
-    
-            // Try a bunch of likely fields first
-            const candidates = [
-                res?.returnValue, res?.result, res?.text, res?.message,
-                res?.output,
-                Array.isArray(res?.outputs) ? res.outputs.join(' ') : null,
-                res?.data?.model, res?.data?.value, res?.data?.text,
+            // Where we’ll look for the key
+            const containers = [
+                { name: 'ctx', obj: ctx },
+                { name: 'ctx.extensionSettings', obj: ctx?.extensionSettings },
+                { name: 'ctx.settings', obj: ctx?.settings },
+                { name: 'window', obj: window },
             ];
     
-            console.log(`${TAG} candidates (pre-filter):`, candidates);
+            // Keys to try (prefer canonical)
+            const keys = [`${canon}_model`, `${apiRaw}_model`];
     
-            for (let i = 0; i < candidates.length; i++) {
-                const c = candidates[i];
-                if (typeof c === 'string' && c.trim()) {
-                    const cleaned = c.trim().replace(/^"+|"+$/g, '');
-                    console.log(`${TAG} matched candidate[${i}] =>`, cleaned);
-                    return cleaned;
-                }
-            }
+            console.log(`${TAG} candidates:`, keys, 'containers:', containers.map(c => c.name));
     
-            // Fallback: scan variables object
-            if (res?.variables && typeof res.variables === 'object') {
-                const keys = Object.keys(res.variables);
-                console.log(`${TAG} scanning variables keys:`, keys);
-    
-                for (const k of keys) {
-                    const v = res.variables[k];
-                    console.log(`${TAG} variables.${k}:`, v);
-    
-                    let val = null;
-                    if (typeof v === 'string') val = v;
-                    else if (v && typeof v.value === 'string') val = v.value;
-    
-                    if (val && val.trim()) {
-                        const cleaned = val.trim().replace(/^"+|"+$/g, '');
-                        console.log(`${TAG} matched from variables.${k} =>`, cleaned);
+            for (const key of keys) {
+                for (const c of containers) {
+                    const v = c.obj?.[key];
+                    if (typeof v === 'string' && v.trim()) {
+                        const cleaned = v.trim();
+                        console.log(`${TAG} found ${key} in ${c.name} =>`, cleaned);
                         return cleaned;
                     }
                 }
             }
     
-            console.log(`${TAG} no model string found; returning null`);
+            console.log(`${TAG} no model found for keys:`, keys);
             return null;
-    
         } catch (e) {
-            console.warn(`${TAG} failed:`, e);
+            console.warn('[GW]/model(ctx) error:', e);
             return null;
         }
     }
+    
     
 
     // CONNECT_API_MAP resolution
@@ -1638,7 +1628,10 @@ async function onSendToLLM(isRegen = false) {
         const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo);
 
         // ---- Resolve model using /model override first
-        const modelOverride = await getCurrentModelOverride();
+        // NEW:
+        const modelFromCtx = getModelFromContextByApi(profile);
+        console.log('[GW] modelFromCtx:', modelFromCtx, 'profile.model:', profile.model);
+
         const temperature = getTemperature();
         let llmResText = '';
 
@@ -1647,7 +1640,8 @@ async function onSendToLLM(isRegen = false) {
 
         // ===== Chat-completion family (OpenAI-like) =====
         if (family === 'cc' || apiInfo.selected === 'openai') {
-            const modelResolved = modelOverride || profile.model || null; // optional
+            const modelResolved = modelFromCtx || profile.model || null;
+            console.log('[GW] CC modelResolved:', modelResolved);
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
             const reverse_proxy = proxy?.url || null;
@@ -1702,7 +1696,8 @@ async function onSendToLLM(isRegen = false) {
         // ===== Text-completion family (TGW/Kobold/Novel/Horde) =====
         } else {
             const api_server = profile['api-url'] || null;
-            const modelResolved = modelOverride || profile.model || null; // optional
+            const modelResolved = modelFromCtx || profile.model || null;
+            console.log('[GW] TC modelResolved:', modelResolved);
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
