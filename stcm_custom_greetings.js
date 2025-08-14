@@ -588,8 +588,8 @@ function replaceCharPlaceholders(str, charName) {
 function transformCardForLLM(obj, charName) {
     if (obj == null) return obj;
     if (typeof obj === 'string') {
-        const withChar = replaceCharPlaceholders(obj, charName);
-        const withMaskedUser = maskUserPlaceholders(withChar);
+        const withChar = obj;
+        const withMaskedUser = withChar;
         return withMaskedUser;
     }
     if (Array.isArray(obj)) {
@@ -1361,62 +1361,38 @@ function buildRecentHistoryBlock(limit = 5) {
     ].join('\n');
 }
 
-// Add this helper near your other helpers in stcm_custom_greetings.js
-async function gwGenerateSingleString({ rawPrompt, systemPrompt, responseLength = null }) {
-    // Coerce everything to primitive strings
-    const sys = String(systemPrompt ?? '');
-    const usr = String(rawPrompt ?? '');
+async function gwGenerateMacroSafe({ rawPrompt, systemPrompt, responseLength = null }) {
+    const isOAI = (typeof window !== 'undefined' && window.main_api === 'openai');
 
-    // Inline the system into the SAME string to avoid separate system blocks
-    const combined = [
-        '--- SYSTEM ---',
-        sys,
-        '--- END SYSTEM ---',
-        '',
-        usr,
-    ].join('\n');
+    // Build a chat-style prompt where EVERY content is a string.
+    // This avoids createRawPrompt(substituteParams) hitting non-string content.
+    const messages = [
+        { role: 'system', content: String(systemPrompt ?? '') },
+        { role: 'user',   content: String(rawPrompt ?? '') },
+    ];
 
     const respLen = Number(responseLength);
     const respLenArg = Number.isFinite(respLen) && respLen > 0 ? respLen : null;
 
     // IMPORTANT:
-    //  - prompt: a single STRING
-    //  - systemPrompt: '' (empty) so core won’t create a second system message
-    //  - quietToLoud: false to keep prompt as-is (no reshaping)
-    //  - instructOverride: follow ST default (disable for OpenAI)
-    const isOAI = (typeof window !== 'undefined' && window.main_api === 'openai');
-
-    try {
-        const out = await stGenerateRaw({
-            prompt: combined,       // <-- SINGLE STRING ONLY
-            api: null,              // use current main_api/profile
-            instructOverride: !isOAI,
-            quietToLoud: false,
-            systemPrompt: '',       // <-- DO NOT pass system here; we inlined it
+    // - Pass the messages array via `prompt`
+    // - Do NOT also pass `systemPrompt` (that would create mixed shapes)
+    // - For OpenAI, disable instructOverride (ST’s default behavior)
+    // - quietToLoud=false to keep the message array untouched
+    return String(
+        await stGenerateRaw({
+            prompt: messages,          // <-- array of {role, content:string}
+            api: null,                 // use main_api
+            instructOverride: !isOAI ? true : false,
+            quietToLoud: false,        // don't reshuffle into system mode
+            systemPrompt: '',          // <-- VERY important: keep empty here
             responseLength: respLenArg,
             trimNames: true,
             prefill: '',
             jsonSchema: null,
-        });
-        return String(out ?? '').trim();
-    } catch (err) {
-        // As a belt-and-suspenders fallback, stringify anything weird and retry once
-        const safeCombined = String(combined);
-        const out2 = await stGenerateRaw({
-            prompt: safeCombined,
-            api: null,
-            instructOverride: !isOAI,
-            quietToLoud: false,
-            systemPrompt: '',
-            responseLength: respLenArg,
-            trimNames: true,
-            prefill: '',
-            jsonSchema: null,
-        });
-        return String(out2 ?? '').trim();
-    }
+        })
+    ).trim();
 }
-
 
 
 async function onSendToLLM(isRegen = false) {
@@ -1506,12 +1482,12 @@ async function onSendToLLM(isRegen = false) {
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
 
-        const res = await gwGenerateSingleString({
+        const res = await gwGenerateMacroSafe({
             rawPrompt,
             systemPrompt,
             responseLength: approxRespLen,
         });
-        
+
         const llmResText = String(res || '').trim();
 
         const realUsername = getRealUsername();
