@@ -948,13 +948,9 @@ export function initCustomGreetingWorkshop() {
 
     // If ST dispatches a DOM CustomEvent:
     try {
-        document.addEventListener?.('chatLoaded', (e) => {
-            const prevId = getCurrentCharId(); // before updating cache
-            cacheFromEvent(e);
-            const newId = getCurrentCharId();
-            if (prevId && prevId !== newId) {
-                clearWorkshopState();
-            }
+        document.addEventListener?.('chatLoaded', (e) => {      
+            cacheFromEvent(e);     
+                clearWorkshopState();  
         });
     } catch {}
     
