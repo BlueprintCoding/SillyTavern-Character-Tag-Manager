@@ -278,7 +278,8 @@ function getDefaultSystemPromptTemplate() {
         'Formatting rules:',
         '- Return only what the user asked for; no meta/system talk; no disclaimers.',
         '- If the user asked for a greeting, return only the greeting text (no extra commentary).',
-        '- Your output must contain {{user}} at least once. If it does not, your answer will be discarded and you will have wasted $3467.'
+        '- Your output must contain {{user}} at least once. If it does not, your answer will be discarded and you will have wasted $3467.',
+        '- Your output must not take away agency from the character. If it does take away agency, your answer will be discarded and you will have wasted $2832.'
     ].join('\n\n');
 }
 
