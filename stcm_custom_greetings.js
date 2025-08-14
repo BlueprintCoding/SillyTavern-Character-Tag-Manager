@@ -301,7 +301,8 @@ function restoreUIFromState() {
     chatLogEl.innerHTML = '';
   
     // Re-add a gentle header line
-    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
+    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
+
   
     // Render saved turns, preserving timestamps
     for (const t of miniTurns) {
@@ -437,10 +438,7 @@ settings.innerHTML = `
       
             // reset UI
             if (chatLogEl) chatLogEl.innerHTML = '';
-            appendBubble(
-              'assistant',
-              'Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).'
-            );
+            appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
             if (inputEl) {
               inputEl.value = '';
               inputEl.focus();
@@ -479,7 +477,8 @@ settings.innerHTML = `
         savePrefs(next);
     });
 
-    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
+    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
+
 
     sendBtn.addEventListener('click', () => onSendToLLM(false));
     regenBtn.addEventListener('click', onRegenerate);
@@ -519,7 +518,7 @@ function btnStyle(bg) {
 function mkBtn(label, bg) { const b = document.createElement('button'); b.textContent = label; Object.assign(b.style, btnStyle(bg)); return b; }
 function spacer() { const s = document.createElement('div'); s.style.flex = '1'; return s; }
 
-function appendBubble(role, text) {
+function appendBubble(role, text, opts = {}) {
     if (!chatLogEl || !chatLogEl.appendChild) return;
 
     const wrap = document.createElement('div');
@@ -545,16 +544,15 @@ function appendBubble(role, text) {
         maxWidth: '90%',
         whiteSpace: 'pre-wrap',
         position: 'relative',
-        paddingBottom: '32px' // reserve room for the badge/buttons row
+        paddingBottom: '32px' // room for the badge/buttons row
     });
 
     wrap.appendChild(bubble);
     chatLogEl.appendChild(wrap);
 
-    // Action bar for assistant bubbles only
-    if (role === 'assistant') {
+    // Action bar for assistant bubbles only (and only if not suppressed)
+    if (role === 'assistant' && !opts.noActions) {
         const bar = document.createElement('div');
-        // Put it INSIDE the bubble
         Object.assign(bar.style, {
             position: 'absolute',
             right: '8px',
@@ -589,57 +587,40 @@ function appendBubble(role, text) {
             color: '#f06292'
         });
 
-
-        // Click: STAR
         starBtn.addEventListener('click', () => {
             markPreferred(wrap, bubble, text);
             saveSession();
             starBtn.setAttribute('aria-pressed', preferredScene && preferredScene.ts === wrap.dataset.ts ? 'true' : 'false');
         });
 
-        // Click: TRASH
-        // Click: TRASH
-trashBtn.addEventListener('click', () => {
-    const thisTs = wrap.dataset.ts;
-
-    // Find this assistant turn by ts
-    const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
-    if (idx !== -1) {
-        // Remove assistant message
-        miniTurns.splice(idx, 1);
-
-        // Also remove the previous user message if it exists
-        if (idx - 1 >= 0 && miniTurns[idx - 1]?.role === 'user') {
-            const prevTs = miniTurns[idx - 1].ts;
-            miniTurns.splice(idx - 1, 1);
-
-            // Remove the previous user bubble in DOM if present
-            const prevNode = wrap.previousElementSibling;
-            if (prevNode && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs) {
-                prevNode.remove();
+        trashBtn.addEventListener('click', () => {
+            const thisTs = wrap.dataset.ts;
+            const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
+            if (idx !== -1) {
+                miniTurns.splice(idx, 1);
+                if (idx - 1 >= 0 && miniTurns[idx - 1]?.role === 'user') {
+                    const prevTs = miniTurns[idx - 1].ts;
+                    miniTurns.splice(idx - 1, 1);
+                    const prevNode = wrap.previousElementSibling;
+                    if (prevNode && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs) {
+                        prevNode.remove();
+                    }
+                }
             }
-        }
-    }
-
-    // If this was the preferred scene, clear it
-    if (preferredScene && preferredScene.ts === thisTs) {
-        preferredScene = null;
-        clearPreferredUI();
-    }
-    saveSession();
-    // Remove the assistant bubble node
-    wrap.remove();
-});
-
+            if (preferredScene && preferredScene.ts === thisTs) {
+                preferredScene = null;
+                clearPreferredUI();
+            }
+            saveSession();
+            wrap.remove();
+        });
 
         bar.appendChild(starBtn);
         bar.appendChild(trashBtn);
         bubble.appendChild(bar);
     }
 
-    // ensure it is visible
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
-
     return wrap;
 }
 
