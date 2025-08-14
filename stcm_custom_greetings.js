@@ -169,7 +169,23 @@ function getCharId() {
     return String(ctx?.characterId ?? activeCharId ?? 'global');
 }
 
-  
+function isWelcomePanelOpen() {
+    const wp = document.querySelector('#chat .welcomePanel');
+    if (!wp) return false;
+
+    // Robust visibility check (covers class-based and style-based hiding)
+    const style = window.getComputedStyle(wp);
+    const visuallyHidden = style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
+    const noBox = (wp.offsetWidth === 0 && wp.offsetHeight === 0 && wp.getClientRects().length === 0);
+
+    return !(visuallyHidden || noBox);
+}
+
+function removeWorkshopButton() {
+    const btn = document.getElementById('stcm-gw-btn');
+    if (btn) btn.remove();
+}
+
 
 
 /* --------------------- CHARACTER JSON --------------------- */
@@ -422,7 +438,7 @@ function openWorkshop() {
     });
 
     const header = document.createElement('div');
-    header.textContent = 'Greeting Workshop';
+    header.textContent = '🧠 Greeting Workshop';
     Object.assign(header.style, {  
         padding: '10px 12px',  
         borderBottom: '1px solid #444',  
@@ -935,11 +951,17 @@ function findHeaderMount() {
 }
 
 function injectWorkshopButton() {
+        // If welcome panel is up, do not show the Greeting Workshop button
+        if (isWelcomePanelOpen()) {
+            removeWorkshopButton();
+            return;
+        }
+
     if (document.getElementById('stcm-gw-btn')) return;
     const mount = findHeaderMount();
     const btn = document.createElement('button');
     btn.id = 'stcm-gw-btn';
-    btn.textContent = '✨ Greeting Workshop';
+    btn.textContent = '🧠 Greeting Workshop';
     Object.assign(btn.style, {
         padding: '4px 10px', margin: '4px 0',
         background: '#333', color: '#fff', border: '1px solid #666', borderRadius: '6px', cursor: 'pointer'
@@ -1006,7 +1028,14 @@ export function initCustomGreetingWorkshop() {
         return origEmit.apply(this, arguments);
     };
 
-    const tryInject = () => { try { injectWorkshopButton(); } catch { } };
+    const tryInject = () => {
+    if (isWelcomePanelOpen()) {
+        removeWorkshopButton(); // ensure it disappears if user lands on welcome
+        return;
+    }
+    try { injectWorkshopButton(); } catch {}
+};
+
     if (document.readyState !== 'loading') setTimeout(tryInject, 60);
     document.addEventListener('DOMContentLoaded', () => setTimeout(tryInject, 120));
 
