@@ -303,60 +303,81 @@ function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
 }
 
 // --- Enforcement config: single retry, no fallback injection ---
-const MAX_USER_TOKEN_REVISIONS = 1;
+const MAX_USER_TOKEN_REVISIONS = 0;
+
+/**
+ * No retries. If the model used the real username, replace it with {{user}}.
+ * Otherwise return text unchanged.
+ */
+async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
+    let current = String(text || '');
+    if (!current) return current;
+
+    // If the literal {{user}} is already present, keep as-is.
+    if (containsUserToken(current)) return current;
+
+    // If the real username (optionally braced) appears, normalize it to {{user}}.
+    if (containsRealUsername(current, realUsername)) {
+        return replaceRealUsernameWithToken(current, realUsername);
+    }
+
+    // Otherwise, do nothing (no retries, no injection attempts).
+    return current;
+}
+
 
 /**
  * One retry to encourage literal {{user}}.
  * Accepts outputs that use the *real username* (no further retries).
  * No fallback injection.
  */
-async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
-    let current = String(text || '');
-    if (containsUserToken(current) || containsRealUsername(current, realUsername)) {
-        current = replaceRealUsernameWithToken(current, realUsername);
-        return current;
-    }
+// async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
+//     let current = String(text || '');
+//     if (containsUserToken(current) || containsRealUsername(current, realUsername)) {
+//         current = replaceRealUsernameWithToken(current, realUsername);
+//         return current;
+//     }
 
-    let attempts = 0;
-    while (attempts < MAX_USER_TOKEN_REVISIONS) {
-        attempts += 1;
-        console.log(`[GW] Attempt ${attempts}: {{user}} not found, retrying...`);
+//     let attempts = 0;
+//     while (attempts < MAX_USER_TOKEN_REVISIONS) {
+//         attempts += 1;
+//         console.log(`[GW] Attempt ${attempts}: {{user}} not found, retrying...`);
 
-        const revisionPrompt = buildUserHookRevisionPrompt(
-            current,
-            Math.max(1, Number(prefs?.numParagraphs || 3)),
-            Math.max(1, Number(prefs?.sentencesPerParagraph || 3))
-        );
+//         const revisionPrompt = buildUserHookRevisionPrompt(
+//             current,
+//             Math.max(1, Number(prefs?.numParagraphs || 3)),
+//             Math.max(1, Number(prefs?.sentencesPerParagraph || 3))
+//         );
 
-        try {
-            const revised = await stGenerateRaw(
-                String(revisionPrompt),
-                null,
-                true,
-                true,
-                String(systemPrompt),
-                current.length + 200,
-                true,
-                '',
-                null
-            );
+//         try {
+//             const revised = await stGenerateRaw(
+//                 String(revisionPrompt),
+//                 null,
+//                 true,
+//                 true,
+//                 String(systemPrompt),
+//                 current.length + 200,
+//                 true,
+//                 '',
+//                 null
+//             );
 
-            const revisedText = String(revised || '').trim();
-            if (!revisedText) break;
+//             const revisedText = String(revised || '').trim();
+//             if (!revisedText) break;
 
-            current = replaceRealUsernameWithToken(revisedText, realUsername);
-            if (containsUserToken(current)) {
-                console.log(`[GW] Success on attempt ${attempts}: {{user}} found`);
-                break;
-            }
-        } catch (err) {
-            console.warn('[GW] Single retry to inject {{user}} failed:', err);
-            break;
-        }
-    }
+//             current = replaceRealUsernameWithToken(revisedText, realUsername);
+//             if (containsUserToken(current)) {
+//                 console.log(`[GW] Success on attempt ${attempts}: {{user}} found`);
+//                 break;
+//             }
+//         } catch (err) {
+//             console.warn('[GW] Single retry to inject {{user}} failed:', err);
+//             break;
+//         }
+//     }
 
-    return current;
-}
+//     return current;
+// }
 
 function containsRealUsername(text, realUsername) {
     if (!realUsername) return false;
