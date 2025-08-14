@@ -607,7 +607,6 @@ function appendBubble(role, text, opts = {}) {
     const bubble = document.createElement('div');
     bubble.className = 'gw-bubble';
 
-    // content wrapper so we can safely replace just text on edit
     const content = document.createElement('div');
     content.className = 'gw-content';
     content.textContent = text;
@@ -645,7 +644,6 @@ function appendBubble(role, text, opts = {}) {
             opacity: '0.9'
         });
 
-        // ⭐ Preferred
         const starBtn = document.createElement('button');
         starBtn.type = 'button';
         starBtn.title = 'Mark as preferred (keep almost the same next time)';
@@ -658,7 +656,6 @@ function appendBubble(role, text, opts = {}) {
             color: '#ffd54f'
         });
 
-        // ✏️ Edit (inline editor for this assistant message)
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
         editBtn.title = 'Edit this assistant message';
@@ -670,7 +667,6 @@ function appendBubble(role, text, opts = {}) {
             padding: '0 2px'
         });
 
-        // 📋 Copy (copies this assistant message)
         const copyBtn = document.createElement('button');
         copyBtn.type = 'button';
         copyBtn.title = 'Copy this assistant message';
@@ -682,7 +678,6 @@ function appendBubble(role, text, opts = {}) {
             padding: '0 2px'
         });
 
-        // 🗑 Delete (assistant + preceding user)
         const trashBtn = document.createElement('button');
         trashBtn.type = 'button';
         trashBtn.title = 'Delete this assistant message and the previous user message';
@@ -696,7 +691,6 @@ function appendBubble(role, text, opts = {}) {
         });
 
         starBtn.addEventListener('click', () => {
-            // take the latest text from state if present
             const thisTs = wrap.dataset.ts;
             const item = miniTurns.find(t => t.role === 'assistant' && t.ts === thisTs);
             const latest = item?.content ?? content.textContent ?? text;
@@ -720,19 +714,35 @@ function appendBubble(role, text, opts = {}) {
             const itemIdx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
             const current = itemIdx !== -1 ? miniTurns[itemIdx].content : (content.textContent ?? text);
 
+            // hide original content + action bar; shrink bottom padding
+            content.style.display = 'none';
+            bar.style.display = 'none';
+            bubble.classList.add('gw-editing');
+            bubble.style.paddingBottom = '8px';
+
             const editor = document.createElement('textarea');
             editor.className = 'gw-inline-editor';
             Object.assign(editor.style, {
+                display: 'block',
                 width: '100%',
-                minHeight: '96px',
-                marginTop: '8px',
+                minHeight: '160px',
                 background: '#222',
                 color: '#eee',
                 border: '1px solid #444',
                 borderRadius: '6px',
-                padding: '8px'
+                padding: '8px',
+                marginTop: '6px',
+                resize: 'vertical'
             });
             editor.value = current;
+
+            // auto-grow to content
+            const autoGrow = () => {
+                editor.style.height = 'auto';
+                editor.style.height = Math.max(160, editor.scrollHeight + 2) + 'px';
+            };
+            editor.addEventListener('input', autoGrow);
+            setTimeout(autoGrow, 0);
 
             const row = document.createElement('div');
             Object.assign(row.style, { display: 'flex', gap: '8px', marginTop: '6px' });
@@ -740,32 +750,41 @@ function appendBubble(role, text, opts = {}) {
             const saveBtn = mkBtn('Save', '#8e44ad');
             const cancelBtn = mkBtn('Cancel', '#616161');
 
-            saveBtn.addEventListener('click', () => {
-                const next = editor.value.trim();
-                content.textContent = next;
-
-                // update state
-                if (itemIdx !== -1) {
-                    miniTurns[itemIdx].content = next;
+            const finish = (didSave) => {
+                if (didSave) {
+                    const next = editor.value.trim();
+                    content.textContent = next;
+                    if (itemIdx !== -1) miniTurns[itemIdx].content = next;
+                    if (preferredScene && preferredScene.ts === thisTs) preferredScene.text = next;
+                    saveSession();
                 }
-                // keep preferred text in sync
-                if (preferredScene && preferredScene.ts === thisTs) {
-                    preferredScene.text = next;
-                }
-
-                saveSession();
                 editor.remove();
                 row.remove();
-            });
+                content.style.display = '';
+                bar.style.display = 'flex';
+                bubble.classList.remove('gw-editing');
+                bubble.style.paddingBottom = hasActions ? '32px' : '8px';
+            };
 
-            cancelBtn.addEventListener('click', () => {
-                editor.remove();
-                row.remove();
+            saveBtn.addEventListener('click', () => finish(true));
+            cancelBtn.addEventListener('click', () => finish(false));
+
+            // keyboard shortcuts
+            editor.addEventListener('keydown', (e) => {
+                if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+                    e.preventDefault();
+                    finish(true);
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    finish(false);
+                }
             });
 
             row.append(saveBtn, cancelBtn);
             bubble.append(editor, row);
             editor.focus();
+            editor.setSelectionRange(editor.value.length, editor.value.length);
         });
 
         trashBtn.addEventListener('click', () => {
@@ -797,6 +816,7 @@ function appendBubble(role, text, opts = {}) {
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
     return wrap;
 }
+
 
 
 async function onRegenerate() {

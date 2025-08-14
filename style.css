@@ -1821,6 +1821,10 @@ dialog.popup #stcm-popup-pin-input:focus {
     font-weight: 500;
   }
   
+/* Greeting Workbench */
+.gw-bubble.gw-editing { 
+    box-shadow: 0 0 0 2px #8e44ad55; 
+}
 
   
 
