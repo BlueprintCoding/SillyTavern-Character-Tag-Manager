@@ -265,6 +265,45 @@ function getDefaultSystemPromptTemplate() {
     ].join('\n\n');
 }
 
+function regexEscape(s) {
+    return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getUserNameCandidates() {
+    const out = new Set();
+
+    try {
+        if (ctx?.name1) out.add(String(ctx.name1).trim());
+        if (ctx?.user?.name) out.add(String(ctx.user.name).trim());
+        // SillyTavern sometimes stores user name in LS; grab common keys if present.
+        const lsKeys = ['your_name', 'user_name', 'st_user_name'];
+        for (const k of lsKeys) {
+            const v = localStorage.getItem(k);
+            if (v) out.add(String(v).trim());
+        }
+    } catch { /* ignore */ }
+
+    // Drop empties and ridiculously short names (e.g., “a”)
+    return [...out].filter(n => n && n.length >= 2);
+}
+
+function containsRealUserName(text) {
+    const t = String(text || '');
+    const names = getUserNameCandidates();
+    for (const n of names) {
+        const re = new RegExp(`\\b${regexEscape(n)}\\b`, 'i');
+        if (re.test(t)) return true;
+    }
+    return false;
+}
+
+function containsUserTokenOrRealName(text) {
+    const hasToken = containsUserToken(text);
+    const hasReal = !hasToken && containsRealUserName(text); // only bother if no token
+    return { hasToken, hasReal };
+}
+
+
 function containsUserToken(text) {
     return /\{\{\s*user\s*\}\}/i.test(String(text || ''));
 }
@@ -289,18 +328,24 @@ function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
 const MAX_USER_TOKEN_REVISIONS = 1;
 
 /**
- * Try at most once to revise the text to include {{user}} while preserving structure.
- * If it still doesn't comply, return the latest model output anyway.
+ * One retry to encourage literal {{user}}.
+ * Accepts outputs that use the *real username* (no further retries).
+ * No fallback injection.
  */
 async function enforceUserTokenSingleRetry(text, prefs, systemPrompt) {
     let current = String(text || '');
-    
-    if (containsUserToken(current)) {
-        console.log('[GW] {{user}} token already present in original text.');
+    let status = containsUserTokenOrRealName(current);
+
+    if (status.hasToken) {
+        console.log('[GW] Compliance: literal {{user}} present in original text.');
+        return current;
+    }
+    if (status.hasReal) {
+        console.log('[GW] Accept: real username present in original text (model substituted name).');
         return current;
     }
 
-    console.log('[GW] {{user}} token missing in original text — attempting single retry.');
+    console.log('[GW] {{user}}/real name missing in original text — attempting single retry.');
     let attempts = 0;
 
     while (attempts < MAX_USER_TOKEN_REVISIONS) {
@@ -332,21 +377,28 @@ async function enforceUserTokenSingleRetry(text, prefs, systemPrompt) {
             }
 
             current = revisedText;
+            status = containsUserTokenOrRealName(current);
 
-            if (containsUserToken(current)) {
-                console.log('[GW] {{user}} token found after retry.');
+            if (status.hasToken) {
+                console.log('[GW] Compliance: literal {{user}} found after retry.');
                 break;
-            } else {
-                console.log('[GW] Retry completed but {{user}} token still missing.');
             }
+            if (status.hasReal) {
+                console.log('[GW] Accept: retry used real username (no literal {{user}}).');
+                break;
+            }
+
+            console.log('[GW] Retry completed but neither {{user}} nor real username found.');
         } catch (err) {
-            console.warn('[GW] Single retry to inject {{user}} failed with error:', err);
+            console.warn('[GW] Single retry to encourage {{user}} failed with error:', err);
             break;
         }
     }
 
+    // Return whatever we have after at most one retry (no fallback)
     return current;
 }
+
 
 
 function renderSystemPromptTemplate(template, vars) {
