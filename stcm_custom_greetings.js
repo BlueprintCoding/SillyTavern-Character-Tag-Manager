@@ -411,40 +411,7 @@ function openWorkshop() {
     acceptBtn = mkBtn('Accept → Replace Start', '#d35400');
 
     const clearBtn = mkBtn('Clear Memory', '#9e2a2a'); // or theme color
-    
-    footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn);
-    
 
-    modal.append(header, settings, body, footer);
-    body.append(chatLogEl, composer);
-    document.body.append(overlay, modal);
-
-    makeDraggable(modal, header);
-
-    // wire settings
-    styleInputEl = settings.querySelector('#gw-style');
-    paraInputEl = settings.querySelector('#gw-paras');
-    sentInputEl = settings.querySelector('#gw-sent');
-    histInputEl = settings.querySelector('#gw-hist');
-
-    settings.addEventListener('change', () => {
-        const next = {
-            style: (styleInputEl.value || 'Follow Character Personality').trim(),
-            numParagraphs: Math.max(1, Math.min(10, Number(paraInputEl.value) || 3)),
-            sentencesPerParagraph: Math.max(1, Math.min(10, Number(sentInputEl.value) || 3)),
-            historyCount: Math.max(0, Math.min(20, Number(histInputEl.value) || 5))
-
-        };
-        savePrefs(next);
-    });
-
-    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
-
-    sendBtn.addEventListener('click', () => onSendToLLM(false));
-    regenBtn.addEventListener('click', onRegenerate);
-    editBtn.addEventListener('click', onEditLastAssistant);
-    copyBtn.addEventListener('click', onCopyLastAssistant);
-    acceptBtn.addEventListener('click', onAccept);
     closeBtn.addEventListener('click', closeWorkshop);
 
     clearBtn.addEventListener('click', () => {
@@ -480,6 +447,41 @@ function openWorkshop() {
         );
       });
       
+    
+    footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn);
+    
+
+    modal.append(header, settings, body, footer);
+    body.append(chatLogEl, composer);
+    document.body.append(overlay, modal);
+
+    makeDraggable(modal, header);
+
+    // wire settings
+    styleInputEl = settings.querySelector('#gw-style');
+    paraInputEl = settings.querySelector('#gw-paras');
+    sentInputEl = settings.querySelector('#gw-sent');
+    histInputEl = settings.querySelector('#gw-hist');
+
+    settings.addEventListener('change', () => {
+        const next = {
+            style: (styleInputEl.value || 'Follow Character Personality').trim(),
+            numParagraphs: Math.max(1, Math.min(10, Number(paraInputEl.value) || 3)),
+            sentencesPerParagraph: Math.max(1, Math.min(10, Number(sentInputEl.value) || 3)),
+            historyCount: Math.max(0, Math.min(20, Number(histInputEl.value) || 5))
+
+        };
+        savePrefs(next);
+    });
+
+    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, emoji policy, etc.).');
+
+    sendBtn.addEventListener('click', () => onSendToLLM(false));
+    regenBtn.addEventListener('click', onRegenerate);
+    editBtn.addEventListener('click', onEditLastAssistant);
+    copyBtn.addEventListener('click', onCopyLastAssistant);
+    acceptBtn.addEventListener('click', onAccept);
+    
 
     inputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
