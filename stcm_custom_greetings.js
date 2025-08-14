@@ -287,7 +287,8 @@ function getRealUsername() {
 }
 
 function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
-    // Ask the model to revise while preserving structure and adding {{user}} once.
+    const safePrev = toPlainText(prevText);
+
     return [
         'Revise the text below to meet ALL requirements:',
         '- Include the literal token "{{user}}" exactly as written at least once, either',
@@ -297,10 +298,11 @@ function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
         '- Keep content otherwise the same and do not add meta commentary. Return only the revised text.',
         '',
         '--- TEXT START ---',
-        prevText,
+        safePrev,
         '--- TEXT END ---'
     ].join('\n');
 }
+
 
 // --- Enforcement config: single retry, no fallback injection ---
 const MAX_USER_TOKEN_REVISIONS = 0;
@@ -311,7 +313,9 @@ const MAX_USER_TOKEN_REVISIONS = 0;
  * No fallback injection.
  */
 async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
-    let current = String(text || '');
+    let current = toPlainText(text || '');
+
+    // Early accept if it's already compliant (or uses the real username)
     if (containsUserToken(current) || containsRealUsername(current, realUsername)) {
         current = replaceRealUsernameWithToken(current, realUsername);
         return current;
@@ -341,10 +345,12 @@ async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUserna
                 null
             );
 
-            const revisedText = String(revised || '').trim();
+            let revisedText = toPlainText(revised || '').trim();
             if (!revisedText) break;
 
-            current = replaceRealUsernameWithToken(revisedText, realUsername);
+            revisedText = replaceRealUsernameWithToken(revisedText, realUsername);
+            current = revisedText;
+
             if (containsUserToken(current)) {
                 console.log(`[GW] Success on attempt ${attempts}: {{user}} found`);
                 break;
@@ -1271,7 +1277,7 @@ function appendBubble(role, text, opts = {}) {
                 if (didSave) {
                     const next = editor.value.trim();
                     content.textContent = next;
-                    if (itemIdx !== -1) miniTurns[itemIdx].content = next;
+                    if (itemIdx !== -1) toPlainText(next);
                     if (preferredScene && preferredScene.ts === thisTs) preferredScene.text = next;
                     saveSession();
                 }
@@ -1405,7 +1411,8 @@ async function onSendToLLM(isRegen = false) {
     if (!regen && typedForSend) {
         const userWrap = appendBubble('user', typedForSend);
         const userTs = userWrap?.dataset?.ts || String(Date.now());
-        miniTurns.push({ role: 'user', content: typedForSend, ts: userTs });
+        miniTurns.push({ role: 'user', content: toPlainText(typedForSend), ts: userTs });
+
         saveSession();
 
         // clear input and keep focus for fast iteration
@@ -1493,7 +1500,8 @@ async function onSendToLLM(isRegen = false) {
             // Append new assistant turn
             const asstWrap = appendBubble('assistant', finalText);
             const asstTs = asstWrap?.dataset?.ts || String(Date.now());
-            miniTurns.push({ role: 'assistant', content: finalText, ts: asstTs });
+            miniTurns.push({ role: 'assistant', content: toPlainText(finalText), ts: asstTs });
+
             saveSession();
         }
 
