@@ -469,18 +469,10 @@ settings.innerHTML = `
 
     closeBtn.addEventListener('click', closeWorkshop);
 
-clearBtn.addEventListener('click', () => {
-    callGenericPopup(
-        'Clear workshop memory (history & preferred scene)?',
-        POPUP_TYPE.CONFIRM
-    ).then(result => {
-        if (result === true || result === 'confirm' || result === 'ok') {
-            clearWorkshopState(); 
-        }
-    }).catch(() => {
+    clearBtn.addEventListener('click', async () => {
+        const result = await callGenericPopup('Clear…', POPUP_TYPE.CONFIRM);
+        if (result === true || result === 'confirm' || result === 'ok') clearWorkshopState();
     });
-});
-
       
     
     footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn);
