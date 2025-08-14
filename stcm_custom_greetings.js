@@ -240,34 +240,36 @@ function saveCustomSystemPrompt(cfg) {
     return safe;
 }
 
+
 function getDefaultSystemPromptTemplate() {
     // IMPORTANT: buildCharacterJSONBlock() is appended after rendering.
     return [
-        'You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.',
-        'Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.',
-        'Target tone: ${style}.',
-        'Your top priority is to FOLLOW THE USER\'S INSTRUCTION.',
-        '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
-        '- Maintain the same structure (paragraph count and sentences per paragraph).',
-        '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
-        '',
-        'Open-endedness: Make the scene action-oriented and involve the user as an active participant and explicitly have {{user}} as a participant. Do not fully resolve conflicts or decisions unless the user directs otherwise.',
-        '',
-        'HARD REQUIREMENTS:',
-        '  (1) The character acts with their own agency. Do NOT ask the user to decide what the character will do.',
-        '  (2) unless the user explicitly forbids addressing the user: include the literal token "{{user}}" exactly as written at least once, either:',
-        '',
-        'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
-        'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
-        'Use ONLY the provided JSON as ground truth for the scene.',
-        '',
-        'Formatting rules:',
-        '- Return only what the user asked for; no meta/system talk; no disclaimers.',
-        '- If the user asked for a greeting, return only the greeting text (no extra commentary).',
-        '- Your output must contain {{user}} at least once, do not alter the braces, casing, or spacing of {{user}}.. If it does not, your answer will be discarded and you will have wasted $3467.',
-        '- Your output must not take away agency from the character. If it does take away agency, your answer will be discarded and you will have wasted $2832.'
+      'You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.',
+      'Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.',
+      'Target tone: ${style}.',
+  
+      'Your top priority is to FOLLOW THE USER\'S INSTRUCTION.',
+      '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
+      '- Maintain the same structure (paragraph count and sentences per paragraph).',
+      '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
+  
+      'Open-endedness: Make the scene action-oriented and involve the user as an active participant and explicitly have {{user}} as a participant. Do not fully resolve conflicts or decisions unless the user directs otherwise.',
+  
+      'HARD REQUIREMENTS:',
+      '  (1) The character acts with their own agency. Do NOT ask the user to decide what the character will do.',
+      '  (2) Unless the user explicitly forbids addressing the user: include the literal token "{{user}}" at least once (you may use it again naturally, up to three total mentions). Use it only inside full sentences of narration or dialogue—never as a standalone line, never repeated back-to-back, and never appended after the scene.',
+  
+      'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
+      'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
+      'Use ONLY the provided JSON as ground truth for the scene.',
+  
+      'Formatting rules:',
+      '- Return only what the user asked for; no meta/system talk; no disclaimers.',
+      '- If the user asked for a greeting, return only the greeting text (no extra commentary).',
+      '- End the output immediately after the final sentence of paragraph ${nParas}. Do not append extra tokens, names, or lines.'
     ].join('\n\n');
-}
+  }
+  
 
 function regexEscape(s) {
     return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
