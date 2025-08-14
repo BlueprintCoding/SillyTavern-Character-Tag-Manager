@@ -1318,90 +1318,92 @@ async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
 
-    // ===== Helpers (inline) =====
+    // ===== Helpers =====
     const getCM = () => ctx?.extensionSettings?.connectionManager || null;
-
     const getSelectedProfile = () => {
-        const cm = getCM();
-        if (!cm) return null;
-        const id = cm.selectedProfile;
-        if (!id || !Array.isArray(cm.profiles)) return null;
+        const cm = getCM(); if (!cm) return null;
+        const id = cm.selectedProfile; if (!id || !Array.isArray(cm.profiles)) return null;
         return cm.profiles.find(p => p.id === id) || null;
     };
-
     const getApiMapForProfile = (profile) => {
         const cmap = ctx?.CONNECT_API_MAP || window?.CONNECT_API_MAP;
         return (cmap && profile?.api) ? cmap[profile.api] : null;
     };
-
     const getTemperature = () => {
         const t = Number(ctx?.extensionSettings?.memory?.temperature);
         return Number.isFinite(t) ? t : undefined;
     };
-
     const getProxyByName = (name) => {
         const list = ctx?.proxies || window?.proxies || [];
         if (!name || name === 'None') return null;
         return Array.isArray(list) ? list.find(p => p.name === name) : null;
     };
-
-    // Instruct config (your sample shape)
-    const getInstructConfig = () => {
-        // prefer extensionSettings.instruct, fallback to ctx.instruct if you keep it there
-        return ctx?.extensionSettings?.instruct || ctx?.instruct || null;
-    };
-
-    // Parse stop strings from profile["stop-strings"] which may be a JSON string like '["<STOP>"]'
+    const getInstructConfig = () => ctx?.extensionSettings?.instruct || ctx?.instruct || null;
     const getProfileStops = (profile) => {
-        const raw = profile?.['stop-strings'];
-        if (!raw) return [];
+        const raw = profile?.['stop-strings']; if (!raw) return [];
         try {
             const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
             return Array.isArray(parsed) ? parsed.filter(s => typeof s === 'string' && s.length) : [];
-        } catch {
-            console.warn('[GW] Could not parse profile stop-strings:', raw);
-            return [];
-        }
+        } catch { console.warn('[GW] Could not parse profile stop-strings:', raw); return []; }
     };
+    const sanitize = (s) => String(s ?? '')
+        .replace(/\r/g, '')
+        .replace(/[^\S\n]+/g, ' ')
+        .replace(/[ \t]+\n/g, '\n')
+        .trim();
 
-    // Build a single string prompt using instruct sequences
-    function buildInstructWrappedPrompt(instruct, systemContent, userContent, prefillAssistant = '') {
-        // Required-ish fields with safe fallbacks
-        const SYS  = instruct?.system_sequence           ?? '';
-        const SYSs = instruct?.system_suffix             ?? '';
-        const USR  = instruct?.input_sequence            ?? '';
-        const USRs = instruct?.input_suffix              ?? '';
-        const BOT  = instruct?.output_sequence           ?? '';
-        // IMPORTANT: do NOT append output_suffix before generation, so the model can continue;
-        // we’ll add stop strings in the payload instead
+    // Build recent history for CHAT mode (<RECENT_HISTORY>…)
+    function buildRecentHistoryBlock(limit = 5) {
+        const recent = miniTurns.slice(-limit);
+        if (!recent.length) return '';
+        const lines = recent.map((t, i) => {
+            const role = t.role === 'assistant' ? 'assistant' : 'user';
+            return `${i + 1}. ${role.toUpperCase()}: ${sanitize(t.content)}`;
+        });
+        return ['<RECENT_HISTORY>', ...lines, '</RECENT_HISTORY>'].join('\n');
+    }
 
-        // Optional “extra system” prefix/suffix around the system body if provided
-        const sysPrefix = instruct?.system_sequence_prefix ?? '';
-        const sysSuffix = instruct?.system_sequence_suffix ?? '';
+    // Build recent history for INSTRUCT mode (wrap each past turn & CLOSE it)
+    function buildInstructHistory(limit = 5, instruct = {}) {
+        const recent = miniTurns.slice(-limit);
+        if (!recent.length) return '';
+        const USR  = instruct.input_sequence  ?? '';
+        const USRs = instruct.input_suffix    ?? '';
+        const BOT  = instruct.output_sequence ?? '';
+        const BOTs = instruct.output_suffix   ?? '';
+        let out = '';
+        for (const turn of recent) {
+            const text = sanitize(turn.content);
+            if (!text) continue;
+            if (turn.role === 'assistant') out += BOT + text + BOTs;
+            else                           out += USR + text + USRs;
+        }
+        return out;
+    }
 
-        // Compose:
-        // <SYS> [prefix] systemContent [suffix] <SYS_END>
-        // <USR> userContent <USR_END>
-        // <BOT> prefillAssistant (no bot suffix so the model continues)
-        const sysTurn  = SYS + sysPrefix + systemContent + sysSuffix + (SYSs || '');
-        const usrTurn  = USR + userContent + (USRs || '');
-        const botCue   = BOT + (prefillAssistant || '');
-
-        return sysTurn + usrTurn + botCue;
+    // Compose a full INSTRUCT prompt: system + history + new user + open bot cue
+    function buildInstructPrompt(instruct, systemContent, historyWrapped, userContent, assistantPrefill = '') {
+        const SYS  = instruct.system_sequence        ?? '';
+        const SYSs = instruct.system_suffix          ?? '';
+        const sysPrefix = instruct.system_sequence_prefix ?? '';
+        const sysSuffix = instruct.system_sequence_suffix ?? '';
+        const USR  = instruct.input_sequence         ?? '';
+        const USRs = instruct.input_suffix           ?? '';
+        const BOT  = instruct.output_sequence        ?? '';
+        return (
+            SYS + sysPrefix + systemContent + sysSuffix + (SYSs || '') + // close system
+            (historyWrapped || '') +                                     // already closed turns
+            USR + userContent + (USRs || '') +                           // close the new user turn
+            BOT + (assistantPrefill || '')                               // OPEN assistant; no BOT suffix
+        );
     }
 
     // ===== Regen target resolution =====
     const regen = isRegen === true;
-    let targetAssistantIdx = -1;
-    let targetAssistantTs = null;
-    let targetAssistantNode = null;
+    let targetAssistantIdx = -1, targetAssistantTs = null, targetAssistantNode = null;
     if (regen) {
         for (let i = miniTurns.length - 1; i >= 0; i--) {
-            if (miniTurns[i].role === 'assistant') {
-                targetAssistantIdx = i;
-                targetAssistantTs = miniTurns[i].ts;
-                break;
-            }
+            if (miniTurns[i].role === 'assistant') { targetAssistantIdx = i; targetAssistantTs = miniTurns[i].ts; break; }
         }
         if (targetAssistantTs) {
             targetAssistantNode = [...chatLogEl.querySelectorAll('.gw-row[data-role="assistant"]')]
@@ -1435,16 +1437,20 @@ async function onSendToLLM(isRegen = false) {
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
     try {
-        // ===== Prompt build (your existing behavior) =====
+        // ===== Prompt parts =====
         const systemPrompt = buildSystemPrompt(prefs);
-        const lastUserMsg = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
+        const lastUserMsg  = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
-        const instruct = ctx?.extensionSettings?.instruct; // your object with tokens
-        const historyWrapped = buildRecentHistoryBlock(historyLimit, { mode: 'instruct', instruct });
         const preferredBlock = buildPreferredSceneBlock();
 
-        const rawPrompt = [
-            historyWrapped,
+        // Build BOTH history variants now; we’ll pick the right one per route:
+        const chatHistoryBlock = buildRecentHistoryBlock(historyLimit);
+        const instructCfg = getInstructConfig();
+        const instructHistory = instructCfg?.enabled ? buildInstructHistory(historyLimit, instructCfg) : '';
+
+        // The “core” user instruction text used in either mode:
+        const coreUserInstruction = [
+            chatHistoryBlock,                   // harmless markup if empty
             preferredBlock ? `\n${preferredBlock}\n` : '',
             '- Follow the USER_INSTRUCTION using the character data as context.' +
             '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
@@ -1460,15 +1466,9 @@ async function onSendToLLM(isRegen = false) {
 
         // ===== Connection Manager profile =====
         const profile = getSelectedProfile();
-        if (!profile) {
-            appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.');
-            return;
-        }
+        if (!profile) { appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.'); return; }
         const apiMap = getApiMapForProfile(profile);
-        if (!apiMap) {
-            appendBubble('assistant', `Unsupported connection profile API: "${profile.api}".`);
-            return;
-        }
+        if (!apiMap) { appendBubble('assistant', `Unsupported connection profile API: "${profile.api}".`); return; }
 
         const temperature = getTemperature();
         let llmResText = '';
@@ -1476,10 +1476,10 @@ async function onSendToLLM(isRegen = false) {
         // ===== OpenAI-family (chat completion) =====
         if (apiMap.selected === 'openai' || profile.mode === 'cc') {
             const modelResolved = profile.model || null;
-            if (!modelResolved) {
-                appendBubble('assistant', 'Selected profile is missing a model. Please set a model on the profile.');
-                return;
-            }
+            if (!modelResolved) { appendBubble('assistant', 'Selected profile is missing a model. Please set a model on the profile.'); return; }
+
+            // IMPORTANT: Chat mode should NOT include instruct tokens in the user message.
+            const userMessage = coreUserInstruction; // contains <RECENT_HISTORY> block, not instruct tokens.
 
             // Optional routing
             const custom_url = profile['api-url'] || null;
@@ -1491,9 +1491,9 @@ async function onSendToLLM(isRegen = false) {
                 stream: false,
                 messages: [
                     { role: 'system', content: String(systemPrompt) },
-                    { role: 'user',   content: String(rawPrompt)   },
+                    { role: 'user',   content: String(userMessage)  },
                 ],
-                chat_completion_source: apiMap.source, // per CONNECT_API_MAP
+                chat_completion_source: apiMap.source,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
                 model: modelResolved,
                 temperature,
@@ -1524,49 +1524,54 @@ async function onSendToLLM(isRegen = false) {
         // ===== TextCompletion-family (“tc” with instruct wrapping) =====
         } else if (apiMap.selected === 'textgenerationwebui' || profile.mode === 'tc') {
             const api_server = profile['api-url'] || null;
-            const model = profile.model || null;
+            const model      = profile.model || null;
 
-            // Instruct wrapping
-            const instruct = getInstructConfig();
-            const useInstruct = !!(instruct && instruct.enabled);
-
-            // Optional “prefill” for the assistant (e.g., profile’s “start-reply-with”)
+            const useInstruct = !!(instructCfg && instructCfg.enabled);
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
             let stoppingStrings = getProfileStops(profile);
 
             if (useInstruct) {
-                promptToSend = buildInstructWrappedPrompt(
-                    instruct,
+                // Build a user content WITHOUT chat markup; history is already wrapped separately.
+                const userContent = [
+                    preferredBlock ? `\n${preferredBlock}\n` : '',
+                    '- Follow the USER_INSTRUCTION using the character data as context.' +
+                    '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
+                    `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
+                    'USER_INSTRUCTION:',
+                    lastUserMsg,
+                ].join('\n');
+
+                promptToSend = buildInstructPrompt(
+                    instructCfg,
                     String(systemPrompt),
-                    String(rawPrompt),
+                    instructHistory,   // <— proper place for wrapped/closed history
+                    String(userContent),
                     assistantPrefill
                 );
 
-                // Ensure we include the instruct stop sequence(s) in stop list
                 const instructStops = []
-                .concat(instruct?.stop_sequence || [])
-                .concat(instruct?.output_suffix || []); // some presets expect the model to stop before emitting this suffix
+                    .concat(instructCfg?.stop_sequence || [])
+                    .concat(instructCfg?.output_suffix || []);
                 for (const s of instructStops) {
                     if (typeof s === 'string' && s.length) stoppingStrings.push(s);
                 }
-                // Deduplicate
                 stoppingStrings = [...new Set(stoppingStrings)];
             } else {
-                // Fallback: prepend system to raw prompt, plus prefill if any
-                promptToSend = `${String(systemPrompt)}\n\n${String(rawPrompt)}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
+                // No instruct: simple linear prompt (system + chat-style user instruction)
+                const linearUser = coreUserInstruction;
+                promptToSend = `${String(systemPrompt)}\n\n${String(linearUser)}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
             }
 
             const requestPayload = {
                 stream: false,
                 prompt: promptToSend,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                api_type: apiMap.type, // e.g., 'koboldcpp', 'ooba', etc.
+                api_type: apiMap.type,
                 temperature,
                 ...(api_server ? { api_server } : {}),
                 ...(model ? { model } : {}),
-                // Pass stops if we have any
                 ...(stoppingStrings.length ? { stop: stoppingStrings, stopping_strings: stoppingStrings } : {}),
             };
 
@@ -1582,7 +1587,6 @@ async function onSendToLLM(isRegen = false) {
 
             const response = await TextCompletionService.processRequest(
                 requestPayload,
-                // We’re wrapping manually, so we generally keep instructName undefined.
                 { presetName: profile.preset || undefined, instructName: undefined },
                 true,
                 null,
@@ -1597,24 +1601,15 @@ async function onSendToLLM(isRegen = false) {
 
         // ===== Normalization (no retries) =====
         const realUsername = getRealUsername();
-
-        if (containsUserToken(llmResText)) {
-            console.log('[GW] Initial status: CONTAINED ({{user}} found in initial output)');
-        } else if (containsRealUsername(llmResText, realUsername)) {
-            console.log('[GW] Initial status: REAL_USERNAME (found real username, will normalize to {{user}})');
-        } else {
-            console.log('[GW] Initial status: NOT_CONTAINED (no {{user}} or real username). No retry will be attempted.');
-        }
+        if (containsUserToken(llmResText)) console.log('[GW] Initial status: CONTAINED ({{user}} found)');
+        else if (containsRealUsername(llmResText, realUsername)) console.log('[GW] Initial status: REAL_USERNAME (will normalize)');
+        else console.log('[GW] Initial status: NOT_CONTAINED');
 
         let finalText = normalizeUserToken(llmResText, realUsername);
 
-        if (containsUserToken(finalText)) {
-            console.log('[GW] Final status: CONTAINED ({{user}} present or normalized from real username)');
-        } else if (containsRealUsername(finalText, realUsername)) {
-            console.log('[GW] Final status: REAL_USERNAME (left as-is by design; no retry).');
-        } else {
-            console.log('[GW] Final status: NOT_CONTAINED (no {{user}}; accepted as-is).');
-        }
+        if (containsUserToken(finalText)) console.log('[GW] Final status: CONTAINED');
+        else if (containsRealUsername(finalText, realUsername)) console.log('[GW] Final status: REAL_USERNAME (left as-is)');
+        else console.log('[GW] Final status: NOT_CONTAINED');
 
         // ===== UI commit =====
         if (!finalText) {
@@ -1623,9 +1618,7 @@ async function onSendToLLM(isRegen = false) {
             const contentEl = targetAssistantNode.querySelector('.gw-content');
             if (contentEl) contentEl.textContent = finalText;
             miniTurns[targetAssistantIdx].content = finalText;
-            if (preferredScene && preferredScene.ts === targetAssistantTs) {
-                preferredScene.text = finalText;
-            }
+            if (preferredScene && preferredScene.ts === targetAssistantTs) preferredScene.text = finalText;
             saveSession();
         } else {
             const asstWrap = appendBubble('assistant', finalText);
@@ -1637,12 +1630,7 @@ async function onSendToLLM(isRegen = false) {
     } catch (e) {
         console.error('[Greeting Workshop] LLM call failed:', e);
         let msg = 'Error generating text.';
-        try {
-            if (typeof e === 'object' && e) {
-                if (e.error?.message) msg = `Error: ${e.error.message}`;
-                else if (e.message)    msg = `Error: ${e.message}`;
-            }
-        } catch {}
+        try { if (typeof e === 'object' && e) msg = e.error?.message ? `Error: ${e.error.message}` : (e.message || msg); } catch {}
         appendBubble('assistant', `${msg} See console for details.`);
     } finally {
         spinner.remove();
