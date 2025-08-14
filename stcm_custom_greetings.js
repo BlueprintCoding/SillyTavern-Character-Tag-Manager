@@ -1249,70 +1249,6 @@ async function onRegenerate() {
     await onSendToLLM(true);
 }
 
-/**
- * Build recent history, ready for either:
- *  - 'chat'  -> <RECENT_HISTORY> block (for ChatCompletionService)
- *  - 'instruct' -> instruct-wrapped turns (for TextCompletionService)
- *
- * Backward compatible: buildRecentHistoryBlock(limit) === chat mode.
- *
- * @param {number} limit - max turns to include (pairs of user/assistant in miniTurns order)
- * @param {{mode?: 'chat'|'instruct', instruct?: any}} [opts]
- * @returns {string}
- */
-function buildRecentHistoryBlock(limit = 5, opts = {}) {
-    const mode = (opts?.mode === 'instruct') ? 'instruct' : 'chat';
-    const recent = miniTurns.slice(-limit);
-    if (!recent.length) return '';
-
-    // Light sanitizer to keep control tokens stable and avoid weird whitespace explosions.
-    const sanitize = (s) => String(s ?? '')
-        .replace(/\r/g, '')
-        .replace(/[^\S\n]+/g, ' ')   // collapse spaces but preserve newlines
-        .replace(/[ \t]+\n/g, '\n')  // trim right spaces on lines
-        .trim();
-
-    if (mode === 'chat') {
-        // Original behavior (safe default)
-        const lines = recent.map((t, i) => {
-            const role = t.role === 'assistant' ? 'assistant' : 'user';
-            return `${i + 1}. ${role.toUpperCase()}: ${sanitize(t.content)}`;
-        });
-        return ['<RECENT_HISTORY>', ...lines, '</RECENT_HISTORY>'].join('\n');
-    }
-
-    // ----- instruct mode -----
-    // We CLOSE all history turns so we can safely append a fresh bot cue later.
-    const instruct = opts?.instruct || {};
-    const SYS   = instruct.system_sequence      ?? '';
-    const SYSs  = instruct.system_suffix        ?? '';
-    const USR   = instruct.input_sequence       ?? '';
-    const USRs  = instruct.input_suffix         ?? '';
-    const BOT   = instruct.output_sequence      ?? '';
-    const BOTs  = instruct.output_suffix        ?? ''; // close assistant turns in history
-    // NOTE: Do NOT append BOT here for a new generation; we only replay history.
-    // The new request will add a fresh BOT “cue” AFTER this returned string.
-
-    // We *don’t* replay a system turn here (history), since your fresh request is already
-    // sending a new system body (either as a dedicated system message or as the first turn).
-    // History should only reflect prior USER/ASSISTANT exchanges.
-
-    let out = '';
-    for (const turn of recent) {
-        if (turn.role === 'assistant') {
-            // assistant turn = output_sequence + text + output_suffix (closed)
-            const text = sanitize(turn.content);
-            if (text) out += BOT + text + BOTs;
-        } else {
-            // user turn = input_sequence + text + input_suffix (closed)
-            const text = sanitize(turn.content);
-            if (text) out += USR + text + USRs;
-        }
-    }
-    return out;
-}
-
-
 
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
@@ -1324,10 +1260,6 @@ async function onSendToLLM(isRegen = false) {
         const cm = getCM(); if (!cm) return null;
         const id = cm.selectedProfile; if (!id || !Array.isArray(cm.profiles)) return null;
         return cm.profiles.find(p => p.id === id) || null;
-    };
-    const getApiMapForProfile = (profile) => {
-        const cmap = ctx?.CONNECT_API_MAP || window?.CONNECT_API_MAP;
-        return (cmap && profile?.api) ? cmap[profile.api] : null;
     };
     const getTemperature = () => {
         const t = Number(ctx?.extensionSettings?.memory?.temperature);
@@ -1361,6 +1293,26 @@ async function onSendToLLM(isRegen = false) {
         }
         return out;
     };
+
+    // Resolve provider behavior from CONNECT_API_MAP (single source of truth)
+    function getApiMapFromCtx(profile) {
+        ensureCtx();
+        if (!profile || !profile.api) return null;
+        const cmap = ctx?.CONNECT_API_MAP || window?.CONNECT_API_MAP || {};
+        return cmap[profile.api] || null;
+    }
+    function resolveApiBehavior(profile) {
+        const m = getApiMapFromCtx(profile);
+        if (!m) return null;
+        const family = (m.selected === 'openai') ? 'cc' : 'tc';
+        return {
+            family,               // 'cc' or 'tc' (chat vs text)
+            selected: m.selected, // e.g. 'openai', 'textgenerationwebui', 'novel', 'koboldhorde', 'kobold'
+            api_type: m.type,     // e.g. 'koboldcpp'
+            source: m.source,     // e.g. 'openai'
+            button: m.button || null,
+        };
+    }
 
     // CHAT history (neutral block)
     function buildRecentHistoryBlock(limit = 5) {
@@ -1482,28 +1434,37 @@ async function onSendToLLM(isRegen = false) {
         );
 
         // ===== Connection Manager profile =====
-        if (!profile) { appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.'); return; }
-        const apiMap = getApiMapForProfile(profile);
-        if (!apiMap) { appendBubble('assistant', `Unsupported connection profile API: "${profile.api}".`); return; }
+        if (!profile) {
+            appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.');
+            return;
+        }
+        const apiInfo = resolveApiBehavior(profile);
+        if (!apiInfo) {
+            appendBubble('assistant', `Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`);
+            return;
+        }
+
+        // Prefer CM family but honor explicit profile.mode if present
+        const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
 
         const temperature = getTemperature();
         let llmResText = '';
 
-        // ===== OpenAI-family (chat completion) =====
-        if (apiMap.selected === 'openai' || profile.mode === 'cc') {
+        // ===== Chat-completion family (OpenAI-like) =====
+        if (family === 'cc' || apiInfo.selected === 'openai') {
+            // model is OPTIONAL — omit to use provider default
             const modelResolved = profile.model || null;
-            if (!modelResolved) { appendBubble('assistant', 'Selected profile is missing a model. Please set a model on the profile.'); return; }
 
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
             const reverse_proxy = proxy?.url || null;
             const proxy_password = proxy?.password || null;
 
-            // NEW: read profile start/stop
+            // profile tokens
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
             let stoppingStrings = getProfileStops(profile);
 
-            // If instruct is enabled, merge in stop sequences (common END_OF_TURN)
+            // merge instruct END_OF_TURN-like tokens when instruct is active
             if (instructEnabled && instructCfg) {
                 stoppingStrings = mergeStops(
                     stoppingStrings,
@@ -1511,7 +1472,6 @@ async function onSendToLLM(isRegen = false) {
                     instructCfg.output_suffix
                 );
             }
-            // dedupe
             stoppingStrings = [...new Set(stoppingStrings)];
 
             const requestPayload = {
@@ -1520,25 +1480,24 @@ async function onSendToLLM(isRegen = false) {
                     { role: 'system', content: String(systemPrompt) },
                     { role: 'user',   content: String(coreUserInstruction) },
                 ],
-                chat_completion_source: apiMap.source,
+                chat_completion_source: apiInfo.source, // e.g. 'openai'
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                model: modelResolved,
                 temperature,
                 ...(stoppingStrings.length ? { stop: stoppingStrings } : {}),
                 ...(custom_url     ? { custom_url } : {}),
                 ...(reverse_proxy  ? { reverse_proxy } : {}),
                 ...(proxy_password ? { proxy_password } : {}),
+                ...(modelResolved  ? { model: modelResolved } : {}), // only include if set
             };
 
-            console.log('[GW] OpenAI-family request (preview):', {
+            console.log('[GW] CC request (preview):', {
                 source: requestPayload.chat_completion_source,
-                model: requestPayload.model,
+                model: modelResolved || '(default)',
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
+                stop: stoppingStrings,
                 has_custom_url: !!custom_url,
                 has_reverse_proxy: !!reverse_proxy,
-                messages_shape: requestPayload.messages.map(m => m.role),
-                stop: stoppingStrings,
             });
 
             const response = await ChatCompletionService.processRequest(
@@ -1550,15 +1509,16 @@ async function onSendToLLM(isRegen = false) {
 
             llmResText = String(response?.content || '').trim();
 
-            // NEW: enforce "start-reply-with" if provided and missing at the front
+            // enforce "start-reply-with" if provided and missing at the front
             if (assistantPrefill && llmResText && !llmResText.startsWith(assistantPrefill)) {
                 llmResText = assistantPrefill + llmResText;
             }
 
-        // ===== TextCompletion-family (TC) with instruct wrapping =====
-        } else if (apiMap.selected === 'textgenerationwebui' || profile.mode === 'tc') {
+        // ===== Text-completion family (TGW/Kobold/Novel/Horde) =====
+        } else {
             const api_server = profile['api-url'] || null;
-            const model      = profile.model || null;
+            // model is OPTIONAL — omit to use provider default
+            const modelResolved = profile.model || null;
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
@@ -1574,6 +1534,7 @@ async function onSendToLLM(isRegen = false) {
                     lastUserMsg,
                 ].join('\n');
 
+                const instructHistory = buildInstructHistory(historyLimit, instructCfg || {});
                 promptToSend = buildInstructPrompt(
                     instructCfg,
                     String(systemPrompt),
@@ -1588,7 +1549,18 @@ async function onSendToLLM(isRegen = false) {
                     instructCfg.output_suffix
                 );
             } else {
-                promptToSend = `${String(systemPrompt)}\n\n${String(coreUserInstruction)}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
+                const chatHistoryBlock = buildRecentHistoryBlock(historyLimit);
+                const linearUserBody = [
+                    chatHistoryBlock,
+                    preferredBlock ? `\n${preferredBlock}\n` : '',
+                    '- Follow the USER_INSTRUCTION using the character data as context.' +
+                    '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
+                    `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
+                    'USER_INSTRUCTION:',
+                    lastUserMsg,
+                ].join('\n');
+
+                promptToSend = `${String(systemPrompt)}\n\n${linearUserBody}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
             }
 
             stoppingStrings = [...new Set(stoppingStrings)];
@@ -1597,17 +1569,17 @@ async function onSendToLLM(isRegen = false) {
                 stream: false,
                 prompt: promptToSend,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                api_type: apiMap.type, // e.g., 'koboldcpp'
+                api_type: apiInfo.api_type, // e.g., 'koboldcpp' if present
                 temperature,
-                ...(api_server ? { api_server } : {}),
-                ...(model ? { model } : {}),
+                ...(api_server    ? { api_server } : {}),
+                ...(modelResolved ? { model: modelResolved } : {}), // only include if set
                 ...(stoppingStrings.length ? { stop: stoppingStrings, stopping_strings: stoppingStrings } : {}),
             };
 
-            console.log('[GW] TGW-family request (preview):', {
-                api_type: requestPayload.api_type,
+            console.log('[GW] TC request (preview):', {
+                api_type: requestPayload.api_type || '(unspecified)',
                 api_server: requestPayload.api_server || '(default)',
-                model: requestPayload.model || '(none)',
+                model: modelResolved || '(default)',
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
                 prompt_starts_with: requestPayload.prompt.slice(0, 120),
@@ -1622,10 +1594,6 @@ async function onSendToLLM(isRegen = false) {
             );
 
             llmResText = String(response?.content || '').trim();
-
-        } else {
-            appendBubble('assistant', `This profile type (“${apiMap.selected}”) isn’t supported by Greeting Workshop.`);
-            return;
         }
 
         // ===== Normalization (no retries) =====
@@ -1665,9 +1633,6 @@ async function onSendToLLM(isRegen = false) {
         spinner.remove();
     }
 }
-
-
-
 
 
 
