@@ -95,6 +95,42 @@ A Choose Alt Message" button that appears on the first character message (if mul
 
 <img width="749" height="709" alt="image" src="https://github.com/user-attachments/assets/7a40b18a-2d72-484f-99d0-8b5ba3b3a8ba" />
 
+---
+##  Greeting Workshop (Automatically generate starting messages)
+
+The **Greeting Workshop** to help keep character cards fresh, this feature lets you collaborate with your active LLM to create a personalized first message before starting a SillyTavern chat.  
+It opens a separate mini-chat where you can refine the greeting, mark a preferred scene, and then replace the starting message in the main chat with your final choice.
+<img width="1045" height="1068" alt="image" src="https://github.com/user-attachments/assets/ed50d5ef-2964-42c1-a75b-f1ec3f7878b9" />
+
+### Features
+- Mini chat for crafting and refining the first greeting.
+- Save sessions per character to avoid cross-contamination.
+- Mark a scene as “Preferred” for future generations.
+- Edit, copy, or delete generated responses directly.
+- Custom system prompt editor with token variables.
+- Automatic enforcement of `{{user}}` in outputs.
+- Accept to replace the main chat’s starting message.
+
+1. **Open the Workshop**  
+   - The "Greeting Workshop" button will appear above the first chat message when the welcome panel is closed and there’s only one message visible.  
+   - Click it to open the workshop modal.
+<img width="489" height="192" alt="image" src="https://github.com/user-attachments/assets/e448f8b6-dc7c-4c9c-83a6-4521219490d4" />
+
+
+2. **Configure Your Output**  
+   - Set paragraphs, sentences per paragraph, style, and chat history depth.  
+   - (Optional) Open the **System Prompt** editor to customize generation behavior.
+
+3. **Iterate with the LLM**  
+   - Type an instruction (tone, topics, length, etc.) and click **Send to LLM**.  
+   - Regenerate, edit, copy, or delete responses.  
+   - Mark your favorite as **Preferred** to influence future generations.
+
+4. **Accept the Greeting**  
+   - When satisfied, click **Accept → Replace Greeting** to insert it into the main chat.
+
+---
+
 
 ### Data Persistence
 - All notes (character and tag) are automatically saved to a JSON file in `\SillyTavern\data\{user folder}\user\files`
