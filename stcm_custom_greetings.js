@@ -251,6 +251,7 @@ function getDefaultSystemPromptTemplate() {
         '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
         '- Maintain the same structure (paragraph count and sentences per paragraph).',
         '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
+        'Open-endedness: Make the scene action-oriented and explicitly invite user engagement (a hook, unresolved choice, or immediate next action for the user). Do not fully resolve conflicts or decisions unless the user directs otherwise.',
         'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
         'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
         'Use ONLY the provided JSON as ground truth for the scene.',
@@ -529,35 +530,27 @@ function buildSystemPrompt(prefs) {
     const custom = loadCustomSystemPrompt();
 
     if (custom.enabled) {
-        // User template path — ALWAYS append CHARACTER JSON block
         const rendered = renderSystemPromptTemplate(custom.template, {
             who, nParas, nSents, style, charName, parasS, sentsS
         });
         return [
             rendered,
-            buildCharacterJSONBlock(), // must always be appended if user edits/enables
+            buildCharacterJSONBlock(),
         ].join('\n\n');
     }
 
-    // Default (unchanged behavior) — already embeds the JSON block
+    // ✅ Render the default template with variables
+    const defaultPrompt = renderSystemPromptTemplate(
+        getDefaultSystemPromptTemplate(),
+        { who, nParas, nSents, style, charName, parasS, sentsS }
+    );
+
     return [
-        `You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.`,
-        `Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.`,
-        `Target tone: ${style}.`,
-        `Your top priority is to FOLLOW THE USER'S INSTRUCTION.`,
-        `- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.`,
-        `- Maintain the same structure (paragraph count and sentences per paragraph).`,
-        `- If they ask for a brief greeting/opening line instead of a scene, keep it to 1–2 sentences and ignore the paragraph/sentence settings.`,
-        `- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.`,
-        `You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user's input.`,
-        `You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.`,
-        `Use ONLY the provided JSON as ground truth for the scene.`,
-        `Formatting rules:`,
-        `- Return only what the user asked for; no meta/system talk; no disclaimers.`,
-        `- If the user asked for a greeting, return only the greeting text (no extra commentary).`,
+        defaultPrompt,
         buildCharacterJSONBlock()
     ].join('\n\n');
 }
+
 
 function openSystemPromptEditor() {
     const cfg = loadCustomSystemPrompt();
