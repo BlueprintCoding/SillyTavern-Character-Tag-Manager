@@ -4,7 +4,7 @@
 // then replaces the starting message in the main chat on accept.
 
 import { getContext } from "../../../extensions.js";
-import { callGenericPopup, POPUP_TYPE } from "../../../popup.js";
+import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from "../../../popup.js";
 import {
     eventSource,
     messageFormatting,
