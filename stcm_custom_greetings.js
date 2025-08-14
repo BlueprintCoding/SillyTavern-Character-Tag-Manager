@@ -111,6 +111,30 @@ function markPreferred(wrap, bubble, text) {
     
 }
 
+function clearWorkshopState() {
+    // wipe state
+    miniTurns = [];
+    preferredScene = null;
+    preferredEls = null;
+    try { clearPreferredUI(); } catch {}
+  
+    // wipe persisted
+    try { localStorage.removeItem(STATE_KEY()); } catch {}
+  
+    // persist the empty state so future saves don't resurrect old data
+    try { saveSession(); } catch {}
+  
+    // reset UI
+    if (chatLogEl) {
+      chatLogEl.innerHTML = '';
+      appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
+    }
+    if (inputEl) {
+      inputEl.value = '';
+      inputEl.focus();
+    }
+  }
+  
 
 
 /* --------------------- CHARACTER JSON --------------------- */
@@ -425,30 +449,11 @@ settings.innerHTML = `
           'Clear workshop memory (history & preferred scene)?',
           POPUP_TYPE.CONFIRM,
           'Greeting Workshop',
-          () => {
-            // OK / Confirm
-      
-            // wipe state
-            miniTurns = [];
-            preferredScene = null;
-            clearPreferredUI();
-      
-            // wipe persisted
-            localStorage.removeItem(STATE_KEY());
-      
-            // reset UI
-            if (chatLogEl) chatLogEl.innerHTML = '';
-            appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
-            if (inputEl) {
-              inputEl.value = '';
-              inputEl.focus();
-            }
-          },
-          () => {
-            // Cancel — do nothing
-          }
+          () => { clearWorkshopState(); },   // OK
+          () => {}                           // Cancel
         );
       });
+      
       
     
     footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn);
