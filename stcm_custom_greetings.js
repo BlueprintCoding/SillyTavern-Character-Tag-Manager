@@ -1249,6 +1249,43 @@ async function onRegenerate() {
     await onSendToLLM(true);
 }
 
+// Build final stop arrays (both 'stop' and 'stopping_strings').
+// - Merges profile stops + instruct stops (if enabled)
+// - For koboldcpp, also injects the full 5-token set automatically
+function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
+    const fromProfile = getProfileStops(profile); // already parsed & validated strings
+    const fromInstruct = (instructEnabled && instructCfgEff)
+        ? [instructCfgEff.stop_sequence, instructCfgEff.output_suffix]
+        : [];
+
+    const KCPP_DEFAULT_STOPS = [
+        '<|END_OF_TURN_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
+        '<STOP>',
+    ];
+
+    // Merge profile + instruct
+    let merged = mergeStops(fromProfile, fromInstruct);
+
+    // If koboldcpp, ensure the full 5-token set is present
+    if (apiInfo?.api_type === 'koboldcpp') {
+        merged = mergeStops(merged, KCPP_DEFAULT_STOPS);
+    }
+
+    // Dedupe and strip empties
+    const unique = [];
+    for (const s of merged) {
+        if (typeof s === 'string' && s.length && !unique.includes(s)) unique.push(s);
+    }
+
+    // Return both keys to mirror "normal" payloads
+    return unique.length
+        ? { stop: unique, stopping_strings: unique }
+        : {};
+}
+
 
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
@@ -1308,8 +1345,8 @@ async function onSendToLLM(isRegen = false) {
         return {
             family,               // 'cc' or 'tc'
             selected: m.selected, // 'openai' | 'textgenerationwebui' | 'novel' | 'koboldhorde' | 'kobold' | ...
-            api_type: m.type,     // e.g. 'koboldcpp'
-            source: m.source,     // e.g. 'openai'
+            api_type: m.type,     // e.g., 'koboldcpp'
+            source: m.source,     // e.g., 'openai'
             button: m.button || null,
         };
     }
@@ -1350,7 +1387,7 @@ async function onSendToLLM(isRegen = false) {
     }
 
     // ---- Fallback: supply Command‑R style sequences for koboldcpp if missing ----
-    function ensureKoboldcppInstruct(instructCfg, apiInfo, profile) {
+    function ensureKoboldcppInstruct(instructCfg, apiInfo/*, profile*/) {
         if (apiInfo?.api_type !== 'koboldcpp') return instructCfg || {};
         const cfg = Object.assign({}, instructCfg || {});
         const hasSeq = (k) => typeof cfg[k] === 'string' && cfg[k].length > 0;
@@ -1376,12 +1413,36 @@ async function onSendToLLM(isRegen = false) {
             system_sequence_suffix: '',
         };
 
-        // Prefer explicit profile.instruct names that hint this is Command‑R
-        const hint = String(profile?.instruct || '').toLowerCase();
-        const looksCommandR = hint.includes('command r') || hint.includes('command-r') || hint.includes('cohere');
-
-        // If not sure, we still apply fallback—koboldcpp with Command‑R weights usually needs these.
         return Object.assign({}, fallback, cfg);
+    }
+
+    // ---- Build final stop arrays & mirror "normal" koboldcpp payload ----
+    function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
+        const fromProfile = getProfileStops(profile);
+        const fromInstruct = (instructEnabled && instructCfgEff)
+            ? [instructCfgEff.stop_sequence, instructCfgEff.output_suffix]
+            : [];
+
+        const KCPP_DEFAULT_STOPS = [
+            '<|END_OF_TURN_TOKEN|>',
+            '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+            '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
+            '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
+            '<STOP>',
+        ];
+
+        let merged = mergeStops(fromProfile, fromInstruct);
+        if (apiInfo?.api_type === 'koboldcpp') {
+            merged = mergeStops(merged, KCPP_DEFAULT_STOPS);
+        }
+
+        // Dedupe & strip empties
+        const unique = [];
+        for (const s of merged) {
+            if (typeof s === 'string' && s.length && !unique.includes(s)) unique.push(s);
+        }
+
+        return unique.length ? { stop: unique, stopping_strings: unique } : {};
     }
 
     // CHAT history (neutral block)
@@ -1501,7 +1562,7 @@ async function onSendToLLM(isRegen = false) {
         const instructEnabled = instructIsOnGlobal || instructIsOnProfile || hasInstructName;
 
         const { cfg: instructCfgRaw, name: instructName } = resolveEffectiveInstruct(profile);
-        const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo, profile);
+        const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo);
 
         const temperature = getTemperature();
         let llmResText = '';
@@ -1518,17 +1579,7 @@ async function onSendToLLM(isRegen = false) {
             const proxy_password = proxy?.password || null;
 
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
-            let stoppingStrings = getProfileStops(profile);
-
-            // merge instruct stops when enabled (preset-aware)
-            if (instructEnabled && instructCfgEff) {
-                stoppingStrings = mergeStops(
-                    stoppingStrings,
-                    instructCfgEff.stop_sequence,
-                    instructCfgEff.output_suffix
-                );
-            }
-            stoppingStrings = [...new Set(stoppingStrings)];
+            const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
 
             const coreUserInstruction = [
                 chatHistoryBlock,
@@ -1550,10 +1601,10 @@ async function onSendToLLM(isRegen = false) {
                     { role: 'system', content: String(systemPrompt) },
                     { role: 'user',   content: String(coreUserInstruction) },
                 ],
-                chat_completion_source: apiInfo.source, // e.g. 'openai'
+                chat_completion_source: apiInfo.source, // e.g., 'openai'
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
                 temperature,
-                ...(stoppingStrings.length ? { stop: stoppingStrings } : {}),
+                ...(stopFields),
                 ...(custom_url     ? { custom_url } : {}),
                 ...(reverse_proxy  ? { reverse_proxy } : {}),
                 ...(proxy_password ? { proxy_password } : {}),
@@ -1581,8 +1632,6 @@ async function onSendToLLM(isRegen = false) {
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
-            let stoppingStrings = getProfileStops(profile);
-
             const approxRespLen = Math.ceil(
                 (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
             );
@@ -1606,16 +1655,10 @@ async function onSendToLLM(isRegen = false) {
                     String(userContent),
                     assistantPrefill
                 );
-
-                stoppingStrings = mergeStops(
-                    stoppingStrings,
-                    instructCfgEff.stop_sequence,
-                    instructCfgEff.output_suffix
-                );
             } else {
                 // Linear fallback
                 const linearUserBody = [
-                    chatHistoryBlock,
+                    buildRecentHistoryBlock(historyLimit),
                     preferredBlock ? `\n${preferredBlock}\n` : '',
                     '- Follow the USER_INSTRUCTION using the character data as context.' +
                     '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
@@ -1627,7 +1670,8 @@ async function onSendToLLM(isRegen = false) {
                 promptToSend = `${String(systemPrompt)}\n\n${linearUserBody}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
             }
 
-            stoppingStrings = [...new Set(stoppingStrings)];
+            // Build final stop fields (mirrors "normal" koboldcpp payload)
+            const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
 
             const requestPayload = {
                 stream: false,
@@ -1635,9 +1679,9 @@ async function onSendToLLM(isRegen = false) {
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
                 api_type: apiInfo.api_type, // 'koboldcpp' for koboldcpp/kcpp; undefined for others
                 temperature,
+                ...(stopFields),
                 ...(api_server    ? { api_server } : {}),
                 ...(modelResolved ? { model: modelResolved } : {}), // only include if set
-                ...(stoppingStrings.length ? { stop: stoppingStrings, stopping_strings: stoppingStrings } : {}),
             };
 
             const response = await TextCompletionService.processRequest(
