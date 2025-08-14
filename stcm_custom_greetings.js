@@ -159,6 +159,16 @@ function clearWorkshopState() {
       }
     });
   }
+
+  // Persist the last character the workshop was opened for
+const LAST_CHAR_KEY = 'stcm_gw_last_char_id';
+
+function getCharId() {
+    ensureCtx();
+    // Prefer ctx.characterId, fall back to the cached id, then 'global'
+    return String(ctx?.characterId ?? activeCharId ?? 'global');
+}
+
   
 
 
@@ -379,6 +389,22 @@ let miniTurns = []; // [{role:'user'|'assistant', content: string}]
 
 function openWorkshop() {
     ensureCtx();
+    // --- auto-clear if switching between characters ---
+    const currId = getCharId();
+    const lastId = localStorage.getItem(LAST_CHAR_KEY);
+
+    // If we previously used the workshop on a different character, start fresh for this one
+    if (lastId && lastId !== currId) {
+        try {
+            // Ensure the new character starts with a clean slate
+            localStorage.setItem(`stcm_gw_state_${currId}`, JSON.stringify({ miniTurns: [], preferredScene: null }));
+        } catch {}
+    }
+
+    // Update "last opened for" marker
+    try { localStorage.setItem(LAST_CHAR_KEY, currId); } catch {}
+
+
     if (modal) return;
 
     const prefs = loadPrefs();
@@ -933,27 +959,42 @@ export function initCustomGreetingWorkshop() {
     const cacheFromEvent = (payload) => {
         try {
             const detail = payload?.detail || payload; // supports both patterns
+            const prevId = String(activeCharId ?? '');
+            const nextId = String(detail?.id ?? detail?.character?.id ?? '');
+    
             if (detail?.character) {
                 activeCharCache = detail.character;
-                activeCharId = detail.id ?? null;
+                activeCharId = nextId || null;
+    
                 // keep ctx.characterId up to date if missing
                 if (ctx && (ctx.characterId == null) && activeCharId != null) {
                     ctx.characterId = String(activeCharId);
+                }
+            }
+    
+            // If the character actually changed…
+            if (nextId && prevId && nextId !== prevId) {
+                // Mark the new last-opened char id
+                try { localStorage.setItem(LAST_CHAR_KEY, String(nextId)); } catch {}
+    
+                // Start the new character's workshop state clean
+                try {
+                    localStorage.setItem(`stcm_gw_state_${String(nextId)}`, JSON.stringify({ miniTurns: [], preferredScene: null }));
+                } catch {}
+    
+                // If the workshop modal is currently open, clear its in-memory + UI state immediately
+                if (typeof modal !== 'undefined' && modal) {
+                    try { clearWorkshopState(); } catch {}
                 }
             }
         } catch (e) {
             console.warn('[GW] failed to cache character from chatLoaded:', e);
         }
     };
+    
 
     // If ST dispatches a DOM CustomEvent:
-    try {
-        document.addEventListener?.('chatLoaded', (e) => {      
-            cacheFromEvent(e);     
-                clearWorkshopState();  
-        });
-    } catch {}
-    
+    try { document.addEventListener?.('chatLoaded', (e) => cacheFromEvent(e)); } catch { }
 
     // If ST routes via its event bus:
     const origEmit = eventSource.emit;
