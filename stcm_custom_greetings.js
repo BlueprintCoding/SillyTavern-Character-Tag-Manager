@@ -1331,6 +1331,46 @@ async function onSendToLLM(isRegen = false) {
         return out;
     };
 
+    // ===== /model override =====
+    async function getCurrentModelOverride() {
+        try {
+            const execWithOpts =
+                window?.executeSlashCommandsWithOptions ||
+                window?.executeSlashCommands || // legacy wrapper
+                null;
+            if (!execWithOpts) return null;
+
+            const res = await execWithOpts('/model --quiet=true', {
+                handleParserErrors: true,
+                handleExecutionErrors: true,
+                source: 'GreetingWorkshop',
+            });
+            // Heuristic extraction — support several possible shapes
+            const candidates = [
+                res?.returnValue, res?.result, res?.text, res?.message,
+                res?.output,
+                Array.isArray(res?.outputs) ? res.outputs.join(' ') : null,
+                res?.data?.model, res?.data?.value, res?.data?.text,
+            ];
+            for (const c of candidates) {
+                if (typeof c === 'string' && c.trim()) {
+                    return c.trim().replace(/^"+|"+$/g, '');
+                }
+            }
+            if (res?.variables && typeof res.variables === 'object') {
+                for (const k of Object.keys(res.variables)) {
+                    const v = res.variables[k];
+                    if (typeof v === 'string' && v.trim()) return v.trim();
+                    if (v && typeof v.value === 'string' && v.value.trim()) return v.value.trim();
+                }
+            }
+            return null;
+        } catch (e) {
+            console.warn('[GW] getCurrentModelOverride failed:', e);
+            return null;
+        }
+    }
+
     // CONNECT_API_MAP resolution
     function getApiMapFromCtx(profile) {
         ensureCtx();
@@ -1386,13 +1426,13 @@ async function onSendToLLM(isRegen = false) {
         return { cfg: eff, name: nameChosen };
     }
 
-    // ---- Fallback: supply Command‑R style sequences for koboldcpp if missing ----
+    // ---- Fallback: supply Command-R style sequences for koboldcpp if missing ----
     function ensureKoboldcppInstruct(instructCfg, apiInfo/*, profile*/) {
         if (apiInfo?.api_type !== 'koboldcpp') return instructCfg || {};
         const cfg = Object.assign({}, instructCfg || {});
         const hasSeq = (k) => typeof cfg[k] === 'string' && cfg[k].length > 0;
 
-        // If any of the core sequences are missing, backfill with common Command‑R tokens.
+        // If any of the core sequences are missing, backfill with common Command-R tokens.
         const NEED =
             !hasSeq('system_sequence') ||
             !hasSeq('input_sequence')  ||
@@ -1408,7 +1448,6 @@ async function onSendToLLM(isRegen = false) {
             output_sequence: '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
             output_suffix:   '<|END_OF_TURN_TOKEN|>',
             stop_sequence:   '<|END_OF_TURN_TOKEN|>',
-            // optional prefixes/suffixes:
             system_sequence_prefix: '',
             system_sequence_suffix: '',
         };
@@ -1540,19 +1579,13 @@ async function onSendToLLM(isRegen = false) {
         const lastUserMsg  = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const preferredBlock = buildPreferredSceneBlock();
+        const chatHistoryBlock = buildRecentHistoryBlock(historyLimit);
 
-        const chatHistoryBlock   = buildRecentHistoryBlock(historyLimit);
-        const profile            = getSelectedProfile();
-        if (!profile) {
-            appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.');
-            return;
-        }
+        const profile = getSelectedProfile();
+        if (!profile) { appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.'); return; }
 
         const apiInfo = resolveApiBehavior(profile);
-        if (!apiInfo) {
-            appendBubble('assistant', `Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`);
-            return;
-        }
+        if (!apiInfo) { appendBubble('assistant', `Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`); return; }
 
         // Resolve instruct enablement and preset-aware config
         const instructGlobal = getGlobalInstructConfig();
@@ -1564,6 +1597,8 @@ async function onSendToLLM(isRegen = false) {
         const { cfg: instructCfgRaw, name: instructName } = resolveEffectiveInstruct(profile);
         const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo);
 
+        // ---- Resolve model using /model override first
+        const modelOverride = await getCurrentModelOverride();
         const temperature = getTemperature();
         let llmResText = '';
 
@@ -1572,7 +1607,7 @@ async function onSendToLLM(isRegen = false) {
 
         // ===== Chat-completion family (OpenAI-like) =====
         if (family === 'cc' || apiInfo.selected === 'openai') {
-            const modelResolved = profile.model || null; // optional (use provider default if omitted)
+            const modelResolved = modelOverride || profile.model || null; // optional
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
             const reverse_proxy = proxy?.url || null;
@@ -1620,7 +1655,6 @@ async function onSendToLLM(isRegen = false) {
 
             llmResText = String(response?.content || '').trim();
 
-            // enforce "start-reply-with" if provided and missing at the front
             if (assistantPrefill && llmResText && !llmResText.startsWith(assistantPrefill)) {
                 llmResText = assistantPrefill + llmResText;
             }
@@ -1628,7 +1662,7 @@ async function onSendToLLM(isRegen = false) {
         // ===== Text-completion family (TGW/Kobold/Novel/Horde) =====
         } else {
             const api_server = profile['api-url'] || null;
-            const modelResolved = profile.model || null; // optional (use provider default if omitted)
+            const modelResolved = modelOverride || profile.model || null; // optional
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
@@ -1726,6 +1760,7 @@ async function onSendToLLM(isRegen = false) {
         spinner.remove();
     }
 }
+
 
 
 
