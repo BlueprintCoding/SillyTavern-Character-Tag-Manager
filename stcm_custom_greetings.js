@@ -11,7 +11,7 @@ import {
     syncSwipeToMes,
     generateRaw as stGenerateRaw,
 } from "../../../../script.js";
-import { TextCompletionService, ChatCompletionService } from "../../../../custom-request.js";
+import { TextCompletionService, ChatCompletionService } from "../../../custom-request.js";
 
 
 
