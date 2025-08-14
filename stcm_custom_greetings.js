@@ -1544,34 +1544,94 @@ async function onSendToLLM(isRegen = false) {
         return unique.length ? { stop: unique, stopping_strings: unique } : {};
     }
 
-    // CHAT history
-    function buildRecentHistoryBlock(limit = 5) {
-        const recent = miniTurns.slice(-limit);
+    function canon(s) {
+        return String(s ?? '')
+            .replace(/\r/g, '')
+            .replace(/[^\S\n]+/g, ' ')
+            .replace(/[ \t]+\n/g, '\n')
+            .trim();
+    }
+    
+    /**
+     * Build recent history as a neutral <RECENT_HISTORY> block.
+     * By default we exclude the trailing user turn to avoid duplicating the prompt.
+     */
+    function buildRecentHistoryBlock(limit = 5, opts = {}) {
+        const { excludeTrailingUser = true, dropUserEqualTo = null } = opts;
+        const before = miniTurns.slice(-limit);
+        if (!before.length) return '';
+    
+        // Shallow copy to mutate
+        let recent = before.slice();
+    
+        // 1) Drop the last item if it's a user (we're going to send a fresh user block)
+        if (excludeTrailingUser && recent.length && recent[recent.length - 1].role === 'user') {
+            console.log('[GW] history: trimming trailing USER turn from history');
+            recent.pop();
+        }
+    
+        // 2) Optional dedupe: drop any user turns that equal the new user message
+        const needle = dropUserEqualTo ? canon(dropUserEqualTo) : null;
+        if (needle) {
+            const preLen = recent.length;
+            recent = recent.filter(t => !(t.role === 'user' && canon(t.content) === needle));
+            if (recent.length !== preLen) {
+                console.log('[GW] history: removed user turns equal to current prompt to avoid duplication');
+            }
+        }
+    
         if (!recent.length) return '';
+    
         const lines = recent.map((t, i) => {
             const role = t.role === 'assistant' ? 'assistant' : 'user';
-            return `${i + 1}. ${role.toUpperCase()}: ${sanitize(t.content)}`;
+            return `${i + 1}. ${role.toUpperCase()}: ${canon(t.content)}`;
         });
+    
         return ['<RECENT_HISTORY>', ...lines, '</RECENT_HISTORY>'].join('\n');
     }
 
-    // INSTRUCT history
-    function buildInstructHistory(limit = 5, instruct = {}) {
-        const recent = miniTurns.slice(-limit);
-        if (!recent.length) return '';
-        const USR  = instruct.input_sequence  ?? '';
-        const USRs = instruct.input_suffix    ?? '';
-        const BOT  = instruct.output_sequence ?? '';
-        const BOTs = instruct.output_suffix   ?? '';
-        let out = '';
-        for (const turn of recent) {
-            const text = sanitize(turn.content);
-            if (!text) continue;
-            out += (turn.role === 'assistant') ? (BOT + text + BOTs) : (USR + text + USRs);
-        }
-        return out;
+
+/**
+ * Build INSTRUCT-mode history, wrapping each past turn with closed sequences.
+ * By default we exclude the trailing user turn to avoid duplicating the prompt.
+ */
+function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
+    const { excludeTrailingUser = true, dropUserEqualTo = null } = opts;
+
+    const USR  = instruct.input_sequence  ?? '';
+    const USRs = instruct.input_suffix    ?? '';
+    const BOT  = instruct.output_sequence ?? '';
+    const BOTs = instruct.output_suffix   ?? '';
+
+    const before = miniTurns.slice(-limit);
+    if (!before.length) return '';
+
+    let recent = before.slice();
+
+    if (excludeTrailingUser && recent.length && recent[recent.length - 1].role === 'user') {
+        console.log('[GW] instruct history: trimming trailing USER turn from history');
+        recent.pop();
     }
 
+    const needle = dropUserEqualTo ? canon(dropUserEqualTo) : null;
+    if (needle) {
+        const preLen = recent.length;
+        recent = recent.filter(t => !(t.role === 'user' && canon(t.content) === needle));
+        if (recent.length !== preLen) {
+            console.log('[GW] instruct history: removed user turns equal to current prompt to avoid duplication');
+        }
+    }
+
+    if (!recent.length) return '';
+
+    let out = '';
+    for (const turn of recent) {
+        const text = canon(turn.content);
+        if (!text) continue;
+        out += (turn.role === 'assistant') ? (BOT + text + BOTs) : (USR + text + USRs);
+    }
+    return out;
+}
     // Compose INSTRUCT prompt
     function buildInstructPrompt(instruct, systemContent, historyWrapped, userContent, assistantPrefill = '') {
         const SYS  = instruct.system_sequence             ?? '';
@@ -1638,7 +1698,11 @@ async function onSendToLLM(isRegen = false) {
         const lastUserMsg  = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const preferredBlock = buildPreferredSceneBlock();
-        const chatHistoryBlock = buildRecentHistoryBlock(historyLimit);
+        const chatHistoryBlock = buildRecentHistoryBlock(historyLimit, {
+            excludeTrailingUser: true,
+            dropUserEqualTo: lastUserMsg,
+        });
+        
 
         const profile = getSelectedProfile();
         if (!profile) { appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.'); return; }
@@ -1740,7 +1804,10 @@ async function onSendToLLM(isRegen = false) {
             );
 
             if (instructEnabled && instructCfgEff) {
-                const instructHistory = buildInstructHistory(historyLimit, instructCfgEff || {});
+                const instructHistory = buildInstructHistory(historyLimit, instructCfgEff || {}, {
+                    excludeTrailingUser: true,
+                    dropUserEqualTo: lastUserMsg,
+                });
                 const userContent = [
                     preferredBlock ? `\n${preferredBlock}\n` : '',
                     '- Follow the USER_INSTRUCTION using the character data as context.' +
