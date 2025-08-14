@@ -489,33 +489,67 @@ function activateVarTooltips(root) {
 /* --------------------- CHARACTER JSON --------------------- */
 let activeCharCache = null;   // { name, description, personality, scenario, ... }
 let activeCharId = null;
-
-/** Try hard to fetch the current character object across ST variants. */
+/** Try hard to fetch the current character object across ST variants, with cleaning applied. */
 function getActiveCharacterFull() {
     ensureCtx();
 
     // Prefer the cache populated by chatLoaded
-    if (activeCharCache && Object.keys(activeCharCache).length) return activeCharCache;
+    let merged = (activeCharCache && Object.keys(activeCharCache).length) ? activeCharCache : {};
 
-    // Fallbacks
-    const idx = (ctx?.characterId != null && !Number.isNaN(Number(ctx.characterId)))
-        ? Number(ctx.characterId) : null;
+    if (!Object.keys(merged).length) {
+        // Fallbacks
+        const idx = (ctx?.characterId != null && !Number.isNaN(Number(ctx.characterId)))
+            ? Number(ctx.characterId) : null;
 
-    const fromArray = (Array.isArray(ctx?.characters) && idx != null && idx >= 0 && idx < ctx.characters.length)
-        ? ctx.characters[idx] : null;
+        const fromArray = (Array.isArray(ctx?.characters) && idx != null && idx >= 0 && idx < ctx.characters.length)
+            ? ctx.characters[idx] : null;
 
-    const fromCtxObj = ctx?.character || ctx?.charInfo || null;
-    const byName2 = (Array.isArray(ctx?.characters) && ctx?.name2)
-        ? ctx.characters.find(c => c?.name === ctx.name2) || null
-        : null;
+        const fromCtxObj = ctx?.character || ctx?.charInfo || null;
+        const byName2 = (Array.isArray(ctx?.characters) && ctx?.name2)
+            ? ctx.characters.find(c => c?.name === ctx.name2) || null
+            : null;
 
-    const merged = Object.assign({}, fromCtxObj || {}, fromArray || {}, byName2 || {});
+        merged = Object.assign({}, fromCtxObj || {}, fromArray || {}, byName2 || {});
+    }
+
     if (!merged || !Object.keys(merged).length) {
         console.warn('[Greeting Workshop] Character object is empty. Check context wiring:', {
-            idxFromCtx: idx, hasArray: Array.isArray(ctx?.characters), name2: ctx?.name2
+            idxFromCtx: ctx?.characterId,
+            hasArray: Array.isArray(ctx?.characters),
+            name2: ctx?.name2
         });
+        return {};
     }
-    return merged;
+
+    // --- Cleaning phase ---
+    const cleaned = { ...merged };
+
+    // Remove unwanted keys
+    delete cleaned.creator_notes;
+    delete cleaned.tags;
+    delete cleaned.spec;
+    delete cleaned.first_mes;
+
+    // Clean mes_example if exists
+    if (typeof cleaned.mes_example === 'string') {
+        cleaned.mes_example = cleaned.mes_example
+            .replace(/<start>/gi, '') // remove tags regardless of case
+            .trim();
+    }
+
+    // Remove empty values
+    for (const key in cleaned) {
+        if (
+            cleaned[key] === null ||
+            cleaned[key] === undefined ||
+            (typeof cleaned[key] === 'string' && cleaned[key].trim() === '') ||
+            (Array.isArray(cleaned[key]) && cleaned[key].length === 0)
+        ) {
+            delete cleaned[key];
+        }
+    }
+
+    return cleaned;
 }
 
 /** Only mask `{{user}}`; keep other curlies intact. */
@@ -652,8 +686,8 @@ function buildSystemPrompt(prefs) {
             who, nParas, nSents, style, charName, parasS, sentsS
         });
         return [
-            rendered,
             buildCharacterJSONBlock(),
+            rendered
         ].join('\n\n');
     }
 
@@ -664,8 +698,8 @@ function buildSystemPrompt(prefs) {
     );
 
     return [
-        defaultPrompt,
-        buildCharacterJSONBlock()
+        buildCharacterJSONBlock(),
+        defaultPrompt
     ].join('\n\n');
 }
 
