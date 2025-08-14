@@ -664,17 +664,14 @@ function buildSystemPrompt(prefs) {
 function buildChatMessages(prefs, lastUserMsg) {
     const messages = [];
 
-    // Include the last N messages of mini chat history as a single context block.
+    // Include the last N messages of mini chat history
     const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
-    const historyBlock = buildRecentHistoryBlock(historyLimit); // <RECENT_HISTORY>...</RECENT_HISTORY>
-    if (historyBlock && historyBlock.trim()) {
-        messages.push({
-            role: 'system',
-            content: historyBlock.trim()
-        });
+    const historyMessages = buildRecentHistoryBlock(historyLimit);
+    if (historyMessages.length) {
+        messages.push(...historyMessages);
     }
 
-    // Optional preferred scene block as its own system message.
+    // Optional preferred scene block
     const preferredBlock = buildPreferredSceneBlock();
     if (preferredBlock && preferredBlock.trim()) {
         messages.push({
@@ -683,7 +680,7 @@ function buildChatMessages(prefs, lastUserMsg) {
         });
     }
 
-    // Character data JSON as a dedicated system message (kept separate from the systemPrompt).
+    // Character data JSON block
     const charJson = buildCharacterJSONBlock();
     if (charJson && charJson.trim()) {
         messages.push({
@@ -692,7 +689,7 @@ function buildChatMessages(prefs, lastUserMsg) {
         });
     }
 
-    // Final user instruction, including the output shape hints.
+    // Final user instruction
     const nParas = Math.max(1, Number(prefs?.numParagraphs || 3));
     const nSents = Math.max(1, Number(prefs?.sentencesPerParagraph || 3));
     const instruction = [
