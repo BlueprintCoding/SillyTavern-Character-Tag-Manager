@@ -547,6 +547,14 @@ function openWorkshop() {
     body.append(chatLogEl, composer);
     document.body.append(overlay, modal);
 
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+            closeWorkshop();
+            document.removeEventListener('keydown', escHandler); // remove listener after closing
+        }
+    });
+
+
     makeDraggable(modal, header);
 
     // wire settings
@@ -804,6 +812,8 @@ function appendBubble(role, text, opts = {}) {
         });
         
 
+
+
         trashBtn.addEventListener('click', () => {
             const thisTs = wrap.dataset.ts;
             const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
@@ -842,7 +852,7 @@ async function onRegenerate() {
         callGenericPopup('No prior user instruction to regenerate from.', POPUP_TYPE.ALERT, 'Greeting Workshop');
         return;
     }
-    inputEl.value = lastUser.content; // keep visible
+  
     await onSendToLLM(true);
 }
 
@@ -871,9 +881,29 @@ async function onSendToLLM(isRegen = false) {
     // coerce truthiness to a real boolean (protects against event objects)
     const regen = isRegen === true;
 
+    // --- if regenerating, locate the last assistant turn & its DOM node ---
+    let targetAssistantIdx = -1;
+    let targetAssistantTs = null;
+    let targetAssistantNode = null;
+    if (regen) {
+        for (let i = miniTurns.length - 1; i >= 0; i--) {
+            if (miniTurns[i].role === 'assistant') {
+                targetAssistantIdx = i;
+                targetAssistantTs = miniTurns[i].ts;
+                break;
+            }
+        }
+        if (targetAssistantTs) {
+            targetAssistantNode = [...chatLogEl.querySelectorAll('.gw-row[data-role="assistant"]')]
+                .find(n => n.dataset.ts === String(targetAssistantTs)) || null;
+        }
+    }
+
     // normalize input
     const typedRaw = (inputEl.value ?? '').replace(/\s+/g, ' ').trim();
-    if (!typedRaw && !regen) return;
+
+    // If not regenerating, require fresh input; if regenerating, we reuse history/instruction.
+    if (!regen && !typedRaw) return;
 
     // transform once so the bubble shows exactly what we send
     const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
@@ -892,10 +922,9 @@ async function onSendToLLM(isRegen = false) {
         inputEl.focus();
     }
 
-
     // spinner
     const spinner = document.createElement('div');
-    spinner.textContent = 'Thinking…';
+    spinner.textContent = regen ? 'Regenerating…' : 'Thinking…';
     Object.assign(spinner.style, { fontSize: '12px', opacity: .7, margin: '4px 0 0 2px' });
     chatLogEl.append(spinner);
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
@@ -943,23 +972,37 @@ async function onSendToLLM(isRegen = false) {
         );
 
         const llmResText = String(res || '').trim();
+
         if (!llmResText) {
-            appendBubble('assistant', '(empty response)');
+            // nothing back — keep current UI as-is, just show a small message
+            if (!regen) appendBubble('assistant', '(empty response)');
+        } else if (regen && targetAssistantIdx !== -1 && targetAssistantNode) {
+            // --- REPLACE the last assistant turn (both state and DOM) ---
+            const contentEl = targetAssistantNode.querySelector('.gw-content');
+            if (contentEl) contentEl.textContent = llmResText;
+
+            miniTurns[targetAssistantIdx].content = llmResText;
+
+            // If this bubble is the preferred one, keep badge but update stored text
+            if (preferredScene && preferredScene.ts === targetAssistantTs) {
+                preferredScene.text = llmResText;
+            }
+            saveSession();
         } else {
+            // Not regenerating (or couldn't find the target) → append new assistant turn
             const asstWrap = appendBubble('assistant', llmResText);
             const asstTs = asstWrap?.dataset?.ts || String(Date.now());
             miniTurns.push({ role: 'assistant', content: llmResText, ts: asstTs });
             saveSession();
-
         }
-
     } catch (e) {
         console.error('[Greeting Workshop] LLM call failed:', e);
-        appendBubble('assistant', '⚠️ Error generating text. See console for details.');
+        if (!regen) appendBubble('assistant', '⚠️ Error generating text. See console for details.');
     } finally {
         spinner.remove();
     }
 }
+
 
 
 
