@@ -11,6 +11,9 @@ import {
     syncSwipeToMes,
     generateRaw as stGenerateRaw,
 } from "../../../../script.js";
+import { TextCompletionService, ChatCompletionService } from "../../../custom-request.js";
+
+
 
 let ctx = null;
 function ensureCtx() {
@@ -60,9 +63,10 @@ let preferredEls = null;   // { wrap: HTMLElement, bubble: HTMLElement }
 function buildPreferredSceneBlock() {
     if (!preferredScene || !preferredScene.text) return '';
     return [
-        '<PREFERRED_SCENE>',
+        'The user liked your last message below, keep it ≈90–95% the same and apply only the explicit edits from USER_INSTRUCTION.',
+        '---',
         preferredScene.text,
-        '</PREFERRED_SCENE>'
+        '---'
     ].join('\n');
 }
 
@@ -240,34 +244,36 @@ function saveCustomSystemPrompt(cfg) {
     return safe;
 }
 
+
 function getDefaultSystemPromptTemplate() {
     // IMPORTANT: buildCharacterJSONBlock() is appended after rendering.
     return [
         'You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.',
         'Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.',
         'Target tone: ${style}.',
+
         'Your top priority is to FOLLOW THE USER\'S INSTRUCTION.',
         '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
         '- Maintain the same structure (paragraph count and sentences per paragraph).',
         '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
-        '',
+
         'Open-endedness: Make the scene action-oriented and involve the user as an active participant and explicitly have {{user}} as a participant. Do not fully resolve conflicts or decisions unless the user directs otherwise.',
-        '',
+
         'HARD REQUIREMENTS:',
         '  (1) The character acts with their own agency. Do NOT ask the user to decide what the character will do.',
-        '  (2) unless the user explicitly forbids addressing the user: include the literal token "{{user}}" exactly as written at least once, either:',
-        '',
+        '  (2) Unless the user explicitly forbids addressing the user: include the literal token "{{user}}" at least once (you may use it again naturally, up to three total mentions). Use it only inside full sentences of narration or dialogue—never as a standalone line, never repeated back-to-back, and never appended after the scene.',
+
         'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
         'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
         'Use ONLY the provided JSON as ground truth for the scene.',
-        '',
+
         'Formatting rules:',
         '- Return only what the user asked for; no meta/system talk; no disclaimers.',
         '- If the user asked for a greeting, return only the greeting text (no extra commentary).',
-        '- Your output must contain {{user}} at least once, do not alter the braces, casing, or spacing of {{user}}.. If it does not, your answer will be discarded and you will have wasted $3467.',
-        '- Your output must not take away agency from the character. If it does take away agency, your answer will be discarded and you will have wasted $2832.'
+        '- End the output immediately after the final sentence of paragraph ${nParas}. Do not append extra tokens, names, or lines.'
     ].join('\n\n');
 }
+
 
 function regexEscape(s) {
     return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -299,61 +305,18 @@ function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
     ].join('\n');
 }
 
-// --- Enforcement config: single retry, no fallback injection ---
-const MAX_USER_TOKEN_REVISIONS = 1;
-
-/**
- * One retry to encourage literal {{user}}.
- * Accepts outputs that use the *real username* (no further retries).
- * No fallback injection.
- */
-async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
-    let current = String(text || '');
-    if (containsUserToken(current) || containsRealUsername(current, realUsername)) {
-        current = replaceRealUsernameWithToken(current, realUsername);
-        return current;
+function normalizeUserToken(text, realUsername) {
+    let out = String(text || '');
+    if (!out) return out;
+    // If the real username (e.g., "Jake") appears, normalize it to {{user}}
+    if (containsRealUsername(out, realUsername)) {
+        out = replaceRealUsernameWithToken(out, realUsername);
     }
-
-    let attempts = 0;
-    while (attempts < MAX_USER_TOKEN_REVISIONS) {
-        attempts += 1;
-        console.log(`[GW] Attempt ${attempts}: {{user}} not found, retrying...`);
-
-        const revisionPrompt = buildUserHookRevisionPrompt(
-            current,
-            Math.max(1, Number(prefs?.numParagraphs || 3)),
-            Math.max(1, Number(prefs?.sentencesPerParagraph || 3))
-        );
-
-        try {
-            const revised = await stGenerateRaw(
-                String(revisionPrompt),
-                null,
-                true,
-                true,
-                String(systemPrompt),
-                current.length + 200,
-                true,
-                '',
-                null
-            );
-
-            const revisedText = String(revised || '').trim();
-            if (!revisedText) break;
-
-            current = replaceRealUsernameWithToken(revisedText, realUsername);
-            if (containsUserToken(current)) {
-                console.log(`[GW] Success on attempt ${attempts}: {{user}} found`);
-                break;
-            }
-        } catch (err) {
-            console.warn('[GW] Single retry to inject {{user}} failed:', err);
-            break;
-        }
-    }
-
-    return current;
+    // No retry or injection if neither {{user}} nor the real name is present
+    return out;
 }
+
+
 
 function containsRealUsername(text, realUsername) {
     if (!realUsername) return false;
@@ -414,7 +377,7 @@ function showVarTooltip(targetEl, text) {
 
     GW_TIP_HOST.style.display = 'block';
     GW_TIP_HOST.style.left = '-9999px';
-    GW_TIP_HOST.style.top  = '-9999px';
+    GW_TIP_HOST.style.top = '-9999px';
     GW_TIP_HOST.style.right = 'auto';  // <-- make sure we don't stretch
     GW_TIP_HOST.style.bottom = 'auto'; // <--
 
@@ -441,13 +404,13 @@ function showVarTooltip(targetEl, text) {
     if (left < 8) left = 8;
 
     GW_TIP_HOST.style.left = `${left}px`;
-    GW_TIP_HOST.style.top  = `${top}px`;
+    GW_TIP_HOST.style.top = `${top}px`;
 
     // Arrow
     const arrowX = Math.max(left + 12, Math.min(rect.left + 12, left + hostRect.width - 12));
     const arrowY = placeAbove ? (rect.top - 4) : (rect.bottom + 4);
     GW_TIP_ARROW.style.left = `${arrowX}px`;
-    GW_TIP_ARROW.style.top  = `${arrowY}px`;
+    GW_TIP_ARROW.style.top = `${arrowY}px`;
     GW_TIP_ARROW.style.transform = placeAbove ? 'rotate(225deg)' : 'rotate(45deg)';
 
     // Re-clamp vertically if still tall
@@ -548,25 +511,26 @@ function transformCardForLLM(obj, charName) {
 }
 
 function pickCardFields(ch) {
-    // card data can live both top-level and under ch.data.*
+    // Card data can live both top-level and under ch.data.*
     const d = ch?.data || {};
     const pick = (k) => ch?.[k] ?? d?.[k] ?? null;
 
-    return {
+    const out = {
         name: pick('name'),
         description: pick('description'),
         personality: pick('personality'),
         scenario: pick('scenario'),
-        first_mes: pick('first_mes'),
-        alternate_greetings: pick('alternate_greetings') || [],
-        mes_example: pick('mes_example'),
-        // keep anything else you explicitly want:
-        creator_notes: pick('creator_notes') ?? ch?.creatorcomment ?? null,
-        tags: pick('tags') || ch?.tags || [],
-        spec: ch?.spec ?? null,
-        spec_version: ch?.spec_version ?? null,
     };
+
+    // Normalize to strings when present; keep nulls as null
+    for (const k of Object.keys(out)) {
+        const v = out[k];
+        out[k] = (v == null) ? null : String(v);
+    }
+
+    return out;
 }
+
 
 function safeJSONStringify(obj) {
     const seen = new WeakSet();
@@ -638,7 +602,7 @@ function buildSystemPrompt(prefs) {
 
     const nParas = Math.max(1, Number(prefs?.numParagraphs || 3));
     const nSents = Math.max(1, Number(prefs?.sentencesPerParagraph || 3));
-    const style  = (prefs?.style || 'Follow Character Personality');
+    const style = (prefs?.style || 'Follow Character Personality');
     const parasS = nParas === 1 ? '' : 's';
     const sentsS = nSents === 1 ? '' : 's';
 
@@ -696,11 +660,11 @@ function openSystemPromptEditor() {
         }
     };
     window.stcmCloseSysEditor = () => {
-        try { document.removeEventListener('keydown', localEscHandler, true); } catch {}
-        try { box.remove(); } catch {}
-        try { overlay.remove(); } catch {}
+        try { document.removeEventListener('keydown', localEscHandler, true); } catch { }
+        try { box.remove(); } catch { }
+        try { overlay.remove(); } catch { }
         // Clean up the global hook after closing
-        try { delete window.stcmCloseSysEditor; } catch {}
+        try { delete window.stcmCloseSysEditor; } catch { }
     };
 
     const header = document.createElement('div');
@@ -762,7 +726,7 @@ function openSystemPromptEditor() {
         padding: '10px',
         fontFamily: 'monospace'
     });
-    
+
 
     const footer = document.createElement('div');
     Object.assign(footer.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 12px' });
@@ -905,7 +869,7 @@ function openWorkshop() {
 `;
 
     const body = document.createElement('div');
-    body.className = 'gw-chat-body';   
+    body.className = 'gw-chat-body';
     body.id = 'gw-chat-body';
     Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '70vh' });
 
@@ -930,7 +894,7 @@ function openWorkshop() {
 
     const closeBtn = mkBtn('X', '#9e2a2a');
     header.append(closeBtn);
-    
+
 
     const footer = document.createElement('div');
     Object.assign(footer.style, { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #333', background: '#1f1f1f' });
@@ -968,8 +932,8 @@ function openWorkshop() {
                 window.stcmCloseSysEditor();
             } else {
                 // Fallback: remove by IDs if the closer isn't available
-                try { document.getElementById('stcm-sys-box')?.remove(); } catch {}
-                try { document.getElementById('stcm-sys-overlay')?.remove(); } catch {}
+                try { document.getElementById('stcm-sys-box')?.remove(); } catch { }
+                try { document.getElementById('stcm-sys-overlay')?.remove(); } catch { }
             }
             return;
         }
@@ -1025,7 +989,7 @@ function closeWorkshop() {
     if (modal) modal.remove();
     if (overlay) overlay.remove();
     modal = overlay = null;
-    try { document.removeEventListener('keydown', localEscHandler, true); } catch {}
+    try { document.removeEventListener('keydown', localEscHandler, true); } catch { }
 
 }
 
@@ -1148,26 +1112,26 @@ function appendBubble(role, text, opts = {}) {
         editBtn.addEventListener('click', () => {
             // prevent multiple editors
             if (bubble.querySelector('.gw-inline-editor')) return;
-        
+
             const thisTs = wrap.dataset.ts;
             const itemIdx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
             const current = itemIdx !== -1 ? miniTurns[itemIdx].content : (content.textContent ?? text);
-        
+
             // --- lock bubble width to match original message width ---
             const computed = window.getComputedStyle(bubble);
             const lockedWidthPx = bubble.getBoundingClientRect().width; // exact pixels
             const prevWidth = bubble.style.width;
             const prevMaxWidth = bubble.style.maxWidth;
-        
+
             bubble.style.width = lockedWidthPx + 'px'; // lock to current width
             bubble.style.maxWidth = 'none';            // prevent 90% clamp while editing
-        
+
             // hide original content + action bar; shrink bottom padding
             content.style.display = 'none';
             bar.style.display = 'none';
             bubble.classList.add('gw-editing');
             bubble.style.paddingBottom = '8px';
-        
+
             const editor = document.createElement('textarea');
             editor.className = 'gw-inline-editor';
             Object.assign(editor.style, {
@@ -1184,7 +1148,7 @@ function appendBubble(role, text, opts = {}) {
                 boxSizing: 'border-box' // <-- ensures full-width equals bubble width
             });
             editor.value = current;
-        
+
             // auto-grow to content
             const autoGrow = () => {
                 editor.style.height = 'auto';
@@ -1192,13 +1156,13 @@ function appendBubble(role, text, opts = {}) {
             };
             editor.addEventListener('input', autoGrow);
             setTimeout(autoGrow, 0);
-        
+
             const row = document.createElement('div');
             Object.assign(row.style, { display: 'flex', gap: '8px', marginTop: '6px' });
-        
+
             const saveBtn = mkBtn('Save', '#8e44ad');
             const cancelBtn = mkBtn('Cancel', '#616161');
-        
+
             const finish = (didSave) => {
                 if (didSave) {
                     const next = editor.value.trim();
@@ -1213,15 +1177,15 @@ function appendBubble(role, text, opts = {}) {
                 bar.style.display = 'flex';
                 bubble.classList.remove('gw-editing');
                 bubble.style.paddingBottom = hasActions ? '32px' : '8px';
-        
+
                 // --- restore bubble width behavior ---
                 bubble.style.width = prevWidth || '';
                 bubble.style.maxWidth = prevMaxWidth || '90%';
             };
-        
+
             saveBtn.addEventListener('click', () => finish(true));
             cancelBtn.addEventListener('click', () => finish(false));
-        
+
             // keyboard shortcuts
             editor.addEventListener('keydown', (e) => {
                 if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
@@ -1233,37 +1197,61 @@ function appendBubble(role, text, opts = {}) {
                     finish(false);
                 }
             });
-        
+
             row.append(saveBtn, cancelBtn);
             bubble.append(editor, row);
             editor.focus();
             editor.setSelectionRange(editor.value.length, editor.value.length);
         });
-        
 
 
 
+
+        // replace the existing trashBtn.addEventListener('click', ...) with this:
         trashBtn.addEventListener('click', () => {
             const thisTs = wrap.dataset.ts;
             const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
-            if (idx !== -1) {
+            if (idx === -1) return;
+
+            // Determine if there's a preceding user turn BEFORE mutating the array
+            const prevTurn = miniTurns[idx - 1];
+            const shouldRemovePrevUser = !!(prevTurn && prevTurn.role === 'user');
+            const prevTs = shouldRemovePrevUser ? String(prevTurn.ts) : null;
+
+            // Update in-memory history
+            if (shouldRemovePrevUser) {
+                // Remove the pair: [user, assistant]
+                miniTurns.splice(idx - 1, 2);
+            } else {
+                // Remove only the assistant
                 miniTurns.splice(idx, 1);
-                if (idx - 1 >= 0 && miniTurns[idx - 1]?.role === 'user') {
-                    const prevTs = miniTurns[idx - 1].ts;
-                    miniTurns.splice(idx - 1, 1);
-                    const prevNode = wrap.previousElementSibling;
-                    if (prevNode && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs) {
-                        prevNode.remove();
-                    }
-                }
             }
+
+            // If this message was the preferred scene, clear that state
             if (preferredScene && preferredScene.ts === thisTs) {
                 preferredScene = null;
                 clearPreferredUI();
             }
-            saveSession();
+
+            // Remove DOM nodes (assistant bubble we're in, and optionally the preceding user bubble)
+            if (shouldRemovePrevUser) {
+                // Try immediate previous sibling first
+                let prevNode = wrap.previousElementSibling;
+                if (!(prevNode && prevNode.dataset && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs)) {
+                    // Fallback: query by timestamp (avoid CSS.escape dependency)
+                    prevNode = [...chatLogEl.querySelectorAll('.gw-row[data-role="user"]')]
+                        .find(n => n.dataset && n.dataset.ts === prevTs) || null;
+                }
+                if (prevNode) prevNode.remove();
+            }
+
+            // Remove the assistant node we’re acting on
             wrap.remove();
+
+            // Persist
+            saveSession();
         });
+
 
         bar.append(starBtn, editBtn, copyBtn, trashBtn);
         bubble.appendChild(bar);
@@ -1281,46 +1269,457 @@ async function onRegenerate() {
         callGenericPopup('No prior user instruction to regenerate from.', POPUP_TYPE.ALERT, 'Greeting Workshop');
         return;
     }
-  
+
     await onSendToLLM(true);
 }
 
-function buildRecentHistoryBlock(limit = 5) {
-    // take last `limit` messages (user/assistant) in chronological order
-    const recent = miniTurns.slice(-limit);
-    if (!recent.length) return '';
+// Build final stop arrays (both 'stop' and 'stopping_strings').
+// - Merges profile stops + instruct stops (if enabled)
+// - For koboldcpp, also injects the full 5-token set automatically
+function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
+    const fromProfile = getProfileStops(profile); // already parsed & validated strings
+    const fromInstruct = (instructEnabled && instructCfgEff)
+        ? [instructCfgEff.stop_sequence, instructCfgEff.output_suffix]
+        : [];
 
-    const lines = recent.map((t, i) => {
-        const role = t.role === 'assistant' ? 'assistant' : 'user';
-        // Keep it plain; the system prompt already handles formatting rules.
-        return `${i + 1}. ${role.toUpperCase()}: ${t.content}`;
-    });
+    const KCPP_DEFAULT_STOPS = [
+        '<|END_OF_TURN_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
+        '<STOP>',
+    ];
 
-    return [
-        '<RECENT_HISTORY>',
-        ...lines,
-        '</RECENT_HISTORY>'
-    ].join('\n');
+    // Merge profile + instruct
+    let merged = mergeStops(fromProfile, fromInstruct);
+
+    // If koboldcpp, ensure the full 5-token set is present
+    if (apiInfo?.api_type === 'koboldcpp') {
+        merged = mergeStops(merged, KCPP_DEFAULT_STOPS);
+    }
+
+    // Dedupe and strip empties
+    const unique = [];
+    for (const s of merged) {
+        if (typeof s === 'string' && s.length && !unique.includes(s)) unique.push(s);
+    }
+
+    // Return both keys to mirror "normal" payloads
+    return unique.length
+        ? { stop: unique, stopping_strings: unique }
+        : {};
 }
+
 
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
 
-    // coerce truthiness to a real boolean (protects against event objects)
-    const regen = isRegen === true;
+    // ===== Helpers =====
+    const getCM = () => ctx?.extensionSettings?.connectionManager || null;
+    const getSelectedProfile = () => {
+        const cm = getCM(); if (!cm) return null;
+        const id = cm.selectedProfile; if (!id || !Array.isArray(cm.profiles)) return null;
+        return cm.profiles.find(p => p.id === id) || null;
+    };
+    const getTemperature = () => {
+        const t = Number(ctx?.extensionSettings?.memory?.temperature);
+        return Number.isFinite(t) ? t : undefined;
+    };
+    const getProxyByName = (name) => {
+        const list = ctx?.proxies || window?.proxies || [];
+        if (!name || name === 'None') return null;
+        return Array.isArray(list) ? list.find(p => p.name === name) : null;
+    };
+    const getGlobalInstructConfig = () => ctx?.extensionSettings?.instruct || ctx?.instruct || null;
+    const profileInstructEnabled = (profile) => String(profile?.['instruct-state']).toLowerCase() === 'true';
+    const getProfileStops = (profile) => {
+        const raw = profile?.['stop-strings']; if (!raw) return [];
+        try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return Array.isArray(parsed) ? parsed.filter(s => typeof s === 'string' && s.length) : [];
+        } catch { console.warn('[GW] Could not parse profile stop-strings:', raw); return []; }
+    };
+    const sanitize = (s) => String(s ?? '')
+        .replace(/\r/g, '')
+        .replace(/[^\S\n]+/g, ' ')
+        .replace(/[ \t]+\n/g, '\n')
+        .trim();
+    const mergeStops = (...lists) => {
+        const out = [];
+        for (const lst of lists) {
+            if (!lst) continue;
+            const arr = typeof lst === 'string' ? [lst] : lst;
+            for (const s of arr) if (typeof s === 'string' && s.length && !out.includes(s)) out.push(s);
+        }
+        return out;
+    };
 
-    // --- if regenerating, locate the last assistant turn & its DOM node ---
-    let targetAssistantIdx = -1;
-    let targetAssistantTs = null;
-    let targetAssistantNode = null;
+    // ===== model lookup from context (chat/text completion settings + deep scan) =====
+    function getModelFromContextByApi(profile) {
+        const TAG = '[GW]/model(ctx)';
+        try {
+            ensureCtx();
+            const apiRaw = String(profile?.api || '').toLowerCase();
+            console.log(`${TAG} profile.api:`, apiRaw);
+            if (!apiRaw) { console.warn(`${TAG} missing profile.api`); return null; }
+
+            const canonMap = {
+                oai: 'openai', openai: 'openai',
+                claude: 'claude', anthropic: 'claude',
+                google: 'google', vertexai: 'vertexai',
+                ai21: 'ai21',
+                mistralai: 'mistralai', mistral: 'mistralai',
+                cohere: 'cohere',
+                perplexity: 'perplexity',
+                groq: 'groq',
+                nanogpt: 'nanogpt',
+                zerooneai: 'zerooneai',
+                deepseek: 'deepseek',
+                xai: 'xai',
+                pollinations: 'pollinations',
+                'openrouter-text': 'openai',
+                koboldcpp: 'koboldcpp', kcpp: 'koboldcpp',
+            };
+
+            const canonProvider = canonMap[apiRaw] || apiRaw;
+            const flatKeys = [`${canonProvider}_model`, `${apiRaw}_model`];
+
+            const containers = [
+                { name: 'ctx.chatCompletionSettings', obj: ctx?.chatCompletionSettings },
+                { name: 'ctx.textCompletionSettings', obj: ctx?.textCompletionSettings },
+                { name: 'ctx.extensionSettings.chatCompletionSettings', obj: ctx?.extensionSettings?.chatCompletionSettings },
+                { name: 'ctx.extensionSettings.textCompletionSettings', obj: ctx?.extensionSettings?.textCompletionSettings },
+                { name: 'ctx.settings.chatCompletionSettings', obj: ctx?.settings?.chatCompletionSettings },
+                { name: 'ctx.settings.textCompletionSettings', obj: ctx?.settings?.textCompletionSettings },
+                { name: 'ctx', obj: ctx },
+                { name: 'window', obj: window },
+            ];
+
+            console.log(`${TAG} flat key candidates:`, flatKeys, 'containers:', containers.map(c => c.name));
+
+            // 1) flat <provider>_model
+            for (const key of flatKeys) {
+                for (const c of containers) {
+                    const v = c.obj?.[key];
+                    if (typeof v === 'string' && v.trim()) {
+                        const cleaned = v.trim();
+                        console.log(`${TAG} FOUND flat key ${key} in ${c.name} =>`, cleaned);
+                        return cleaned;
+                    }
+                }
+            }
+
+            // 2) nested {provider: { model }}
+            const providerSectionKeys = [canonProvider, apiRaw];
+            console.log(`${TAG} nested provider candidates:`, providerSectionKeys);
+
+            for (const c of containers) {
+                const root = c.obj;
+                if (!root || typeof root !== 'object') continue;
+                for (const pkey of providerSectionKeys) {
+                    const section = root[pkey];
+                    if (section && typeof section === 'object') {
+                        const mv = section.model ?? section.currentModel ?? section.selectedModel ?? section.defaultModel;
+                        if (typeof mv === 'string' && mv.trim()) {
+                            const cleaned = mv.trim();
+                            console.log(`${TAG} FOUND nested ${c.name}.${pkey}.model =>`, cleaned);
+                            return cleaned;
+                        }
+                    }
+                }
+            }
+
+            // 3) limited deep scan
+            const seen = new WeakSet();
+            const maxDepth = 5;
+            function deepFind(obj, depth, path) {
+                if (!obj || typeof obj !== 'object' || seen.has(obj) || depth > maxDepth) return null;
+                seen.add(obj);
+
+                for (const key of flatKeys) {
+                    if (typeof obj[key] === 'string' && obj[key].trim()) {
+                        const cleaned = obj[key].trim();
+                        console.log(`${TAG} FOUND deep flat ${path}.${key} =>`, cleaned);
+                        return cleaned;
+                    }
+                }
+                for (const pkey of providerSectionKeys) {
+                    const sec = obj[pkey];
+                    if (sec && typeof sec === 'object') {
+                        const mv = sec.model ?? sec.currentModel ?? sec.selectedModel ?? sec.defaultModel;
+                        if (typeof mv === 'string' && mv.trim()) {
+                            const cleaned = mv.trim();
+                            console.log(`${TAG} FOUND deep nested ${path}.${pkey}.model =>`, cleaned);
+                            return cleaned;
+                        }
+                    }
+                }
+                for (const k of Object.keys(obj)) {
+                    const child = obj[k];
+                    const childPath = `${path}.${k}`;
+                    if (child && typeof child === 'object') {
+                        const found = deepFind(child, depth + 1, childPath);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+            for (const c of containers) {
+                const found = deepFind(c.obj, 0, c.name);
+                if (found) return found;
+            }
+
+            console.log(`${TAG} no model found for provider:`, canonProvider);
+            return null;
+        } catch (e) {
+            console.warn('[GW]/model(ctx) error:', e);
+            return null;
+        }
+    }
+
+    // CONNECT_API_MAP resolution
+    function getApiMapFromCtx(profile) {
+        ensureCtx();
+        if (!profile || !profile.api) return null;
+        const cmap = ctx?.CONNECT_API_MAP || window?.CONNECT_API_MAP || {};
+        return cmap[profile.api] || null;
+    }
+    function resolveApiBehavior(profile) {
+        const m = getApiMapFromCtx(profile);
+        if (!m) return null;
+        const family = (m.selected === 'openai') ? 'cc' : 'tc';
+        return {
+            family,               // 'cc' or 'tc'
+            selected: m.selected, // 'openai' | 'textgenerationwebui' | ...
+            api_type: m.type,     // e.g., 'koboldcpp'
+            source: m.source,     // e.g., 'openai'
+            button: m.button || null,
+        };
+    }
+
+    // Instruct preset resolver
+    function resolveEffectiveInstruct(profile) {
+        const globalCfg = getGlobalInstructConfig() || {};
+        const instructName = (profile?.instruct || '').trim();
+        const presetName = (profile?.preset || '').trim();
+
+        let presetCfg = null;
+        const pick = (name) => {
+            if (!name) return null;
+            try {
+                const a = ctx?.extensionSettings?.instruct?.presets;
+                if (a && typeof a[name] === 'object') return a[name];
+                const b = ctx?.instruct?.presets;
+                if (b && typeof b[name] === 'object') return b[name];
+                const c = ctx?.presets;
+                if (c && typeof c[name]?.instruct === 'object') return c[name].instruct;
+                const d = ctx?.presets?.instruct;
+                if (d && typeof d[name] === 'object') return d[name];
+            } catch { }
+            return null;
+        };
+
+        presetCfg = pick(instructName) || pick(presetName);
+        const eff = Object.assign({}, globalCfg || {}, presetCfg || {});
+        const nameChosen = instructName || presetName || undefined;
+        return { cfg: eff, name: nameChosen };
+    }
+
+    // Fallback sequences for koboldcpp if any are missing
+    function ensureKoboldcppInstruct(instructCfg, apiInfo) {
+        if (apiInfo?.api_type !== 'koboldcpp') return instructCfg || {};
+        const cfg = Object.assign({}, instructCfg || {});
+        const hasSeq = (k) => typeof cfg[k] === 'string' && cfg[k].length > 0;
+        if (hasSeq('system_sequence') && hasSeq('input_sequence') && hasSeq('output_sequence')) return cfg;
+        const fallback = {
+            system_sequence: '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
+            system_suffix: '<|END_OF_TURN_TOKEN|>',
+            input_sequence: '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+            input_suffix: '<|END_OF_TURN_TOKEN|>',
+            output_sequence: '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
+            output_suffix: '<|END_OF_TURN_TOKEN|>',
+            stop_sequence: '<|END_OF_TURN_TOKEN|>',
+            system_sequence_prefix: '',
+            system_sequence_suffix: '',
+        };
+        return Object.assign({}, fallback, cfg);
+    }
+
+    // stop arrays
+    function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
+        const fromProfile = getProfileStops(profile);
+        const fromInstruct = (instructEnabled && instructCfgEff)
+            ? [instructCfgEff.stop_sequence, instructCfgEff.output_suffix]
+            : [];
+        const KCPP_DEFAULT_STOPS = [
+            '<|END_OF_TURN_TOKEN|>',
+            '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+            '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
+            '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
+            '<STOP>',
+        ];
+        let merged = mergeStops(fromProfile, fromInstruct);
+        if (apiInfo?.api_type === 'koboldcpp') merged = mergeStops(merged, KCPP_DEFAULT_STOPS);
+
+        const unique = [];
+        for (const s of merged) if (typeof s === 'string' && s.length && !unique.includes(s)) unique.push(s);
+        console.log('[GW] stop fields:', unique);
+        return unique.length ? { stop: unique, stopping_strings: unique } : {};
+    }
+
+    function canon(s) {
+        return String(s ?? '')
+            .replace(/\r/g, '')
+            .replace(/[^\S\n]+/g, ' ')
+            .replace(/[ \t]+\n/g, '\n')
+            .trim();
+    }
+
+    /**
+     * Build recent history as a neutral <RECENT_HISTORY> block.
+     * By default we exclude the trailing user turn to avoid duplicating the prompt.
+     */
+    function buildRecentHistoryBlock(limit = 5, opts = {}) {
+        const {
+            excludeTrailingUser = true,
+            dropUserEqualTo = null,
+            dropPreferredAssistant = true, // NEW
+        } = opts;
+    
+        const canon = (s) => String(s ?? '')
+            .replace(/\r/g, '')
+            .replace(/[^\S\n]+/g, ' ')
+            .replace(/[ \t]+\n/g, '\n')
+            .trim();
+    
+        const before = miniTurns.slice(-limit);
+        if (!before.length) return '';
+    
+        let recent = before.slice();
+    
+        // 1) trim trailing user (we'll send a fresh user block)
+        if (excludeTrailingUser && recent.length && recent[recent.length - 1].role === 'user') {
+            recent.pop();
+        }
+    
+        // 2) optional: drop any user turns equal to the new user message
+        const needleUser = dropUserEqualTo ? canon(dropUserEqualTo) : null;
+        if (needleUser) {
+            recent = recent.filter(t => !(t.role === 'user' && canon(t.content) === needleUser));
+        }
+    
+        // 3) NEW: drop the preferred assistant turn (by ts or content)
+        if (dropPreferredAssistant && preferredScene && (preferredScene.ts || preferredScene.text)) {
+            const prefTs   = String(preferredScene.ts || '');
+            const prefText = preferredScene.text ? canon(preferredScene.text) : null;
+            recent = recent.filter(t => {
+                if (t.role !== 'assistant') return true;
+                const tsMatch   = prefTs && String(t.ts) === prefTs;
+                const textMatch = prefText && canon(t.content) === prefText;
+                return !(tsMatch || textMatch);
+            });
+        }
+    
+        if (!recent.length) return '';
+    
+        const lines = recent.map((t, i) => {
+            const role = t.role === 'assistant' ? 'assistant' : 'user';
+            return `${i + 1}. ${role.toUpperCase()}: ${canon(t.content)}`;
+        });
+    
+        return ['<RECENT_HISTORY>', ...lines, '</RECENT_HISTORY>'].join('\n');
+    }
+    
+
+
+    /**
+     * Build INSTRUCT-mode history, wrapping each past turn with closed sequences.
+     * By default we exclude the trailing user turn to avoid duplicating the prompt.
+     */
+    function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
+        const {
+            excludeTrailingUser = true,
+            dropUserEqualTo = null,
+            dropPreferredAssistant = true, // NEW
+        } = opts;
+    
+        const USR  = instruct.input_sequence  ?? '';
+        const USRs = instruct.input_suffix    ?? '';
+        const BOT  = instruct.output_sequence ?? '';
+        const BOTs = instruct.output_suffix   ?? '';
+    
+        const canon = (s) => String(s ?? '')
+            .replace(/\r/g, '')
+            .replace(/[^\S\n]+/g, ' ')
+            .replace(/[ \t]+\n/g, '\n')
+            .trim();
+    
+        const before = miniTurns.slice(-limit);
+        if (!before.length) return '';
+    
+        let recent = before.slice();
+    
+        if (excludeTrailingUser && recent.length && recent[recent.length - 1].role === 'user') {
+            recent.pop();
+        }
+    
+        const needleUser = dropUserEqualTo ? canon(dropUserEqualTo) : null;
+        if (needleUser) {
+            recent = recent.filter(t => !(t.role === 'user' && canon(t.content) === needleUser));
+        }
+    
+        // NEW: drop the preferred assistant turn (by ts or content)
+        if (dropPreferredAssistant && preferredScene && (preferredScene.ts || preferredScene.text)) {
+            const prefTs   = String(preferredScene.ts || '');
+            const prefText = preferredScene.text ? canon(preferredScene.text) : null;
+            recent = recent.filter(t => {
+                if (t.role !== 'assistant') return true;
+                const tsMatch   = prefTs && String(t.ts) === prefTs;
+                const textMatch = prefText && canon(t.content) === prefText;
+                return !(tsMatch || textMatch);
+            });
+        }
+    
+        if (!recent.length) return '';
+    
+        let out = '';
+        for (const turn of recent) {
+            const text = canon(turn.content);
+            if (!text) continue;
+            out += (turn.role === 'assistant') ? (BOT + text + BOTs) : (USR + text + USRs);
+        }
+        return out;
+    }
+    
+    // Compose INSTRUCT prompt
+    function buildInstructPrompt(instruct, systemContent, historyWrapped, userContent, assistantPrefill = '') {
+        const SYS = instruct.system_sequence ?? '';
+        const SYSs = instruct.system_suffix ?? '';
+        const sysPrefix = instruct.system_sequence_prefix ?? '';
+        const sysSuffix = instruct.system_sequence_suffix ?? '';
+        const USR = instruct.input_sequence ?? '';
+        const USRs = instruct.input_suffix ?? '';
+        const BOT = instruct.output_sequence ?? '';
+
+        if (!SYS || !USR || !BOT) {
+            console.warn('[GW] Missing instruct tokens; falling back to linear prompt.');
+            return `${systemContent}\n\n${historyWrapped || ''}\n${userContent}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
+        }
+        return (
+            SYS + (sysPrefix || '') + systemContent + (sysSuffix || '') + (SYSs || '') +
+            (historyWrapped || '') +
+            USR + userContent + (USRs || '') +
+            BOT + (assistantPrefill || '')
+        );
+    }
+
+    // ===== Regen target resolution =====
+    const regen = isRegen === true;
+    let targetAssistantIdx = -1, targetAssistantTs = null, targetAssistantNode = null;
     if (regen) {
         for (let i = miniTurns.length - 1; i >= 0; i--) {
-            if (miniTurns[i].role === 'assistant') {
-                targetAssistantIdx = i;
-                targetAssistantTs = miniTurns[i].ts;
-                break;
-            }
+            if (miniTurns[i].role === 'assistant') { targetAssistantIdx = i; targetAssistantTs = miniTurns[i].ts; break; }
         }
         if (targetAssistantTs) {
             targetAssistantNode = [...chatLogEl.querySelectorAll('.gw-row[data-role="assistant"]')]
@@ -1328,30 +1727,25 @@ async function onSendToLLM(isRegen = false) {
         }
     }
 
-    // normalize input
+    // ===== Input normalize =====
     const typedRaw = (inputEl.value ?? '').replace(/\s+/g, ' ').trim();
-
-    // If not regenerating, require fresh input; if regenerating, we reuse history/instruction.
     if (!regen && !typedRaw) return;
 
-    // transform once so the bubble shows exactly what we send
-    const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
+    const charObj = getActiveCharacterFull();
+    const charName = (charObj?.name || charObj?.data?.name || ctx?.name2 || '');
     const typedForSend = typedRaw ? maskUserPlaceholders(replaceCharPlaceholders(typedRaw, charName)) : '';
 
-    // Insert user's message into the workshop chat history + UI (tracked history)
     if (!regen && typedForSend) {
         const userWrap = appendBubble('user', typedForSend);
         const userTs = userWrap?.dataset?.ts || String(Date.now());
         miniTurns.push({ role: 'user', content: typedForSend, ts: userTs });
         saveSession();
-
-        // clear input and keep focus for fast iteration
         inputEl.value = '';
         inputEl.dispatchEvent(new Event('input'));
         inputEl.focus();
     }
 
-    // spinner
+    // ===== Spinner =====
     const spinner = document.createElement('div');
     spinner.textContent = regen ? 'Regenerating…' : 'Thinking…';
     Object.assign(spinner.style, { fontSize: '12px', opacity: .7, margin: '4px 0 0 2px' });
@@ -1359,90 +1753,194 @@ async function onSendToLLM(isRegen = false) {
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
     try {
+        // ===== Prompt parts =====
         const systemPrompt = buildSystemPrompt(prefs);
-
-        // Most recent user instruction (already transformed if newly sent)
         const lastUserMsg = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
-
-        // Include the last N messages of mini chat history on every call
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
-        const historyBlock = buildRecentHistoryBlock(historyLimit);
-
-        // Optional preferred scene block
         const preferredBlock = buildPreferredSceneBlock();
+        const chatHistoryBlock = buildRecentHistoryBlock(historyLimit, {
+            excludeTrailingUser: true,
+            dropUserEqualTo: lastUserMsg,
+            dropPreferredAssistant: true, // NEW
+        });
 
-        // Two-block prompt (+ optional third block for preferred scene)
-        // Order: HISTORY → (PREFERRED_SCENE if any) → INSTRUCTION
-        const rawPrompt = [
-            historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
-            preferredBlock ? `\n${preferredBlock}\n` : '',
-            'USER_INSTRUCTION:',
-            lastUserMsg,
-            '',
-            'Follow the instruction above using the character data as context. ' +
-            'If a preferred scene is provided, keep it almost the same and apply only the requested edits.'
-        ].join('\n');
+        const profile = getSelectedProfile();
+        if (!profile) { appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.'); return; }
 
-        // Rough sizing: ~90 chars per sentence
-        const approxRespLen = Math.ceil(
-            (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
-        );
+        const apiInfo = resolveApiBehavior(profile);
+        if (!apiInfo) { appendBubble('assistant', `Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`); return; }
 
-        const res = await stGenerateRaw(
-            String(rawPrompt),
-            null,
-            true,
-            true,
-            String(systemPrompt),
-            approxRespLen,
-            true,
-            '',
-            null
-        );
+        // Determine family *before* logs that use it
+        const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
+        console.log('[GW] family:', family, 'apiInfo:', apiInfo);
 
-        const llmResText = String(res || '').trim();
+        // Resolve instruct enablement and preset-aware config
+        const instructGlobal = getGlobalInstructConfig();
+        const instructIsOnGlobal = !!(instructGlobal && instructGlobal.enabled);
+        const instructIsOnProfile = profileInstructEnabled(profile);
+        const hasInstructName = !!(profile?.instruct && String(profile.instruct).trim().length);
+        const instructEnabled = instructIsOnGlobal || instructIsOnProfile || hasInstructName;
 
+        const { cfg: instructCfgRaw, name: instructName } = resolveEffectiveInstruct(profile);
+        const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo);
+        console.log('[GW] instructEnabled:', instructEnabled, 'instructName:', instructName, 'eff cfg:', instructCfgEff);
+
+        // Resolve model from context first, then profile.model
+        const modelFromCtx = getModelFromContextByApi(profile);
+        console.log('[GW] modelFromCtx:', modelFromCtx, 'profile.model:', profile.model);
+
+        const temperature = getTemperature();
+        let llmResText = '';
+
+        // ===== Chat-completion family (OpenAI-like) =====
+        if (family === 'cc' || apiInfo.selected === 'openai') {
+            const modelResolved = modelFromCtx || profile.model || null;
+            console.log(`[GW] CC modelResolved:`, modelResolved);
+
+            const custom_url = profile['api-url'] || null;
+            const proxy = getProxyByName(profile.proxy);
+            const reverse_proxy = proxy?.url || null;
+            const proxy_password = proxy?.password || null;
+
+            const assistantPrefill = (profile['start-reply-with'] || '').trim();
+            const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
+
+            const coreUserInstruction = [
+                chatHistoryBlock,
+                preferredBlock ? `\n${preferredBlock}\n` : '',
+                '- Follow the USER_INSTRUCTION using the character data as context.' +
+                '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
+                `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
+                'USER_INSTRUCTION:',
+                lastUserMsg,
+            ].join('\n');
+
+            const approxRespLen = Math.ceil(
+                (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
+            );
+
+            const requestPayload = {
+                stream: false,
+                messages: [
+                    { role: 'system', content: String(systemPrompt) },
+                    { role: 'user', content: String(coreUserInstruction) },
+                ],
+                chat_completion_source: apiInfo.source, // e.g., 'openai'
+                max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
+                temperature,
+                ...(stopFields),
+                ...(custom_url ? { custom_url } : {}),
+                ...(reverse_proxy ? { reverse_proxy } : {}),
+                ...(proxy_password ? { proxy_password } : {}),
+                ...(modelResolved ? { model: modelResolved } : {}), // only include if set
+            };
+
+            console.log('[GW] CC requestPayload:', requestPayload);
+
+            const response = await ChatCompletionService.processRequest(
+                requestPayload,
+                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                true,
+                null,
+            );
+
+            llmResText = String(response?.content || '').trim();
+
+            if (assistantPrefill && llmResText && !llmResText.startsWith(assistantPrefill)) {
+                llmResText = assistantPrefill + llmResText;
+            }
+
+            // ===== Text-completion family (TGW/Kobold/Novel/Horde) =====
+        } else {
+            const api_server = profile['api-url'] || null;
+            const modelResolved = modelFromCtx || profile.model || null;
+            console.log('[GW] TC modelResolved:', modelResolved);
+
+            const assistantPrefill = (profile['start-reply-with'] || '').trim();
+
+            let promptToSend;
+            const approxRespLen = Math.ceil(
+                (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
+            );
+
+            if (instructEnabled && instructCfgEff) {
+                const instructHistory = buildInstructHistory(historyLimit, instructCfgEff || {}, {
+                    excludeTrailingUser: true,
+                    dropUserEqualTo: lastUserMsg,
+                    dropPreferredAssistant: true, // NEW
+                });
+                const userContent = [
+                    preferredBlock ? `\n${preferredBlock}\n` : '',
+                    '- Follow the USER_INSTRUCTION using the character data as context.' +
+                    '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
+                    `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
+                    'USER_INSTRUCTION:',
+                    lastUserMsg,
+                ].join('\n');
+
+                promptToSend = buildInstructPrompt(
+                    instructCfgEff,
+                    String(systemPrompt),
+                    instructHistory,
+                    String(userContent),
+                    assistantPrefill
+                );
+            } else {
+                const linearUserBody = [
+                    buildRecentHistoryBlock(historyLimit, { dropPreferredAssistant: true }), 
+                    preferredBlock ? `\n${preferredBlock}\n` : '',
+                    // ...
+                ].join('\n');
+                
+
+                promptToSend = `${String(systemPrompt)}\n\n${linearUserBody}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
+            }
+
+            const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
+
+            const requestPayload = {
+                stream: false,
+                prompt: promptToSend,
+                max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
+                api_type: apiInfo.api_type, // 'koboldcpp' for koboldcpp/kcpp
+                temperature,
+                ...(stopFields),
+                ...(api_server ? { api_server } : {}),
+                ...(modelResolved ? { model: modelResolved } : {}), // only include if set
+            };
+
+            console.log('[GW] TC requestPayload:', {
+                ...requestPayload,
+                prompt_preview: String(requestPayload.prompt).slice(0, 200)
+            });
+
+            const response = await TextCompletionService.processRequest(
+                requestPayload,
+                {
+                    presetName: profile.preset || undefined,
+                    instructName: instructEnabled ? (instructName || 'effective') : undefined
+                },
+                true,
+                null,
+            );
+
+            llmResText = String(response?.content || '').trim();
+        }
+
+        // ===== Normalization =====
         const realUsername = getRealUsername();
+        let finalText = normalizeUserToken(llmResText, realUsername);
 
-        // quick status logs before enforcement
-        if (containsUserToken(llmResText)) {
-            console.log('[GW] Initial status: CONTAINED ({{user}} found in initial output)');
-        } else if (containsRealUsername(llmResText, realUsername)) {
-            console.log('[GW] Initial status: REAL_USERNAME (found real username, will normalize to {{user}})');
-        } else {
-            console.log('[GW] Initial status: NOT_CONTAINED (no {{user}} or real username)');
-        }
-
-        // --- Enforcement pass: ensure {{user}} appears at least once (single retry, normalize real name)
-        let finalText = llmResText;
-        if (finalText) {
-            finalText = await enforceUserTokenSingleRetry(finalText, prefs, systemPrompt, realUsername);
-        }
-
-        // final outcome log
-        if (containsUserToken(finalText)) {
-            console.log('[GW] Final status: CONTAINED (initial or after retry)');
-        } else if (containsRealUsername(finalText, realUsername)) {
-            console.log('[GW] Final status: REAL_USERNAME (accepted; normalized to {{user}})');
-        } else {
-            console.log('[GW] Final status: FAILED (no {{user}} after single retry)');
-        }
-
+        // ===== UI commit =====
         if (!finalText) {
             if (!regen) appendBubble('assistant', '(empty response)');
         } else if (regen && targetAssistantIdx !== -1 && targetAssistantNode) {
-            // Replace the last assistant turn
             const contentEl = targetAssistantNode.querySelector('.gw-content');
             if (contentEl) contentEl.textContent = finalText;
-
             miniTurns[targetAssistantIdx].content = finalText;
-
-            if (preferredScene && preferredScene.ts === targetAssistantTs) {
-                preferredScene.text = finalText;
-            }
+            if (preferredScene && preferredScene.ts === targetAssistantTs) preferredScene.text = finalText;
             saveSession();
         } else {
-            // Append new assistant turn
             const asstWrap = appendBubble('assistant', finalText);
             const asstTs = asstWrap?.dataset?.ts || String(Date.now());
             miniTurns.push({ role: 'assistant', content: finalText, ts: asstTs });
@@ -1451,11 +1949,14 @@ async function onSendToLLM(isRegen = false) {
 
     } catch (e) {
         console.error('[Greeting Workshop] LLM call failed:', e);
-        if (!regen) appendBubble('assistant', '⚠️ Error generating text. See console for details.');
+        let msg = 'Error generating text.';
+        try { if (typeof e === 'object' && e) msg = e.error?.message ? `Error: ${e.error.message}` : (e.message || msg); } catch { }
+        appendBubble('assistant', `${msg} See console for details.`);
     } finally {
         spinner.remove();
     }
 }
+
 
 
 
