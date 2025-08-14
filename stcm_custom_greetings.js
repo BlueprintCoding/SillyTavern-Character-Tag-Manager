@@ -673,43 +673,64 @@ function buildSystemPrompt(prefs) {
         { who, nParas, nSents, style, charName, parasS, sentsS }
     );
 }
+
+function toPlainText(v) {
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+
+    if (Array.isArray(v)) {
+        // flatten arrays of strings/objects
+        return v.map(toPlainText).filter(Boolean).join('\n');
+    }
+
+    if (typeof v === 'object') {
+        // common rich shapes
+        if (typeof v.text === 'string') return v.text;
+        if (typeof v.content === 'string') return v.content;
+        if (Array.isArray(v.content)) return v.content.map(toPlainText).join('\n');
+        // last resort: JSON (keeps visibility if something unexpected appears)
+        try { return JSON.stringify(v); } catch { return String(v); }
+    }
+
+    return String(v);
+}
+
+
 function buildChatMessages(prefs, lastUserMsg) {
     const messages = [];
 
-    // History (already role-separated)
+    // History
     const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
     const historyMessages = buildRecentHistoryBlock(historyLimit);
     if (historyMessages.length) messages.push(...historyMessages);
 
-    // Preferred scene (may be object like { text, ts })
+    // Preferred scene
     const preferredRaw = buildPreferredSceneBlock();
-    const preferredText = normalizeBlock(preferredRaw).trim();
-    if (preferredText) {
-        messages.push({ role: 'system', content: preferredText });
-    }
+    const preferredText = toPlainText(preferredRaw).trim();
+    if (preferredText) messages.push({ role: 'system', content: preferredText });
 
-    // Character JSON (ensure it's string)
-    const charJsonRaw = buildCharacterJSONBlock();
-    const charJsonText = normalizeBlock(charJsonRaw).trim();
-    if (charJsonText) {
-        messages.push({ role: 'system', content: charJsonText });
-    }
+    // Character JSON
+    const charJsonText = toPlainText(buildCharacterJSONBlock()).trim();
+    if (charJsonText) messages.push({ role: 'system', content: charJsonText });
 
     // Final user instruction
     const nParas = Math.max(1, Number(prefs?.numParagraphs || 3));
     const nSents = Math.max(1, Number(prefs?.sentencesPerParagraph || 3));
     const instruction = [
         'USER_INSTRUCTION:',
-        lastUserMsg || '(no new edits)',
+        toPlainText(lastUserMsg) || '(no new edits)',
         '',
         '- Follow the instruction above using the character data as context.',
         '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.',
         `- Output should be ${nParas} paragraph${nParas === 1 ? '' : 's'} with ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`
     ].join('\n');
-
     messages.push({ role: 'user', content: instruction });
 
-    return messages;
+    // FINAL HARD COERCION (guards against any upstream surprises)
+    return messages.map(m => ({
+        role: m.role,
+        content: toPlainText(m.content)
+    }));
 }
 
 
@@ -1336,14 +1357,12 @@ function buildRecentHistoryBlock(limit = 5) {
     const recent = miniTurns.slice(-limit);
     if (!recent.length) return [];
 
-    return recent.map(t => {
-        const role = t.role === 'assistant' ? 'assistant' : 'user';
-        return {
-            role,
-            content: String(t.content ?? '')
-        };
-    });
+    return recent.map(t => ({
+        role: t.role === 'assistant' ? 'assistant' : 'user',
+        content: toPlainText(t.content)
+    }));
 }
+
 
 
 
@@ -1416,6 +1435,9 @@ async function onSendToLLM(isRegen = false) {
         const approxRespLen = Math.ceil(
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
+
+        const bad = messages.find(m => typeof m.content !== 'string');
+        if (bad) console.warn('[GW] Non-string message content detected before send:', bad);
 
         // Hand chat-style messages to ST; createRawPrompt will prepend `systemPrompt`.
         const res = await stGenerateRaw(
