@@ -1444,7 +1444,7 @@ async function onSendToLLM(isRegen = false) {
         const preferredBlock = buildPreferredSceneBlock();
 
         const rawPrompt = [
-            historyBlock,
+            historyWrapped,
             preferredBlock ? `\n${preferredBlock}\n` : '',
             '- Follow the USER_INSTRUCTION using the character data as context.' +
             '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
