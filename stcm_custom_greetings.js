@@ -434,21 +434,15 @@ let miniTurns = []; // [{role:'user'|'assistant', content: string}]
 
 function openWorkshop() {
     ensureCtx();
-    // --- auto-clear if switching between characters ---
     const currId = getCharId();
     const lastId = localStorage.getItem(LAST_CHAR_KEY);
 
-    // If we previously used the workshop on a different character, start fresh for this one
     if (lastId && lastId !== currId) {
         try {
-            // Ensure the new character starts with a clean slate
             localStorage.setItem(`stcm_gw_state_${currId}`, JSON.stringify({ miniTurns: [], preferredScene: null }));
         } catch { }
     }
-
-    // Update "last opened for" marker
     try { localStorage.setItem(LAST_CHAR_KEY, currId); } catch { }
-
 
     if (modal) return;
 
@@ -506,7 +500,6 @@ function openWorkshop() {
     </label>
 `;
 
-
     const body = document.createElement('div');
     Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '70vh' });
 
@@ -525,18 +518,15 @@ function openWorkshop() {
     Object.assign(sendBtn.style, btnStyle('#2e7d32'));
     composer.append(inputEl, sendBtn);
 
-    closeBtn = mkBtn('X', '#9e2a2a');
+    const closeBtn = mkBtn('X', '#9e2a2a');
     header.append(closeBtn);
 
     const footer = document.createElement('div');
     Object.assign(footer.style, { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #333', background: '#1f1f1f' });
 
-    regenBtn = mkBtn('Regenerate', '#007acc');
-    editBtn = mkBtn('Edit Last', '#8e44ad');
-    copyBtn = mkBtn('Copy Last', '#616161');
-    acceptBtn = mkBtn('Accept → Replace Start', '#d35400');
-
-    const clearBtn = mkBtn('Clear Memory', '#9e2a2a'); // or theme color
+    const regenBtn = mkBtn('Regenerate', '#007acc');
+    const acceptBtn = mkBtn('Accept → Replace Start', '#d35400');
+    const clearBtn = mkBtn('Clear Memory', '#9e2a2a');
 
     closeBtn.addEventListener('click', closeWorkshop);
 
@@ -545,21 +535,11 @@ function openWorkshop() {
             'Clear workshop memory (history & preferred scene)?',
             POPUP_TYPE.CONFIRM,
             'Greeting Workshop',
-            {
-                okButton: 'OK',
-                cancelButton: 'Cancel'
-            }
-        ).then(result => {
-            if (result === POPUP_RESULT.AFFIRMATIVE) {
-                clearWorkshopState(); // should print "clear called"
-            }
-        });
+            { okButton: 'OK', cancelButton: 'Cancel' }
+        ).then(result => { if (result === POPUP_RESULT.AFFIRMATIVE) clearWorkshopState(); });
     });
 
-
-
-    footer.append(regenBtn, editBtn, copyBtn, spacer(), acceptBtn, clearBtn);
-
+    footer.append(regenBtn, spacer(), acceptBtn, clearBtn);
 
     modal.append(header, settings, body, footer);
     body.append(chatLogEl, composer);
@@ -579,20 +559,13 @@ function openWorkshop() {
             numParagraphs: Math.max(1, Math.min(10, Number(paraInputEl.value) || 3)),
             sentencesPerParagraph: Math.max(1, Math.min(10, Number(sentInputEl.value) || 3)),
             historyCount: Math.max(0, Math.min(20, Number(histInputEl.value) || 5))
-
         };
         savePrefs(next);
     });
 
-    // appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
-
-
     sendBtn.addEventListener('click', () => onSendToLLM(false));
     regenBtn.addEventListener('click', onRegenerate);
-    editBtn.addEventListener('click', onEditLastAssistant);
-    copyBtn.addEventListener('click', onCopyLastAssistant);
     acceptBtn.addEventListener('click', onAccept);
-
 
     inputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -601,16 +574,14 @@ function openWorkshop() {
         }
     });
 
-    // hydrate state first
     const restored = loadSession();
     miniTurns = restored.miniTurns;
     preferredScene = restored.preferredScene;
     restoreUIFromState();
 
-
-
     inputEl.focus();
 }
+
 
 
 function closeWorkshop() {
@@ -733,34 +704,208 @@ function appendBubble(role, text, opts = {}) {
     return wrap;
 }
 
+function appendBubble(role, text, opts = {}) {
+    if (!chatLogEl || !chatLogEl.appendChild) return;
 
+    const wrap = document.createElement('div');
+    wrap.className = 'gw-row';
+    wrap.dataset.role = role;
+    wrap.dataset.ts = String(Date.now());
 
-function onCopyLastAssistant() {
-    const last = [...miniTurns].reverse().find(t => t.role === 'assistant');
-    if (!last) return;
-    navigator.clipboard.writeText(last.content);
-}
+    const bubble = document.createElement('div');
+    bubble.className = 'gw-bubble';
 
-function onEditLastAssistant() {
-    const last = [...miniTurns].reverse().find(t => t.role === 'assistant');
-    if (!last) return;
-    const ta = document.createElement('textarea');
-    Object.assign(ta.style, { width: '100%', minHeight: '80px', background: '#222', color: '#eee', border: '1px solid #444', borderRadius: '6px', padding: '8px' });
-    ta.value = last.content;
-    const editorWrap = document.createElement('div');
-    Object.assign(editorWrap.style, { margin: '6px 0' });
-    const saveBtn = mkBtn('Save Edit', '#8e44ad');
-    saveBtn.style.marginTop = '6px';
-    editorWrap.append(ta, saveBtn);
-    chatLogEl.append(editorWrap);
-    chatLogEl.scrollTop = chatLogEl.scrollHeight;
-    saveBtn.addEventListener('click', () => {
-        last.content = ta.value.trim();
-        saveSession();
-        appendBubble('assistant', last.content);
-        editorWrap.remove();
+    // content wrapper so we can safely replace just text on edit
+    const content = document.createElement('div');
+    content.className = 'gw-content';
+    content.textContent = text;
+
+    wrap.style.display = 'flex';
+    wrap.style.margin = '6px 0';
+    wrap.style.justifyContent = role === 'user' ? 'flex-end' : 'flex-start';
+
+    const hasActions = role === 'assistant' && !opts.noActions;
+
+    Object.assign(bubble.style, {
+        padding: '8px 10px',
+        borderRadius: '8px',
+        background: role === 'user' ? '#2b2b2b' : '#242424',
+        border: '1px solid #3a3a3a',
+        maxWidth: '90%',
+        whiteSpace: 'pre-wrap',
+        position: 'relative',
+        paddingBottom: hasActions ? '32px' : '8px'
     });
+
+    bubble.appendChild(content);
+    wrap.appendChild(bubble);
+    chatLogEl.appendChild(wrap);
+
+    if (hasActions) {
+        const bar = document.createElement('div');
+        Object.assign(bar.style, {
+            position: 'absolute',
+            right: '8px',
+            bottom: '6px',
+            display: 'flex',
+            gap: '8px',
+            fontSize: '12px',
+            opacity: '0.9'
+        });
+
+        // ⭐ Preferred
+        const starBtn = document.createElement('button');
+        starBtn.type = 'button';
+        starBtn.title = 'Mark as preferred (keep almost the same next time)';
+        starBtn.textContent = '⭐';
+        Object.assign(starBtn.style, {
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0 2px',
+            color: '#ffd54f'
+        });
+
+        // ✏️ Edit (inline editor for this assistant message)
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.title = 'Edit this assistant message';
+        editBtn.textContent = '✏️';
+        Object.assign(editBtn.style, {
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0 2px'
+        });
+
+        // 📋 Copy (copies this assistant message)
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.title = 'Copy this assistant message';
+        copyBtn.textContent = '📋';
+        Object.assign(copyBtn.style, {
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0 2px'
+        });
+
+        // 🗑 Delete (assistant + preceding user)
+        const trashBtn = document.createElement('button');
+        trashBtn.type = 'button';
+        trashBtn.title = 'Delete this assistant message and the previous user message';
+        trashBtn.textContent = '🗑';
+        Object.assign(trashBtn.style, {
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0 2px',
+            color: '#f06292'
+        });
+
+        starBtn.addEventListener('click', () => {
+            // take the latest text from state if present
+            const thisTs = wrap.dataset.ts;
+            const item = miniTurns.find(t => t.role === 'assistant' && t.ts === thisTs);
+            const latest = item?.content ?? content.textContent ?? text;
+            markPreferred(wrap, bubble, latest);
+            saveSession();
+            starBtn.setAttribute('aria-pressed', preferredScene && preferredScene.ts === thisTs ? 'true' : 'false');
+        });
+
+        copyBtn.addEventListener('click', () => {
+            const thisTs = wrap.dataset.ts;
+            const item = miniTurns.find(t => t.role === 'assistant' && t.ts === thisTs);
+            const toCopy = item?.content ?? content.textContent ?? text;
+            navigator.clipboard.writeText(toCopy);
+        });
+
+        editBtn.addEventListener('click', () => {
+            // prevent multiple editors
+            if (bubble.querySelector('.gw-inline-editor')) return;
+
+            const thisTs = wrap.dataset.ts;
+            const itemIdx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
+            const current = itemIdx !== -1 ? miniTurns[itemIdx].content : (content.textContent ?? text);
+
+            const editor = document.createElement('textarea');
+            editor.className = 'gw-inline-editor';
+            Object.assign(editor.style, {
+                width: '100%',
+                minHeight: '96px',
+                marginTop: '8px',
+                background: '#222',
+                color: '#eee',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                padding: '8px'
+            });
+            editor.value = current;
+
+            const row = document.createElement('div');
+            Object.assign(row.style, { display: 'flex', gap: '8px', marginTop: '6px' });
+
+            const saveBtn = mkBtn('Save', '#8e44ad');
+            const cancelBtn = mkBtn('Cancel', '#616161');
+
+            saveBtn.addEventListener('click', () => {
+                const next = editor.value.trim();
+                content.textContent = next;
+
+                // update state
+                if (itemIdx !== -1) {
+                    miniTurns[itemIdx].content = next;
+                }
+                // keep preferred text in sync
+                if (preferredScene && preferredScene.ts === thisTs) {
+                    preferredScene.text = next;
+                }
+
+                saveSession();
+                editor.remove();
+                row.remove();
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                editor.remove();
+                row.remove();
+            });
+
+            row.append(saveBtn, cancelBtn);
+            bubble.append(editor, row);
+            editor.focus();
+        });
+
+        trashBtn.addEventListener('click', () => {
+            const thisTs = wrap.dataset.ts;
+            const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
+            if (idx !== -1) {
+                miniTurns.splice(idx, 1);
+                if (idx - 1 >= 0 && miniTurns[idx - 1]?.role === 'user') {
+                    const prevTs = miniTurns[idx - 1].ts;
+                    miniTurns.splice(idx - 1, 1);
+                    const prevNode = wrap.previousElementSibling;
+                    if (prevNode && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs) {
+                        prevNode.remove();
+                    }
+                }
+            }
+            if (preferredScene && preferredScene.ts === thisTs) {
+                preferredScene = null;
+                clearPreferredUI();
+            }
+            saveSession();
+            wrap.remove();
+        });
+
+        bar.append(starBtn, editBtn, copyBtn, trashBtn);
+        bubble.appendChild(bar);
+    }
+
+    chatLogEl.scrollTop = chatLogEl.scrollHeight;
+    return wrap;
 }
+
 
 async function onRegenerate() {
     const lastUser = [...miniTurns].reverse().find(t => t.role === 'user');
