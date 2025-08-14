@@ -1821,8 +1821,60 @@ dialog.popup #stcm-popup-pin-input:focus {
     font-weight: 500;
   }
   
+/* Greeting Workbench */
+.gw-bubble.gw-editing { 
+    box-shadow: 0 0 0 2px #8e44ad55; 
+}
+/* Variable chip (unchanged) */
+.gw-var {
+    position: relative;
+    display: inline-block;
+    padding: 2px 6px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #242424;
+    color: #eaeaea;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    cursor: help;
+    line-height: 1.6;
+}
 
-  
+/* Floating host on <body>. DO NOT anchor with bottom/right by default. */
+.gw-tip-host {
+    position: fixed;
+    top: 0;           /* will be overridden by JS */
+    left: 0;          /* will be overridden by JS */
+    max-width: 360px;       /* a bit narrower feels nicer */
+    max-height: 60vh;       /* never take the whole screen */
+    overflow: auto;         /* scroll if long */
+
+    background: #111;
+    color: #f0f0f0;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 8px 10px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    z-index: 12000;         /* higher than modal (11001) */
+    pointer-events: none;
+    white-space: normal;
+    display: none;
+    line-height: 1.35;
+    font-size: 12px;
+}
+
+.gw-tip-arrow {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    background: #111;
+    border-left: 1px solid #444;
+    border-top: 1px solid #444;
+    transform: rotate(45deg);
+    z-index: 12001;
+    pointer-events: none;
+    display: none;
+}
 
 /* Scroll bar styling */
 /* === Universal Scroll Bar Styling for Modal & Sidebar === */
@@ -1832,6 +1884,8 @@ dialog.popup #stcm-popup-pin-input:focus {
 #characterTagManagerModal *, 
 #stcm_sidebar_folder_nav,
 #stcm_sidebar_folder_nav *,
+#gw-chat-body,
+#gw-chat-body *,
 .modalBody {
   scrollbar-width: thin;
   scrollbar-color: #666 #181818; /* thumb, track */
@@ -1840,13 +1894,15 @@ dialog.popup #stcm-popup-pin-input:focus {
 /* WebKit browsers: */
 #characterTagManagerModal ::-webkit-scrollbar,
 #stcm_sidebar_folder_nav ::-webkit-scrollbar,
-.modalBody ::-webkit-scrollbar {
+.modalBody ::-webkit-scrollbar,
+#gw-chat-body ::-webkit-scrollbar {
   width: 12px;
   background: #181818;
 }
 #characterTagManagerModal ::-webkit-scrollbar-thumb,
 #stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb,
-.modalBody ::-webkit-scrollbar-thumb {
+.modalBody ::-webkit-scrollbar-thumb,
+#gw-chat-body ::-webkit-scrollbar-thumb  {
   background: #666;
   border-radius: 8px;
   min-height: 24px;
@@ -1854,12 +1910,14 @@ dialog.popup #stcm-popup-pin-input:focus {
 }
 #characterTagManagerModal ::-webkit-scrollbar-thumb:hover,
 #stcm_sidebar_folder_nav ::-webkit-scrollbar-thumb:hover,
-.modalBody ::-webkit-scrollbar-thumb:hover {
+.modalBody ::-webkit-scrollbar-thumb:hover,
+#gw-chat-body ::-webkit-scrollbar-thumb:hover  {
   background: #888;
 }
 #characterTagManagerModal ::-webkit-scrollbar-corner,
 #stcm_sidebar_folder_nav ::-webkit-scrollbar-corner,
-.modalBody ::-webkit-scrollbar-corner  {
+.modalBody ::-webkit-scrollbar-corner,
+#gw-chat-body ::-webkit-scrollbar-corner  {
   background: #181818;
 }
 

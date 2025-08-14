@@ -61,6 +61,9 @@ import {
 
 import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
 
+import { initCustomGreetingWorkshop } from './stcm_custom_greetings.js';
+
+
 
 const { eventSource, event_types } = SillyTavern.getContext();
 
@@ -973,6 +976,7 @@ eventSource.on(event_types.APP_READY, async () => {
     hideFolderedCharactersOutsideSidebar(STCM.sidebarFolders);
     injectStcmSettingsPanel();    
     restoreCharEditModal();
+    initCustomGreetingWorkshop();
 
 });
 
