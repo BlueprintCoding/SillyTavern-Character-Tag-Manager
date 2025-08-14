@@ -635,6 +635,7 @@ function esc(s) {
 
 function buildSystemPrompt(prefs) {
     ensureCtx();
+
     const ch = getActiveCharacterFull();
     const charName = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
     const who = 'A Character Card Greeting Editing Assistant';
@@ -647,27 +648,70 @@ function buildSystemPrompt(prefs) {
 
     const custom = loadCustomSystemPrompt();
 
+    // Only return the instruction text for the system message.
     if (custom.enabled) {
-        const rendered = renderSystemPromptTemplate(custom.template, {
+        return renderSystemPromptTemplate(custom.template, {
             who, nParas, nSents, style, charName, parasS, sentsS
         });
-        return [
-            rendered,
-            buildCharacterJSONBlock(),
-        ].join('\n\n');
     }
 
-    // ✅ Render the default template with variables
-    const defaultPrompt = renderSystemPromptTemplate(
+    return renderSystemPromptTemplate(
         getDefaultSystemPromptTemplate(),
         { who, nParas, nSents, style, charName, parasS, sentsS }
     );
-
-    return [
-        defaultPrompt,
-        buildCharacterJSONBlock()
-    ].join('\n\n');
 }
+
+function buildChatMessages(prefs, lastUserMsg) {
+    const messages = [];
+
+    // Include the last N messages of mini chat history as a single context block.
+    const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
+    const historyBlock = buildRecentHistoryBlock(historyLimit); // <RECENT_HISTORY>...</RECENT_HISTORY>
+    if (historyBlock && historyBlock.trim()) {
+        messages.push({
+            role: 'system',
+            content: historyBlock.trim()
+        });
+    }
+
+    // Optional preferred scene block as its own system message.
+    const preferredBlock = buildPreferredSceneBlock();
+    if (preferredBlock && preferredBlock.trim()) {
+        messages.push({
+            role: 'system',
+            content: preferredBlock.trim()
+        });
+    }
+
+    // Character data JSON as a dedicated system message (kept separate from the systemPrompt).
+    const charJson = buildCharacterJSONBlock();
+    if (charJson && charJson.trim()) {
+        messages.push({
+            role: 'system',
+            content: charJson.trim()
+        });
+    }
+
+    // Final user instruction, including the output shape hints.
+    const nParas = Math.max(1, Number(prefs?.numParagraphs || 3));
+    const nSents = Math.max(1, Number(prefs?.sentencesPerParagraph || 3));
+    const instruction = [
+        'USER_INSTRUCTION:',
+        lastUserMsg || '(no new edits)',
+        '',
+        '- Follow the instruction above using the character data as context.',
+        '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.',
+        `- Output should be ${nParas} paragraph${nParas === 1 ? '' : 's'} with ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`
+    ].join('\n');
+
+    messages.push({
+        role: 'user',
+        content: instruction
+    });
+
+    return messages;
+}
+
 
 
 function openSystemPromptEditor() {
@@ -1289,22 +1333,20 @@ async function onRegenerate() {
 }
 
 function buildRecentHistoryBlock(limit = 5) {
-    // take last `limit` messages (user/assistant) in chronological order
+    // Take last `limit` user/assistant messages in chronological order
     const recent = miniTurns.slice(-limit);
-    if (!recent.length) return '';
+    if (!recent.length) return [];
 
-    const lines = recent.map((t, i) => {
+    return recent.map(t => {
+        // Keep only valid roles ST expects: 'user' or 'assistant'
         const role = t.role === 'assistant' ? 'assistant' : 'user';
-        // Keep it plain; the system prompt already handles formatting rules.
-        return `${i + 1}. ${role.toUpperCase()}: ${t.content}`;
+        return {
+            role,
+            content: t.content
+        };
     });
-
-    return [
-        '<RECENT_HISTORY>',
-        ...lines,
-        '</RECENT_HISTORY>'
-    ].join('\n');
 }
+
 
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
@@ -1362,47 +1404,31 @@ async function onSendToLLM(isRegen = false) {
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 
     try {
-        const systemPrompt = buildSystemPrompt(prefs);
+
 
         // Most recent user instruction (already transformed if newly sent)
         const lastUserMsg = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
 
-        // Include the last N messages of mini chat history on every call
-        const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
-        const historyBlock = buildRecentHistoryBlock(historyLimit);
+        const systemPrompt = buildSystemPrompt(prefs);
+        const messages = buildChatMessages(prefs, lastUserMsg);
 
-        // Optional preferred scene block
-        const preferredBlock = buildPreferredSceneBlock();
-
-        // Two-block prompt (+ optional third block for preferred scene)
-        // Order: HISTORY → (PREFERRED_SCENE if any) → INSTRUCTION
-        const rawPrompt = [
-            historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
-            preferredBlock ? `\n${preferredBlock}\n` : '',
-            'USER_INSTRUCTION:',
-            lastUserMsg,
-            '',
-            '- Follow the instruction above using the character data as context.' +
-            '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.'+
-            `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
-
-        ].join('\n');
 
         // Rough sizing: ~90 chars per sentence
         const approxRespLen = Math.ceil(
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
 
+        // Hand chat-style messages to ST; createRawPrompt will prepend `systemPrompt`.
         const res = await stGenerateRaw(
-            String(rawPrompt),
-            null,
-            true,
-            true,
+            messages,        // prompt as array of {role, content}
+            null,            // api (use main)
+            true,            // instructOverride
+            true,            // quietToLoud (system mode)
             String(systemPrompt),
-            approxRespLen,
-            true,
-            '',
-            null
+            approxRespLen,   // responseLength
+            true,            // trimNames
+            '',              // prefill
+            null             // jsonSchema
         );
 
         const llmResText = String(res || '').trim();
@@ -1441,10 +1467,6 @@ async function onSendToLLM(isRegen = false) {
             if (contentEl) contentEl.textContent = finalText;
 
             miniTurns[targetAssistantIdx].content = finalText;
-
-            if (preferredScene && preferredScene.ts === targetAssistantTs) {
-                preferredScene.text = finalText;
-            }
             saveSession();
         } else {
             // Append new assistant turn
