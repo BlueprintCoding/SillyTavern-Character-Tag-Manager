@@ -477,7 +477,7 @@ settings.innerHTML = `
         savePrefs(next);
     });
 
-    appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
+    // appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
 
 
     sendBtn.addEventListener('click', () => onSendToLLM(false));
@@ -530,12 +530,12 @@ function appendBubble(role, text, opts = {}) {
     bubble.className = 'gw-bubble';
     bubble.innerHTML = esc(text);
 
-    // layout
     wrap.style.display = 'flex';
     wrap.style.margin = '6px 0';
     wrap.style.justifyContent = role === 'user' ? 'flex-end' : 'flex-start';
 
-    // style (bubble)
+    const hasActions = role === 'assistant' && !opts.noActions;
+
     Object.assign(bubble.style, {
         padding: '8px 10px',
         borderRadius: '8px',
@@ -544,14 +544,13 @@ function appendBubble(role, text, opts = {}) {
         maxWidth: '90%',
         whiteSpace: 'pre-wrap',
         position: 'relative',
-        paddingBottom: '32px' // room for the badge/buttons row
+        paddingBottom: hasActions ? '32px' : '8px'
     });
 
     wrap.appendChild(bubble);
     chatLogEl.appendChild(wrap);
 
-    // Action bar for assistant bubbles only (and only if not suppressed)
-    if (role === 'assistant' && !opts.noActions) {
+    if (hasActions) {
         const bar = document.createElement('div');
         Object.assign(bar.style, {
             position: 'absolute',
@@ -590,7 +589,10 @@ function appendBubble(role, text, opts = {}) {
         starBtn.addEventListener('click', () => {
             markPreferred(wrap, bubble, text);
             saveSession();
-            starBtn.setAttribute('aria-pressed', preferredScene && preferredScene.ts === wrap.dataset.ts ? 'true' : 'false');
+            starBtn.setAttribute(
+                'aria-pressed',
+                preferredScene && preferredScene.ts === wrap.dataset.ts ? 'true' : 'false'
+            );
         });
 
         trashBtn.addEventListener('click', () => {
