@@ -216,6 +216,59 @@ function removeWorkshopButton() {
 }
 
 
+// --- Custom System Prompt storage + rendering ---
+const CUSTOM_SYS_PROMPT_KEY = 'stcm_gw_sys_prompt_v1';
+
+function loadCustomSystemPrompt() {
+    try {
+        const v = JSON.parse(localStorage.getItem(CUSTOM_SYS_PROMPT_KEY));
+        return {
+            enabled: !!v?.enabled,
+            template: typeof v?.template === 'string' ? v.template : getDefaultSystemPromptTemplate(),
+        };
+    } catch {
+        return { enabled: false, template: getDefaultSystemPromptTemplate() };
+    }
+}
+
+function saveCustomSystemPrompt(cfg) {
+    const safe = {
+        enabled: !!cfg?.enabled,
+        template: String(cfg?.template ?? '').trim() || getDefaultSystemPromptTemplate(),
+    };
+    localStorage.setItem(CUSTOM_SYS_PROMPT_KEY, JSON.stringify(safe));
+    return safe;
+}
+
+function getDefaultSystemPromptTemplate() {
+    // Mirrors your current system prompt, but parameterized.
+    // IMPORTANT: buildCharacterJSONBlock() will always be appended after rendering.
+    return [
+        'You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.',
+        'Format strictly as ${nParas} paragraph${nParas === 1 ? "" : "s"}, with exactly ${nSents} sentence${nSents === 1 ? "" : "s"} per paragraph.',
+        'Target tone: ${style}.',
+        'Your top priority is to FOLLOW THE USER\'S INSTRUCTION.',
+        '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
+        '- Maintain the same structure (paragraph count and sentences per paragraph).',
+        '- If they ask for a brief greeting/opening line instead of a scene, keep it to 1–2 sentences and ignore the paragraph/sentence settings.',
+        '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
+        'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
+        'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
+        'Use ONLY the provided JSON as ground truth for the scene.',
+        'Formatting rules:',
+        '- Return only what the user asked for; no meta/system talk; no disclaimers.',
+        '- If the user asked for a greeting, return only the greeting text (no extra commentary).'
+    ].join('\\n\\n');
+}
+
+function renderSystemPromptTemplate(template, vars) {
+    return String(template).replace(/\$\{(\w+)\}/g, (_, key) => {
+        // allow booleans/numbers; fallback to empty string
+        return Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key]) : '';
+    });
+}
+
+
 
 /* --------------------- CHARACTER JSON --------------------- */
 let activeCharCache = null;   // { name, description, personality, scenario, ... }
@@ -367,23 +420,38 @@ function esc(s) {
 function buildSystemPrompt(prefs) {
     ensureCtx();
     const ch = getActiveCharacterFull();
-    const charEdit = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
+    const charName = (ch?.name || ch?.data?.name || ctx?.name2 || '{{char}}');
     const who = 'A Character Card Greeting Editing Assistant';
 
-    const nParas = Math.max(1, Number(prefs.numParagraphs || 3));
-    const nSents = Math.max(1, Number(prefs.sentencesPerParagraph || 3));
+    const nParas = Math.max(1, Number(prefs?.numParagraphs || 3));
+    const nSents = Math.max(1, Number(prefs?.sentencesPerParagraph || 3));
+    const style  = (prefs?.style || 'Follow Character Personality');
 
+    const custom = loadCustomSystemPrompt();
+
+    if (custom.enabled) {
+        // User template path — ALWAYS append CHARACTER JSON block
+        const rendered = renderSystemPromptTemplate(custom.template, {
+            who, nParas, nSents, style, charName
+        });
+        return [
+            rendered,
+            buildCharacterJSONBlock(), // must always be appended if user edits/enables
+        ].join('\n\n');
+    }
+
+    // Default (unchanged behavior) — already embeds the JSON block
     return [
         `You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.`,
         `Format strictly as ${nParas} paragraph${nParas === 1 ? '' : 's'}, with exactly ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`,
-        `Target tone: ${prefs.style}.`,
+        `Target tone: ${style}.`,
         `Your top priority is to FOLLOW THE USER'S INSTRUCTION.`,
         `- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.`,
         `- Maintain the same structure (paragraph count and sentences per paragraph).`,
         `- If they ask for a brief greeting/opening line instead of a scene, keep it to 1–2 sentences and ignore the paragraph/sentence settings.`,
         `- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.`,
-        `You are NOT ${charEdit}; never roleplay as them. You are creating a scene for them based on the user's input.`,
-        `You will receive the COMPLETE character object for ${charEdit} as JSON under <CHARACTER_DATA_JSON>.`,
+        `You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user's input.`,
+        `You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.`,
         `Use ONLY the provided JSON as ground truth for the scene.`,
         `Formatting rules:`,
         `- Return only what the user asked for; no meta/system talk; no disclaimers.`,
@@ -391,6 +459,94 @@ function buildSystemPrompt(prefs) {
         buildCharacterJSONBlock()
     ].join('\n\n');
 }
+
+function openSystemPromptEditor() {
+    const cfg = loadCustomSystemPrompt();
+
+    const overlay = document.createElement('div');
+    Object.assign(overlay.style, { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 11000 });
+
+    const box = document.createElement('div');
+    Object.assign(box.style, {
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+        width: 'min(860px,95vw)', maxHeight: '90vh', overflow: 'hidden',
+        background: '#1b1b1b', color: '#eee', border: '1px solid #555',
+        borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.6)', zIndex: 11001,
+        display: 'flex', flexDirection: 'column'
+    });
+
+    const header = document.createElement('div');
+    header.textContent = '✏️ Edit System Prompt';
+    Object.assign(header.style, {
+        padding: '10px 12px', borderBottom: '1px solid #444', background: '#222',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600
+    });
+
+    const close = document.createElement('button');
+    close.textContent = 'X';
+    Object.assign(close.style, { padding: '6px 10px', background: '#9e2a2a', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer' });
+    close.addEventListener('click', () => { box.remove(); overlay.remove(); });
+    header.append(close);
+
+    const tips = document.createElement('div');
+    Object.assign(tips.style, { padding: '10px 12px', borderBottom: '1px solid #333', fontSize: '12px', opacity: 0.9, lineHeight: 1.5 });
+    tips.innerHTML = `
+        <div style="margin-bottom:6px;"><strong>Variables you can use:</strong></div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <code>\${who}</code>
+            <code>\${nParas}</code>
+            <code>\${nSents}</code>
+            <code>\${style}</code>
+            <code>\${charName}</code>
+        </div>
+        <div style="margin-top:8px;">These will be replaced at runtime. <em>Note:</em> <code>buildCharacterJSONBlock()</code> is always appended automatically when a custom prompt is enabled — you do not need to include it yourself.</div>
+    `;
+
+    const body = document.createElement('div');
+    Object.assign(body.style, { padding: '10px 12px', display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: '10px', height: '65vh' });
+
+    const useRow = document.createElement('label');
+    useRow.style.display = 'flex';
+    useRow.style.alignItems = 'center';
+    useRow.style.gap = '8px';
+    useRow.style.fontSize = '14px';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = !!cfg.enabled;
+    const lbl = document.createElement('span');
+    lbl.textContent = 'Use custom system prompt for the Greeting Workshop';
+    useRow.append(chk, lbl);
+
+    const ta = document.createElement('textarea');
+    ta.value = cfg.template || getDefaultSystemPromptTemplate();
+    Object.assign(ta.style, {
+        width: '100%', height: '100%', resize: 'vertical', minHeight: '240px',
+        background: '#222', color: '#eee', border: '1px solid #444', borderRadius: '6px', padding: '10px', fontFamily: 'monospace'
+    });
+
+    const footer = document.createElement('div');
+    Object.assign(footer.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end' });
+
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = 'Reset to Default';
+    Object.assign(resetBtn.style, { padding: '8px 12px', background: '#616161', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer' });
+    resetBtn.addEventListener('click', () => { ta.value = getDefaultSystemPromptTemplate(); });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    Object.assign(saveBtn.style, { padding: '8px 12px', background: '#8e44ad', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 });
+    saveBtn.addEventListener('click', () => {
+        saveCustomSystemPrompt({ enabled: chk.checked, template: ta.value });
+        box.remove(); overlay.remove();
+    });
+
+    footer.append(resetBtn, saveBtn);
+    body.append(useRow, ta, footer);
+
+    box.append(header, tips, body);
+    document.body.append(overlay, box);
+}
+
 
 
 /* --------------------- UI --------------------- */
@@ -520,14 +676,19 @@ function openWorkshop() {
     Object.assign(sendBtn.style, btnStyle('#2e7d32'));
     composer.append(inputEl, sendBtn);
 
+    const sysBtn = mkBtn('✏️ System Prompt', '#6a5acd');
+    sysBtn.addEventListener('click', openSystemPromptEditor);
+    header.append(sysBtn);
+
     const closeBtn = mkBtn('X', '#9e2a2a');
     header.append(closeBtn);
+    
 
     const footer = document.createElement('div');
     Object.assign(footer.style, { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #333', background: '#1f1f1f' });
 
-    const regenBtn = mkBtn('Regenerate', '#007acc');
-    const acceptBtn = mkBtn('Accept → Replace Start', '#d35400');
+    const regenBtn = mkBtn('Regenerate Last', '#007acc');
+    const acceptBtn = mkBtn('Accept → Replace Greeting', '#d35400');
     const clearBtn = mkBtn('Clear Memory', '#9e2a2a');
 
     closeBtn.addEventListener('click', closeWorkshop);
