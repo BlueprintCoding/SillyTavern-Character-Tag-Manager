@@ -1282,6 +1282,19 @@ async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
 
+    // helpers (kept inline for clarity)
+    const getMainApi = () => (ctx?.mainApi || window?.mainApi || 'textgenerationwebui');
+    const getTemperature = () => {
+        const t = Number(ctx?.extensionSettings?.memory?.temperature);
+        return Number.isFinite(t) ? t : undefined;
+    };
+    const getOpenAIModel = () =>
+        (ctx?.openai_settings?.model || ctx?.settings?.openai?.model || window?.openai_model || undefined);
+    const getTgwModel = () =>
+        (ctx?.textgen_settings?.model || ctx?.settings?.textgen?.model || window?.textgen_model || undefined);
+    const getTgwServer = () =>
+        (ctx?.extensionSettings?.apiUrl || ctx?.textgen_settings?.apiUrl || window?.textgen_server || undefined);
+
     // coerce truthiness to a real boolean (protects against event objects)
     const regen = isRegen === true;
 
@@ -1364,14 +1377,14 @@ async function onSendToLLM(isRegen = false) {
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
 
-        // Route based on mainApi in context
-        const mainApi = (ctx?.mainApi || window?.mainApi || 'textgenerationwebui');
-        const temperature = Number(ctx?.extensionSettings?.memory?.temperature) || undefined;
+        const mainApi = getMainApi();
+        const temperature = getTemperature();
 
+        // Build payloads
         let llmResText = '';
-
         if (mainApi === 'openai') {
-            // Use ChatCompletionService (messages-based)
+            // ChatCompletionService (messages-based). Most OpenAI backends require a model.
+            const model = getOpenAIModel();
             const requestPayload = {
                 stream: false,
                 messages: [
@@ -1380,39 +1393,59 @@ async function onSendToLLM(isRegen = false) {
                 ],
                 chat_completion_source: 'openai',
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
-                // Optional: model: ctx?.openai_settings?.model,
+                model,                 // include if available; some servers reject if missing
                 temperature,
             };
 
+            // Debug: compact preview (no prompt/system text)
+            console.log('[GW] OpenAI request (preview):', {
+                chat_completion_source: requestPayload.chat_completion_source,
+                max_tokens: requestPayload.max_tokens,
+                temperature: requestPayload.temperature,
+                model: requestPayload.model || '(none)',
+                messages_shape: requestPayload.messages?.map(m => m.role),
+            });
+
             const response = await ChatCompletionService.processRequest(
                 requestPayload,
-                /* options */ {},
-                /* extractData */ true,
-                /* signal */ null,
+                {},      // options
+                true,    // extractData
+                null,    // signal
             );
 
             llmResText = String(response?.content || '').trim();
-
         } else {
-            // Default to textgenerationwebui → TextCompletionService (single prompt)
-            // Prepend system prompt since this path expects one prompt string
+            // TextCompletionService (single prompt). We prepend system to the prompt text.
             const tgPrompt = `${String(systemPrompt)}\n\n${String(rawPrompt)}`;
+            const model = getTgwModel();
+            const api_server = getTgwServer(); // optional; if set, helps avoid default mismatch
 
             const requestPayload = {
                 stream: false,
                 prompt: tgPrompt,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
                 api_type: 'textgenerationwebui',
-                // Optional: model: ctx?.textgen_settings?.model,
+                api_server,            // safe to include if present
+                model,                 // safe to include if present
                 temperature,
-                // Optional: min_p: ctx?.textgen_settings?.min_p,
+                // min_p: ctx?.textgen_settings?.min_p,
             };
+
+            // Debug: compact preview (no full prompt)
+            console.log('[GW] TGW request (preview):', {
+                api_type: requestPayload.api_type,
+                api_server: requestPayload.api_server || '(default)',
+                max_tokens: requestPayload.max_tokens,
+                temperature: requestPayload.temperature,
+                model: requestPayload.model || '(none)',
+                prompt_len: tgPrompt.length,
+            });
 
             const response = await TextCompletionService.processRequest(
                 requestPayload,
-                /* options */ {},   // e.g., { presetName: 'MyPreset' }
-                /* extractData */ true,
-                /* signal */ null,
+                {},      // options (e.g., { presetName: 'MyPreset' })
+                true,    // extractData
+                null,    // signal
             );
 
             llmResText = String(response?.content || '').trim();
@@ -1463,8 +1496,16 @@ async function onSendToLLM(isRegen = false) {
         }
 
     } catch (e) {
+        // Try to show a helpful error inline and in console
         console.error('[Greeting Workshop] LLM call failed:', e);
-        if (!regen) appendBubble('assistant', '⚠️ Error generating text. See console for details.');
+        let msg = 'Error generating text.';
+        try {
+            if (typeof e === 'object' && e) {
+                if (e.error?.message) msg = `Error: ${e.error.message}`;
+                else if (e.message)    msg = `Error: ${e.message}`;
+            }
+        } catch {}
+        appendBubble('assistant', `${msg} See console for details.`);
     } finally {
         spinner.remove();
     }
