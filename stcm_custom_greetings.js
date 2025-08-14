@@ -97,7 +97,7 @@ function markPreferred(wrap, bubble, text) {
     badge.textContent = 'Preferred';
     Object.assign(badge.style, {
         position: 'absolute',
-        right: '8px',
+        left: '8px',
         bottom: '8px',
         fontSize: '10px',
         opacity: '0.9',
@@ -368,7 +368,7 @@ Object.assign(settings.style, {
 });
 settings.innerHTML = `
     <label style="display:flex;align-items:center;">
-        Paragraphs
+        Paragraphs(¶)
         <input id="gw-paras" type="number" min="1" max="10" value="${prefs.numParagraphs ?? 3}" style="width:80px;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
     </label>
     <label style="display:flex;align-items:center;">
