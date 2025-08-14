@@ -269,43 +269,14 @@ function regexEscape(s) {
     return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function getUserNameCandidates() {
-    const out = new Set();
-
-    try {
-        if (ctx?.name1) out.add(String(ctx.name1).trim());
-        if (ctx?.user?.name) out.add(String(ctx.user.name).trim());
-        // SillyTavern sometimes stores user name in LS; grab common keys if present.
-        const lsKeys = ['your_name', 'user_name', 'st_user_name'];
-        for (const k of lsKeys) {
-            const v = localStorage.getItem(k);
-            if (v) out.add(String(v).trim());
-        }
-    } catch { /* ignore */ }
-
-    // Drop empties and ridiculously short names (e.g., “a”)
-    return [...out].filter(n => n && n.length >= 2);
-}
-
-function containsRealUserName(text) {
-    const t = String(text || '');
-    const names = getUserNameCandidates();
-    for (const n of names) {
-        const re = new RegExp(`\\b${regexEscape(n)}\\b`, 'i');
-        if (re.test(t)) return true;
-    }
-    return false;
-}
-
-function containsUserTokenOrRealName(text) {
-    const hasToken = containsUserToken(text);
-    const hasReal = !hasToken && containsRealUserName(text); // only bother if no token
-    return { hasToken, hasReal };
-}
-
 
 function containsUserToken(text) {
     return /\{\{\s*user\s*\}\}/i.test(String(text || ''));
+}
+
+function getRealUsername() {
+    // SillyTavern usually exposes the user's name as name1
+    return (ctx?.name1 || ctx?.user?.name || window?.NAME1 || '').trim();
 }
 
 function buildUserHookRevisionPrompt(prevText, nParas, nSents) {
@@ -332,24 +303,17 @@ const MAX_USER_TOKEN_REVISIONS = 1;
  * Accepts outputs that use the *real username* (no further retries).
  * No fallback injection.
  */
-async function enforceUserTokenSingleRetry(text, prefs, systemPrompt) {
+async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUsername) {
     let current = String(text || '');
-    let status = containsUserTokenOrRealName(current);
-
-    if (status.hasToken) {
-        console.log('[GW] Compliance: literal {{user}} present in original text.');
-        return current;
-    }
-    if (status.hasReal) {
-        console.log('[GW] Accept: real username present in original text (model substituted name).');
+    if (containsUserToken(current) || containsRealUsername(current, realUsername)) {
+        current = replaceRealUsernameWithToken(current, realUsername);
         return current;
     }
 
-    console.log('[GW] {{user}}/real name missing in original text — attempting single retry.');
     let attempts = 0;
-
     while (attempts < MAX_USER_TOKEN_REVISIONS) {
         attempts += 1;
+        console.log(`[GW] Attempt ${attempts}: {{user}} not found, retrying...`);
 
         const revisionPrompt = buildUserHookRevisionPrompt(
             current,
@@ -371,32 +335,39 @@ async function enforceUserTokenSingleRetry(text, prefs, systemPrompt) {
             );
 
             const revisedText = String(revised || '').trim();
-            if (!revisedText) {
-                console.log('[GW] Retry returned empty — keeping original text.');
+            if (!revisedText) break;
+
+            current = replaceRealUsernameWithToken(revisedText, realUsername);
+            if (containsUserToken(current)) {
+                console.log(`[GW] Success on attempt ${attempts}: {{user}} found`);
                 break;
             }
-
-            current = revisedText;
-            status = containsUserTokenOrRealName(current);
-
-            if (status.hasToken) {
-                console.log('[GW] Compliance: literal {{user}} found after retry.');
-                break;
-            }
-            if (status.hasReal) {
-                console.log('[GW] Accept: retry used real username (no literal {{user}}).');
-                break;
-            }
-
-            console.log('[GW] Retry completed but neither {{user}} nor real username found.');
         } catch (err) {
-            console.warn('[GW] Single retry to encourage {{user}} failed with error:', err);
+            console.warn('[GW] Single retry to inject {{user}} failed:', err);
             break;
         }
     }
 
-    // Return whatever we have after at most one retry (no fallback)
     return current;
+}
+
+function containsRealUsername(text, realUsername) {
+    if (!realUsername) return false;
+    // Matches Jake, {Jake},  {Jake} , Jake}, { Jake }, etc.
+    const pat = new RegExp(`(\\{\\s*)?${escapeRegex(realUsername)}(\\s*\\})?`, 'i');
+    return pat.test(String(text || ''));
+}
+
+function replaceRealUsernameWithToken(text, realUsername) {
+    if (!realUsername) return text;
+    // Replace any of: Jake / {Jake} / { Jake } /  Jake}
+    const pat = new RegExp(`(\\{\\s*)?${escapeRegex(realUsername)}(\\s*\\})?`, 'gi');
+    return String(text || '').replace(pat, '{{user}}');
+}
+
+
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 
@@ -1427,10 +1398,30 @@ async function onSendToLLM(isRegen = false) {
 
         const llmResText = String(res || '').trim();
 
-        // --- Enforcement pass: ensure {{user}} appears at least once ---
+        const realUsername = getRealUsername();
+
+        // quick status logs before enforcement
+        if (containsUserToken(llmResText)) {
+            console.log('[GW] Initial status: CONTAINED ({{user}} found in initial output)');
+        } else if (containsRealUsername(llmResText, realUsername)) {
+            console.log('[GW] Initial status: REAL_USERNAME (found real username, will normalize to {{user}})');
+        } else {
+            console.log('[GW] Initial status: NOT_CONTAINED (no {{user}} or real username)');
+        }
+
+        // --- Enforcement pass: ensure {{user}} appears at least once (single retry, normalize real name)
         let finalText = llmResText;
         if (finalText) {
-            finalText = await enforceUserTokenSingleRetry(finalText, prefs, systemPrompt);
+            finalText = await enforceUserTokenSingleRetry(finalText, prefs, systemPrompt, realUsername);
+        }
+
+        // final outcome log
+        if (containsUserToken(finalText)) {
+            console.log('[GW] Final status: CONTAINED (initial or after retry)');
+        } else if (containsRealUsername(finalText, realUsername)) {
+            console.log('[GW] Final status: REAL_USERNAME (accepted; normalized to {{user}})');
+        } else {
+            console.log('[GW] Final status: FAILED (no {{user}} after single retry)');
         }
 
         if (!finalText) {
