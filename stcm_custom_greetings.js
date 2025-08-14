@@ -562,12 +562,15 @@ function buildSystemPrompt(prefs) {
 function openSystemPromptEditor() {
     const cfg = loadCustomSystemPrompt();
 
-    ensureTooltipStyles(); 
+    ensureTooltipStyles();
 
+    // Give the editor unique IDs so we can detect/close it from elsewhere
     const overlay = document.createElement('div');
+    overlay.id = 'stcm-sys-overlay';
     Object.assign(overlay.style, { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 11000 });
 
     const box = document.createElement('div');
+    box.id = 'stcm-sys-box';
     Object.assign(box.style, {
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
         width: 'min(860px,95vw)', maxHeight: '90vh', overflow: 'hidden',
@@ -575,6 +578,22 @@ function openSystemPromptEditor() {
         borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.6)', zIndex: 11001,
         display: 'flex', flexDirection: 'column'
     });
+
+    // Provide a global-safe closer so other handlers (like the Workshop Esc) can use it
+    const localEscHandler = (e) => {
+        if (e.key === 'Escape') {
+            e.stopPropagation();
+            e.preventDefault();
+            window.stcmCloseSysEditor?.();
+        }
+    };
+    window.stcmCloseSysEditor = () => {
+        try { document.removeEventListener('keydown', localEscHandler, true); } catch {}
+        try { box.remove(); } catch {}
+        try { overlay.remove(); } catch {}
+        // Clean up the global hook after closing
+        try { delete window.stcmCloseSysEditor; } catch {}
+    };
 
     const header = document.createElement('div');
     header.textContent = '✏️ Edit System Prompt';
@@ -586,13 +605,11 @@ function openSystemPromptEditor() {
     const close = document.createElement('button');
     close.textContent = 'X';
     Object.assign(close.style, { padding: '6px 10px', background: '#9e2a2a', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer' });
-    close.addEventListener('click', () => { box.remove(); overlay.remove(); });
+    close.addEventListener('click', () => window.stcmCloseSysEditor?.());
     header.append(close);
 
     const tips = document.createElement('div');
     Object.assign(tips.style, { padding: '10px 12px', borderBottom: '1px solid #333', fontSize: '12px', opacity: 0.95, lineHeight: 1.55 });
-
-    // --- START tooltip-enabled tips content ---
     tips.innerHTML = `
         <div style="margin-bottom:6px;"><strong>Variables you can use (hover for details):</strong></div>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
@@ -611,11 +628,6 @@ function openSystemPromptEditor() {
     `;
     activateVarTooltips(tips);
 
-    // --- END tooltip-enabled tips content ---
-
-    const body = document.createElement('div');
-    Object.assign(body.style, { padding: '10px 12px', display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: '10px', height: '65vh' });
-
     const useRow = document.createElement('label');
     useRow.style.display = 'flex';
     useRow.style.alignItems = 'center';
@@ -631,12 +643,21 @@ function openSystemPromptEditor() {
     const ta = document.createElement('textarea');
     ta.value = cfg.template || getDefaultSystemPromptTemplate();
     Object.assign(ta.style, {
-        width: '100%', height: '100%', resize: 'vertical', minHeight: '240px',
-        background: '#222', color: '#eee', border: '1px solid #444', borderRadius: '6px', padding: '10px', fontFamily: 'monospace'
+        width: '100%',
+        height: '100%',
+        resize: 'vertical',
+        minHeight: '240px',
+        background: '#222',
+        color: '#eee',
+        border: '1px solid #444',
+        borderRadius: '6px',
+        padding: '10px',
+        fontFamily: 'monospace'
     });
+    
 
     const footer = document.createElement('div');
-    Object.assign(footer.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end' });
+    Object.assign(footer.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 12px' });
 
     const resetBtn = document.createElement('button');
     resetBtn.textContent = 'Reset to Default';
@@ -648,24 +669,23 @@ function openSystemPromptEditor() {
     Object.assign(saveBtn.style, { padding: '8px 12px', background: '#8e44ad', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 });
     saveBtn.addEventListener('click', () => {
         saveCustomSystemPrompt({ enabled: chk.checked, template: ta.value });
-        box.remove(); overlay.remove();
+        window.stcmCloseSysEditor?.();
     });
 
     footer.append(resetBtn, saveBtn);
 
-    const tipsWrap = tips; // already styled above
-    const editorBody = document.createElement('div');
-
-    const container = document.createElement('div');
-    container.appendChild(tipsWrap);
-
+    const tipsWrap = tips;
     const bodyWrap = document.createElement('div');
     Object.assign(bodyWrap.style, { display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: '10px', height: '65vh', padding: '10px 12px' });
     bodyWrap.append(useRow, ta, footer);
 
-    box.append(header, container, bodyWrap);
+    box.append(header, tipsWrap, bodyWrap);
     document.body.append(overlay, box);
+
+    // Capture Esc at the earliest phase so it doesn't bubble to the Workshop handler
+    document.addEventListener('keydown', localEscHandler, true);
 }
+
 
 
 
@@ -828,12 +848,30 @@ function openWorkshop() {
     body.append(chatLogEl, composer);
     document.body.append(overlay, modal);
 
-    document.addEventListener('keydown', function escHandler(e) {
-        if (e.key === 'Escape') {
-            closeWorkshop();
-            document.removeEventListener('keydown', escHandler); // remove listener after closing
+    // Close behavior: if the System Prompt editor is open, close THAT first.
+    const escHandler = (e) => {
+        if (e.key !== 'Escape') return;
+
+        // If the system prompt editor is open, close it and DO NOT close the Workshop.
+        if (document.getElementById('stcm-sys-box')) {
+            e.stopPropagation();
+            e.preventDefault();
+            if (typeof window.stcmCloseSysEditor === 'function') {
+                window.stcmCloseSysEditor();
+            } else {
+                // Fallback: remove by IDs if the closer isn't available
+                try { document.getElementById('stcm-sys-box')?.remove(); } catch {}
+                try { document.getElementById('stcm-sys-overlay')?.remove(); } catch {}
+            }
+            return;
         }
-    });
+
+        // Otherwise, Esc closes the Workshop as before.
+        closeWorkshop();
+        document.removeEventListener('keydown', escHandler, true);
+    };
+    document.addEventListener('keydown', escHandler, true);
+
 
 
     makeDraggable(modal, header);
