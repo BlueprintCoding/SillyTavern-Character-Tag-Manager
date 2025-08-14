@@ -1825,7 +1825,7 @@ dialog.popup #stcm-popup-pin-input:focus {
 .gw-bubble.gw-editing { 
     box-shadow: 0 0 0 2px #8e44ad55; 
 }
-
+/* Variable chip (unchanged) */
 .gw-var {
     position: relative;
     display: inline-block;
@@ -1839,22 +1839,30 @@ dialog.popup #stcm-popup-pin-input:focus {
     cursor: help;
     line-height: 1.6;
 }
-/* Floating host that lives on <body> (so it never gets clipped by the modal) */
+
+/* Floating host on <body>. DO NOT anchor with bottom/right by default. */
 .gw-tip-host {
     position: fixed;
-    inset: auto auto 0 0;
-    max-width: 420px;
+    top: 0;           /* will be overridden by JS */
+    left: 0;          /* will be overridden by JS */
+    max-width: 360px;       /* a bit narrower feels nicer */
+    max-height: 60vh;       /* never take the whole screen */
+    overflow: auto;         /* scroll if long */
+
     background: #111;
     color: #f0f0f0;
     border: 1px solid #444;
     border-radius: 8px;
     padding: 8px 10px;
     box-shadow: 0 6px 18px rgba(0,0,0,.35);
-    z-index: 12000; /* higher than modal (11001) */
+    z-index: 12000;         /* higher than modal (11001) */
     pointer-events: none;
     white-space: normal;
     display: none;
+    line-height: 1.35;
+    font-size: 12px;
 }
+
 .gw-tip-arrow {
     position: fixed;
     width: 8px;
@@ -1867,7 +1875,6 @@ dialog.popup #stcm-popup-pin-input:focus {
     pointer-events: none;
     display: none;
 }
-  
 
 /* Scroll bar styling */
 /* === Universal Scroll Bar Styling for Modal & Sidebar === */

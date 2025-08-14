@@ -296,25 +296,28 @@ function showVarTooltip(targetEl, text) {
     ensureTipHost();
     GW_TIP_HOST.textContent = text;
 
-    // First show offscreen to measure size
     GW_TIP_HOST.style.display = 'block';
     GW_TIP_HOST.style.left = '-9999px';
     GW_TIP_HOST.style.top  = '-9999px';
+    GW_TIP_HOST.style.right = 'auto';  // <-- make sure we don't stretch
+    GW_TIP_HOST.style.bottom = 'auto'; // <--
+
     GW_TIP_ARROW.style.display = 'block';
+    GW_TIP_ARROW.style.right = 'auto';
+    GW_TIP_ARROW.style.bottom = 'auto';
 
     const rect = targetEl.getBoundingClientRect();
-    const hostRect = GW_TIP_HOST.getBoundingClientRect();
     const margin = 10;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    // Preferred: above
+    // Measure after initial display
+    let hostRect = GW_TIP_HOST.getBoundingClientRect();
+
+    // Prefer above
     let top = rect.top - hostRect.height - margin;
     let placeAbove = true;
-    if (top < 8) { // not enough space above → place below
-        top = rect.bottom + margin;
-        placeAbove = false;
-    }
+    if (top < 8) { top = rect.bottom + margin; placeAbove = false; }
 
     // Horizontal clamp
     let left = rect.left;
@@ -324,19 +327,20 @@ function showVarTooltip(targetEl, text) {
     GW_TIP_HOST.style.left = `${left}px`;
     GW_TIP_HOST.style.top  = `${top}px`;
 
-    // Arrow position
+    // Arrow
     const arrowX = Math.max(left + 12, Math.min(rect.left + 12, left + hostRect.width - 12));
-    let arrowY = placeAbove ? (rect.top - 4) : (rect.bottom + 4);
+    const arrowY = placeAbove ? (rect.top - 4) : (rect.bottom + 4);
     GW_TIP_ARROW.style.left = `${arrowX}px`;
     GW_TIP_ARROW.style.top  = `${arrowY}px`;
     GW_TIP_ARROW.style.transform = placeAbove ? 'rotate(225deg)' : 'rotate(45deg)';
 
-    // Keep fully in viewport vertically
-    const newHostRect = GW_TIP_HOST.getBoundingClientRect();
-    if (newHostRect.bottom > vh - 8) {
-        GW_TIP_HOST.style.top = `${vh - newHostRect.height - 8}px`;
+    // Re-clamp vertically if still tall
+    hostRect = GW_TIP_HOST.getBoundingClientRect();
+    if (hostRect.bottom > vh - 8) {
+        GW_TIP_HOST.style.top = `${vh - hostRect.height - 8}px`;
     }
 }
+
 
 function hideVarTooltip() {
     if (GW_TIP_HOST) GW_TIP_HOST.style.display = 'none';
