@@ -294,9 +294,15 @@ const MAX_USER_TOKEN_REVISIONS = 1;
  */
 async function enforceUserTokenSingleRetry(text, prefs, systemPrompt) {
     let current = String(text || '');
-    if (containsUserToken(current)) return current;
+    
+    if (containsUserToken(current)) {
+        console.log('[GW] {{user}} token already present in original text.');
+        return current;
+    }
 
+    console.log('[GW] {{user}} token missing in original text — attempting single retry.');
     let attempts = 0;
+
     while (attempts < MAX_USER_TOKEN_REVISIONS) {
         attempts += 1;
 
@@ -320,16 +326,26 @@ async function enforceUserTokenSingleRetry(text, prefs, systemPrompt) {
             );
 
             const revisedText = String(revised || '').trim();
-            if (!revisedText) break;               // nothing came back; keep current
-            current = revisedText;                  // update to latest attempt
-            if (containsUserToken(current)) break;  // success
+            if (!revisedText) {
+                console.log('[GW] Retry returned empty — keeping original text.');
+                break;
+            }
+
+            current = revisedText;
+
+            if (containsUserToken(current)) {
+                console.log('[GW] {{user}} token found after retry.');
+                break;
+            } else {
+                console.log('[GW] Retry completed but {{user}} token still missing.');
+            }
         } catch (err) {
-            console.warn('[GW] Single retry to inject {{user}} failed:', err);
-            break; // on error, bail and return whatever we had
+            console.warn('[GW] Single retry to inject {{user}} failed with error:', err);
+            break;
         }
     }
 
-    return current; // may or may not include {{user}} — we do not fallback-inject
+    return current;
 }
 
 
