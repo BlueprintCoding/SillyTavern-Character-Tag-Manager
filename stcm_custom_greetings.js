@@ -415,7 +415,7 @@ function openWorkshop() {
     modal = document.createElement('div');
     Object.assign(modal.style, {
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 'min(720px,92vw)', maxHeight: '85vh', overflow: 'hidden',
+        width: 'min(720px,92vw)', maxHeight: '95vh', overflow: 'hidden',
         background: '#1b1b1b', color: '#ddd', border: '1px solid #555',
         borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.5)', zIndex: 10001,
         display: 'flex', flexDirection: 'column', resize: 'both', overflow: 'auto'
@@ -463,7 +463,7 @@ settings.innerHTML = `
 
 
     const body = document.createElement('div');
-    Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '60vh' });
+    Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '70vh' });
 
     chatLogEl = document.createElement('div');
     Object.assign(chatLogEl.style, { overflowY: 'auto', padding: '10px 4px', border: '1px solid #333', borderRadius: '8px', background: '#181818' });
