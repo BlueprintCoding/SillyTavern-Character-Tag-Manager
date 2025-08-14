@@ -1491,8 +1491,8 @@ async function onSendToLLM(isRegen = false) {
 
         // ===== OpenAI-family (chat completion) =====
         if (apiMap.selected === 'openai' || profile.mode === 'cc') {
-            // const modelResolved = profile.model || null;
-            // if (!modelResolved) { appendBubble('assistant', 'Selected profile is missing a model. Please set a model on the profile.'); return; }
+            const modelResolved = profile.model || null;
+            if (!modelResolved) { appendBubble('assistant', 'Selected profile is missing a model. Please set a model on the profile.'); return; }
 
             const custom_url = profile['api-url'] || null;
             const proxy = getProxyByName(profile.proxy);
@@ -1522,6 +1522,7 @@ async function onSendToLLM(isRegen = false) {
                 ],
                 chat_completion_source: apiMap.source,
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
+                model: modelResolved,
                 temperature,
                 ...(stoppingStrings.length ? { stop: stoppingStrings } : {}),
                 ...(custom_url     ? { custom_url } : {}),
@@ -1531,6 +1532,7 @@ async function onSendToLLM(isRegen = false) {
 
             console.log('[GW] OpenAI-family request (preview):', {
                 source: requestPayload.chat_completion_source,
+                model: requestPayload.model,
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
                 has_custom_url: !!custom_url,
@@ -1556,6 +1558,7 @@ async function onSendToLLM(isRegen = false) {
         // ===== TextCompletion-family (TC) with instruct wrapping =====
         } else if (apiMap.selected === 'textgenerationwebui' || profile.mode === 'tc') {
             const api_server = profile['api-url'] || null;
+            const model      = profile.model || null;
             const assistantPrefill = (profile['start-reply-with'] || '').trim();
 
             let promptToSend;
@@ -1597,12 +1600,14 @@ async function onSendToLLM(isRegen = false) {
                 api_type: apiMap.type, // e.g., 'koboldcpp'
                 temperature,
                 ...(api_server ? { api_server } : {}),
+                ...(model ? { model } : {}),
                 ...(stoppingStrings.length ? { stop: stoppingStrings, stopping_strings: stoppingStrings } : {}),
             };
 
             console.log('[GW] TGW-family request (preview):', {
                 api_type: requestPayload.api_type,
                 api_server: requestPayload.api_server || '(default)',
+                model: requestPayload.model || '(none)',
                 max_tokens: requestPayload.max_tokens,
                 temperature: requestPayload.temperature,
                 prompt_starts_with: requestPayload.prompt.slice(0, 120),
