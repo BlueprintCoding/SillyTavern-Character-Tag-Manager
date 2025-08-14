@@ -1344,14 +1344,17 @@ async function onSendToLLM(isRegen = false) {
                 return null;
             }
     
-            // Normalize a few common aliases to a canonical provider key
-            const alias = {
+            // Canonical provider keys → "<provider>_model"
+            const canonMap = {
                 oai: 'openai',
                 openai: 'openai',
+                claude: 'claude',
+                anthropic: 'claude',
                 google: 'google',
                 vertexai: 'vertexai',
                 ai21: 'ai21',
                 mistralai: 'mistralai',
+                mistral: 'mistralai',
                 cohere: 'cohere',
                 perplexity: 'perplexity',
                 groq: 'groq',
@@ -1360,45 +1363,120 @@ async function onSendToLLM(isRegen = false) {
                 deepseek: 'deepseek',
                 xai: 'xai',
                 pollinations: 'pollinations',
-                koboldcpp: 'koboldcpp',
+                // text providers that might map to others:
+                'openrouter-text': 'openai', // adjust if you keep a separate openrouter_model key
+                koboldcpp: 'koboldcpp',      // in case you actually keep koboldcpp_model keys
                 kcpp: 'koboldcpp',
-                // you can add more here as needed (e.g. openrouter -> openrouter)
             };
     
-            const canon = alias[apiRaw] || apiRaw;
+            const canonProvider = canonMap[apiRaw] || apiRaw;
+            const flatKeys = [
+                `${canonProvider}_model`,
+                `${apiRaw}_model`,
+            ];
     
-            // Where we’ll look for the key
+            // Where to search (most likely first)
             const containers = [
+                { name: 'ctx.chatCompletionSettings', obj: ctx?.chatCompletionSettings },
+                { name: 'ctx.textCompletionSettings', obj: ctx?.textCompletionSettings },
+                { name: 'ctx.extensionSettings.chatCompletionSettings', obj: ctx?.extensionSettings?.chatCompletionSettings },
+                { name: 'ctx.extensionSettings.textCompletionSettings', obj: ctx?.extensionSettings?.textCompletionSettings },
+                { name: 'ctx.settings.chatCompletionSettings', obj: ctx?.settings?.chatCompletionSettings },
+                { name: 'ctx.settings.textCompletionSettings', obj: ctx?.settings?.textCompletionSettings },
                 { name: 'ctx', obj: ctx },
-                { name: 'ctx.extensionSettings', obj: ctx?.extensionSettings },
-                { name: 'ctx.settings', obj: ctx?.settings },
                 { name: 'window', obj: window },
             ];
     
-            // Keys to try (prefer canonical)
-            const keys = [`${canon}_model`, `${apiRaw}_model`];
+            console.log(`${TAG} flat key candidates:`, flatKeys, 'containers:', containers.map(c => c.name));
     
-            console.log(`${TAG} candidates:`, keys, 'containers:', containers.map(c => c.name));
-    
-            for (const key of keys) {
+            // 1) Try flat <provider>_model keys at any of the containers
+            for (const key of flatKeys) {
                 for (const c of containers) {
                     const v = c.obj?.[key];
                     if (typeof v === 'string' && v.trim()) {
                         const cleaned = v.trim();
-                        console.log(`${TAG} found ${key} in ${c.name} =>`, cleaned);
+                        console.log(`${TAG} FOUND flat key ${key} in ${c.name} =>`, cleaned);
                         return cleaned;
                     }
                 }
             }
     
-            console.log(`${TAG} no model found for keys:`, keys);
+            // 2) Try nested provider sections with .model fields, e.g. chatCompletionSettings.openai.model
+            const providerSectionKeys = [canonProvider, apiRaw];
+            console.log(`${TAG} nested provider candidates:`, providerSectionKeys);
+    
+            for (const c of containers) {
+                const root = c.obj;
+                if (!root || typeof root !== 'object') continue;
+    
+                for (const pkey of providerSectionKeys) {
+                    const section = root[pkey];
+                    if (section && typeof section === 'object') {
+                        const mv = section.model ?? section.currentModel ?? section.selectedModel ?? section.defaultModel;
+                        if (typeof mv === 'string' && mv.trim()) {
+                            const cleaned = mv.trim();
+                            console.log(`${TAG} FOUND nested ${c.name}.${pkey}.model =>`, cleaned);
+                            return cleaned;
+                        }
+                    }
+                }
+            }
+    
+            // 3) Deep search (limited depth) for either flatKey or {provider: {model:"..."}} patterns
+            const seen = new WeakSet();
+            const maxDepth = 5;
+    
+            function deepFind(obj, depth, path) {
+                if (!obj || typeof obj !== 'object' || seen.has(obj) || depth > maxDepth) return null;
+                seen.add(obj);
+    
+                // Check flat keys directly
+                for (const key of flatKeys) {
+                    if (typeof obj[key] === 'string' && obj[key].trim()) {
+                        const cleaned = obj[key].trim();
+                        console.log(`${TAG} FOUND deep flat ${path}.${key} =>`, cleaned);
+                        return cleaned;
+                    }
+                }
+    
+                // Check nested provider sections with .model
+                for (const pkey of providerSectionKeys) {
+                    const sec = obj[pkey];
+                    if (sec && typeof sec === 'object') {
+                        const mv = sec.model ?? sec.currentModel ?? sec.selectedModel ?? sec.defaultModel;
+                        if (typeof mv === 'string' && mv.trim()) {
+                            const cleaned = mv.trim();
+                            console.log(`${TAG} FOUND deep nested ${path}.${pkey}.model =>`, cleaned);
+                            return cleaned;
+                        }
+                    }
+                }
+    
+                // Recurse
+                for (const k of Object.keys(obj)) {
+                    const child = obj[k];
+                    const childPath = `${path}.${k}`;
+                    if (child && typeof child === 'object') {
+                        const found = deepFind(child, depth + 1, childPath);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+    
+            for (const c of containers) {
+                const found = deepFind(c.obj, 0, c.name);
+                if (found) return found;
+            }
+    
+            console.log(`${TAG} no model found for provider:`, canonProvider);
             return null;
+    
         } catch (e) {
             console.warn('[GW]/model(ctx) error:', e);
             return null;
         }
     }
-    
     
 
     // CONNECT_API_MAP resolution
