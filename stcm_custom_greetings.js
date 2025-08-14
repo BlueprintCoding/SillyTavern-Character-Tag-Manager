@@ -245,12 +245,11 @@ function getDefaultSystemPromptTemplate() {
     // IMPORTANT: buildCharacterJSONBlock() will always be appended after rendering.
     return [
         'You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.',
-        'Format strictly as ${nParas} paragraph${nParas === 1 ? "" : "s"}, with exactly ${nSents} sentence${nSents === 1 ? "" : "s"} per paragraph.',
+        'Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.',
         'Target tone: ${style}.',
         'Your top priority is to FOLLOW THE USER\'S INSTRUCTION.',
         '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
         '- Maintain the same structure (paragraph count and sentences per paragraph).',
-        '- If they ask for a brief greeting/opening line instead of a scene, keep it to 1–2 sentences and ignore the paragraph/sentence settings.',
         '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
         'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
         'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
@@ -258,7 +257,7 @@ function getDefaultSystemPromptTemplate() {
         'Formatting rules:',
         '- Return only what the user asked for; no meta/system talk; no disclaimers.',
         '- If the user asked for a greeting, return only the greeting text (no extra commentary).'
-    ].join('\\n\\n');
+    ].join('\n\n');
 }
 
 function renderSystemPromptTemplate(template, vars) {
@@ -426,13 +425,15 @@ function buildSystemPrompt(prefs) {
     const nParas = Math.max(1, Number(prefs?.numParagraphs || 3));
     const nSents = Math.max(1, Number(prefs?.sentencesPerParagraph || 3));
     const style  = (prefs?.style || 'Follow Character Personality');
+    const parasS = nParas === 1 ? '' : 's';
+    const sentsS = nSents === 1 ? '' : 's';
 
     const custom = loadCustomSystemPrompt();
 
     if (custom.enabled) {
         // User template path — ALWAYS append CHARACTER JSON block
         const rendered = renderSystemPromptTemplate(custom.template, {
-            who, nParas, nSents, style, charName
+            who, nParas, nSents, style, charName, parasS, sentsS
         });
         return [
             rendered,
@@ -443,7 +444,7 @@ function buildSystemPrompt(prefs) {
     // Default (unchanged behavior) — already embeds the JSON block
     return [
         `You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.`,
-        `Format strictly as ${nParas} paragraph${nParas === 1 ? '' : 's'}, with exactly ${nSents} sentence${nSents === 1 ? '' : 's'} per paragraph.`,
+        `Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.`,
         `Target tone: ${style}.`,
         `Your top priority is to FOLLOW THE USER'S INSTRUCTION.`,
         `- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.`,
@@ -491,16 +492,22 @@ function openSystemPromptEditor() {
     const tips = document.createElement('div');
     Object.assign(tips.style, { padding: '10px 12px', borderBottom: '1px solid #333', fontSize: '12px', opacity: 0.9, lineHeight: 1.5 });
     tips.innerHTML = `
-        <div style="margin-bottom:6px;"><strong>Variables you can use:</strong></div>
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
-            <code>\${who}</code>
-            <code>\${nParas}</code>
-            <code>\${nSents}</code>
-            <code>\${style}</code>
-            <code>\${charName}</code>
-        </div>
-        <div style="margin-top:8px;">These will be replaced at runtime. <em>Note:</em> <code>buildCharacterJSONBlock()</code> is always appended automatically when a custom prompt is enabled — you do not need to include it yourself.</div>
-    `;
+    <div style="margin-bottom:6px;"><strong>Variables you can use:</strong></div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        <code>\${who}</code>
+        <code>\${nParas}</code>
+        <code>\${parasS}</code>
+        <code>\${nSents}</code>
+        <code>\${sentsS}</code>
+        <code>\${style}</code>
+        <code>\${charName}</code>
+    </div>
+    <div style="margin-top:8px;">
+        These will be replaced at runtime. <em>Note:</em>
+        <code>buildCharacterJSONBlock()</code> is always appended automatically when a custom prompt is enabled — you do not need to include it yourself.
+    </div>
+`;
+
 
     const body = document.createElement('div');
     Object.assign(body.style, { padding: '10px 12px', display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: '10px', height: '65vh' });
