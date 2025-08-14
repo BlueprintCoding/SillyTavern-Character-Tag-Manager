@@ -248,32 +248,32 @@ function saveCustomSystemPrompt(cfg) {
 function getDefaultSystemPromptTemplate() {
     // IMPORTANT: buildCharacterJSONBlock() is appended after rendering.
     return [
-      'You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.',
-      'Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.',
-      'Target tone: ${style}.',
-  
-      'Your top priority is to FOLLOW THE USER\'S INSTRUCTION.',
-      '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
-      '- Maintain the same structure (paragraph count and sentences per paragraph).',
-      '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
-  
-      'Open-endedness: Make the scene action-oriented and involve the user as an active participant and explicitly have {{user}} as a participant. Do not fully resolve conflicts or decisions unless the user directs otherwise.',
-  
-      'HARD REQUIREMENTS:',
-      '  (1) The character acts with their own agency. Do NOT ask the user to decide what the character will do.',
-      '  (2) Unless the user explicitly forbids addressing the user: include the literal token "{{user}}" at least once (you may use it again naturally, up to three total mentions). Use it only inside full sentences of narration or dialogue—never as a standalone line, never repeated back-to-back, and never appended after the scene.',
-  
-      'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
-      'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
-      'Use ONLY the provided JSON as ground truth for the scene.',
-  
-      'Formatting rules:',
-      '- Return only what the user asked for; no meta/system talk; no disclaimers.',
-      '- If the user asked for a greeting, return only the greeting text (no extra commentary).',
-      '- End the output immediately after the final sentence of paragraph ${nParas}. Do not append extra tokens, names, or lines.'
+        'You are ${who}. Your task is to craft an opening scene to begin a brand-new chat.',
+        'Format strictly as ${nParas} paragraph${parasS}, with exactly ${nSents} sentence${sentsS} per paragraph.',
+        'Target tone: ${style}.',
+
+        'Your top priority is to FOLLOW THE USER\'S INSTRUCTION.',
+        '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
+        '- Maintain the same structure (paragraph count and sentences per paragraph).',
+        '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
+
+        'Open-endedness: Make the scene action-oriented and involve the user as an active participant and explicitly have {{user}} as a participant. Do not fully resolve conflicts or decisions unless the user directs otherwise.',
+
+        'HARD REQUIREMENTS:',
+        '  (1) The character acts with their own agency. Do NOT ask the user to decide what the character will do.',
+        '  (2) Unless the user explicitly forbids addressing the user: include the literal token "{{user}}" at least once (you may use it again naturally, up to three total mentions). Use it only inside full sentences of narration or dialogue—never as a standalone line, never repeated back-to-back, and never appended after the scene.',
+
+        'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
+        'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
+        'Use ONLY the provided JSON as ground truth for the scene.',
+
+        'Formatting rules:',
+        '- Return only what the user asked for; no meta/system talk; no disclaimers.',
+        '- If the user asked for a greeting, return only the greeting text (no extra commentary).',
+        '- End the output immediately after the final sentence of paragraph ${nParas}. Do not append extra tokens, names, or lines.'
     ].join('\n\n');
-  }
-  
+}
+
 
 function regexEscape(s) {
     return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -377,7 +377,7 @@ function showVarTooltip(targetEl, text) {
 
     GW_TIP_HOST.style.display = 'block';
     GW_TIP_HOST.style.left = '-9999px';
-    GW_TIP_HOST.style.top  = '-9999px';
+    GW_TIP_HOST.style.top = '-9999px';
     GW_TIP_HOST.style.right = 'auto';  // <-- make sure we don't stretch
     GW_TIP_HOST.style.bottom = 'auto'; // <--
 
@@ -404,13 +404,13 @@ function showVarTooltip(targetEl, text) {
     if (left < 8) left = 8;
 
     GW_TIP_HOST.style.left = `${left}px`;
-    GW_TIP_HOST.style.top  = `${top}px`;
+    GW_TIP_HOST.style.top = `${top}px`;
 
     // Arrow
     const arrowX = Math.max(left + 12, Math.min(rect.left + 12, left + hostRect.width - 12));
     const arrowY = placeAbove ? (rect.top - 4) : (rect.bottom + 4);
     GW_TIP_ARROW.style.left = `${arrowX}px`;
-    GW_TIP_ARROW.style.top  = `${arrowY}px`;
+    GW_TIP_ARROW.style.top = `${arrowY}px`;
     GW_TIP_ARROW.style.transform = placeAbove ? 'rotate(225deg)' : 'rotate(45deg)';
 
     // Re-clamp vertically if still tall
@@ -602,7 +602,7 @@ function buildSystemPrompt(prefs) {
 
     const nParas = Math.max(1, Number(prefs?.numParagraphs || 3));
     const nSents = Math.max(1, Number(prefs?.sentencesPerParagraph || 3));
-    const style  = (prefs?.style || 'Follow Character Personality');
+    const style = (prefs?.style || 'Follow Character Personality');
     const parasS = nParas === 1 ? '' : 's';
     const sentsS = nSents === 1 ? '' : 's';
 
@@ -660,11 +660,11 @@ function openSystemPromptEditor() {
         }
     };
     window.stcmCloseSysEditor = () => {
-        try { document.removeEventListener('keydown', localEscHandler, true); } catch {}
-        try { box.remove(); } catch {}
-        try { overlay.remove(); } catch {}
+        try { document.removeEventListener('keydown', localEscHandler, true); } catch { }
+        try { box.remove(); } catch { }
+        try { overlay.remove(); } catch { }
         // Clean up the global hook after closing
-        try { delete window.stcmCloseSysEditor; } catch {}
+        try { delete window.stcmCloseSysEditor; } catch { }
     };
 
     const header = document.createElement('div');
@@ -726,7 +726,7 @@ function openSystemPromptEditor() {
         padding: '10px',
         fontFamily: 'monospace'
     });
-    
+
 
     const footer = document.createElement('div');
     Object.assign(footer.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 12px' });
@@ -869,7 +869,7 @@ function openWorkshop() {
 `;
 
     const body = document.createElement('div');
-    body.className = 'gw-chat-body';   
+    body.className = 'gw-chat-body';
     body.id = 'gw-chat-body';
     Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '70vh' });
 
@@ -894,7 +894,7 @@ function openWorkshop() {
 
     const closeBtn = mkBtn('X', '#9e2a2a');
     header.append(closeBtn);
-    
+
 
     const footer = document.createElement('div');
     Object.assign(footer.style, { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #333', background: '#1f1f1f' });
@@ -932,8 +932,8 @@ function openWorkshop() {
                 window.stcmCloseSysEditor();
             } else {
                 // Fallback: remove by IDs if the closer isn't available
-                try { document.getElementById('stcm-sys-box')?.remove(); } catch {}
-                try { document.getElementById('stcm-sys-overlay')?.remove(); } catch {}
+                try { document.getElementById('stcm-sys-box')?.remove(); } catch { }
+                try { document.getElementById('stcm-sys-overlay')?.remove(); } catch { }
             }
             return;
         }
@@ -989,7 +989,7 @@ function closeWorkshop() {
     if (modal) modal.remove();
     if (overlay) overlay.remove();
     modal = overlay = null;
-    try { document.removeEventListener('keydown', localEscHandler, true); } catch {}
+    try { document.removeEventListener('keydown', localEscHandler, true); } catch { }
 
 }
 
@@ -1112,26 +1112,26 @@ function appendBubble(role, text, opts = {}) {
         editBtn.addEventListener('click', () => {
             // prevent multiple editors
             if (bubble.querySelector('.gw-inline-editor')) return;
-        
+
             const thisTs = wrap.dataset.ts;
             const itemIdx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
             const current = itemIdx !== -1 ? miniTurns[itemIdx].content : (content.textContent ?? text);
-        
+
             // --- lock bubble width to match original message width ---
             const computed = window.getComputedStyle(bubble);
             const lockedWidthPx = bubble.getBoundingClientRect().width; // exact pixels
             const prevWidth = bubble.style.width;
             const prevMaxWidth = bubble.style.maxWidth;
-        
+
             bubble.style.width = lockedWidthPx + 'px'; // lock to current width
             bubble.style.maxWidth = 'none';            // prevent 90% clamp while editing
-        
+
             // hide original content + action bar; shrink bottom padding
             content.style.display = 'none';
             bar.style.display = 'none';
             bubble.classList.add('gw-editing');
             bubble.style.paddingBottom = '8px';
-        
+
             const editor = document.createElement('textarea');
             editor.className = 'gw-inline-editor';
             Object.assign(editor.style, {
@@ -1148,7 +1148,7 @@ function appendBubble(role, text, opts = {}) {
                 boxSizing: 'border-box' // <-- ensures full-width equals bubble width
             });
             editor.value = current;
-        
+
             // auto-grow to content
             const autoGrow = () => {
                 editor.style.height = 'auto';
@@ -1156,13 +1156,13 @@ function appendBubble(role, text, opts = {}) {
             };
             editor.addEventListener('input', autoGrow);
             setTimeout(autoGrow, 0);
-        
+
             const row = document.createElement('div');
             Object.assign(row.style, { display: 'flex', gap: '8px', marginTop: '6px' });
-        
+
             const saveBtn = mkBtn('Save', '#8e44ad');
             const cancelBtn = mkBtn('Cancel', '#616161');
-        
+
             const finish = (didSave) => {
                 if (didSave) {
                     const next = editor.value.trim();
@@ -1177,15 +1177,15 @@ function appendBubble(role, text, opts = {}) {
                 bar.style.display = 'flex';
                 bubble.classList.remove('gw-editing');
                 bubble.style.paddingBottom = hasActions ? '32px' : '8px';
-        
+
                 // --- restore bubble width behavior ---
                 bubble.style.width = prevWidth || '';
                 bubble.style.maxWidth = prevMaxWidth || '90%';
             };
-        
+
             saveBtn.addEventListener('click', () => finish(true));
             cancelBtn.addEventListener('click', () => finish(false));
-        
+
             // keyboard shortcuts
             editor.addEventListener('keydown', (e) => {
                 if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
@@ -1197,37 +1197,61 @@ function appendBubble(role, text, opts = {}) {
                     finish(false);
                 }
             });
-        
+
             row.append(saveBtn, cancelBtn);
             bubble.append(editor, row);
             editor.focus();
             editor.setSelectionRange(editor.value.length, editor.value.length);
         });
-        
 
 
 
+
+        // replace the existing trashBtn.addEventListener('click', ...) with this:
         trashBtn.addEventListener('click', () => {
             const thisTs = wrap.dataset.ts;
             const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
-            if (idx !== -1) {
+            if (idx === -1) return;
+
+            // Determine if there's a preceding user turn BEFORE mutating the array
+            const prevTurn = miniTurns[idx - 1];
+            const shouldRemovePrevUser = !!(prevTurn && prevTurn.role === 'user');
+            const prevTs = shouldRemovePrevUser ? String(prevTurn.ts) : null;
+
+            // Update in-memory history
+            if (shouldRemovePrevUser) {
+                // Remove the pair: [user, assistant]
+                miniTurns.splice(idx - 1, 2);
+            } else {
+                // Remove only the assistant
                 miniTurns.splice(idx, 1);
-                if (idx - 1 >= 0 && miniTurns[idx - 1]?.role === 'user') {
-                    const prevTs = miniTurns[idx - 1].ts;
-                    miniTurns.splice(idx - 1, 1);
-                    const prevNode = wrap.previousElementSibling;
-                    if (prevNode && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs) {
-                        prevNode.remove();
-                    }
-                }
             }
+
+            // If this message was the preferred scene, clear that state
             if (preferredScene && preferredScene.ts === thisTs) {
                 preferredScene = null;
                 clearPreferredUI();
             }
-            saveSession();
+
+            // Remove DOM nodes (assistant bubble we're in, and optionally the preceding user bubble)
+            if (shouldRemovePrevUser) {
+                // Try immediate previous sibling first
+                let prevNode = wrap.previousElementSibling;
+                if (!(prevNode && prevNode.dataset && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs)) {
+                    // Fallback: query by timestamp (avoid CSS.escape dependency)
+                    prevNode = [...chatLogEl.querySelectorAll('.gw-row[data-role="user"]')]
+                        .find(n => n.dataset && n.dataset.ts === prevTs) || null;
+                }
+                if (prevNode) prevNode.remove();
+            }
+
+            // Remove the assistant node we’re acting on
             wrap.remove();
+
+            // Persist
+            saveSession();
         });
+
 
         bar.append(starBtn, editBtn, copyBtn, trashBtn);
         bubble.appendChild(bar);
@@ -1245,7 +1269,7 @@ async function onRegenerate() {
         callGenericPopup('No prior user instruction to regenerate from.', POPUP_TYPE.ALERT, 'Greeting Workshop');
         return;
     }
-  
+
     await onSendToLLM(true);
 }
 
@@ -1478,7 +1502,7 @@ async function onSendToLLM(isRegen = false) {
     function resolveEffectiveInstruct(profile) {
         const globalCfg = getGlobalInstructConfig() || {};
         const instructName = (profile?.instruct || '').trim();
-        const presetName   = (profile?.preset   || '').trim();
+        const presetName = (profile?.preset || '').trim();
 
         let presetCfg = null;
         const pick = (name) => {
@@ -1492,7 +1516,7 @@ async function onSendToLLM(isRegen = false) {
                 if (c && typeof c[name]?.instruct === 'object') return c[name].instruct;
                 const d = ctx?.presets?.instruct;
                 if (d && typeof d[name] === 'object') return d[name];
-            } catch {}
+            } catch { }
             return null;
         };
 
@@ -1510,12 +1534,12 @@ async function onSendToLLM(isRegen = false) {
         if (hasSeq('system_sequence') && hasSeq('input_sequence') && hasSeq('output_sequence')) return cfg;
         const fallback = {
             system_sequence: '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
-            system_suffix:   '<|END_OF_TURN_TOKEN|>',
-            input_sequence:  '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
-            input_suffix:    '<|END_OF_TURN_TOKEN|>',
+            system_suffix: '<|END_OF_TURN_TOKEN|>',
+            input_sequence: '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+            input_suffix: '<|END_OF_TURN_TOKEN|>',
             output_sequence: '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
-            output_suffix:   '<|END_OF_TURN_TOKEN|>',
-            stop_sequence:   '<|END_OF_TURN_TOKEN|>',
+            output_suffix: '<|END_OF_TURN_TOKEN|>',
+            stop_sequence: '<|END_OF_TURN_TOKEN|>',
             system_sequence_prefix: '',
             system_sequence_suffix: '',
         };
@@ -1551,33 +1575,50 @@ async function onSendToLLM(isRegen = false) {
             .replace(/[ \t]+\n/g, '\n')
             .trim();
     }
-    
+
     /**
      * Build recent history as a neutral <RECENT_HISTORY> block.
      * By default we exclude the trailing user turn to avoid duplicating the prompt.
      */
     function buildRecentHistoryBlock(limit = 5, opts = {}) {
-        const { excludeTrailingUser = true, dropUserEqualTo = null } = opts;
+        const {
+            excludeTrailingUser = true,
+            dropUserEqualTo = null,
+            dropPreferredAssistant = true, // NEW
+        } = opts;
+    
+        const canon = (s) => String(s ?? '')
+            .replace(/\r/g, '')
+            .replace(/[^\S\n]+/g, ' ')
+            .replace(/[ \t]+\n/g, '\n')
+            .trim();
+    
         const before = miniTurns.slice(-limit);
         if (!before.length) return '';
     
-        // Shallow copy to mutate
         let recent = before.slice();
     
-        // 1) Drop the last item if it's a user (we're going to send a fresh user block)
+        // 1) trim trailing user (we'll send a fresh user block)
         if (excludeTrailingUser && recent.length && recent[recent.length - 1].role === 'user') {
-            console.log('[GW] history: trimming trailing USER turn from history');
             recent.pop();
         }
     
-        // 2) Optional dedupe: drop any user turns that equal the new user message
-        const needle = dropUserEqualTo ? canon(dropUserEqualTo) : null;
-        if (needle) {
-            const preLen = recent.length;
-            recent = recent.filter(t => !(t.role === 'user' && canon(t.content) === needle));
-            if (recent.length !== preLen) {
-                console.log('[GW] history: removed user turns equal to current prompt to avoid duplication');
-            }
+        // 2) optional: drop any user turns equal to the new user message
+        const needleUser = dropUserEqualTo ? canon(dropUserEqualTo) : null;
+        if (needleUser) {
+            recent = recent.filter(t => !(t.role === 'user' && canon(t.content) === needleUser));
+        }
+    
+        // 3) NEW: drop the preferred assistant turn (by ts or content)
+        if (dropPreferredAssistant && preferredScene && (preferredScene.ts || preferredScene.text)) {
+            const prefTs   = String(preferredScene.ts || '');
+            const prefText = preferredScene.text ? canon(preferredScene.text) : null;
+            recent = recent.filter(t => {
+                if (t.role !== 'assistant') return true;
+                const tsMatch   = prefTs && String(t.ts) === prefTs;
+                const textMatch = prefText && canon(t.content) === prefText;
+                return !(tsMatch || textMatch);
+            });
         }
     
         if (!recent.length) return '';
@@ -1589,58 +1630,77 @@ async function onSendToLLM(isRegen = false) {
     
         return ['<RECENT_HISTORY>', ...lines, '</RECENT_HISTORY>'].join('\n');
     }
+    
 
 
-/**
- * Build INSTRUCT-mode history, wrapping each past turn with closed sequences.
- * By default we exclude the trailing user turn to avoid duplicating the prompt.
- */
-function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
-    const { excludeTrailingUser = true, dropUserEqualTo = null } = opts;
-
-    const USR  = instruct.input_sequence  ?? '';
-    const USRs = instruct.input_suffix    ?? '';
-    const BOT  = instruct.output_sequence ?? '';
-    const BOTs = instruct.output_suffix   ?? '';
-
-    const before = miniTurns.slice(-limit);
-    if (!before.length) return '';
-
-    let recent = before.slice();
-
-    if (excludeTrailingUser && recent.length && recent[recent.length - 1].role === 'user') {
-        console.log('[GW] instruct history: trimming trailing USER turn from history');
-        recent.pop();
-    }
-
-    const needle = dropUserEqualTo ? canon(dropUserEqualTo) : null;
-    if (needle) {
-        const preLen = recent.length;
-        recent = recent.filter(t => !(t.role === 'user' && canon(t.content) === needle));
-        if (recent.length !== preLen) {
-            console.log('[GW] instruct history: removed user turns equal to current prompt to avoid duplication');
+    /**
+     * Build INSTRUCT-mode history, wrapping each past turn with closed sequences.
+     * By default we exclude the trailing user turn to avoid duplicating the prompt.
+     */
+    function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
+        const {
+            excludeTrailingUser = true,
+            dropUserEqualTo = null,
+            dropPreferredAssistant = true, // NEW
+        } = opts;
+    
+        const USR  = instruct.input_sequence  ?? '';
+        const USRs = instruct.input_suffix    ?? '';
+        const BOT  = instruct.output_sequence ?? '';
+        const BOTs = instruct.output_suffix   ?? '';
+    
+        const canon = (s) => String(s ?? '')
+            .replace(/\r/g, '')
+            .replace(/[^\S\n]+/g, ' ')
+            .replace(/[ \t]+\n/g, '\n')
+            .trim();
+    
+        const before = miniTurns.slice(-limit);
+        if (!before.length) return '';
+    
+        let recent = before.slice();
+    
+        if (excludeTrailingUser && recent.length && recent[recent.length - 1].role === 'user') {
+            recent.pop();
         }
+    
+        const needleUser = dropUserEqualTo ? canon(dropUserEqualTo) : null;
+        if (needleUser) {
+            recent = recent.filter(t => !(t.role === 'user' && canon(t.content) === needleUser));
+        }
+    
+        // NEW: drop the preferred assistant turn (by ts or content)
+        if (dropPreferredAssistant && preferredScene && (preferredScene.ts || preferredScene.text)) {
+            const prefTs   = String(preferredScene.ts || '');
+            const prefText = preferredScene.text ? canon(preferredScene.text) : null;
+            recent = recent.filter(t => {
+                if (t.role !== 'assistant') return true;
+                const tsMatch   = prefTs && String(t.ts) === prefTs;
+                const textMatch = prefText && canon(t.content) === prefText;
+                return !(tsMatch || textMatch);
+            });
+        }
+    
+        if (!recent.length) return '';
+    
+        let out = '';
+        for (const turn of recent) {
+            const text = canon(turn.content);
+            if (!text) continue;
+            out += (turn.role === 'assistant') ? (BOT + text + BOTs) : (USR + text + USRs);
+        }
+        return out;
     }
-
-    if (!recent.length) return '';
-
-    let out = '';
-    for (const turn of recent) {
-        const text = canon(turn.content);
-        if (!text) continue;
-        out += (turn.role === 'assistant') ? (BOT + text + BOTs) : (USR + text + USRs);
-    }
-    return out;
-}
+    
     // Compose INSTRUCT prompt
     function buildInstructPrompt(instruct, systemContent, historyWrapped, userContent, assistantPrefill = '') {
-        const SYS  = instruct.system_sequence             ?? '';
-        const SYSs = instruct.system_suffix               ?? '';
+        const SYS = instruct.system_sequence ?? '';
+        const SYSs = instruct.system_suffix ?? '';
         const sysPrefix = instruct.system_sequence_prefix ?? '';
         const sysSuffix = instruct.system_sequence_suffix ?? '';
-        const USR  = instruct.input_sequence              ?? '';
-        const USRs = instruct.input_suffix                ?? '';
-        const BOT  = instruct.output_sequence             ?? '';
+        const USR = instruct.input_sequence ?? '';
+        const USRs = instruct.input_suffix ?? '';
+        const BOT = instruct.output_sequence ?? '';
 
         if (!SYS || !USR || !BOT) {
             console.warn('[GW] Missing instruct tokens; falling back to linear prompt.');
@@ -1695,14 +1755,14 @@ function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
     try {
         // ===== Prompt parts =====
         const systemPrompt = buildSystemPrompt(prefs);
-        const lastUserMsg  = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
+        const lastUserMsg = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const preferredBlock = buildPreferredSceneBlock();
         const chatHistoryBlock = buildRecentHistoryBlock(historyLimit, {
             excludeTrailingUser: true,
             dropUserEqualTo: lastUserMsg,
+            dropPreferredAssistant: true, // NEW
         });
-        
 
         const profile = getSelectedProfile();
         if (!profile) { appendBubble('assistant', 'No Connection Manager profile selected. Pick one in settings and try again.'); return; }
@@ -1763,16 +1823,16 @@ function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
                 stream: false,
                 messages: [
                     { role: 'system', content: String(systemPrompt) },
-                    { role: 'user',   content: String(coreUserInstruction) },
+                    { role: 'user', content: String(coreUserInstruction) },
                 ],
                 chat_completion_source: apiInfo.source, // e.g., 'openai'
                 max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
                 temperature,
                 ...(stopFields),
-                ...(custom_url     ? { custom_url } : {}),
-                ...(reverse_proxy  ? { reverse_proxy } : {}),
+                ...(custom_url ? { custom_url } : {}),
+                ...(reverse_proxy ? { reverse_proxy } : {}),
                 ...(proxy_password ? { proxy_password } : {}),
-                ...(modelResolved  ? { model: modelResolved } : {}), // only include if set
+                ...(modelResolved ? { model: modelResolved } : {}), // only include if set
             };
 
             console.log('[GW] CC requestPayload:', requestPayload);
@@ -1790,7 +1850,7 @@ function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
                 llmResText = assistantPrefill + llmResText;
             }
 
-        // ===== Text-completion family (TGW/Kobold/Novel/Horde) =====
+            // ===== Text-completion family (TGW/Kobold/Novel/Horde) =====
         } else {
             const api_server = profile['api-url'] || null;
             const modelResolved = modelFromCtx || profile.model || null;
@@ -1807,6 +1867,7 @@ function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
                 const instructHistory = buildInstructHistory(historyLimit, instructCfgEff || {}, {
                     excludeTrailingUser: true,
                     dropUserEqualTo: lastUserMsg,
+                    dropPreferredAssistant: true, // NEW
                 });
                 const userContent = [
                     preferredBlock ? `\n${preferredBlock}\n` : '',
@@ -1826,14 +1887,11 @@ function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
                 );
             } else {
                 const linearUserBody = [
-                    buildRecentHistoryBlock(historyLimit),
+                    buildRecentHistoryBlock(historyLimit, { dropPreferredAssistant: true }), 
                     preferredBlock ? `\n${preferredBlock}\n` : '',
-                    '- Follow the USER_INSTRUCTION using the character data as context.' +
-                    '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
-                    `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
-                    'USER_INSTRUCTION:',
-                    lastUserMsg,
+                    // ...
                 ].join('\n');
+                
 
                 promptToSend = `${String(systemPrompt)}\n\n${linearUserBody}${assistantPrefill ? `\n${assistantPrefill}` : ''}`;
             }
@@ -1847,7 +1905,7 @@ function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
                 api_type: apiInfo.api_type, // 'koboldcpp' for koboldcpp/kcpp
                 temperature,
                 ...(stopFields),
-                ...(api_server    ? { api_server } : {}),
+                ...(api_server ? { api_server } : {}),
                 ...(modelResolved ? { model: modelResolved } : {}), // only include if set
             };
 
@@ -1892,7 +1950,7 @@ function buildInstructHistory(limit = 5, instruct = {}, opts = {}) {
     } catch (e) {
         console.error('[Greeting Workshop] LLM call failed:', e);
         let msg = 'Error generating text.';
-        try { if (typeof e === 'object' && e) msg = e.error?.message ? `Error: ${e.error.message}` : (e.message || msg); } catch {}
+        try { if (typeof e === 'object' && e) msg = e.error?.message ? `Error: ${e.error.message}` : (e.message || msg); } catch { }
         appendBubble('assistant', `${msg} See console for details.`);
     } finally {
         spinner.remove();
