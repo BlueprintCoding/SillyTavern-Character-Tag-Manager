@@ -112,7 +112,9 @@ function markPreferred(wrap, bubble, text) {
 }
 
 function clearWorkshopState() {
-    // 1) Clear any "preferred" UI BEFORE nulling references
+    ensureCtx();
+  
+    // 1) Clear any preferred decorations BEFORE nulling handles
     try { clearPreferredUI(); } catch {}
   
     // 2) Wipe in-memory state
@@ -120,16 +122,36 @@ function clearWorkshopState() {
     preferredScene = null;
     preferredEls = null;
   
-    // 3) Persist an empty state (avoids stale resurrection later)
+    // 3) Persist a clean state for this character
     try {
       localStorage.setItem(STATE_KEY(), JSON.stringify({ miniTurns: [], preferredScene: null }));
     } catch {}
   
-    // 4) Rebuild the chat UI fresh (after the confirm popup finishes closing)
+    // 4) Hard reset the chat log DOM (replace the node, not just innerHTML)
+    if (chatLogEl && chatLogEl.parentNode) {
+      const parent = chatLogEl.parentNode;
+  
+      const newLog = document.createElement('div');
+      // Reapply the same styles you set in openWorkshop()
+      Object.assign(newLog.style, {
+        overflowY: 'auto',
+        padding: '10px 4px',
+        border: '1px solid #333',
+        borderRadius: '8px',
+        background: '#181818'
+      });
+  
+      // Replace and rebind the global ref
+      parent.replaceChild(newLog, chatLogEl);
+      chatLogEl = newLog;
+    }
+  
+    // 5) Rebuild the UI from the (now empty) state
+    // Defer one frame so the popup can close cleanly first
     const defer = window.requestAnimationFrame || ((fn) => setTimeout(fn, 0));
     defer(() => {
-      // rebuild from the empty state; this also adds the starter line
-      if (chatLogEl) restoreUIFromState();
+      // Starter line only (no actions)
+      appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
   
       if (inputEl) {
         inputEl.value = '';
