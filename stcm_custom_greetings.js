@@ -11,6 +11,9 @@ import {
     syncSwipeToMes,
     generateRaw as stGenerateRaw,
 } from "../../../../script.js";
+import { TextCompletionService, ChatCompletionService } from "../../../../custom-request.js";
+
+
 
 let ctx = null;
 function ensureCtx() {
@@ -508,25 +511,26 @@ function transformCardForLLM(obj, charName) {
 }
 
 function pickCardFields(ch) {
-    // card data can live both top-level and under ch.data.*
+    // Card data can live both top-level and under ch.data.*
     const d = ch?.data || {};
     const pick = (k) => ch?.[k] ?? d?.[k] ?? null;
 
-    return {
+    const out = {
         name: pick('name'),
         description: pick('description'),
         personality: pick('personality'),
         scenario: pick('scenario'),
-        first_mes: pick('first_mes'),
-        alternate_greetings: pick('alternate_greetings') || [],
-        mes_example: pick('mes_example'),
-        // keep anything else you explicitly want:
-        creator_notes: pick('creator_notes') ?? ch?.creatorcomment ?? null,
-        tags: pick('tags') || ch?.tags || [],
-        spec: ch?.spec ?? null,
-        spec_version: ch?.spec_version ?? null,
     };
+
+    // Normalize to strings when present; keep nulls as null
+    for (const k of Object.keys(out)) {
+        const v = out[k];
+        out[k] = (v == null) ? null : String(v);
+    }
+
+    return out;
 }
+
 
 function safeJSONStringify(obj) {
     const seen = new WeakSet();
@@ -1263,6 +1267,17 @@ function buildRecentHistoryBlock(limit = 5) {
     ].join('\n');
 }
 
+function getMainApi() {
+    // Prefer ctx.mainApi, fall back to extensionSettings-like globals if any, default to textgenerationwebui
+    return (ctx?.mainApi || window?.mainApi || 'textgenerationwebui');
+}
+
+// Optional: pull a temperature if you keep one in settings; otherwise leave undefined.
+function getTemperature() {
+    return Number(ctx?.extensionSettings?.memory?.temperature) || undefined;
+}
+
+
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
@@ -1295,7 +1310,8 @@ async function onSendToLLM(isRegen = false) {
     if (!regen && !typedRaw) return;
 
     // transform once so the bubble shows exactly what we send
-    const charName = (getActiveCharacterFull()?.name || getActiveCharacterFull()?.data?.name || ctx?.name2 || '');
+    const charObj = getActiveCharacterFull();
+    const charName = (charObj?.name || charObj?.data?.name || ctx?.name2 || '');
     const typedForSend = typedRaw ? maskUserPlaceholders(replaceCharPlaceholders(typedRaw, charName)) : '';
 
     // Insert user's message into the workshop chat history + UI (tracked history)
@@ -1331,18 +1347,16 @@ async function onSendToLLM(isRegen = false) {
         // Optional preferred scene block
         const preferredBlock = buildPreferredSceneBlock();
 
-        // Two-block prompt (+ optional third block for preferred scene)
+        // Compose the working prompt for the model:
         // Order: HISTORY → (PREFERRED_SCENE if any) → INSTRUCTION
         const rawPrompt = [
             historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
             preferredBlock ? `\n${preferredBlock}\n` : '',
+            '- Follow the USER_INSTRUCTION using the character data as context.' +
+            '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
+            `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
             'USER_INSTRUCTION:',
             lastUserMsg,
-            '',
-            '- Follow the instruction above using the character data as context.' +
-            '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.'+
-            `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
-
         ].join('\n');
 
         // Rough sizing: ~90 chars per sentence
@@ -1350,22 +1364,62 @@ async function onSendToLLM(isRegen = false) {
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
 
-        const res = await stGenerateRaw(
-            String(rawPrompt),
-            null,
-            true,
-            true,
-            String(systemPrompt),
-            approxRespLen,
-            true,
-            '',
-            null
-        );
+        // Route based on mainApi in context
+        const mainApi = (ctx?.mainApi || window?.mainApi || 'textgenerationwebui');
+        const temperature = Number(ctx?.extensionSettings?.memory?.temperature) || undefined;
 
-        const llmResText = String(res || '').trim();
+        let llmResText = '';
+
+        if (mainApi === 'openai') {
+            // Use ChatCompletionService (messages-based)
+            const requestPayload = {
+                stream: false,
+                messages: [
+                    { role: 'system', content: String(systemPrompt) },
+                    { role: 'user',   content: String(rawPrompt)   },
+                ],
+                chat_completion_source: 'openai',
+                max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
+                // Optional: model: ctx?.openai_settings?.model,
+                temperature,
+            };
+
+            const response = await ChatCompletionService.processRequest(
+                requestPayload,
+                /* options */ {},
+                /* extractData */ true,
+                /* signal */ null,
+            );
+
+            llmResText = String(response?.content || '').trim();
+
+        } else {
+            // Default to textgenerationwebui → TextCompletionService (single prompt)
+            // Prepend system prompt since this path expects one prompt string
+            const tgPrompt = `${String(systemPrompt)}\n\n${String(rawPrompt)}`;
+
+            const requestPayload = {
+                stream: false,
+                prompt: tgPrompt,
+                max_tokens: Number.isFinite(approxRespLen) ? approxRespLen : 1024,
+                api_type: 'textgenerationwebui',
+                // Optional: model: ctx?.textgen_settings?.model,
+                temperature,
+                // Optional: min_p: ctx?.textgen_settings?.min_p,
+            };
+
+            const response = await TextCompletionService.processRequest(
+                requestPayload,
+                /* options */ {},   // e.g., { presetName: 'MyPreset' }
+                /* extractData */ true,
+                /* signal */ null,
+            );
+
+            llmResText = String(response?.content || '').trim();
+        }
 
         const realUsername = getRealUsername();
-        
+
         // quick status logs (no retries)
         if (containsUserToken(llmResText)) {
             console.log('[GW] Initial status: CONTAINED ({{user}} found in initial output)');
@@ -1386,6 +1440,7 @@ async function onSendToLLM(isRegen = false) {
         } else {
             console.log('[GW] Final status: NOT_CONTAINED (no {{user}}; accepted as-is).');
         }
+
         if (!finalText) {
             if (!regen) appendBubble('assistant', '(empty response)');
         } else if (regen && targetAssistantIdx !== -1 && targetAssistantNode) {
@@ -1414,6 +1469,7 @@ async function onSendToLLM(isRegen = false) {
         spinner.remove();
     }
 }
+
 
 
 
