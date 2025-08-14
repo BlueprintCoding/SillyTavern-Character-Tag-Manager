@@ -358,28 +358,33 @@ function openWorkshop() {
     });
     
     const settings = document.createElement('div');
-    Object.assign(settings.style, {
-        display: 'grid',
-        gridTemplateColumns: '160px 160px 1fr 130px',
-        gap: '8px',
-        padding: '8px 12px',
-        alignItems: 'center',
-        borderBottom: '1px solid #333'
-    });
-    settings.innerHTML = `
-    <label>Paragraphs
+Object.assign(settings.style, {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px 16px',
+    padding: '8px 12px',
+    alignItems: 'center',
+    borderBottom: '1px solid #333'
+});
+settings.innerHTML = `
+    <label style="display:flex;align-items:center;">
+        Paragraphs
         <input id="gw-paras" type="number" min="1" max="10" value="${prefs.numParagraphs ?? 3}" style="width:80px;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
     </label>
-    <label>Sentences/para
-        <input id="gw-sent" type="number" min="1" max="10" value="${prefs.sentencesPerParagraph ?? 3}" style="width:80px;margin-left:6pxpadding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
+    <label style="display:flex;align-items:center;">
+        Sentences/para
+        <input id="gw-sent" type="number" min="1" max="10" value="${prefs.sentencesPerParagraph ?? 3}" style="width:80px;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
     </label>
-    <label>History
-        <input id="gw-hist" type="number" min="0" max="20" value="${prefs.historyCount ?? 5}" style="width:80px;margin-left:6pxpadding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;" title="How many recent messages to include when sending to the LLM">
+    <label style="display:flex;align-items:center;">
+        History
+        <input id="gw-hist" type="number" min="0" max="20" value="${prefs.historyCount ?? 5}" style="width:80px;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;" title="How many recent messages to include when sending to the LLM">
     </label>
-    <label style="grid-column: 1 / -1">Style
-        <input id="gw-style" type="text" value="${esc(prefs.style)}" style="width:100%;margin-left:6px;margin-top:6pxpadding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
+    <label style="display:flex;flex:1;align-items:center;">
+        Style
+        <input id="gw-style" type="text" value="${esc(prefs.style)}" style="flex:1;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
     </label>
 `;
+
 
     const body = document.createElement('div');
     Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '60vh' });
