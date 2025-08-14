@@ -350,11 +350,18 @@ async function enforceUserTokenSingleRetry(text, prefs, systemPrompt, realUserna
 //         );
 
 //         try {
-                // const revised = await callLLMWithProfile({
-                //     rawPrompt: String(revisionPrompt),
-                //     systemPrompt: String(systemPrompt),
-                //     responseLength: current.length + 200,
-                // });
+//             const revised = await stGenerateRaw(
+//                 String(revisionPrompt),
+//                 null,
+//                 true,
+//                 true,
+//                 String(systemPrompt),
+//                 current.length + 200,
+//                 true,
+//                 '',
+//                 null
+//             );
+
 //             const revisedText = String(revised || '').trim();
 //             if (!revisedText) break;
 
@@ -681,7 +688,6 @@ function esc(s) {
 }
 
 
-// REPLACE the existing buildSystemPrompt with this version
 function buildSystemPrompt(prefs) {
     ensureCtx();
     const ch = getActiveCharacterFull();
@@ -700,17 +706,23 @@ function buildSystemPrompt(prefs) {
         const rendered = renderSystemPromptTemplate(custom.template, {
             who, nParas, nSents, style, charName, parasS, sentsS
         });
-        return [rendered, buildCharacterJSONBlock()].join('\n\n');
+        return [
+            rendered,
+            buildCharacterJSONBlock()
+        ].join('\n\n');
     }
 
-    const defaultRendered = renderSystemPromptTemplate(
+    // ✅ Render the default template with variables
+    const defaultPrompt = renderSystemPromptTemplate(
         getDefaultSystemPromptTemplate(),
         { who, nParas, nSents, style, charName, parasS, sentsS }
     );
 
-    return [defaultRendered, buildCharacterJSONBlock()].join('\n\n');
+    return [
+        defaultPrompt,
+        buildCharacterJSONBlock()
+    ].join('\n\n');
 }
-
 
 
 function openSystemPromptEditor() {
@@ -1349,32 +1361,6 @@ function buildRecentHistoryBlock(limit = 5) {
     ].join('\n');
 }
 
-// ADD this helper (new)
-// REPLACE the previous callLLMWithProfile helper with this version
-async function callLLMWithProfile({ rawPrompt, systemPrompt, responseLength }) {
-    const isOAI = (typeof window !== 'undefined' && window.main_api === 'openai');
-
-    const promptStr = String(rawPrompt ?? '');
-    const sysStr    = String(systemPrompt ?? '');
-    const respLen   = Number(responseLength);
-    const respLenArg = Number.isFinite(respLen) && respLen > 0 ? respLen : null;
-
-    const msg = await stGenerateRaw({
-        prompt: promptStr,               // always a string
-        api: null,                       // null => use main_api
-        instructOverride: !isOAI,        // ⚠️ OpenAI does NOT use instruct
-        quietToLoud: true,               // system/quiet mode generation
-        systemPrompt: sysStr,            // always a string
-        responseLength: respLenArg,      // uses TempResponseLength internally
-        trimNames: true,
-        prefill: '',                     // no prefill needed here
-        jsonSchema: null,
-    });
-
-    return String(msg || '').trim();
-}
-
-
 async function onSendToLLM(isRegen = false) {
     ensureCtx();
     const prefs = loadPrefs();
@@ -1432,42 +1418,48 @@ async function onSendToLLM(isRegen = false) {
 
     try {
         const systemPrompt = buildSystemPrompt(prefs);
-    
+
         // Most recent user instruction (already transformed if newly sent)
         const lastUserMsg = [...miniTurns].reverse().find(t => t.role === 'user')?.content || '(no new edits)';
-    
+
         // Include the last N messages of mini chat history on every call
         const historyLimit = Math.max(0, Math.min(20, Number(prefs.historyCount ?? 5)));
         const historyBlock = buildRecentHistoryBlock(historyLimit);
-    
+
         // Optional preferred scene block
         const preferredBlock = buildPreferredSceneBlock();
-    
+
         // Two-block prompt (+ optional third block for preferred scene)
         // Order: HISTORY → (PREFERRED_SCENE if any) → INSTRUCTION
         const rawPrompt = [
-            historyBlock,
+            historyBlock, // <RECENT_HISTORY> ... </RECENT_HISTORY>
             preferredBlock ? `\n${preferredBlock}\n` : '',
             'USER_INSTRUCTION:',
             lastUserMsg,
             '',
             '- Follow the instruction above using the character data as context.' +
-            '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.' +
+            '- If a preferred scene is provided, keep it almost the same and apply only the requested edits.'+
             `- Output should be ${Number(prefs?.numParagraphs || 3)} paragraph${Number(prefs?.numParagraphs || 3) === 1 ? '' : 's'} with ${Number(prefs?.sentencesPerParagraph || 3)} sentence${Number(prefs?.sentencesPerParagraph || 3) === 1 ? '' : 's'} per paragraph.`,
+
         ].join('\n');
-    
+
         // Rough sizing: ~90 chars per sentence
         const approxRespLen = Math.ceil(
             (Number(prefs.numParagraphs || 3) * Number(prefs.sentencesPerParagraph || 3) * 90) * 1.15
         );
-    
-        // ⬇️ New profile-aware call
-        const res = await callLLMWithProfile({
-            rawPrompt,
-            systemPrompt,
-            responseLength: approxRespLen,
-        });
-    
+
+        const res = await stGenerateRaw(
+            String(rawPrompt),
+            null,
+            true,
+            true,
+            String(systemPrompt),
+            approxRespLen,
+            true,
+            '',
+            null
+        );
+
         const llmResText = String(res || '').trim();
 
         const realUsername = getRealUsername();
