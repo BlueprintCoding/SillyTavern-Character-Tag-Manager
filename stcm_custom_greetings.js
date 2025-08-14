@@ -251,7 +251,11 @@ function getDefaultSystemPromptTemplate() {
         '- If a preferred scene is provided under <PREFERRED_SCENE>, preserve it closely (≈90–95% unchanged) and apply ONLY the explicit edits from USER_INSTRUCTION.',
         '- Maintain the same structure (paragraph count and sentences per paragraph).',
         '- If they ask for ideas, names, checks, rewrites, longer text, etc., do THAT instead. Do not force a greeting.',
-        'Open-endedness: Make the scene action-oriented and explicitly invite user engagement (a hook, unresolved choice, or immediate next action for the user). Do not fully resolve conflicts or decisions unless the user directs otherwise.',
+
+        // ⬇️ Make it a hard requirement + add a silent self-check
+        'HARD REQUIREMENT (unless the user explicitly directs otherwise): Make the scene open-ended and action-oriented so the user can immediately engage. End with a direct user hook (a question or imperative addressed to the user) that invites a next step.',
+        'Before sending, silently self-check that: (1) the scene remains open-ended; (2) the final sentence contains a clear hook for the user; (3) no meta/system talk is present. Output only the scene.',
+
         'You are NOT ${charName}; never roleplay as them. You are creating a scene for them based on the user\'s input.',
         'You will receive the COMPLETE character object for ${charName} as JSON under <CHARACTER_DATA_JSON>.',
         'Use ONLY the provided JSON as ground truth for the scene.',
@@ -260,6 +264,7 @@ function getDefaultSystemPromptTemplate() {
         '- If the user asked for a greeting, return only the greeting text (no extra commentary).'
     ].join('\n\n');
 }
+
 
 function renderSystemPromptTemplate(template, vars) {
     return String(template).replace(/\$\{(\w+)\}/g, (_, key) => {
@@ -910,6 +915,8 @@ function closeWorkshop() {
     if (modal) modal.remove();
     if (overlay) overlay.remove();
     modal = overlay = null;
+    try { document.removeEventListener('keydown', localEscHandler, true); } catch {}
+
 }
 
 function btnStyle(bg) {
