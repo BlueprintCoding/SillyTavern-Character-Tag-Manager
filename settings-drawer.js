@@ -596,7 +596,7 @@ async function sendFeedbackNow(/* reason = 'auto' */) {
   
     try {
       const payload = buildFeedbackPayload();
-    //   console.log('[FEEDBACK] sending', payload);   // log reason separately if you want
+   console.log('[FEEDBACK] sending', payload);   // log reason separately if you want
   
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 10000);
@@ -611,10 +611,10 @@ async function sendFeedbackNow(/* reason = 'auto' */) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
   
       s.feedbackLastSentISO = new Date().toISOString();
-    //   console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);
+   console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);
       debouncePersist();
     } catch (e) {
-    //   console.warn('[FEEDBACK] send failed', e);
+       console.warn('[FEEDBACK] send failed', e);
     }
   }
 
