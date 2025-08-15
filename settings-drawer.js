@@ -539,10 +539,7 @@ function buildFeedbackPayload() {
     return data;
 }
 
-const FEEDBACK_DEFAULT_API_URL =
-  "https://aicharactercards.com/wp-json/aicc_extension-feedback/v1/submit";
 
-// ...
 
 function shouldSendToday() {
   const s = getSettings();
