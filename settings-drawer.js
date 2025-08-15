@@ -20,15 +20,15 @@ const defaultSettings = {
     showTopBarIcon: true,
     folderNavHeightMode: "auto",
     folderNavMaxHeight: 50,
-
+    blurPrivatePreviews: false,
     // --- Feedback Data (anonymous analytics) ---
     feedbackEnabled: false,          // master opt-in; nothing is sent unless true
     feedbackInstallId: "",           // generated once per install
-    feedbackSendUserAgent: true,     // user can opt out of each item below (id always included)
-    feedbackSendAppVersion: true,   // allow opting out of appVersion
-    feedbackSendFolderCount: true,
-    feedbackSendTagCount: true,
-    feedbackSendCharacterCount: true,
+    feedbackSendUserAgent: false,     // user can opt out of each item below (id always included)
+    feedbackSendAppVersion: false,   // allow opting out of appVersion
+    feedbackSendFolderCount: false,
+    feedbackSendTagCount: false,
+    feedbackSendCharacterCount: false,
     feedbackLastSentISO: ""    // NEW: track last successful send              
 };
 
@@ -372,55 +372,46 @@ const fePreview = panel.querySelector('#stcm--feedbackPreview');
 const feMsg = panel.querySelector('#stcm--feedbackMsg');
 
 feEnabled.checked = !!s.feedbackEnabled;
-feAppVer.checked = !!s.feedbackSendAppVersion;
-feUA.checked = !!s.feedbackSendUserAgent;
+feAppVer.checked  = !!s.feedbackSendAppVersion;
+feUA.checked      = !!s.feedbackSendUserAgent;
 feFolders.checked = !!s.feedbackSendFolderCount;
-feTags.checked = !!s.feedbackSendTagCount;
-feChars.checked = !!s.feedbackSendCharacterCount;
+feTags.checked    = !!s.feedbackSendTagCount;
+feChars.checked   = !!s.feedbackSendCharacterCount;
 feInstallIdPreview.textContent = s.feedbackInstallId;
 
 function updateFeedbackEnabledUI() {
     const visible = feEnabled.checked === true;
-
-    // Hide/show the entire options block
     feOptions.style.display = visible ? "" : "none";
-
-    // Hide/show the Preview button
-    if (fePreviewBtn) fePreviewBtn.style.display = visible ? "" : "none";
-
-    // When hidden, also collapse any open preview + clear message
     if (!visible) {
-        if (fePreviewWrap) fePreviewWrap.style.display = "none";
-        if (feMsg) feMsg.textContent = "";
+      fePreviewWrap.style.display = "none";
+      feMsg.textContent = "";
     }
-}
+  }
 
 // Initial state (keeps everything hidden by default since feedbackEnabled=false)
 updateFeedbackEnabledUI();
 
 feEnabled.addEventListener('change', () => {
     s.feedbackEnabled = feEnabled.checked;
+    // On first enable, DO NOT send automatically.
+    // Show options and let user choose/check items first.
+    if (s.feedbackEnabled) s.feedbackReviewed = false; // must review once
     debouncePersist();
     updateFeedbackEnabledUI();
-
-    // If user just opted in, try to send now if due
-    if (s.feedbackEnabled) {
-        STCM_feedbackSendIfDue('toggle_on'); // it already guards shouldSendToday(), url, etc.
-    }
-
-});
-
-[feUA, feAppVer, feFolders, feTags, feChars].forEach(cb => {
+  });
+  
+  // Any per-item change counts as "reviewed"
+  [feUA, feAppVer, feFolders, feTags, feChars].forEach(cb => {
     cb.addEventListener('change', () => {
-        s.feedbackSendUserAgent   = feUA.checked;
-        s.feedbackSendAppVersion  = feAppVer.checked;         
-        s.feedbackSendFolderCount = feFolders.checked;
-        s.feedbackSendTagCount    = feTags.checked;
-        s.feedbackSendCharacterCount = feChars.checked;
-        debouncePersist();
+      s.feedbackSendUserAgent      = feUA.checked;
+      s.feedbackSendAppVersion     = feAppVer.checked;
+      s.feedbackSendFolderCount    = feFolders.checked;
+      s.feedbackSendTagCount       = feTags.checked;
+      s.feedbackSendCharacterCount = feChars.checked;
+      s.feedbackReviewed = true;               // <- mark reviewed
+      debouncePersist();
     });
-});
-
+  });
 fePreviewBtn.addEventListener('click', async () => {
     feMsg.textContent = "";
     const data = await buildFeedbackPayload();
@@ -526,30 +517,32 @@ div#rightNavHolder.drawer {
 
 function buildFeedbackPayload() {
     const s = getSettings();
-    // Always include all required keys:
+  
     const payload = {
       id: s.feedbackInstallId,
-      ts: new Date().toISOString(),                 // has .mmmZ
+      ts: new Date().toISOString(), // .mmmZ
       appVersion: s.feedbackSendAppVersion
         ? (typeof CLIENT_VERSION !== 'undefined'
             ? CLIENT_VERSION
             : (window.CLIENT_VERSION || ''))
-        : '',                                       // empty when opted out
+        : '',
       userAgent: s.feedbackSendUserAgent ? navigator.userAgent : '',
-      folderCount: s.feedbackSendFolderCount ? Number(getFolderCount()) : 0,
-      tagCount: s.feedbackSendTagCount ? Number(getTagCount()) : 0,
-      characterCount: s.feedbackSendCharacterCount ? Number(getCharacterCount()) : 0,
+      folderCount: s.feedbackSendFolderCount ? Number(getFolderCount()) : null,
+      tagCount: s.feedbackSendTagCount ? Number(getTagCount()) : null,
+      characterCount: s.feedbackSendCharacterCount ? Number(getCharacterCount()) : null,
     };
   
-    // Ensure ints (server requires JSON numbers, not strings)
-    ['folderCount','tagCount','characterCount'].forEach(k => {
-      payload[k] = Number.isFinite(payload[k]) ? Math.max(0, Math.trunc(payload[k])) : 0;
+    // Only clamp/normalize if the field is included (not null)
+    ['folderCount', 'tagCount', 'characterCount'].forEach((k) => {
+      if (payload[k] != null) {
+        const n = Number(payload[k]);
+        payload[k] = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+      }
     });
   
     return payload;
   }
-
-
+  
 
 function shouldSendToday() {
   const s = getSettings();
@@ -560,25 +553,15 @@ function shouldSendToday() {
 }
 
 export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
-  const s = getSettings();
-  const url = FEEDBACK_DEFAULT_API_URL; // <-- use constant
-  const https = /^https:\/\//i.test(url);
-
-//   console.log('[FEEDBACK] check', {
-//     enabled: s.feedbackEnabled,
-//     url,
-//     https,
-//     last: s.feedbackLastSentISO,
-//     should: shouldSendToday(),
-//     reason
-//   });
-
-  if (!s.feedbackEnabled) return;
-  if (!https) return;
-  if (!shouldSendToday()) return;
-
-  await sendFeedbackNow(reason);
-}
+    const s = getSettings();
+    const url = FEEDBACK_DEFAULT_API_URL;
+    if (!s.feedbackEnabled) return;
+    if (!/^https:\/\//i.test(url)) return;
+    if (!s.feedbackReviewed) return;   // <- NEW gate
+    if (!shouldSendToday()) return;
+    await sendFeedbackNow(reason);
+  }
+  
 
 // expose for global callers
 if (typeof window !== 'undefined') {
