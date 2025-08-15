@@ -490,12 +490,10 @@ eventSource.emit = function(event, ...args) {
     }
 
     if (event === 'app_ready') {
-        // Defer to avoid blocking any synchronous startup work
         setTimeout(() => {
-            try { window.STCM_feedbackSendIfDue && window.STCM_feedbackSendIfDue('app_ready'); }
-            catch (e) { /* no-op */ }
+          try { window.STCM_feedbackTrigger?.fire('app_ready'); } catch {}
         }, 0);
-    }
+      }
 
     return origEmit.apply(this, arguments);
 };

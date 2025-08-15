@@ -59,7 +59,7 @@ import {
     stcmCharState,
 } from "./stcm_characters.js";
 
-import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility } from './settings-drawer.js';
+import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecentChatsVisibility, STCM_feedbackSendIfDue } from './settings-drawer.js';
 
 import { initCustomGreetingWorkshop } from './stcm_custom_greetings.js';
 
@@ -977,6 +977,7 @@ eventSource.on(event_types.APP_READY, async () => {
     injectStcmSettingsPanel();    
     restoreCharEditModal();
     initCustomGreetingWorkshop();
+    STCM_feedbackSendIfDue('app_ready');
 
 });
 
