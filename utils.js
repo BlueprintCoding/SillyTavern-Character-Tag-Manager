@@ -15,6 +15,9 @@ import {
     messageFormatting
 } from "../../../../script.js";
 
+import { tags } from "../../../tags.js";
+import { STCM } from "./index.js";
+import { getEntitiesList } from "../../../../script.js";
 
 let context = null;
 
@@ -684,6 +687,43 @@ function createSwipeSelector() {
     });
 }
 
+// --- Canonical counts (folders, tags, characters) ---
+function getFolderCount() {
+    try {
+        const arr = Array.isArray(STCM?.sidebarFolders) ? STCM.sidebarFolders : [];
+        // Exclude the synthetic root container if present
+        return arr.filter(f => f && f.id !== 'root').length;
+    } catch {
+        return 0;
+    }
+}
+
+function getTagCount() {
+    try {
+        return Array.isArray(tags) ? tags.length : 0;
+    } catch {
+        return 0;
+    }
+}
+
+function getCharacterCount() {
+    try {
+        const entities = typeof getEntitiesList === "function" ? getEntitiesList() : [];
+        // Count unique characters (by avatar/id), ignore groups
+        const ids = new Set();
+        for (const e of entities) {
+            if (e?.type === "character") {
+                const id = e.item?.avatar ?? e.avatar ?? e.item?.id ?? e.id;
+                if (id !== undefined) ids.add(id);
+            }
+        }
+        return ids.size;
+    } catch {
+        return 0;
+    }
+}
+
+
 export {
     debounce, debouncePersist, flushExtSettings, getFreeName, isNullColor, escapeHtml, getCharacterNameById,
     resetModalScrollPositions, makeModalDraggable, saveModalPosSize, clampModalSize, restoreCharEditModal,
@@ -691,5 +731,6 @@ export {
     buildCharNameMap, getNotes, saveNotes,
     watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 
     hashPin, getStoredPinHash, saveStoredPinHash, hexToRgba,
-    createSwipeSelector
+    createSwipeSelector,
+    getCharacterCount, getFolderCount, getTagCount
 };

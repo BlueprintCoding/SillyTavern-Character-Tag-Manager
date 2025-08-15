@@ -6,6 +6,9 @@ import {
     hashPin,
     getStoredPinHash,
     saveStoredPinHash,
+    getFolderCount,
+    getTagCount,
+    getCharacterCount,
 } from './utils.js';
 
 const MODULE_NAME = 'characterTagManager';
@@ -13,15 +16,44 @@ const defaultSettings = {
     showDefaultTagManager: true,
     showWelcomeRecentChats: true,
     showTopBarIcon: true,
-    folderNavHeightMode: "auto",   // "auto" or "custom"
-    folderNavMaxHeight: 50         // default 50 (% of vh)
+    folderNavHeightMode: "auto",
+    folderNavMaxHeight: 50,
+
+    // --- Feedback Data (anonymous analytics) ---
+    feedbackEnabled: false,          // master opt-in; nothing is sent unless true
+    feedbackInstallId: "",           // generated once per install
+    feedbackSendUserAgent: true,     // user can opt out of each item below (id always included)
+    feedbackSendFolderCount: true,
+    feedbackSendTagCount: true,
+    feedbackSendCharacterCount: true,
+    feedbackApiUrl: ""               // e.g. "https://your.api.example/feedback" (leave blank to disable sending)
 };
+
+function ensureFeedbackInstallId(settings) {
+    if (!settings.feedbackInstallId) {
+        // RFC4122-ish v4 using crypto
+        const buf = new Uint8Array(16);
+        crypto.getRandomValues(buf);
+        buf[6] = (buf[6] & 0x0f) | 0x40;
+        buf[8] = (buf[8] & 0x3f) | 0x80;
+        const hex = [...buf].map(b => b.toString(16).padStart(2, '0'));
+        settings.feedbackInstallId = [
+            hex.slice(0,4).join(''),
+            hex.slice(4,6).join(''),
+            hex.slice(6,8).join(''),
+            hex.slice(8,10).join(''),
+            hex.slice(10,16).join('')
+        ].join('-');
+    }
+}
 
 function getSettings() {
     if (!extension_settings[MODULE_NAME]) extension_settings[MODULE_NAME] = structuredClone(defaultSettings);
     for (const key in defaultSettings) {
         if (extension_settings[MODULE_NAME][key] === undefined) extension_settings[MODULE_NAME][key] = defaultSettings[key];
     }
+    // NEW: guarantee a per-install random ID
+    ensureFeedbackInstallId(extension_settings[MODULE_NAME]);
     return extension_settings[MODULE_NAME];
 }
 
@@ -94,6 +126,56 @@ function createStcmSettingsPanel() {
                     <div id="stcm-pin-msg" style="margin-top: 8px; color: #f87;"></div>
                 </div>
                 </div>
+                <hr>
+                <div style="margin-left:10px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                        <input type="checkbox" id="stcm--feedbackEnabled">
+                        <span><b>Share Anonymous Feedback Data</b> (opt‑in)</span>
+                    </div>
+
+                    <div id="stcm--feedbackOptions" style="margin-left:26px;">
+                        <div style="margin:6px 0;">
+                            <div style="font-size:12px;opacity:.8;margin-bottom:6px;">
+                                A unique random ID identifies this install. You can opt out of every item below (the ID is always included when sending).
+                            </div>
+                            <div style="font-family:monospace;font-size:12px;background:#0003;padding:6px 8px;border-radius:6px;display:inline-block;">
+                                Install ID: <span id="stcm--installIdPreview"></span>
+                            </div>
+                        </div>
+
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendUserAgent">
+                            <span>Include UserAgent (browser info)</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendFolderCount">
+                            <span>Include # of Folders</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendTagCount">
+                            <span>Include # of Tags</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendCharacterCount">
+                            <span>Include # of Characters</span>
+                        </label>
+
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                            <button id="stcm--feedbackPreviewBtn" class="stcm_menu_button small">Preview Data</button>
+                            <button id="stcm--feedbackSendBtn" class="stcm_menu_button green small">Send Now</button>
+                            <input id="stcm--feedbackApiUrl" class="menu_input" placeholder="Feedback API URL" style="min-width:320px;">
+                        </div>
+
+                        <div id="stcm--feedbackPreviewWrap" style="display:none;margin-top:8px;">
+                            <div style="font-size:12px;opacity:.8;margin-bottom:4px;">Preview of exactly what will be sent:</div>
+                            <pre id="stcm--feedbackPreview" style="max-width:100%;overflow:auto;background:#0003;padding:8px;border-radius:6px;"></pre>
+                            <button id="stcm--copyPreviewBtn" class="stcm_menu_button small">Copy JSON</button>
+                        </div>
+
+                        <div id="stcm--feedbackMsg" style="margin-top:8px;color:#f87;"></div>
+                    </div>
+                </div>
+ <hr>
             </div>
         </div>
     `;
@@ -261,6 +343,109 @@ function createStcmSettingsPanel() {
         }
     });
 
+    // ---- Feedback Data wiring ----
+const s = getSettings();
+
+const feEnabled = panel.querySelector('#stcm--feedbackEnabled');
+const feUA = panel.querySelector('#stcm--feedbackSendUserAgent');
+const feFolders = panel.querySelector('#stcm--feedbackSendFolderCount');
+const feTags = panel.querySelector('#stcm--feedbackSendTagCount');
+const feChars = panel.querySelector('#stcm--feedbackSendCharacterCount');
+const feApiUrl = panel.querySelector('#stcm--feedbackApiUrl');
+const feOptions = panel.querySelector('#stcm--feedbackOptions');
+const feInstallIdPreview = panel.querySelector('#stcm--installIdPreview');
+const fePreviewBtn = panel.querySelector('#stcm--feedbackPreviewBtn');
+const feSendBtn = panel.querySelector('#stcm--feedbackSendBtn');
+const fePreviewWrap = panel.querySelector('#stcm--feedbackPreviewWrap');
+const fePreview = panel.querySelector('#stcm--feedbackPreview');
+const feCopyBtn = panel.querySelector('#stcm--copyPreviewBtn');
+const feMsg = panel.querySelector('#stcm--feedbackMsg');
+
+feEnabled.checked = !!s.feedbackEnabled;
+feUA.checked = !!s.feedbackSendUserAgent;
+feFolders.checked = !!s.feedbackSendFolderCount;
+feTags.checked = !!s.feedbackSendTagCount;
+feChars.checked = !!s.feedbackSendCharacterCount;
+feApiUrl.value = s.feedbackApiUrl || "";
+feInstallIdPreview.textContent = s.feedbackInstallId;
+
+function updateFeedbackEnabledUI() {
+    feOptions.style.opacity = feEnabled.checked ? "1" : ".6";
+    feOptions.style.pointerEvents = feEnabled.checked ? "auto" : "none";
+}
+updateFeedbackEnabledUI();
+
+feEnabled.addEventListener('change', () => {
+    s.feedbackEnabled = feEnabled.checked;
+    debouncePersist();
+    updateFeedbackEnabledUI();
+});
+
+[feUA, feFolders, feTags, feChars].forEach(cb => {
+    cb.addEventListener('change', () => {
+        s.feedbackSendUserAgent = feUA.checked;
+        s.feedbackSendFolderCount = feFolders.checked;
+        s.feedbackSendTagCount = feTags.checked;
+        s.feedbackSendCharacterCount = feChars.checked;
+        debouncePersist();
+    });
+});
+
+feApiUrl.addEventListener('change', () => {
+    s.feedbackApiUrl = feApiUrl.value.trim();
+    debouncePersist();
+});
+
+fePreviewBtn.addEventListener('click', async () => {
+    feMsg.textContent = "";
+    const data = await buildFeedbackPayload();
+    fePreview.textContent = JSON.stringify(data, null, 2);
+    fePreviewWrap.style.display = "";
+});
+
+feCopyBtn.addEventListener('click', async () => {
+    try {
+        await navigator.clipboard.writeText(fePreview.textContent);
+        feMsg.style.color = '#7f7';
+        feMsg.textContent = 'Copied preview JSON to clipboard.';
+    } catch {
+        feMsg.style.color = '#f87';
+        feMsg.textContent = 'Could not copy to clipboard.';
+    }
+});
+
+function isHttpsUrl(u) { try { const x = new URL(u); return x.protocol === 'https:'; } catch { return false; } }
+
+feSendBtn.addEventListener('click', async () => {
+    feMsg.style.color = '#f87'; feMsg.textContent = "";
+    if (!s.feedbackEnabled) return feMsg.textContent = 'Please enable “Share Anonymous Feedback Data” first.';
+    if (!s.feedbackApiUrl)   return feMsg.textContent = 'Please enter a Feedback API URL.';
+    if (!isHttpsUrl(s.feedbackApiUrl)) return feMsg.textContent = 'Feedback API URL must be HTTPS.';
+
+    try {
+        const payload = await buildFeedbackPayload();
+        fePreview.textContent = JSON.stringify(payload, null, 2);
+        fePreviewWrap.style.display = "";
+
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 10000); // 10s
+        const res = await fetch(s.feedbackApiUrl, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+            signal: ctrl.signal
+        });
+        clearTimeout(t);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        feMsg.style.color = '#7f7'; feMsg.textContent = 'Feedback data sent successfully.';
+    } catch (e) {
+        feMsg.style.color = '#f87';
+        feMsg.textContent = `Send failed: ${e?.name === 'AbortError' ? 'request timed out' : e?.message || e}`;
+    }
+});
+
+
+
 
     // END SETTINGS SECTION
     return panel;
@@ -356,4 +541,55 @@ div#rightNavHolder.drawer {
 }
 `;
     }
+}
+
+async function buildFeedbackPayload() {
+    const s = getSettings();
+    const data = {
+        id: s.feedbackInstallId,
+        ts: new Date().toISOString(),
+        appVersion: (window.STCM_VERSION || 'unknown'),
+    };
+
+    if (s.feedbackSendUserAgent)      data.userAgent     = navigator.userAgent;
+    if (s.feedbackSendFolderCount)    data.folderCount   = getFolderCount();     // canonical
+    if (s.feedbackSendTagCount)       data.tagCount      = getTagCount();        // canonical
+    if (s.feedbackSendCharacterCount) data.characterCount= getCharacterCount();  // canonical
+
+    return data;
+}
+
+
+
+/**
+ * The exact sources for counts depend on your app state.
+ * These “Safe” versions try DOM first, then fall back to 0.
+ * If you already have in‑memory data (e.g. arrays of folders/tags/characters),
+ * replace these with your canonical sources.
+ */
+async function getFolderCountSafe() {
+    // Example DOM heuristic: sidebar folder nav entries
+    const el = document.querySelectorAll('#stcm_sidebar_folder_nav .folder-item, #stcm_sidebar_folder_nav [data-folder]');
+    if (el && el.length) return el.length;
+
+    // Fallbacks (replace with your real data source)
+    return 0;
+}
+
+async function getTagCountSafe() {
+    // Example DOM heuristic: any tag chips inside character rows / tag manager
+    const chips = document.querySelectorAll('.tag, .rm_tag, .stcm-tag-chip, .manageTags .tag');
+    if (chips && chips.length) {
+        // Count unique tag names if duplicates are rendered multiple times
+        const names = new Set([...chips].map(n => (n.textContent || '').trim().toLowerCase()).filter(Boolean));
+        return names.size || chips.length;
+    }
+    return 0;
+}
+
+async function getCharacterCountSafe() {
+    // Example DOM heuristic: character cards in the list
+    const cards = document.querySelectorAll('#rm_print_characters_block .character_select, #rm_characters_block .character_select, .character-card, .rm_character_block');
+    if (cards && cards.length) return cards.length;
+    return 0;
 }
