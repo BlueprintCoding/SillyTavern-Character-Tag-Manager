@@ -139,7 +139,7 @@ function createStcmSettingsPanel() {
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                         <input type="checkbox" id="stcm--feedbackEnabled">
                         <span><b>Share Anonymous Feedback Data</b> (opt‑in)</span>
-                        <span style="font-size:10px;opacity:.8;">This data helps us understand how many people are actively using the extension, since GitHub doesn’t track installs. It also lets us debug issues across different SillyTavern versions and environments.Finally, knowing tag, character, and folder counts helps us troubleshoot performance and scaling problems for users with large libraries.</span>
+                        <span style="font-size:10px;opacity:.8;">This data helps us understand how many people are actively using the extension, since GitHub doesn’t track installs. It also lets us debug issues across different SillyTavern versions and environments. Finally, knowing tag, character, and folder counts helps us troubleshoot performance and scaling problems for users with large libraries. If you are a coder you can look at the settings-drawer.js</span>
                     </div>
 
                     <div id="stcm--feedbackOptions" style="display:none; margin-left:26px;">
@@ -602,12 +602,15 @@ async function sendFeedbackNow(/* reason = 'auto' */) {
   
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 10000);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),              // <-- no extra fields
-        signal: ctrl.signal
-      });
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            referrerPolicy: 'no-referrer',
+            credentials: 'omit',
+            cache: 'no-store',
+            signal: ctrl.signal
+        });
       clearTimeout(t);
   
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
