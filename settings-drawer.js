@@ -368,16 +368,33 @@ feChars.checked = !!s.feedbackSendCharacterCount;
 feInstallIdPreview.textContent = s.feedbackInstallId;
 
 function updateFeedbackEnabledUI() {
-    feOptions.style.opacity = feEnabled.checked ? "1" : ".6";
-    feOptions.style.pointerEvents = feEnabled.checked ? "auto" : "none";
+    const visible = feEnabled.checked === true;
+
+    // Hide/show the entire options block
+    feOptions.style.display = visible ? "" : "none";
+
+    // Hide/show the Preview button
+    if (fePreviewBtn) fePreviewBtn.style.display = visible ? "" : "none";
+
+    // When hidden, also collapse any open preview + clear message
+    if (!visible) {
+        if (fePreviewWrap) fePreviewWrap.style.display = "none";
+        if (feMsg) feMsg.textContent = "";
+    }
 }
+
+// Initial state (keeps everything hidden by default since feedbackEnabled=false)
 updateFeedbackEnabledUI();
-updateLastSentUI();
 
 feEnabled.addEventListener('change', () => {
     s.feedbackEnabled = feEnabled.checked;
     debouncePersist();
     updateFeedbackEnabledUI();
+
+    // If user just opted in, try to send now if due
+    if (s.feedbackEnabled && typeof window.STCM_feedbackSendIfDue === 'function') {
+        window.STCM_feedbackSendIfDue('toggle_on');
+    }
 });
 
 [feUA, feFolders, feTags, feChars].forEach(cb => {
@@ -397,11 +414,6 @@ fePreviewBtn.addEventListener('click', async () => {
     fePreviewWrap.style.display = "";
 });
 
-
-// --- Auto-send helpers ---
-function updateLastSentUI() {
-    const d = s.feedbackLastSentISO ? new Date(s.feedbackLastSentISO) : null;
-}
 
 function isHttpsUrl(u) {
     try { const x = new URL(u); return x.protocol === 'https:'; }
@@ -435,7 +447,6 @@ async function sendFeedbackNow(reason = 'auto') {
 
         s.feedbackLastSentISO = new Date().toISOString();
         debouncePersist();
-        updateLastSentUI();
     } catch (e) {
     }
 }
