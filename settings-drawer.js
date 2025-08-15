@@ -11,6 +11,9 @@ import {
     getCharacterCount,
 } from './utils.js';
 
+import { CLIENT_VERSION } from './scripts.js';
+
+
 const MODULE_NAME = 'characterTagManager';
 const defaultSettings = {
     showDefaultTagManager: true,
@@ -570,7 +573,7 @@ async function buildFeedbackPayload() {
     const data = {
         id: s.feedbackInstallId,
         ts: new Date().toISOString(),
-        appVersion: (window.STCM_VERSION || 'unknown'),
+        appVersion: (CLIENT_VERSION || 'unknown'),
     };
     if (s.feedbackSendUserAgent)      data.userAgent      = navigator.userAgent;
     if (s.feedbackSendFolderCount)    data.folderCount    = getFolderCount();
