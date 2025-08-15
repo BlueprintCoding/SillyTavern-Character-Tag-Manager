@@ -11,7 +11,7 @@ import {
     getCharacterCount,
 } from './utils.js';
 
-import { CLIENT_VERSION } from './scripts.js';
+import { CLIENT_VERSION } from "../../../../script.js";
 
 
 const MODULE_NAME = 'characterTagManager';
