@@ -72,6 +72,7 @@ function createStcmSettingsPanel() {
                 <div class="inline-drawer-icon fa-solid interactable down fa-circle-chevron-down" tabindex="0"></div>
             </div>
             <div class="inline-drawer-content" style="display: none;">
+
                 <label style="display:flex;align-items:center;gap:8px;margin-top:5px;">
                     <input type="checkbox" id="stcm--showTopBarIcon"/>
                     <span>Show Character / Tag Manager Icon in Top Bar</span>
@@ -84,15 +85,15 @@ function createStcmSettingsPanel() {
                     <input type="checkbox" id="stcm--showWelcomeRecentChats"/>
                     <span>Show Welcome Screen Recent Chats</span>
                 </label>
+
                 <hr>
                 <div style="margin-left: 10px;">
                     <label>
-                     <span style="text-wrap:nowrap;">Folder Panel Height Mode</span>
+                        <span style="text-wrap:nowrap;">Folder Panel Height Mode</span>
                         <select id="stcm--folderNavHeightMode" style="min-width: 160px;">
                             <option value="auto">Auto Height (default)</option>
                             <option value="custom">Custom Max Height</option>
                         </select>
-                       
                     </label>
                     <div id="stcm--customFolderHeightRow" style="margin-left:30px;margin-top:4px;display:none;">
                         <label>
@@ -105,29 +106,30 @@ function createStcmSettingsPanel() {
 
                 <hr>
                 <div style="margin-left: 10px;">
-                <span style="text-wrap:nowrap;">Private Folder Pin</span>
-                <div id="stcm-pin-form" class="stcm-pin-form" style="margin-top: 10px;">
-                    <div id="stcm-pin-current-row" style="display:none;">
-                        <label>Current PIN:</label>
-                        <input type="password" id="stcm-pin-current" class="menu_input">
-                    </div>
-                    <div id="stcm-pin-new-row">
-                        <label>New PIN:</label>
-                        <input type="password" id="stcm-pin-new" class="menu_input">
-                    </div>
-                    <div id="stcm-pin-confirm-row">
-                        <label>Confirm New PIN:</label>
-                        <input type="password" id="stcm-pin-confirm" class="menu_input">
-                    </div>
-                    <div style="margin-top: 8px;">
-                        <button id="stcm-set-pin-btn" class="stcm_menu_button green small">Set PIN</button>
-                        <button id="stcm-remove-pin-btn" class="stcm_menu_button red small" style="display:none;">Remove PIN</button>
-                    </div>
-                    <div id="stcm-pin-msg" style="margin-top: 8px; color: #f87;"></div>
-                </div>
-                </div>
+                    <span style="text-wrap:nowrap;">Private Folder Pin</span>
+                    <div id="stcm-pin-form" class="stcm-pin-form" style="margin-top: 10px;">
+                        <div id="stcm-pin-current-row" style="display:none;">
+                            <label>Current PIN:</label>
+                            <input type="password" id="stcm-pin-current" class="menu_input">
+                        </div>
+                        <div id="stcm-pin-new-row">
+                            <label>New PIN:</label>
+                            <input type="password" id="stcm-pin-new" class="menu_input">
+                        </div>
+                        <div id="stcm-pin-confirm-row">
+                            <label>Confirm New PIN:</label>
+                            <input type="password" id="stcm-pin-confirm" class="menu_input">
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <button id="stcm-set-pin-btn" class="stcm_menu_button green small">Set PIN</button>
+                            <button id="stcm-remove-pin-btn" class="stcm_menu_button red small" style="display:none;">Remove PIN</button>
+                        </div>
+                        <div id="stcm-pin-msg" style="margin-top: 8px; color: #f87;"></div>
+                    </div> <!-- #stcm-pin-form -->
+                </div> <!-- PIN wrapper -->
+
                 <hr>
-                <div style="margin-left:10px;">
+                <div style="margin-left:10px;"> <!-- FEEDBACK wrapper -->
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                         <input type="checkbox" id="stcm--feedbackEnabled">
                         <span><b>Share Anonymous Feedback Data</b> (opt‑in)</span>
@@ -173,11 +175,12 @@ function createStcmSettingsPanel() {
                         </div>
 
                         <div id="stcm--feedbackMsg" style="margin-top:8px;color:#f87;"></div>
-                    </div>
-                </div>
- <hr>
-            </div>
-        </div>
+                    </div> <!-- #stcm--feedbackOptions -->
+                </div> <!-- FEEDBACK wrapper -->
+
+                <hr>
+            </div> <!-- .inline-drawer-content -->
+        </div> <!-- .inline-drawer -->
     `;
 
     // Checkbox logic
