@@ -617,3 +617,28 @@ async function sendFeedbackNow(/* reason = 'auto' */) {
     //   console.warn('[FEEDBACK] send failed', e);
     }
   }
+
+  /** Admin-only helper: clear the "last sent" timestamp so the next call will send */
+export function STCM_feedbackClearLastSent() {
+    const s = getSettings();
+    s.feedbackLastSentISO = "";
+    debouncePersist();
+    console.log("[FEEDBACK] lastSent cleared. Next STCM_feedbackSendIfDue() will send.");
+  }
+  
+  /** (Optional) Admin helper: send right now, regardless of lastSent */
+  export async function STCM_feedbackSendNow() {
+    // bypass shouldSendToday(), but still respects enabled + https checks
+    const s = getSettings();
+    if (!s.feedbackEnabled) return console.log("[FEEDBACK] skip: disabled");
+    if (!/^https:\/\//i.test(FEEDBACK_DEFAULT_API_URL)) return console.log("[FEEDBACK] skip: bad URL");
+    await sendFeedbackNow("manual");
+    console.log("[FEEDBACK] manual send attempted");
+  }
+
+  if (typeof window !== "undefined") {
+    window.STCM_feedbackClearLastSent = STCM_feedbackClearLastSent;
+    window.STCM_feedbackSendNow = STCM_feedbackSendNow; // optional
+  }
+  
+  
