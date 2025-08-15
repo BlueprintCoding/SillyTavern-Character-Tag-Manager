@@ -6,22 +6,60 @@ import {
     hashPin,
     getStoredPinHash,
     saveStoredPinHash,
+    getFolderCount,
+    getTagCount,
+    getCharacterCount,
 } from './utils.js';
+
+import { CLIENT_VERSION } from "../../../../script.js";
 
 const MODULE_NAME = 'characterTagManager';
 const defaultSettings = {
     showDefaultTagManager: true,
     showWelcomeRecentChats: true,
     showTopBarIcon: true,
-    folderNavHeightMode: "auto",   // "auto" or "custom"
-    folderNavMaxHeight: 50         // default 50 (% of vh)
+    folderNavHeightMode: "auto",
+    folderNavMaxHeight: 50,
+    blurPrivatePreviews: false,
+    // --- Feedback Data (anonymous analytics) ---
+    feedbackEnabled: false,          // master opt-in; nothing is sent unless true
+    feedbackInstallId: "",           // generated once per install
+    feedbackSendUserAgent: false,     // user can opt out of each item below (id always included)
+    feedbackSendAppVersion: false,   // allow opting out of appVersion
+    feedbackSendFolderCount: false,
+    feedbackSendTagCount: false,
+    feedbackSendCharacterCount: false,
+    feedbackLastSentISO: ""    // NEW: track last successful send              
 };
+
+const FEEDBACK_DEFAULT_API_URL =
+  "https://aicharactercards.com/wp-json/aicc_extension-feedback/v1/submit";
+
+function ensureFeedbackInstallId(settings) {
+    if (!settings.feedbackInstallId) {
+        // RFC4122-ish v4 using crypto
+        const buf = new Uint8Array(16);
+        crypto.getRandomValues(buf);
+        buf[6] = (buf[6] & 0x0f) | 0x40;
+        buf[8] = (buf[8] & 0x3f) | 0x80;
+        const hex = [...buf].map(b => b.toString(16).padStart(2, '0'));
+        settings.feedbackInstallId = [
+            hex.slice(0,4).join(''),
+            hex.slice(4,6).join(''),
+            hex.slice(6,8).join(''),
+            hex.slice(8,10).join(''),
+            hex.slice(10,16).join('')
+        ].join('-');
+    }
+}
 
 function getSettings() {
     if (!extension_settings[MODULE_NAME]) extension_settings[MODULE_NAME] = structuredClone(defaultSettings);
     for (const key in defaultSettings) {
         if (extension_settings[MODULE_NAME][key] === undefined) extension_settings[MODULE_NAME][key] = defaultSettings[key];
     }
+    // NEW: guarantee a per-install random ID
+    ensureFeedbackInstallId(extension_settings[MODULE_NAME]);
     return extension_settings[MODULE_NAME];
 }
 
@@ -40,6 +78,7 @@ function createStcmSettingsPanel() {
                 <div class="inline-drawer-icon fa-solid interactable down fa-circle-chevron-down" tabindex="0"></div>
             </div>
             <div class="inline-drawer-content" style="display: none;">
+
                 <label style="display:flex;align-items:center;gap:8px;margin-top:5px;">
                     <input type="checkbox" id="stcm--showTopBarIcon"/>
                     <span>Show Character / Tag Manager Icon in Top Bar</span>
@@ -52,15 +91,15 @@ function createStcmSettingsPanel() {
                     <input type="checkbox" id="stcm--showWelcomeRecentChats"/>
                     <span>Show Welcome Screen Recent Chats</span>
                 </label>
+
                 <hr>
                 <div style="margin-left: 10px;">
                     <label>
-                     <span style="text-wrap:nowrap;">Folder Panel Height Mode</span>
+                        <span style="text-wrap:nowrap;">Folder Panel Height Mode</span>
                         <select id="stcm--folderNavHeightMode" style="min-width: 160px;">
                             <option value="auto">Auto Height (default)</option>
                             <option value="custom">Custom Max Height</option>
                         </select>
-                       
                     </label>
                     <div id="stcm--customFolderHeightRow" style="margin-left:30px;margin-top:4px;display:none;">
                         <label>
@@ -73,29 +112,82 @@ function createStcmSettingsPanel() {
 
                 <hr>
                 <div style="margin-left: 10px;">
-                <span style="text-wrap:nowrap;">Private Folder Pin</span>
-                <div id="stcm-pin-form" class="stcm-pin-form" style="margin-top: 10px;">
-                    <div id="stcm-pin-current-row" style="display:none;">
-                        <label>Current PIN:</label>
-                        <input type="password" id="stcm-pin-current" class="menu_input">
+                    <span style="text-wrap:nowrap;">Private Folder Pin</span>
+                    <div id="stcm-pin-form" class="stcm-pin-form" style="margin-top: 10px;">
+                        <div id="stcm-pin-current-row" style="display:none;">
+                            <label>Current PIN:</label>
+                            <input type="password" id="stcm-pin-current" class="menu_input">
+                        </div>
+                        <div id="stcm-pin-new-row">
+                            <label>New PIN:</label>
+                            <input type="password" id="stcm-pin-new" class="menu_input">
+                        </div>
+                        <div id="stcm-pin-confirm-row">
+                            <label>Confirm New PIN:</label>
+                            <input type="password" id="stcm-pin-confirm" class="menu_input">
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <button id="stcm-set-pin-btn" class="stcm_menu_button green small">Set PIN</button>
+                            <button id="stcm-remove-pin-btn" class="stcm_menu_button red small" style="display:none;">Remove PIN</button>
+                        </div>
+                        <div id="stcm-pin-msg" style="margin-top: 8px; color: #f87;"></div>
+                    </div> <!-- #stcm-pin-form -->
+                </div> <!-- PIN wrapper -->
+
+                <hr>
+                <div style="margin-left:10px;"> <!-- FEEDBACK wrapper -->
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                        <input type="checkbox" id="stcm--feedbackEnabled">
+                        <span><b>Share Anonymous Feedback Data</b> (opt‑in)</span>
                     </div>
-                    <div id="stcm-pin-new-row">
-                        <label>New PIN:</label>
-                        <input type="password" id="stcm-pin-new" class="menu_input">
-                    </div>
-                    <div id="stcm-pin-confirm-row">
-                        <label>Confirm New PIN:</label>
-                        <input type="password" id="stcm-pin-confirm" class="menu_input">
-                    </div>
-                    <div style="margin-top: 8px;">
-                        <button id="stcm-set-pin-btn" class="stcm_menu_button green small">Set PIN</button>
-                        <button id="stcm-remove-pin-btn" class="stcm_menu_button red small" style="display:none;">Remove PIN</button>
-                    </div>
-                    <div id="stcm-pin-msg" style="margin-top: 8px; color: #f87;"></div>
-                </div>
-                </div>
-            </div>
-        </div>
+
+                    <div id="stcm--feedbackOptions" style="display:none; margin-left:26px;">
+                        <div style="margin:6px 0;">
+                         <div style="font-size:10px;opacity:.8;">This data helps us understand how many people are actively using the extension, since GitHub doesn’t track installs. It also lets us debug issues across different SillyTavern versions and environments. Finally, knowing tag, character, and folder counts helps us troubleshoot performance and scaling problems for users with large libraries. For confimation that this does what it says: devs can look at the settings-drawer.js, if you aren't here is a <a href="https://chatgpt.com/share/689fa2b2-2ab4-8006-ae34-adcaf906ca79" target="_blank">GPT evaulation of the code</a></div>
+                            <div style="font-size:12px;opacity:.8;margin-bottom:6px;">
+                                A unique random ID identifies this install. You can opt out of every item below (the ID is always included when sending).
+                            </div>
+                            <div style="font-family:monospace;font-size:12px;background:#0003;padding:6px 8px;border-radius:6px;display:inline-block;">
+                                Install ID: <span id="stcm--installIdPreview"></span>
+                            </div>
+                        </div>
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendAppVersion">
+                            <span>Include SillyTavern Version</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendUserAgent">
+                            <span>Include UserAgent (browser info)</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendFolderCount">
+                            <span>Include # of Folders</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendTagCount">
+                            <span>Include # of Tags</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendCharacterCount">
+                            <span>Include # of Characters</span>
+                        </label>
+
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                            <button id="stcm--feedbackPreviewBtn" class="stcm_menu_button small">Preview Data</button>
+                        </div>
+
+                        <div id="stcm--feedbackPreviewWrap" style="display:none;margin-top:8px;">
+                            <div style="font-size:12px;opacity:.8;margin-bottom:4px;">Preview of exactly what will be sent:</div>
+                            <pre id="stcm--feedbackPreview" style="max-width:100%;overflow:auto;background:#0003;padding:8px;border-radius:6px;"></pre>
+                        </div>
+
+                        <div id="stcm--feedbackMsg" style="margin-top:8px;color:#f87;"></div>
+                    </div> <!-- #stcm--feedbackOptions -->
+                </div> <!-- FEEDBACK wrapper -->
+
+                <hr>
+            </div> <!-- .inline-drawer-content -->
+        </div> <!-- .inline-drawer -->
     `;
 
     // Checkbox logic
@@ -261,11 +353,75 @@ function createStcmSettingsPanel() {
         }
     });
 
+    // ---- Feedback Data wiring ----
+// ---- Feedback Data wiring ----
+const s = getSettings();
+
+const feEnabled = panel.querySelector('#stcm--feedbackEnabled');
+const feUA = panel.querySelector('#stcm--feedbackSendUserAgent');
+const feAppVer = panel.querySelector('#stcm--feedbackSendAppVersion');
+const feFolders = panel.querySelector('#stcm--feedbackSendFolderCount');
+const feTags = panel.querySelector('#stcm--feedbackSendTagCount');
+const feChars = panel.querySelector('#stcm--feedbackSendCharacterCount');
+const feOptions = panel.querySelector('#stcm--feedbackOptions');
+const feInstallIdPreview = panel.querySelector('#stcm--installIdPreview');
+const fePreviewBtn = panel.querySelector('#stcm--feedbackPreviewBtn');
+const fePreviewWrap = panel.querySelector('#stcm--feedbackPreviewWrap');
+const fePreview = panel.querySelector('#stcm--feedbackPreview');
+const feMsg = panel.querySelector('#stcm--feedbackMsg');
+
+feEnabled.checked = !!s.feedbackEnabled;
+feAppVer.checked  = !!s.feedbackSendAppVersion;
+feUA.checked      = !!s.feedbackSendUserAgent;
+feFolders.checked = !!s.feedbackSendFolderCount;
+feTags.checked    = !!s.feedbackSendTagCount;
+feChars.checked   = !!s.feedbackSendCharacterCount;
+feInstallIdPreview.textContent = s.feedbackInstallId;
+
+function updateFeedbackEnabledUI() {
+    const visible = feEnabled.checked === true;
+    feOptions.style.display = visible ? "" : "none";
+    if (!visible) {
+      fePreviewWrap.style.display = "none";
+      feMsg.textContent = "";
+    }
+  }
+
+// Initial state (keeps everything hidden by default since feedbackEnabled=false)
+updateFeedbackEnabledUI();
+
+feEnabled.addEventListener('change', () => {
+    s.feedbackEnabled = feEnabled.checked;
+    // On first enable, DO NOT send automatically.
+    // Show options and let user choose/check items first.
+    if (s.feedbackEnabled) s.feedbackReviewed = false; // must review once
+    debouncePersist();
+    updateFeedbackEnabledUI();
+  });
+  
+  // Any per-item change counts as "reviewed"
+  [feUA, feAppVer, feFolders, feTags, feChars].forEach(cb => {
+    cb.addEventListener('change', () => {
+      s.feedbackSendUserAgent      = feUA.checked;
+      s.feedbackSendAppVersion     = feAppVer.checked;
+      s.feedbackSendFolderCount    = feFolders.checked;
+      s.feedbackSendTagCount       = feTags.checked;
+      s.feedbackSendCharacterCount = feChars.checked;
+      s.feedbackReviewed = true;               // <- mark reviewed
+      debouncePersist();
+    });
+  });
+fePreviewBtn.addEventListener('click', async () => {
+    feMsg.textContent = "";
+    const data = await buildFeedbackPayload();
+    fePreview.textContent = JSON.stringify(data, null, 2);
+    fePreviewWrap.style.display = "";
+});
+
 
     // END SETTINGS SECTION
     return panel;
 }
-
 
 export function injectStcmSettingsPanel() {
     const container = document.getElementById('extensions_settings');
@@ -357,3 +513,119 @@ div#rightNavHolder.drawer {
 `;
     }
 }
+
+function buildFeedbackPayload() {
+    const s = getSettings();
+  
+    const payload = {
+      id: s.feedbackInstallId,
+      ts: new Date().toISOString(), // .mmmZ
+      appVersion: s.feedbackSendAppVersion
+        ? (typeof CLIENT_VERSION !== 'undefined'
+            ? CLIENT_VERSION
+            : (window.CLIENT_VERSION || ''))
+        : '',
+      userAgent: s.feedbackSendUserAgent ? navigator.userAgent : '',
+      folderCount: s.feedbackSendFolderCount ? Number(getFolderCount()) : null,
+      tagCount: s.feedbackSendTagCount ? Number(getTagCount()) : null,
+      characterCount: s.feedbackSendCharacterCount ? Number(getCharacterCount()) : null,
+    };
+  
+    // Only clamp/normalize if the field is included (not null)
+    ['folderCount', 'tagCount', 'characterCount'].forEach((k) => {
+      if (payload[k] != null) {
+        const n = Number(payload[k]);
+        payload[k] = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+      }
+    });
+  
+    return payload;
+  }
+  
+
+function shouldSendToday() {
+  const s = getSettings();
+  if (!s.feedbackLastSentISO) return true;
+  const last = Date.parse(s.feedbackLastSentISO);
+  if (Number.isNaN(last)) return true;
+  return (Date.now() - last) >= 24 * 60 * 60 * 1000;
+}
+
+export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
+    const s = getSettings();
+    const url = FEEDBACK_DEFAULT_API_URL;
+    if (!s.feedbackEnabled) return;
+    if (!/^https:\/\//i.test(url)) return;
+    if (!s.feedbackReviewed) return;   // <- NEW gate
+    if (!shouldSendToday()) return;
+    await sendFeedbackNow(reason);
+  }
+  
+
+// expose for global callers
+if (typeof window !== 'undefined') {
+  window.STCM_feedbackSendIfDue = STCM_feedbackSendIfDue;
+}
+
+async function sendFeedbackNow(/* reason = 'auto' */) {
+    const s = getSettings();
+    const url = FEEDBACK_DEFAULT_API_URL;
+  
+    if (!s.feedbackEnabled) {
+        // console.log('[FEEDBACK] skip: disabled'); 
+        return; }
+    if (!/^https:\/\//i.test(url)) { 
+        // console.log('[FEEDBACK] skip: URL not HTTPS');
+         return; }
+  
+    try {
+      const payload = buildFeedbackPayload();
+   console.log('[FEEDBACK] sending', payload);   // log reason separately if you want
+  
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 10000);
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            referrerPolicy: 'no-referrer',
+            credentials: 'omit',
+            cache: 'no-store',
+            signal: ctrl.signal
+        });
+      clearTimeout(t);
+  
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  
+      s.feedbackLastSentISO = new Date().toISOString();
+   console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);
+      debouncePersist();
+    } catch (e) {
+       console.warn('[FEEDBACK] send failed', e);
+    }
+  }
+
+  /** Admin-only helper: clear the "last sent" timestamp so the next call will send */
+export function STCM_feedbackClearLastSent() {
+    const s = getSettings();
+    s.feedbackLastSentISO = "";
+    debouncePersist();
+    console.log("[FEEDBACK] lastSent cleared. Next STCM_feedbackSendIfDue() will send.");
+  }
+  
+  /** (Optional) Admin helper: send right now, regardless of lastSent */
+  export async function STCM_feedbackSendNow() {
+    // bypass shouldSendToday(), but still respects enabled + https checks
+    const s = getSettings();
+    if (!s.feedbackEnabled) return console.log("[FEEDBACK] skip: disabled");
+    if (!/^https:\/\//i.test(FEEDBACK_DEFAULT_API_URL)) return console.log("[FEEDBACK] skip: bad URL");
+    await sendFeedbackNow("manual");
+    console.log("[FEEDBACK] manual send attempted");
+  }
+
+  if (typeof window !== "undefined") {
+    window.STCM_feedbackClearLastSent = STCM_feedbackClearLastSent;
+    window.STCM_feedbackSendNow = STCM_feedbackSendNow; // optional
+  }
+  
+  
