@@ -143,7 +143,7 @@ function createStcmSettingsPanel() {
 
                     <div id="stcm--feedbackOptions" style="display:none; margin-left:26px;">
                         <div style="margin:6px 0;">
-                         <div style="font-size:10px;opacity:.8;">This data helps us understand how many people are actively using the extension, since GitHub doesn’t track installs. It also lets us debug issues across different SillyTavern versions and environments. Finally, knowing tag, character, and folder counts helps us troubleshoot performance and scaling problems for users with large libraries. If you are a dev you can look at the settings-drawer.js, if you aren't you can look at this <a href="https://chatgpt.com/c/689fa28b-e2d0-8332-9967-bc041e2e8977" target="_blank">GPT evaulation of the code</a></div>
+                         <div style="font-size:10px;opacity:.8;">This data helps us understand how many people are actively using the extension, since GitHub doesn’t track installs. It also lets us debug issues across different SillyTavern versions and environments. Finally, knowing tag, character, and folder counts helps us troubleshoot performance and scaling problems for users with large libraries. For confimation that this does what it says: devs can look at the settings-drawer.js, if you aren't here is a <a href="https://chatgpt.com/c/689fa28b-e2d0-8332-9967-bc041e2e8977" target="_blank">GPT evaulation of the code</a></div>
                             <div style="font-size:12px;opacity:.8;margin-bottom:6px;">
                                 A unique random ID identifies this install. You can opt out of every item below (the ID is always included when sending).
                             </div>
