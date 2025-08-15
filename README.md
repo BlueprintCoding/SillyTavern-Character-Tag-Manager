@@ -197,6 +197,17 @@ All settings are saved persistently and applied in real-time. You’ll find the 
 ![image](https://github.com/user-attachments/assets/491b26db-82a9-4fe7-a041-88deb365bbea)
 
 ---
+**Opt-in Feedback data (Off by default)**
+
+This data helps us understand how many people are actively using the extension, since GitHub doesn’t track installs. It also lets us debug issues across different SillyTavern versions and environments. Finally, knowing tag, character, and folder counts helps us troubleshoot performance and scaling problems for users with large libraries. For confimation that this does what it says: devs can look at the settings-drawer.js, if you aren't here is a [GPT evaulation of the code](https://chatgpt.com/share/689fa2b2-2ab4-8006-ae34-adcaf906ca79)
+
+- Off by default. Nothing is sent unless you switch on “Share Anonymous Feedback Data.”
+- You choose what to share. Each item (app version, browser info, folder/tag/character counts) is optional. A random Install ID is always included so they can count installs—no personal details.
+- See it first. There’s a Preview button that shows exactly what would be sent.
+- Sends over secure HTTPS, with no cookies or referrers.
+- Server saves only what you allowed. If you skip a count, it’s stored as not included (a zero placeholder appears in one summary column, but the raw record shows it wasn’t shared).
+
+---
 
 ## Contributing
 
