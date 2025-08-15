@@ -29,10 +29,11 @@ const defaultSettings = {
     feedbackSendFolderCount: true,
     feedbackSendTagCount: true,
     feedbackSendCharacterCount: true,
-    feedbackApiUrl: "https://aicharactercards.com/wp-json/aicc_extension-feedback/v1/submit",
     feedbackLastSentISO: ""    // NEW: track last successful send              
 };
 
+const FEEDBACK_DEFAULT_API_URL =
+  "https://aicharactercards.com/wp-json/aicc_extension-feedback/v1/submit";
 
 function ensureFeedbackInstallId(settings) {
     if (!settings.feedbackInstallId) {
@@ -538,66 +539,73 @@ function buildFeedbackPayload() {
     return data;
 }
 
+const FEEDBACK_DEFAULT_API_URL =
+  "https://aicharactercards.com/wp-json/aicc_extension-feedback/v1/submit";
+
+// ...
+
 function shouldSendToday() {
-    const s = getSettings();
-    if (!s.feedbackLastSentISO) return true;
-    const last = Date.parse(s.feedbackLastSentISO);
-    if (Number.isNaN(last)) return true;
-    const ONE_DAY = 24 * 60 * 60 * 1000;
-    return (Date.now() - last) >= ONE_DAY;
+  const s = getSettings();
+  if (!s.feedbackLastSentISO) return true;
+  const last = Date.parse(s.feedbackLastSentISO);
+  if (Number.isNaN(last)) return true;
+  return (Date.now() - last) >= 24 * 60 * 60 * 1000;
 }
 
-
 export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
-    const s = getSettings();
-    console.log('[FEEDBACK] check', {
-        enabled: s.feedbackEnabled,
-        url: s.feedbackApiUrl,
-        https: /^https:\/\//i.test(s.feedbackApiUrl || ''),
-        last: s.feedbackLastSentISO,
-        should: shouldSendToday(),
-        reason
-    });
-    if (!s.feedbackEnabled) return;
-    if (!s.feedbackApiUrl || !/^https:\/\//i.test(s.feedbackApiUrl)) return;
-    if (!shouldSendToday()) return;
-    await sendFeedbackNow(reason);
+  const s = getSettings();
+  const url = FEEDBACK_DEFAULT_API_URL; // <-- use constant
+  const https = /^https:\/\//i.test(url);
+
+  console.log('[FEEDBACK] check', {
+    enabled: s.feedbackEnabled,
+    url,
+    https,
+    last: s.feedbackLastSentISO,
+    should: shouldSendToday(),
+    reason
+  });
+
+  if (!s.feedbackEnabled) return;
+  if (!https) return;
+  if (!shouldSendToday()) return;
+
+  await sendFeedbackNow(reason);
 }
 
 // expose for global callers
 if (typeof window !== 'undefined') {
-    window.STCM_feedbackSendIfDue = STCM_feedbackSendIfDue;
+  window.STCM_feedbackSendIfDue = STCM_feedbackSendIfDue;
 }
 
 async function sendFeedbackNow(reason = 'auto') {
-    const s = getSettings();
-    const url = (s.feedbackApiUrl || '').trim();
+  const s = getSettings();
+  const url = FEEDBACK_DEFAULT_API_URL; // <-- use constant
 
-    if (!s.feedbackEnabled) { console.log('[FEEDBACK] skip: disabled'); return; }
-    if (!url)                { console.log('[FEEDBACK] skip: no URL'); return; }
-    if (!/^https:\/\//i.test(url)) { console.log('[FEEDBACK] skip: URL not HTTPS'); return; }
+  if (!s.feedbackEnabled) { console.log('[FEEDBACK] skip: disabled'); return; }
+  if (!url)               { console.log('[FEEDBACK] skip: no URL');   return; }
+  if (!/^https:\/\//i.test(url)) { console.log('[FEEDBACK] skip: URL not HTTPS'); return; }
 
-    try {
-        const payload = buildFeedbackPayload();
-        console.log('[FEEDBACK] sending', { reason, payload });
+  try {
+    const payload = buildFeedbackPayload();
+    console.log('[FEEDBACK] sending', { reason, payload });
 
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 10000);
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...payload, reason }),
-            signal: ctrl.signal
-        });
-        clearTimeout(t);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, reason }),
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        s.feedbackLastSentISO = new Date().toISOString();
-        console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);   // <-- fixed
-        debouncePersist();
-    } catch (e) {
-        console.warn('[FEEDBACK] send failed', e);
-    }
+    s.feedbackLastSentISO = new Date().toISOString();
+    console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);
+    debouncePersist();
+  } catch (e) {
+    console.warn('[FEEDBACK] send failed', e);
+  }
 }
-
