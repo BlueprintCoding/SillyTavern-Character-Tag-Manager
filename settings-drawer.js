@@ -548,7 +548,6 @@ function shouldSendToday() {
 }
 
 
-// settings-drawer.js (bottom)
 export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
     const s = getSettings();
     console.log('[FEEDBACK] check', {
@@ -568,5 +567,37 @@ export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
 // expose for global callers
 if (typeof window !== 'undefined') {
     window.STCM_feedbackSendIfDue = STCM_feedbackSendIfDue;
+}
+
+async function sendFeedbackNow(reason = 'auto') {
+    const s = getSettings();
+    const url = (s.feedbackApiUrl || '').trim();
+
+    if (!s.feedbackEnabled) { console.log('[FEEDBACK] skip: disabled'); return; }
+    if (!url)                { console.log('[FEEDBACK] skip: no URL'); return; }
+    if (!/^https:\/\//i.test(url)) { console.log('[FEEDBACK] skip: URL not HTTPS'); return; }
+
+    try {
+        const payload = buildFeedbackPayload();
+        console.log('[FEEDBACK] sending', { reason, payload });
+
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 10000);
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...payload, reason }),
+            signal: ctrl.signal
+        });
+        clearTimeout(t);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        s.feedbackLastSentISO = new Date().toISOString();
+        console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);   // <-- fixed
+        debouncePersist();
+    } catch (e) {
+        console.warn('[FEEDBACK] send failed', e);
+    }
 }
 
