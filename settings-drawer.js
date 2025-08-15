@@ -430,62 +430,6 @@ fePreviewBtn.addEventListener('click', async () => {
     return panel;
 }
 
-
-
-function shouldSendToday() {
-    const s = getSettings();
-    if (!s.feedbackLastSentISO) return true;
-    const last = Date.parse(s.feedbackLastSentISO);
-    if (Number.isNaN(last)) return true;
-    const ONE_DAY = 24 * 60 * 60 * 1000;
-    return (Date.now() - last) >= ONE_DAY;
-}
-
-async function sendFeedbackNow(reason = 'auto') {
-    const s = getSettings();
-    const url = (s.feedbackApiUrl || '').trim();
-
-    if (!s.feedbackEnabled) { console.log('[FEEDBACK] skip: disabled'); return; }
-    if (!url)                { console.log('[FEEDBACK] skip: no URL'); return; }
-    if (!/^https:\/\//i.test(url)) { console.log('[FEEDBACK] skip: URL not HTTPS'); return; }
-
-    try {
-        const payload = buildFeedbackPayload();
-        console.log('[FEEDBACK] sending', { reason, payload });
-
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 10000);
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...payload, reason }),
-            signal: ctrl.signal
-        });
-        clearTimeout(t);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        s.feedbackLastSentISO = new Date().toISOString();
-        console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);   // <-- fixed
-        debouncePersist();
-    } catch (e) {
-        console.warn('[FEEDBACK] send failed', e);
-    }
-}
-
-/** Exported entry point you call from APP_READY and the toggle */
-export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
-    const s = getSettings();
-    if (!s.feedbackEnabled) return;
-    if (!s.feedbackApiUrl || !/^https:\/\//i.test(s.feedbackApiUrl)) return;
-    if (!shouldSendToday()) return;
-    await sendFeedbackNow(reason);
-}
-
-
-
-
-
 export function injectStcmSettingsPanel() {
     const container = document.getElementById('extensions_settings');
     if (!container) return;
@@ -592,5 +536,46 @@ function buildFeedbackPayload() {
     if (s.feedbackSendCharacterCount) data.characterCount = getCharacterCount();
 
     return data;
+}
+
+function shouldSendToday() {
+    const s = getSettings();
+    if (!s.feedbackLastSentISO) return true;
+    const last = Date.parse(s.feedbackLastSentISO);
+    if (Number.isNaN(last)) return true;
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    return (Date.now() - last) >= ONE_DAY;
+}
+
+/** Exported entry point you call from APP_READY and the toggle */
+export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
+    const s = getSettings();
+    if (!s.feedbackEnabled) return;
+    if (!s.feedbackApiUrl || !/^https:\/\//i.test(s.feedbackApiUrl)) return;
+    if (!shouldSendToday()) return;
+    await sendFeedbackNow(reason);
+}
+
+
+// settings-drawer.js (bottom)
+export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
+    const s = getSettings();
+    console.log('[FEEDBACK] check', {
+        enabled: s.feedbackEnabled,
+        url: s.feedbackApiUrl,
+        https: /^https:\/\//i.test(s.feedbackApiUrl || ''),
+        last: s.feedbackLastSentISO,
+        should: shouldSendToday(),
+        reason
+    });
+    if (!s.feedbackEnabled) return;
+    if (!s.feedbackApiUrl || !/^https:\/\//i.test(s.feedbackApiUrl)) return;
+    if (!shouldSendToday()) return;
+    await sendFeedbackNow(reason);
+}
+
+// expose for global callers
+if (typeof window !== 'undefined') {
+    window.STCM_feedbackSendIfDue = STCM_feedbackSendIfDue;
 }
 
