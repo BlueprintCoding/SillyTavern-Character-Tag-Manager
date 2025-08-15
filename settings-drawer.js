@@ -13,7 +13,6 @@ import {
 
 import { CLIENT_VERSION } from "../../../../script.js";
 
-
 const MODULE_NAME = 'characterTagManager';
 const defaultSettings = {
     showDefaultTagManager: true,
@@ -26,6 +25,7 @@ const defaultSettings = {
     feedbackEnabled: false,          // master opt-in; nothing is sent unless true
     feedbackInstallId: "",           // generated once per install
     feedbackSendUserAgent: true,     // user can opt out of each item below (id always included)
+    feedbackSendAppVersion: true,   // allow opting out of appVersion
     feedbackSendFolderCount: true,
     feedbackSendTagCount: true,
     feedbackSendCharacterCount: true,
@@ -139,7 +139,7 @@ function createStcmSettingsPanel() {
                         <span><b>Share Anonymous Feedback Data</b> (opt‑in)</span>
                     </div>
 
-                    <div id="stcm--feedbackOptions" style="margin-left:26px;">
+                    <div id="stcm--feedbackOptions" style="display:none; margin-left:26px;">
                         <div style="margin:6px 0;">
                             <div style="font-size:12px;opacity:.8;margin-bottom:6px;">
                                 A unique random ID identifies this install. You can opt out of every item below (the ID is always included when sending).
@@ -148,7 +148,10 @@ function createStcmSettingsPanel() {
                                 Install ID: <span id="stcm--installIdPreview"></span>
                             </div>
                         </div>
-
+                        <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                            <input type="checkbox" id="stcm--feedbackSendAppVersion">
+                            <span>Include SillyTavern Version</span>
+                        </label>
                         <label style="display:flex;align-items:center;gap:8px;margin:4px 0;">
                             <input type="checkbox" id="stcm--feedbackSendUserAgent">
                             <span>Include UserAgent (browser info)</span>
@@ -353,6 +356,7 @@ const s = getSettings();
 
 const feEnabled = panel.querySelector('#stcm--feedbackEnabled');
 const feUA = panel.querySelector('#stcm--feedbackSendUserAgent');
+const feAppVer = panel.querySelector('#stcm--feedbackSendAppVersion');
 const feFolders = panel.querySelector('#stcm--feedbackSendFolderCount');
 const feTags = panel.querySelector('#stcm--feedbackSendTagCount');
 const feChars = panel.querySelector('#stcm--feedbackSendCharacterCount');
@@ -364,6 +368,7 @@ const fePreview = panel.querySelector('#stcm--feedbackPreview');
 const feMsg = panel.querySelector('#stcm--feedbackMsg');
 
 feEnabled.checked = !!s.feedbackEnabled;
+feAppVer.checked = !!s.feedbackSendAppVersion;
 feUA.checked = !!s.feedbackSendUserAgent;
 feFolders.checked = !!s.feedbackSendFolderCount;
 feTags.checked = !!s.feedbackSendTagCount;
@@ -400,11 +405,12 @@ feEnabled.addEventListener('change', () => {
     }
 });
 
-[feUA, feFolders, feTags, feChars].forEach(cb => {
+[feUA, feAppVer, feFolders, feTags, feChars].forEach(cb => {
     cb.addEventListener('change', () => {
-        s.feedbackSendUserAgent = feUA.checked;
+        s.feedbackSendUserAgent   = feUA.checked;
+        s.feedbackSendAppVersion  = feAppVer.checked;         
         s.feedbackSendFolderCount = feFolders.checked;
-        s.feedbackSendTagCount = feTags.checked;
+        s.feedbackSendTagCount    = feTags.checked;
         s.feedbackSendCharacterCount = feChars.checked;
         debouncePersist();
     });
@@ -568,16 +574,20 @@ div#rightNavHolder.drawer {
     }
 }
 
-async function buildFeedbackPayload() {
+function buildFeedbackPayload() {
     const s = getSettings();
-    const data = {
-        id: s.feedbackInstallId,
-        ts: new Date().toISOString(),
-        appVersion: (CLIENT_VERSION || 'unknown'),
-    };
-    if (s.feedbackSendUserAgent)      data.userAgent      = navigator.userAgent;
-    if (s.feedbackSendFolderCount)    data.folderCount    = getFolderCount();
-    if (s.feedbackSendTagCount)       data.tagCount       = getTagCount();
+    const data = { id: s.feedbackInstallId, ts: new Date().toISOString() };
+
+    if (s.feedbackSendAppVersion) {
+        data.appVersion = (typeof CLIENT_VERSION !== 'undefined'
+            ? CLIENT_VERSION
+            : (window.CLIENT_VERSION || 'unknown'));
+    }
+    if (s.feedbackSendUserAgent)   data.userAgent      = navigator.userAgent;
+    if (s.feedbackSendFolderCount) data.folderCount    = getFolderCount();
+    if (s.feedbackSendTagCount)    data.tagCount       = getTagCount();
     if (s.feedbackSendCharacterCount) data.characterCount = getCharacterCount();
+
     return data;
 }
+
