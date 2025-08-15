@@ -524,20 +524,28 @@ div#rightNavHolder.drawer {
 
 function buildFeedbackPayload() {
     const s = getSettings();
-    const data = { id: s.feedbackInstallId, ts: new Date().toISOString() };
-
-    if (s.feedbackSendAppVersion) {
-        data.appVersion = (typeof CLIENT_VERSION !== 'undefined'
+    // Always include all required keys:
+    const payload = {
+      id: s.feedbackInstallId,
+      ts: new Date().toISOString(),                 // has .mmmZ
+      appVersion: s.feedbackSendAppVersion
+        ? (typeof CLIENT_VERSION !== 'undefined'
             ? CLIENT_VERSION
-            : (window.CLIENT_VERSION || 'unknown'));
-    }
-    if (s.feedbackSendUserAgent)   data.userAgent      = navigator.userAgent;
-    if (s.feedbackSendFolderCount) data.folderCount    = getFolderCount();
-    if (s.feedbackSendTagCount)    data.tagCount       = getTagCount();
-    if (s.feedbackSendCharacterCount) data.characterCount = getCharacterCount();
-
-    return data;
-}
+            : (window.CLIENT_VERSION || ''))
+        : '',                                       // empty when opted out
+      userAgent: s.feedbackSendUserAgent ? navigator.userAgent : '',
+      folderCount: s.feedbackSendFolderCount ? Number(getFolderCount()) : 0,
+      tagCount: s.feedbackSendTagCount ? Number(getTagCount()) : 0,
+      characterCount: s.feedbackSendCharacterCount ? Number(getCharacterCount()) : 0,
+    };
+  
+    // Ensure ints (server requires JSON numbers, not strings)
+    ['folderCount','tagCount','characterCount'].forEach(k => {
+      payload[k] = Number.isFinite(payload[k]) ? Math.max(0, Math.trunc(payload[k])) : 0;
+    });
+  
+    return payload;
+  }
 
 
 
@@ -575,34 +583,33 @@ if (typeof window !== 'undefined') {
   window.STCM_feedbackSendIfDue = STCM_feedbackSendIfDue;
 }
 
-async function sendFeedbackNow(reason = 'auto') {
-  const s = getSettings();
-  const url = FEEDBACK_DEFAULT_API_URL; // <-- use constant
-
-  if (!s.feedbackEnabled) { console.log('[FEEDBACK] skip: disabled'); return; }
-  if (!url)               { console.log('[FEEDBACK] skip: no URL');   return; }
-  if (!/^https:\/\//i.test(url)) { console.log('[FEEDBACK] skip: URL not HTTPS'); return; }
-
-  try {
-    const payload = buildFeedbackPayload();
-    console.log('[FEEDBACK] sending', { reason, payload });
-
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 10000);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, reason }),
-      signal: ctrl.signal
-    });
-    clearTimeout(t);
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    s.feedbackLastSentISO = new Date().toISOString();
-    console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);
-    debouncePersist();
-  } catch (e) {
-    console.warn('[FEEDBACK] send failed', e);
+async function sendFeedbackNow(/* reason = 'auto' */) {
+    const s = getSettings();
+    const url = FEEDBACK_DEFAULT_API_URL;
+  
+    if (!s.feedbackEnabled) { console.log('[FEEDBACK] skip: disabled'); return; }
+    if (!/^https:\/\//i.test(url)) { console.log('[FEEDBACK] skip: URL not HTTPS'); return; }
+  
+    try {
+      const payload = buildFeedbackPayload();
+      console.log('[FEEDBACK] sending', payload);   // log reason separately if you want
+  
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 10000);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),              // <-- no extra fields
+        signal: ctrl.signal
+      });
+      clearTimeout(t);
+  
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  
+      s.feedbackLastSentISO = new Date().toISOString();
+      console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);
+      debouncePersist();
+    } catch (e) {
+      console.warn('[FEEDBACK] send failed', e);
+    }
   }
-}
