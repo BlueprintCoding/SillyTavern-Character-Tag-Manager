@@ -139,10 +139,12 @@ function createStcmSettingsPanel() {
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                         <input type="checkbox" id="stcm--feedbackEnabled">
                         <span><b>Share Anonymous Feedback Data</b> (opt‑in)</span>
+                        <span style="font-size:10px;opacity:.8;">This data helps us understand how many people are actively using the extension, since GitHub doesn’t track installs. It also lets us debug issues across different SillyTavern versions and environments.Finally, knowing tag, character, and folder counts helps us troubleshoot performance and scaling problems for users with large libraries.</span>
                     </div>
 
                     <div id="stcm--feedbackOptions" style="display:none; margin-left:26px;">
                         <div style="margin:6px 0;">
+                        
                             <div style="font-size:12px;opacity:.8;margin-bottom:6px;">
                                 A unique random ID identifies this install. You can opt out of every item below (the ID is always included when sending).
                             </div>
