@@ -547,15 +547,6 @@ function shouldSendToday() {
     return (Date.now() - last) >= ONE_DAY;
 }
 
-/** Exported entry point you call from APP_READY and the toggle */
-export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
-    const s = getSettings();
-    if (!s.feedbackEnabled) return;
-    if (!s.feedbackApiUrl || !/^https:\/\//i.test(s.feedbackApiUrl)) return;
-    if (!shouldSendToday()) return;
-    await sendFeedbackNow(reason);
-}
-
 
 // settings-drawer.js (bottom)
 export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
