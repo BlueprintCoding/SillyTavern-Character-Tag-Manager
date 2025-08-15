@@ -26,7 +26,8 @@ const defaultSettings = {
     feedbackSendFolderCount: true,
     feedbackSendTagCount: true,
     feedbackSendCharacterCount: true,
-    feedbackApiUrl: ""               // e.g. "https://your.api.example/feedback" (leave blank to disable sending)
+    feedbackApiUrl: "",
+    feedbackLastSentISO: ""    // NEW: track last successful send              
 };
 
 function ensureFeedbackInstallId(settings) {
@@ -164,14 +165,11 @@ function createStcmSettingsPanel() {
 
                         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
                             <button id="stcm--feedbackPreviewBtn" class="stcm_menu_button small">Preview Data</button>
-                            <button id="stcm--feedbackSendBtn" class="stcm_menu_button green small">Send Now</button>
-                            <input id="stcm--feedbackApiUrl" class="menu_input" placeholder="Feedback API URL" style="min-width:320px;">
                         </div>
 
                         <div id="stcm--feedbackPreviewWrap" style="display:none;margin-top:8px;">
                             <div style="font-size:12px;opacity:.8;margin-bottom:4px;">Preview of exactly what will be sent:</div>
                             <pre id="stcm--feedbackPreview" style="max-width:100%;overflow:auto;background:#0003;padding:8px;border-radius:6px;"></pre>
-                            <button id="stcm--copyPreviewBtn" class="stcm_menu_button small">Copy JSON</button>
                         </div>
 
                         <div id="stcm--feedbackMsg" style="margin-top:8px;color:#f87;"></div>
@@ -347,6 +345,7 @@ function createStcmSettingsPanel() {
     });
 
     // ---- Feedback Data wiring ----
+// ---- Feedback Data wiring ----
 const s = getSettings();
 
 const feEnabled = panel.querySelector('#stcm--feedbackEnabled');
@@ -354,14 +353,11 @@ const feUA = panel.querySelector('#stcm--feedbackSendUserAgent');
 const feFolders = panel.querySelector('#stcm--feedbackSendFolderCount');
 const feTags = panel.querySelector('#stcm--feedbackSendTagCount');
 const feChars = panel.querySelector('#stcm--feedbackSendCharacterCount');
-const feApiUrl = panel.querySelector('#stcm--feedbackApiUrl');
 const feOptions = panel.querySelector('#stcm--feedbackOptions');
 const feInstallIdPreview = panel.querySelector('#stcm--installIdPreview');
 const fePreviewBtn = panel.querySelector('#stcm--feedbackPreviewBtn');
-const feSendBtn = panel.querySelector('#stcm--feedbackSendBtn');
 const fePreviewWrap = panel.querySelector('#stcm--feedbackPreviewWrap');
 const fePreview = panel.querySelector('#stcm--feedbackPreview');
-const feCopyBtn = panel.querySelector('#stcm--copyPreviewBtn');
 const feMsg = panel.querySelector('#stcm--feedbackMsg');
 
 feEnabled.checked = !!s.feedbackEnabled;
@@ -369,7 +365,6 @@ feUA.checked = !!s.feedbackSendUserAgent;
 feFolders.checked = !!s.feedbackSendFolderCount;
 feTags.checked = !!s.feedbackSendTagCount;
 feChars.checked = !!s.feedbackSendCharacterCount;
-feApiUrl.value = s.feedbackApiUrl || "";
 feInstallIdPreview.textContent = s.feedbackInstallId;
 
 function updateFeedbackEnabledUI() {
@@ -377,6 +372,7 @@ function updateFeedbackEnabledUI() {
     feOptions.style.pointerEvents = feEnabled.checked ? "auto" : "none";
 }
 updateFeedbackEnabledUI();
+updateLastSentUI();
 
 feEnabled.addEventListener('change', () => {
     s.feedbackEnabled = feEnabled.checked;
@@ -394,11 +390,6 @@ feEnabled.addEventListener('change', () => {
     });
 });
 
-feApiUrl.addEventListener('change', () => {
-    s.feedbackApiUrl = feApiUrl.value.trim();
-    debouncePersist();
-});
-
 fePreviewBtn.addEventListener('click', async () => {
     feMsg.textContent = "";
     const data = await buildFeedbackPayload();
@@ -406,46 +397,63 @@ fePreviewBtn.addEventListener('click', async () => {
     fePreviewWrap.style.display = "";
 });
 
-feCopyBtn.addEventListener('click', async () => {
-    try {
-        await navigator.clipboard.writeText(fePreview.textContent);
-        feMsg.style.color = '#7f7';
-        feMsg.textContent = 'Copied preview JSON to clipboard.';
-    } catch {
-        feMsg.style.color = '#f87';
-        feMsg.textContent = 'Could not copy to clipboard.';
-    }
-});
 
-function isHttpsUrl(u) { try { const x = new URL(u); return x.protocol === 'https:'; } catch { return false; } }
+// --- Auto-send helpers ---
+function updateLastSentUI() {
+    const d = s.feedbackLastSentISO ? new Date(s.feedbackLastSentISO) : null;
+}
 
-feSendBtn.addEventListener('click', async () => {
+function isHttpsUrl(u) {
+    try { const x = new URL(u); return x.protocol === 'https:'; }
+    catch { return false; }
+}
+
+async function sendFeedbackNow(reason = 'auto') {
     feMsg.style.color = '#f87'; feMsg.textContent = "";
-    if (!s.feedbackEnabled) return feMsg.textContent = 'Please enable “Share Anonymous Feedback Data” first.';
-    if (!s.feedbackApiUrl)   return feMsg.textContent = 'Please enter a Feedback API URL.';
-    if (!isHttpsUrl(s.feedbackApiUrl)) return feMsg.textContent = 'Feedback API URL must be HTTPS.';
+    const url = s.feedbackApiUrl?.trim();
+
+    if (!s.feedbackEnabled) return;                   // user opted out
+    if (!url)          return;                        // no endpoint configured
+    if (!isHttpsUrl(url)) {                           // guard
+        feMsg.textContent = 'Feedback API URL must be HTTPS.';
+        return;
+    }
 
     try {
         const payload = await buildFeedbackPayload();
-        fePreview.textContent = JSON.stringify(payload, null, 2);
-        fePreviewWrap.style.display = "";
 
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 10000); // 10s
-        const res = await fetch(s.feedbackApiUrl, {
+        const t = setTimeout(() => ctrl.abort(), 10000); // 10s safety
+        const res = await fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ ...payload, reason }),
             signal: ctrl.signal
         });
         clearTimeout(t);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        feMsg.style.color = '#7f7'; feMsg.textContent = 'Feedback data sent successfully.';
+
+        s.feedbackLastSentISO = new Date().toISOString();
+        debouncePersist();
+        updateLastSentUI();
     } catch (e) {
-        feMsg.style.color = '#f87';
-        feMsg.textContent = `Send failed: ${e?.name === 'AbortError' ? 'request timed out' : e?.message || e}`;
     }
-});
+}
+
+function shouldSendToday() {
+    if (!s.feedbackLastSentISO) return true;
+    const last = Date.parse(s.feedbackLastSentISO);
+    if (Number.isNaN(last)) return true;
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    return (Date.now() - last) >= ONE_DAY;
+}
+
+// Expose a tiny bridge for the utils event hook:
+window.STCM_feedbackSendIfDue = async (trigger = 'app_ready') => {
+    if (shouldSendToday()) {
+        await sendFeedbackNow(trigger);
+    }
+};
 
 
 
@@ -553,46 +561,9 @@ async function buildFeedbackPayload() {
         ts: new Date().toISOString(),
         appVersion: (window.STCM_VERSION || 'unknown'),
     };
-
-    if (s.feedbackSendUserAgent)      data.userAgent     = navigator.userAgent;
-    if (s.feedbackSendFolderCount)    data.folderCount   = getFolderCount();     // canonical
-    if (s.feedbackSendTagCount)       data.tagCount      = getTagCount();        // canonical
-    if (s.feedbackSendCharacterCount) data.characterCount= getCharacterCount();  // canonical
-
+    if (s.feedbackSendUserAgent)      data.userAgent      = navigator.userAgent;
+    if (s.feedbackSendFolderCount)    data.folderCount    = getFolderCount();
+    if (s.feedbackSendTagCount)       data.tagCount       = getTagCount();
+    if (s.feedbackSendCharacterCount) data.characterCount = getCharacterCount();
     return data;
-}
-
-
-
-/**
- * The exact sources for counts depend on your app state.
- * These “Safe” versions try DOM first, then fall back to 0.
- * If you already have in‑memory data (e.g. arrays of folders/tags/characters),
- * replace these with your canonical sources.
- */
-async function getFolderCountSafe() {
-    // Example DOM heuristic: sidebar folder nav entries
-    const el = document.querySelectorAll('#stcm_sidebar_folder_nav .folder-item, #stcm_sidebar_folder_nav [data-folder]');
-    if (el && el.length) return el.length;
-
-    // Fallbacks (replace with your real data source)
-    return 0;
-}
-
-async function getTagCountSafe() {
-    // Example DOM heuristic: any tag chips inside character rows / tag manager
-    const chips = document.querySelectorAll('.tag, .rm_tag, .stcm-tag-chip, .manageTags .tag');
-    if (chips && chips.length) {
-        // Count unique tag names if duplicates are rendered multiple times
-        const names = new Set([...chips].map(n => (n.textContent || '').trim().toLowerCase()).filter(Boolean));
-        return names.size || chips.length;
-    }
-    return 0;
-}
-
-async function getCharacterCountSafe() {
-    // Example DOM heuristic: character cards in the list
-    const cards = document.querySelectorAll('#rm_print_characters_block .character_select, #rm_characters_block .character_select, .character-card, .rm_character_block');
-    if (cards && cards.length) return cards.length;
-    return 0;
 }

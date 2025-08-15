@@ -489,6 +489,14 @@ eventSource.emit = function(event, ...args) {
         }, 50);
     }
 
+    if (event === 'app_ready') {
+        // Defer to avoid blocking any synchronous startup work
+        setTimeout(() => {
+            try { window.STCM_feedbackSendIfDue && window.STCM_feedbackSendIfDue('app_ready'); }
+            catch (e) { /* no-op */ }
+        }, 0);
+    }
+
     return origEmit.apply(this, arguments);
 };
 
