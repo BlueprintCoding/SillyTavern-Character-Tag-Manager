@@ -29,7 +29,7 @@ const defaultSettings = {
     feedbackSendFolderCount: true,
     feedbackSendTagCount: true,
     feedbackSendCharacterCount: true,
-    feedbackApiUrl: "",
+    feedbackApiUrl: "https://aicharactercards.com/wp-json/aicc_extension-feedback/v1/submit",
     feedbackLastSentISO: ""    // NEW: track last successful send              
 };
 
@@ -455,6 +455,7 @@ async function sendFeedbackNow(reason = 'auto') {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         s.feedbackLastSentISO = new Date().toISOString();
+        console.log('Sent: '.feedbackLastSentISO);
         debouncePersist();
     } catch (e) {
     }
