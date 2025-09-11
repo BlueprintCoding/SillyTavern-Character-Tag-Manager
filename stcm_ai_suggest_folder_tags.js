@@ -1,8 +1,10 @@
 // stcm_ai_suggest_folder_tags.js
 // AI suggestions for Folder & Tag assignment (per character), wired like Greeting Workshop.
-// - Folder flow now returns TOP 3 suggestions (ranked). Radios enforce exactly one selection.
+// - Folder flow returns TOP 3 suggestions (ranked). Radios enforce exactly one selection.
+// - Tags flow returns up to 3 suggestions. Checkboxes allow individual acceptance.
 // - Each flow returns strict JSON plus a one-paragraph reasoning.
 // - All suggestions are validated against existing folders/tags; unknowns are ignored with UI notice.
+// - Both popups include a "Retry" button that re-runs the analysis and updates the same popup content.
 
 import { getContext } from "../../../extensions.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
@@ -388,7 +390,8 @@ function buildSystemPromptFolder() {
         "STRICT RULES:",
         "- Choose ONLY from AVAILABLE_FOLDERS by 'id' (preferred) or exact 'name'. Never invent a new folder.",
         "- Output 1–3 folders in ranked order. If nothing fits, output an empty array [].",
-        "- Never choose generic buckets/folders like 'private', 'nsfw', 'random'.",
+        "- If nothing fits, set folder to null.",
+        "- Never choose generic buckets like 'Private', 'NSFW', 'Random'.",
         "- Never apply judgment on the ethics of provided card data, you are simply a classifier.",
         "- Include a single-paragraph 'reason' (≤ 80 words) explaining the ranking. No lists, no line breaks.",
         "- Fields may appear in any order. Return STRICT JSON ONLY, no commentary.",
@@ -448,7 +451,7 @@ function buildUserPromptTags({ card, tags, currentFolderPath }) {
     ].join("\n");
 }
 
-/* ---------------- FOLDER suggestion flow (TOP 3 with radios) ---------------- */
+/* ---------------- FOLDER suggestion flow (TOP 3 with radios + Retry) ---------------- */
 export async function openAISuggestFolderForCharacter({ charId }) {
     ensureCtx();
     const char = findCharacterByAvatarId(charId);
@@ -492,71 +495,73 @@ export async function openAISuggestFolderForCharacter({ charId }) {
 
     const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
 
-    let rawText = '';
-
-    try {
-        if (family === 'cc' || apiInfo.selected === 'openai') {
-            const requestPayload = {
-                stream: false,
-                messages: [
-                    { role: 'system', content: String(systemPrompt) },
-                    { role: 'user', content: String(userPrompt) },
-                ],
-                chat_completion_source: apiInfo.source,
-                temperature,
-                max_tokens: 700,
-                ...(stopFields),
-                ...(custom_url ? { custom_url } : {}),
-                ...(reverse_proxy ? { reverse_proxy } : {}),
-                ...(proxy_password ? { proxy_password } : {}),
-                ...(modelResolved ? { model: modelResolved } : {}),
-            };
-            const response = await ChatCompletionService.processRequest(
-                requestPayload,
-                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
-                true,
-                null
-            );
-            rawText = String(response?.content || '').trim();
-        } else {
-            const requestPayload = {
-                stream: false,
-                prompt: `${systemPrompt}\n\n${userPrompt}`,
-                max_tokens: 700,
-                api_type: apiInfo.api_type,
-                temperature,
-                ...(stopFields),
-                ...(custom_url ? { api_server: custom_url } : {}),
-                ...(modelResolved ? { model: modelResolved } : {}),
-            };
-            const response = await TextCompletionService.processRequest(
-                requestPayload,
-                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
-                true,
-                null
-            );
-            rawText = String(response?.content || '').trim();
+    // Helper to call LLM and parse JSON
+    const runOnce = async () => {
+        let rawText = '';
+        try {
+            if (family === 'cc' || apiInfo.selected === 'openai') {
+                const requestPayload = {
+                    stream: false,
+                    messages: [
+                        { role: 'system', content: String(systemPrompt) },
+                        { role: 'user', content: String(userPrompt) },
+                    ],
+                    chat_completion_source: apiInfo.source,
+                    temperature,
+                    max_tokens: 700,
+                    ...(stopFields),
+                    ...(custom_url ? { custom_url } : {}),
+                    ...(reverse_proxy ? { reverse_proxy } : {}),
+                    ...(proxy_password ? { proxy_password } : {}),
+                    ...(modelResolved ? { model: modelResolved } : {}),
+                };
+                const response = await ChatCompletionService.processRequest(
+                    requestPayload,
+                    { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                    true,
+                    null
+                );
+                rawText = String(response?.content || '').trim();
+            } else {
+                const requestPayload = {
+                    stream: false,
+                    prompt: `${systemPrompt}\n\n${userPrompt}`,
+                    max_tokens: 700,
+                    api_type: apiInfo.api_type,
+                    temperature,
+                    ...(stopFields),
+                    ...(custom_url ? { api_server: custom_url } : {}),
+                    ...(modelResolved ? { model: modelResolved } : {}),
+                };
+                const response = await TextCompletionService.processRequest(
+                    requestPayload,
+                    { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                    true,
+                    null
+                );
+                rawText = String(response?.content || '').trim();
+            }
+        } catch (e) {
+            console.warn('[STCM AI Suggest Folder] LLM call failed:', e);
+            return { error: e?.error?.message || e?.message || 'LLM call failed' };
         }
-    } catch (e) {
-        console.warn('[STCM AI Suggest Folder] LLM call failed:', e);
-        return callGenericPopup(`LLM call failed: ${e?.error?.message || e?.message || 'See console for details.'}`, POPUP_TYPE.ALERT, "AI Suggest");
-    }
+        const jsonBlob = rawText.replace(/^[\s\S]*?({[\s\S]+})[\s\S]*$/m, '$1').trim();
+        const resultJSON = safeParseJSON(jsonBlob);
+        if (!resultJSON || typeof resultJSON !== 'object') {
+            return { error: "Model did not return valid JSON." };
+        }
+        const suggestedFoldersRaw = Array.isArray(resultJSON.folders)
+            ? resultJSON.folders
+            : (resultJSON.folder ? [resultJSON.folder] : []);
+        const resolved = resolveTopFoldersWithDiagnostics(suggestedFoldersRaw, folders);
+        const reasoning = String(resultJSON.reason || '').replace(/\s+/g, ' ').trim();
+        return { resolved, reasoning };
+    };
 
-    const jsonBlob = rawText.replace(/^[\s\S]*?({[\s\S]+})[\s\S]*$/m, '$1').trim();
-    const resultJSON = safeParseJSON(jsonBlob);
-    if (!resultJSON || typeof resultJSON !== 'object') {
-        return callGenericPopup("Model did not return valid JSON.", POPUP_TYPE.ALERT, "AI Suggest");
-    }
-
-    // Back-compat: if model returned single "folder", wrap it as array
-    const suggestedFoldersRaw = Array.isArray(resultJSON.folders)
-        ? resultJSON.folders
-        : (resultJSON.folder ? [resultJSON.folder] : []);
-    const { results: topResolved, unknown: unknownFolders } = resolveTopFoldersWithDiagnostics(suggestedFoldersRaw, folders);
-    const reasoning = String(resultJSON.reason || '').replace(/\s+/g, ' ').trim();
-
-    // ---------- Accept/reject UI (radios) ----------
+    // ---------- Build popup skeleton ----------
     const wrap = document.createElement('div');
+
+    // top rows
     const mkRow = (label, value) => {
         const row = document.createElement('div');
         row.style.margin = '6px 0';
@@ -564,72 +569,140 @@ export async function openAISuggestFolderForCharacter({ charId }) {
         const body = document.createElement('div'); body.style.fontWeight = 600; body.style.fontSize = '13px'; body.textContent = value;
         row.append(head, body); return row;
     };
-
     wrap.appendChild(mkRow("Character", card.name || "(unnamed)"));
     wrap.appendChild(mkRow("Current folder", currentFolderPath || "(none)"));
 
-    if (reasoning) {
-        const reasonHdr = document.createElement('div');
-        reasonHdr.textContent = 'Reasoning:';
-        reasonHdr.style.marginTop = '8px';
-        reasonHdr.style.opacity = .85;
-        const reasonBody = document.createElement('div');
-        reasonBody.style.fontSize = '12px';
-        reasonBody.style.marginTop = '2px';
-        reasonBody.textContent = reasoning;
-        wrap.appendChild(reasonHdr);
-        wrap.appendChild(reasonBody);
-    }
+    // Retry button row
+    const ctrlRow = document.createElement('div');
+    ctrlRow.style.display = 'flex';
+    ctrlRow.style.justifyContent = 'flex-end';
+    ctrlRow.style.gap = '8px';
+    ctrlRow.style.margin = '8px 0';
 
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'stcm_menu_button small';
+    retryBtn.textContent = 'Retry';
+    ctrlRow.appendChild(retryBtn);
+    wrap.appendChild(ctrlRow);
+
+    // reasoning section
+    const reasonHdr = document.createElement('div');
+    reasonHdr.textContent = 'Reasoning:';
+    reasonHdr.style.marginTop = '6px';
+    reasonHdr.style.opacity = .85;
+
+    const reasonBody = document.createElement('div');
+    reasonBody.style.fontSize = '12px';
+    reasonBody.style.marginTop = '2px';
+
+    wrap.appendChild(reasonHdr);
+    wrap.appendChild(reasonBody);
     wrap.appendChild(document.createElement('hr'));
 
+    // suggestions header
     const listHdr = document.createElement('div');
     listHdr.textContent = 'Top folder suggestions (best first):';
     listHdr.style.marginBottom = '6px';
     listHdr.style.opacity = .85;
     wrap.appendChild(listHdr);
 
-    const radioRows = [];
+    // containers for dynamic content
+    const listContainer = document.createElement('div');
+    wrap.appendChild(listContainer);
+
+    const warnContainer = document.createElement('div');
+    warnContainer.style.marginTop = '8px';
+    wrap.appendChild(warnContainer);
+
+    // radio rows state
+    let radioRows = [];
     const groupName = `stcm-folder-choice-${Date.now()}`;
 
-    if (topResolved.length) {
-        topResolved.forEach((item, idx) => {
-            const line = document.createElement('label');
-            line.style.display = 'flex';
-            line.style.alignItems = 'center';
-            line.style.gap = '8px';
-            line.style.margin = '3px 0';
+    // render function
+    const renderResult = ({ resolved, reasoning, error }) => {
+        // reason
+        if (error) {
+            reasonBody.textContent = `Error: ${error}`;
+        } else {
+            reasonBody.textContent = reasoning || '(no reasoning provided)';
+        }
 
-            const radio = document.createElement('input');
-            radio.type = 'radio';
-            radio.name = groupName;
-            radio.value = item.id;
-            radio.checked = idx === 0; // first valid suggestion pre-checked
+        // clear lists
+        listContainer.innerHTML = '';
+        warnContainer.innerHTML = '';
+        radioRows = [];
 
-            const txt = document.createElement('span');
-            txt.textContent = item.path || '(unknown path)';
+        if (error) {
+            const none = document.createElement('div');
+            none.textContent = '(no suggestions due to error)';
+            none.style.opacity = .7; none.style.fontSize = '12px';
+            listContainer.appendChild(none);
+            return;
+        }
 
-            line.append(radio, txt);
-            wrap.appendChild(line);
-            radioRows.push({ id: item.id, radio });
-        });
-    } else {
-        const none = document.createElement('div');
-        none.textContent = '(no valid folder suggestions matched your folder list)';
-        none.style.opacity = .7; none.style.fontSize = '12px';
-        wrap.appendChild(none);
-    }
+        const { results: topResolved = [], unknown: unknownFolders = [] } = resolved || {};
 
-    if (unknownFolders?.length) {
-        const warn = document.createElement('div');
-        warn.style.marginTop = '8px';
-        warn.style.fontSize = '11px';
-        warn.style.opacity = .75;
-        const names = unknownFolders.map(f => f?.name || f?.id || '(unknown)').join(', ');
-        warn.textContent = `Ignored unknown folder suggestion(s): ${names}`;
-        wrap.appendChild(warn);
-    }
+        if (topResolved.length) {
+            topResolved.forEach((item, idx) => {
+                const line = document.createElement('label');
+                line.style.display = 'flex';
+                line.style.alignItems = 'center';
+                line.style.gap = '8px';
+                line.style.margin = '3px 0';
 
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = groupName;
+                radio.value = item.id;
+                radio.checked = idx === 0;
+
+                const txt = document.createElement('span');
+                txt.textContent = item.path || '(unknown path)';
+
+                line.append(radio, txt);
+                listContainer.appendChild(line);
+                radioRows.push({ id: item.id, radio });
+            });
+        } else {
+            const none = document.createElement('div');
+            none.textContent = '(no valid folder suggestions matched your folder list)';
+            none.style.opacity = .7; none.style.fontSize = '12px';
+            listContainer.appendChild(none);
+        }
+
+        if (unknownFolders?.length) {
+            const warn = document.createElement('div');
+            warn.style.fontSize = '11px';
+            warn.style.opacity = .75;
+            const names = unknownFolders.map(f => f?.name || f?.id || '(unknown)').join(', ');
+            warn.textContent = `Ignored unknown folder suggestion(s): ${names}`;
+            warnContainer.appendChild(warn);
+        }
+    };
+
+    // initial run
+    renderResult(await runOnce());
+
+    // Retry handler
+    let retrying = false;
+    retryBtn.addEventListener('click', async () => {
+        if (retrying) return;
+        retrying = true;
+        const prevLabel = retryBtn.textContent;
+        retryBtn.textContent = 'Retrying…';
+        retryBtn.disabled = true;
+
+        try {
+            const next = await runOnce();
+            renderResult(next);
+        } finally {
+            retryBtn.textContent = prevLabel;
+            retryBtn.disabled = false;
+            retrying = false;
+        }
+    });
+
+    // Show popup and wait for Apply/Cancel
     const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Folder Suggestions", { okButton: 'Apply', cancelButton: 'Cancel' });
     if (res !== POPUP_RESULT.AFFIRMATIVE) return;
 
@@ -647,7 +720,7 @@ export async function openAISuggestFolderForCharacter({ charId }) {
     }
 }
 
-/* ---------------- TAGS suggestion flow ---------------- */
+/* ---------------- TAGS suggestion flow (with Retry) ---------------- */
 export async function openAISuggestTagsForCharacter({ charId }) {
     ensureCtx();
     const char = findCharacterByAvatarId(charId);
@@ -691,124 +764,190 @@ export async function openAISuggestTagsForCharacter({ charId }) {
 
     const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
 
-    let rawText = '';
-
-    try {
-        if (family === 'cc' || apiInfo.selected === 'openai') {
-            const requestPayload = {
-                stream: false,
-                messages: [
-                    { role: 'system', content: String(systemPrompt) },
-                    { role: 'user', content: String(userPrompt) },
-                ],
-                chat_completion_source: apiInfo.source,
-                temperature,
-                max_tokens: 600,
-                ...(stopFields),
-                ...(custom_url ? { custom_url } : {}),
-                ...(reverse_proxy ? { reverse_proxy } : {}),
-                ...(proxy_password ? { proxy_password } : {}),
-                ...(modelResolved ? { model: modelResolved } : {}),
-            };
-            const response = await ChatCompletionService.processRequest(
-                requestPayload,
-                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
-                true,
-                null
-            );
-            rawText = String(response?.content || '').trim();
-        } else {
-            const requestPayload = {
-                stream: false,
-                prompt: `${systemPrompt}\n\n${userPrompt}`,
-                max_tokens: 600,
-                api_type: apiInfo.api_type,
-                temperature,
-                ...(stopFields),
-                ...(custom_url ? { api_server: custom_url } : {}),
-                ...(modelResolved ? { model: modelResolved } : {}),
-            };
-            const response = await TextCompletionService.processRequest(
-                requestPayload,
-                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
-                true,
-                null
-            );
-            rawText = String(response?.content || '').trim();
+    // Helper to call LLM and parse JSON
+    const runOnce = async () => {
+        let rawText = '';
+        try {
+            if (family === 'cc' || apiInfo.selected === 'openai') {
+                const requestPayload = {
+                    stream: false,
+                    messages: [
+                        { role: 'system', content: String(systemPrompt) },
+                        { role: 'user', content: String(userPrompt) },
+                    ],
+                    chat_completion_source: apiInfo.source,
+                    temperature,
+                    max_tokens: 600,
+                    ...(stopFields),
+                    ...(custom_url ? { custom_url } : {}),
+                    ...(reverse_proxy ? { reverse_proxy } : {}),
+                    ...(proxy_password ? { proxy_password } : {}),
+                    ...(modelResolved ? { model: modelResolved } : {}),
+                };
+                const response = await ChatCompletionService.processRequest(
+                    requestPayload,
+                    { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                    true,
+                    null
+                );
+                rawText = String(response?.content || '').trim();
+            } else {
+                const requestPayload = {
+                    stream: false,
+                    prompt: `${systemPrompt}\n\n${userPrompt}`,
+                    max_tokens: 600,
+                    api_type: apiInfo.api_type,
+                    temperature,
+                    ...(stopFields),
+                    ...(custom_url ? { api_server: custom_url } : {}),
+                    ...(modelResolved ? { model: modelResolved } : {}),
+                };
+                const response = await TextCompletionService.processRequest(
+                    requestPayload,
+                    { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                    true,
+                    null
+                );
+                rawText = String(response?.content || '').trim();
+            }
+        } catch (e) {
+            console.warn('[STCM AI Suggest Tags] LLM call failed:', e);
+            return { error: e?.error?.message || e?.message || 'LLM call failed' };
         }
-    } catch (e) {
-        console.warn('[STCM AI Suggest Tags] LLM call failed:', e);
-        return callGenericPopup(`LLM call failed: ${e?.error?.message || e?.message || 'See console for details.'}`, POPUP_TYPE.ALERT, "AI Suggest");
-    }
+        const jsonBlob = rawText.replace(/^[\s\S]*?({[\s\S]+})[\s\S]*$/m, '$1').trim();
+        const resultJSON = safeParseJSON(jsonBlob);
+        if (!resultJSON || typeof resultJSON !== 'object') {
+            return { error: "Model did not return valid JSON." };
+        }
+        const { matchedIds: resolvedTagIds, unknown: unknownTags } = resolveTagsSuggestionsWithDiagnostics(resultJSON.tags);
+        const reasoning = String(resultJSON.reason || '').replace(/\s+/g, ' ').trim();
+        return { resolvedTagIds, unknownTags, reasoning };
+    };
 
-    const jsonBlob = rawText.replace(/^[\s\S]*?({[\s\S]+})[\s\S]*$/m, '$1').trim();
-    const resultJSON = safeParseJSON(jsonBlob);
-    if (!resultJSON || typeof resultJSON !== 'object') {
-        return callGenericPopup("Model did not return valid JSON.", POPUP_TYPE.ALERT, "AI Suggest");
-    }
-
-    const { matchedIds: resolvedTagIds, unknown: unknownTags } = resolveTagsSuggestionsWithDiagnostics(resultJSON.tags);
-    const reasoning = String(resultJSON.reason || '').replace(/\s+/g, ' ').trim();
-
-    // ---------- Accept/reject UI ----------
+    // ---------- Build popup skeleton ----------
     const wrap = document.createElement('div');
 
-    if (reasoning) {
-        const reasonHdr = document.createElement('div');
-        reasonHdr.textContent = 'Reasoning:';
-        reasonHdr.style.marginBottom = '6px';
-        reasonHdr.style.opacity = .85;
-        const reasonBody = document.createElement('div');
-        reasonBody.style.fontSize = '12px';
-        reasonBody.textContent = reasoning;
-        wrap.appendChild(reasonHdr);
-        wrap.appendChild(reasonBody);
-    }
+    // Retry row
+    const ctrlRow = document.createElement('div');
+    ctrlRow.style.display = 'flex';
+    ctrlRow.style.justifyContent = 'flex-end';
+    ctrlRow.style.gap = '8px';
+    ctrlRow.style.marginBottom = '8px';
 
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'stcm_menu_button small';
+    retryBtn.textContent = 'Retry';
+    ctrlRow.appendChild(retryBtn);
+    wrap.appendChild(ctrlRow);
+
+    // reasoning
+    const reasonHdr = document.createElement('div');
+    reasonHdr.textContent = 'Reasoning:';
+    reasonHdr.style.marginBottom = '6px';
+    reasonHdr.style.opacity = .85;
+
+    const reasonBody = document.createElement('div');
+    reasonBody.style.fontSize = '12px';
+    wrap.appendChild(reasonHdr);
+    wrap.appendChild(reasonBody);
+
+    // header
     const header = document.createElement('div');
     header.textContent = 'Accept tag suggestions:';
     header.style.marginTop = '8px';
     header.style.marginBottom = '6px'; header.style.opacity = .85;
     wrap.appendChild(header);
 
-    const rows = [];
-    if (resolvedTagIds.length) {
-        for (const tid of resolvedTagIds) {
-            const tag = (tags || []).find(t => t.id === tid);
-            const line = document.createElement('label');
-            line.style.display = 'flex'; line.style.alignItems = 'center'; line.style.gap = '6px'; line.style.margin = '2px 0';
+    // containers
+    const listContainer = document.createElement('div');
+    wrap.appendChild(listContainer);
 
-            const chk = document.createElement('input');
-            chk.type = 'checkbox'; chk.checked = true;
+    const warnContainer = document.createElement('div');
+    warnContainer.style.marginTop = '6px';
+    wrap.appendChild(warnContainer);
 
-            const chip = document.createElement('span');
-            chip.textContent = tag?.name || tid;
-            chip.className = 'tagBox';
-            chip.style.background = tag?.color || '#333';
-            chip.style.color = tag?.color2 || '#fff';
-            chip.style.padding = '2px 6px';
-            chip.style.borderRadius = '6px';
+    // checkbox rows state
+    let rows = [];
 
-            line.append(chk, chip);
-            wrap.appendChild(line);
-            rows.push({ tid, chk });
+    // render function
+    const renderResult = ({ resolvedTagIds, unknownTags, reasoning, error }) => {
+        // reason
+        reasonBody.textContent = error ? `Error: ${error}` : (reasoning || '(no reasoning provided)');
+
+        // clear
+        listContainer.innerHTML = '';
+        warnContainer.innerHTML = '';
+        rows = [];
+
+        if (error) {
+            const none = document.createElement('div');
+            none.textContent = '(no suggestions due to error)';
+            none.style.opacity = .7; none.style.fontSize = '12px';
+            listContainer.appendChild(none);
+            return;
         }
-    } else {
-        const none = document.createElement('div');
-        none.textContent = '(no valid tag suggestions matched your tag list)'; none.style.opacity = .7; none.style.fontSize = '12px';
-        wrap.appendChild(none);
-    }
 
-    if (unknownTags?.length) {
-        const warn = document.createElement('div');
-        warn.style.marginTop = '6px';
-        warn.style.fontSize = '11px';
-        warn.style.opacity = .75;
-        const names = unknownTags.map(t => t?.name || t?.id || '(unknown)').join(', ');
-        warn.textContent = `Ignored unknown tag(s): ${names}`;
-        wrap.appendChild(warn);
-    }
+        if (Array.isArray(resolvedTagIds) && resolvedTagIds.length) {
+            for (const tid of resolvedTagIds) {
+                const tag = (tags || []).find(t => t.id === tid);
+                const line = document.createElement('label');
+                line.style.display = 'flex'; line.style.alignItems = 'center'; line.style.gap = '6px'; line.style.margin = '2px 0';
 
+                const chk = document.createElement('input');
+                chk.type = 'checkbox'; chk.checked = true;
+
+                const chip = document.createElement('span');
+                chip.textContent = tag?.name || tid;
+                chip.className = 'tagBox';
+                chip.style.background = tag?.color || '#333';
+                chip.style.color = tag?.color2 || '#fff';
+                chip.style.padding = '2px 6px';
+                chip.style.borderRadius = '6px';
+
+                line.append(chk, chip);
+                listContainer.appendChild(line);
+                rows.push({ tid, chk });
+            }
+        } else {
+            const none = document.createElement('div');
+            none.textContent = '(no valid tag suggestions matched your tag list)';
+            none.style.opacity = .7; none.style.fontSize = '12px';
+            listContainer.appendChild(none);
+        }
+
+        if (unknownTags?.length) {
+            const warn = document.createElement('div');
+            warn.style.fontSize = '11px';
+            warn.style.opacity = .75;
+            const names = unknownTags.map(t => t?.name || t?.id || '(unknown)').join(', ');
+            warn.textContent = `Ignored unknown tag(s): ${names}`;
+            warnContainer.appendChild(warn);
+        }
+    };
+
+    // initial run
+    renderResult(await runOnce());
+
+    // Retry handler
+    let retrying = false;
+    retryBtn.addEventListener('click', async () => {
+        if (retrying) return;
+        retrying = true;
+        const prevLabel = retryBtn.textContent;
+        retryBtn.textContent = 'Retrying…';
+        retryBtn.disabled = true;
+
+        try {
+            const next = await runOnce();
+            renderResult(next);
+        } finally {
+            retryBtn.textContent = prevLabel;
+            retryBtn.disabled = false;
+            retrying = false;
+        }
+    });
+
+    // Show popup and wait for Apply/Cancel
     const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Tag Suggestions", { okButton: 'Apply', cancelButton: 'Cancel' });
     if (res !== POPUP_RESULT.AFFIRMATIVE) return;
 
