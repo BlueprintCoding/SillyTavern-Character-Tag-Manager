@@ -455,7 +455,7 @@ async function renderCharacterList() {
                 openAISuggestForCharacter({ charId: entity.id });
             });
             rightControls.appendChild(aiSuggestBtn);
-            
+        }
 
         const editIcon = document.createElement('i');
         editIcon.className = 'fa-solid fa-pen-to-square interactable stcm_edit_icon';
