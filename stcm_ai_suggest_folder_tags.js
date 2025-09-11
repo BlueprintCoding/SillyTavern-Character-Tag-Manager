@@ -10,6 +10,8 @@ import { tags, tag_map } from "../../../tags.js";
 import * as stcmFolders from "./stcm_folders.js";
 import { getFolderChain } from "./stcm_folders_ui.js";
 import { characters } from "../../../../script.js";
+import { renderCharacterList } from "./stcm_characters.js";
+
 
 // --- optional tag helper if exported in your build ---
 import * as TagsModule from "../../../tags.js";
@@ -574,6 +576,7 @@ export async function openAISuggestFolderForCharacter({ charId }) {
         const freshFolders = await stcmFolders.loadFolders();
         if (chk.checked && resolvedFolderId) await applyFolder(charId, resolvedFolderId, freshFolders);
         await refreshCharacterRowUI(charId);
+        renderCharacterList();
     } catch (e) {
         console.warn('[STCM AI Suggest Folder] apply failed:', e);
         callGenericPopup('Failed to apply folder. See console for details.', POPUP_TYPE.ALERT, 'AI Suggest');
@@ -749,6 +752,7 @@ export async function openAISuggestTagsForCharacter({ charId }) {
         const accepted = rows.filter(r => r.chk.checked).map(r => r.tid);
         if (accepted.length) await applyTags(charId, accepted);
         await refreshCharacterRowUI(charId);
+        renderCharacterList();
     } catch (e) {
         console.warn('[STCM AI Suggest Tags] apply failed:', e);
         callGenericPopup('Failed to apply tags. See console for details.', POPUP_TYPE.ALERT, 'AI Suggest');
