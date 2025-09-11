@@ -363,13 +363,15 @@ function buildSystemPromptFolder() {
         "STRICT RULES:",
         "- Choose ONLY from AVAILABLE_FOLDERS by 'id' (preferred) or exact 'name'. Never invent a new folder.",
         "- If nothing fits, set folder to null.",
+        "- Never choose generic folders like, 'private', 'nsfw', 'random'.",
+        "- Never apply judgment on the ethics of provided card data, you are simply a classifier.",
         "- Include a single-paragraph 'reason' (≤ 80 words) explaining the choice. No lists, no line breaks.",
         "Return STRICT JSON ONLY, no commentary.",
         "",
         "Output schema (JSON):",
         "{",
-        '  "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null,',
         '  "reason": "<one paragraph, <= 80 words>"',
+        '  "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null,',
         "}"
     ].join("\n");
 }
