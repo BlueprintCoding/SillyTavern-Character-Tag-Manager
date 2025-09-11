@@ -1,7 +1,8 @@
 // stcm_ai_suggest_folder_tags.js
 // AI suggestions for Folder & Tag assignment (per character), wired like Greeting Workshop.
-// Now returns a JSON object with the chosen folder/tags *and* a one-paragraph reasoning,
-// and strictly validates suggestions against existing folders/tags.
+// - Folder flow now returns TOP 3 suggestions (ranked). Radios enforce exactly one selection.
+// - Each flow returns strict JSON plus a one-paragraph reasoning.
+// - All suggestions are validated against existing folders/tags; unknowns are ignored with UI notice.
 
 import { getContext } from "../../../extensions.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
@@ -11,7 +12,6 @@ import * as stcmFolders from "./stcm_folders.js";
 import { getFolderChain } from "./stcm_folders_ui.js";
 import { characters } from "../../../../script.js";
 import { renderCharacterList } from "./stcm_characters.js";
-
 
 // --- optional tag helper if exported in your build ---
 import * as TagsModule from "../../../tags.js";
@@ -53,7 +53,6 @@ function buildAvailableFoldersDescriptor(allFolders) {
         .filter(f => f.id !== 'root')
         .map(f => {
             const chain = getFolderChain(f.id, allFolders) || [];
-            // ancestors are everything before the leaf (this folder)
             const ancestors = chain.slice(0, -1).map(x => ({ id: x.id, name: x.name }));
             const parentId = ancestors.length ? ancestors[ancestors.length - 1].id : 'root';
             const path = chain.length ? chain.map(x => x.name).join(' / ') : (f.name || '');
@@ -94,6 +93,32 @@ function mapNameOrIdToExistingFolderId(suggestedFolder, folders) {
         if (byName) return { id: byName.id, unknown: null };
     }
     return { id: '', unknown: suggestedFolder };
+}
+
+function resolveTopFoldersWithDiagnostics(suggestedFolders, folders) {
+    const results = [];
+    const unknown = [];
+    const seen = new Set();
+    const allById = new Map((folders || []).map(f => [f.id, f]));
+    for (const entry of (Array.isArray(suggestedFolders) ? suggestedFolders : [])) {
+        const { id, unknown: unk } = mapNameOrIdToExistingFolderId(entry, folders);
+        if (id) {
+            if (!seen.has(id)) {
+                seen.add(id);
+                const f = allById.get(id);
+                results.push({
+                    id,
+                    path: f ? buildFolderPath(id, folders) : '(unknown path)',
+                    depth: f ? (getFolderChain(id, folders)?.length ?? 1) - 1 : 0
+                });
+            }
+        } else if (unk) {
+            unknown.push(unk);
+        }
+        if (results.length >= 3) break;
+    }
+    // preserve model’s ranked order; already short-circuited at 3
+    return { results, unknown };
 }
 
 function resolveTagsSuggestionsWithDiagnostics(suggestedTags) {
@@ -236,7 +261,6 @@ function getModelFromContextByApi(profile) {
             perplexity: 'perplexity',
             groq: 'groq',
             nanogpt: 'nanogpt',
-            zerooneai: 'zerooneai',
             deepseek: 'deepseek',
             xai: 'xai',
             pollinations: 'pollinations',
@@ -263,11 +287,9 @@ function getModelFromContextByApi(profile) {
         for (const c of containers) {
             const root = c;
             if (!root || typeof root !== 'object') continue;
-            for (const pkey of providerSectionKeys) {
-                const section = root[pkey];
-                const mv = section?.model ?? section?.currentModel ?? section?.selectedModel ?? section?.defaultModel;
-                if (typeof mv === 'string' && mv.trim()) return mv.trim();
-            }
+            const section = root[providerSectionKeys[0]] || root[providerSectionKeys[1]];
+            const mv = section?.model ?? section?.currentModel ?? section?.selectedModel ?? section?.defaultModel;
+            if (typeof mv === 'string' && mv.trim()) return mv.trim();
         }
     } catch {}
     return null;
@@ -275,7 +297,8 @@ function getModelFromContextByApi(profile) {
 
 function getProfileStops(profile) {
     const raw = profile?.['stop-strings']; if (!raw) return [];
-    try { const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
         return Array.isArray(parsed) ? parsed.filter(s => typeof s === 'string' && s.length) : [];
     } catch { return []; }
 }
@@ -355,25 +378,28 @@ function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
 function buildSystemPromptFolder() {
     return [
         "You are a classification assistant for a character card manager.",
-        "Task: Pick exactly ONE existing folder from the provided list that best matches the character.",
+        "Task: Choose up to THREE existing folders from the provided list that best match the character, ordered BEST FIRST.",
         "",
         "HIERARCHY:",
         "- Folders may be nested. Each item includes path, parentId, ancestors, and depth.",
         "- Prefer the deepest (most specific) folder that fits the character.",
-        "- If multiple folders fit equally well, choose the one with the greatest depth; break remaining ties by best semantic match.",
+        "- If multiple folders fit equally well, prefer the one with greater depth; break remaining ties by best semantic match.",
         "",
         "STRICT RULES:",
         "- Choose ONLY from AVAILABLE_FOLDERS by 'id' (preferred) or exact 'name'. Never invent a new folder.",
-        "- If nothing fits, set folder to null.",
-        "- Never choose generic folders like, 'private', 'nsfw', 'random'.",
+        "- Output 1–3 folders in ranked order. If nothing fits, output an empty array [].",
+        "- Never choose generic buckets/folders like 'private', 'nsfw', 'random'.",
         "- Never apply judgment on the ethics of provided card data, you are simply a classifier.",
-        "- Include a single-paragraph 'reason' (≤ 80 words) explaining the choice. No lists, no line breaks.",
-        "Return STRICT JSON ONLY, no commentary.",
+        "- Include a single-paragraph 'reason' (≤ 80 words) explaining the ranking. No lists, no line breaks.",
+        "- Fields may appear in any order. Return STRICT JSON ONLY, no commentary.",
         "",
         "Output schema (JSON):",
         "{",
-        '  "reason": "<one paragraph, <= 80 words>"',
-        '  "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null,',
+        '  "reason": "<one paragraph, <= 80 words>",',
+        '  "folders": [',
+        '    {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"}',
+        '    // up to 3, ranked best-first',
+        "  ]",
         "}"
     ].join("\n");
 }
@@ -399,7 +425,7 @@ function buildSystemPromptTags() {
         "- Choose ONLY from AVAILABLE_TAGS by 'id' or exact 'name'. Never invent a new tag.",
         "- Output at most 3 tags.",
         "- Include a single-paragraph 'reason' (≤ 80 words) explaining the choices. No lists, no line breaks.",
-        "Return STRICT JSON ONLY, no commentary.",
+        "- Fields may appear in any order. Return STRICT JSON ONLY, no commentary.",
         "",
         'Output schema (JSON):',
         '{',
@@ -422,7 +448,7 @@ function buildUserPromptTags({ card, tags, currentFolderPath }) {
     ].join("\n");
 }
 
-/* ---------------- FOLDER suggestion flow ---------------- */
+/* ---------------- FOLDER suggestion flow (TOP 3 with radios) ---------------- */
 export async function openAISuggestFolderForCharacter({ charId }) {
     ensureCtx();
     const char = findCharacterByAvatarId(charId);
@@ -478,7 +504,7 @@ export async function openAISuggestFolderForCharacter({ charId }) {
                 ],
                 chat_completion_source: apiInfo.source,
                 temperature,
-                max_tokens: 600,
+                max_tokens: 700,
                 ...(stopFields),
                 ...(custom_url ? { custom_url } : {}),
                 ...(reverse_proxy ? { reverse_proxy } : {}),
@@ -496,7 +522,7 @@ export async function openAISuggestFolderForCharacter({ charId }) {
             const requestPayload = {
                 stream: false,
                 prompt: `${systemPrompt}\n\n${userPrompt}`,
-                max_tokens: 600,
+                max_tokens: 700,
                 api_type: apiInfo.api_type,
                 temperature,
                 ...(stopFields),
@@ -522,10 +548,14 @@ export async function openAISuggestFolderForCharacter({ charId }) {
         return callGenericPopup("Model did not return valid JSON.", POPUP_TYPE.ALERT, "AI Suggest");
     }
 
-    const { id: resolvedFolderId, unknown: unknownFolder } = mapNameOrIdToExistingFolderId(resultJSON.folder, folders);
+    // Back-compat: if model returned single "folder", wrap it as array
+    const suggestedFoldersRaw = Array.isArray(resultJSON.folders)
+        ? resultJSON.folders
+        : (resultJSON.folder ? [resultJSON.folder] : []);
+    const { results: topResolved, unknown: unknownFolders } = resolveTopFoldersWithDiagnostics(suggestedFoldersRaw, folders);
     const reasoning = String(resultJSON.reason || '').replace(/\s+/g, ' ').trim();
 
-    // ---------- Accept/reject UI ----------
+    // ---------- Accept/reject UI (radios) ----------
     const wrap = document.createElement('div');
     const mkRow = (label, value) => {
         const row = document.createElement('div');
@@ -534,6 +564,7 @@ export async function openAISuggestFolderForCharacter({ charId }) {
         const body = document.createElement('div'); body.style.fontWeight = 600; body.style.fontSize = '13px'; body.textContent = value;
         row.append(head, body); return row;
     };
+
     wrap.appendChild(mkRow("Character", card.name || "(unnamed)"));
     wrap.appendChild(mkRow("Current folder", currentFolderPath || "(none)"));
 
@@ -552,31 +583,64 @@ export async function openAISuggestFolderForCharacter({ charId }) {
 
     wrap.appendChild(document.createElement('hr'));
 
-    const row = document.createElement('div');
-    row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '8px';
-    const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = !!resolvedFolderId; chk.disabled = !resolvedFolderId;
-    const folderName = resolvedFolderId ? (folders.find(f => f.id === resolvedFolderId)?.name || '(unknown)') : '(no valid suggestion)';
-    const lbl = document.createElement('label'); lbl.style.display = 'flex'; lbl.style.alignItems = 'center'; lbl.style.gap = '6px';
-    lbl.append(chk, document.createTextNode(`Folder: ${folderName}`));
-    row.appendChild(lbl); wrap.appendChild(row);
+    const listHdr = document.createElement('div');
+    listHdr.textContent = 'Top folder suggestions (best first):';
+    listHdr.style.marginBottom = '6px';
+    listHdr.style.opacity = .85;
+    wrap.appendChild(listHdr);
 
-    if (!resolvedFolderId && unknownFolder) {
+    const radioRows = [];
+    const groupName = `stcm-folder-choice-${Date.now()}`;
+
+    if (topResolved.length) {
+        topResolved.forEach((item, idx) => {
+            const line = document.createElement('label');
+            line.style.display = 'flex';
+            line.style.alignItems = 'center';
+            line.style.gap = '8px';
+            line.style.margin = '3px 0';
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = groupName;
+            radio.value = item.id;
+            radio.checked = idx === 0; // first valid suggestion pre-checked
+
+            const txt = document.createElement('span');
+            txt.textContent = item.path || '(unknown path)';
+
+            line.append(radio, txt);
+            wrap.appendChild(line);
+            radioRows.push({ id: item.id, radio });
+        });
+    } else {
+        const none = document.createElement('div');
+        none.textContent = '(no valid folder suggestions matched your folder list)';
+        none.style.opacity = .7; none.style.fontSize = '12px';
+        wrap.appendChild(none);
+    }
+
+    if (unknownFolders?.length) {
         const warn = document.createElement('div');
-        warn.style.marginTop = '6px';
+        warn.style.marginTop = '8px';
         warn.style.fontSize = '11px';
         warn.style.opacity = .75;
-        warn.textContent = 'Note: Suggested folder does not exist in your list and was ignored.';
+        const names = unknownFolders.map(f => f?.name || f?.id || '(unknown)').join(', ');
+        warn.textContent = `Ignored unknown folder suggestion(s): ${names}`;
         wrap.appendChild(warn);
     }
 
-    const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Folder Suggestion", { okButton: 'Apply', cancelButton: 'Cancel' });
+    const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Folder Suggestions", { okButton: 'Apply', cancelButton: 'Cancel' });
     if (res !== POPUP_RESULT.AFFIRMATIVE) return;
 
     try {
-        const freshFolders = await stcmFolders.loadFolders();
-        if (chk.checked && resolvedFolderId) await applyFolder(charId, resolvedFolderId, freshFolders);
-        await refreshCharacterRowUI(charId);
-        renderCharacterList();
+        const selected = radioRows.find(r => r.radio.checked);
+        if (selected?.id) {
+            const freshFolders = await stcmFolders.loadFolders();
+            await applyFolder(charId, selected.id, freshFolders);
+            await refreshCharacterRowUI(charId);
+            renderCharacterList();
+        }
     } catch (e) {
         console.warn('[STCM AI Suggest Folder] apply failed:', e);
         callGenericPopup('Failed to apply folder. See console for details.', POPUP_TYPE.ALERT, 'AI Suggest');
