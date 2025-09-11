@@ -107,6 +107,63 @@ async function applyTags(charId, tagIds) {
     }
 }
 
+// -- put near other helpers --
+async function refreshCharacterRowUI(charId) {
+    // 1) get latest state
+    const folders = await stcmFolders.loadFolders();
+    const assigned = stcmFolders.getCharacterAssignedFolder(charId, folders);
+    const folderName = assigned ? assigned.name : '—';
+
+    // tags: prefer official helper if present; else fallback to tag_map
+    let tagIds = [];
+    try {
+        if (typeof TagsModule.getTagsForEntity === 'function') {
+            tagIds = await TagsModule.getTagsForEntity(charId); // returns array of tag IDs
+        } else {
+            tagIds = Array.isArray(tag_map?.[charId]) ? [...tag_map[charId]] : [];
+        }
+    } catch { tagIds = Array.isArray(tag_map?.[charId]) ? [...tag_map[charId]] : []; }
+
+    const allTagsById = new Map((tags || []).map(t => [t.id, t]));
+    const chipsHTML = tagIds.map(id => {
+        const t = allTagsById.get(id);
+        const name = t?.name ?? id;
+        const bg = t?.color || '#333';
+        const fg = t?.color2 || '#fff';
+        return `<span class="tagBox" style="background:${bg};color:${fg};padding:2px 6px;border-radius:6px;margin-right:4px;">${name}</span>`;
+    }).join(' ');
+
+    // 2) find the row and update cells
+    const row =
+        document.querySelector(`.stcm-ctm-row[data-char-id="${charId}"]`) ||
+        document.querySelector(`.stcm-char-row[data-char-id="${charId}"]`) ||
+        document.querySelector(`[data-stcm-char-id="${charId}"]`);
+
+    if (row) {
+        // Try a few common cell selectors; no-ops if not found.
+        const folderCell =
+            row.querySelector('[data-role="folder-cell"]') ||
+            row.querySelector('.stcm-col-folder') ||
+            row.querySelector('.stcm-folder-cell');
+        if (folderCell) folderCell.textContent = folderName;
+
+        const tagsCell =
+            row.querySelector('[data-role="tags-cell"]') ||
+            row.querySelector('.stcm-col-tags') ||
+            row.querySelector('.stcm-tags-cell');
+        if (tagsCell) tagsCell.innerHTML = chipsHTML || '—';
+    }
+
+    // 3) also broadcast events so the modal/table can do a fuller re-render if it wants
+    try { document.dispatchEvent(new CustomEvent('stcm:character_meta_changed', { detail: { charId } })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('stcm:tags_folders_updated', { detail: { charId } })); } catch {}
+
+    // 4) optional hard refresh hooks if your modal exposes them
+    try { window?.stcm?.characterTagManager?.refresh?.(); } catch {}
+    try { window?.stcm?.refreshCharacterTable?.(); } catch {}
+}
+
+
 /* ---------------- LLM plumbing (clone of GW approach, simplified) ---------------- */
 const getCM = () => ensureCtx()?.extensionSettings?.connectionManager || null;
 const getSelectedProfile = () => {
@@ -520,8 +577,9 @@ export async function openAISuggestForCharacter({ charId }) {
         }
         const acceptedTagIds = tagRows.filter(r => r.chk.checked).map(r => r.tid);
         if (acceptedTagIds.length) await applyTags(charId, acceptedTagIds);
-        // light refresh (let your panel watchers react)
-        try { document.dispatchEvent?.(new CustomEvent('stcm:tags_folders_updated')); } catch {}
+
+        // ✅ immediately refresh the visible row + broadcast change
+        await refreshCharacterRowUI(charId);
     } catch (e) {
         console.warn('[STCM AI Suggest] apply failed:', e);
         callGenericPopup('Failed to apply suggestions. See console for details.', POPUP_TYPE.ALERT, 'AI Suggest');

@@ -799,6 +799,53 @@ document.addEventListener('click', function(e) {
 });
 
 
+async function refreshCharacterRowInline(charId) {
+    const row = document.querySelector(`.charListItemWrapper[data-entity-type="character"][data-avatar="${charId}"]`);
+    if (!row) return;
+
+    const folders = await stcmFolders.loadFolders();
+    const assigned = stcmFolders.getCharacterAssignedFolder(charId, folders);
+
+    // folder dropdown + remove '✕'
+    const dd = row.querySelector('.charFolderDropdown');
+    const x = row.querySelector('.charFolderDropdownWrapper .removeFolderBtn');
+    if (dd) {
+        dd.value = assigned ? assigned.id : '';
+        if (x) x.style.display = dd.value ? 'inline-block' : 'none';
+    }
+
+    // tag chips and count in name
+    const tagIds = Array.isArray(tag_map?.[charId]) ? tag_map[charId] : [];
+    const byId = buildTagMap(tags);
+    const wrap = row.querySelector('.assignedTagsWrapper');
+    if (wrap) {
+        wrap.innerHTML = '';
+        tagIds.forEach(tid => {
+            const t = byId.get(tid); if (!t) return;
+            const chip = document.createElement('span');
+            chip.className = 'tagBox';
+            chip.textContent = t.name;
+            chip.style.backgroundColor = (t.color && t.color !== '#') ? t.color : '#333';
+            chip.style.color = (t.color2 && t.color2 !== '#') ? t.color2 : '#fff';
+            wrap.appendChild(chip);
+        });
+    }
+    const nameSpan = row.querySelector('.charName');
+    if (nameSpan) {
+        const currentName = row.getAttribute('data-name') || nameSpan.textContent;
+        const base = currentName.replace(/\s*\(\d+\s+tags?\)\s*$/, '');
+        const n = tagIds.length;
+        nameSpan.textContent = `${base} (${n} tag${n !== 1 ? 's' : ''})`;
+    }
+}
+
+// wire the targeted refresh
+document.addEventListener('stcm:character_meta_changed', (e) => {
+    if (e?.detail?.charId) refreshCharacterRowInline(e.detail.charId);
+});
+
+
+
 
 export {
     renderCharacterList,
