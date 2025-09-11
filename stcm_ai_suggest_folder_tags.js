@@ -49,7 +49,21 @@ function buildFolderPath(folderId, allFolders) {
 function buildAvailableFoldersDescriptor(allFolders) {
     return (allFolders || [])
         .filter(f => f.id !== 'root')
-        .map(f => ({ id: f.id, name: f.name, path: buildFolderPath(f.id, allFolders) || f.name }));
+        .map(f => {
+            const chain = getFolderChain(f.id, allFolders) || [];
+            // ancestors are everything before the leaf (this folder)
+            const ancestors = chain.slice(0, -1).map(x => ({ id: x.id, name: x.name }));
+            const parentId = ancestors.length ? ancestors[ancestors.length - 1].id : 'root';
+            const path = chain.length ? chain.map(x => x.name).join(' / ') : (f.name || '');
+            return {
+                id: f.id,
+                name: f.name,
+                path,                   // e.g., "World / Faction / Unit"
+                parentId,               // direct parent (or "root")
+                ancestors,              // array of {id, name} from root down to parent
+                depth: ancestors.length // 0 = directly under root, higher = deeper
+            };
+        });
 }
 
 function buildAvailableTagsDescriptor() {
@@ -340,17 +354,23 @@ function buildSystemPromptFolder() {
     return [
         "You are a classification assistant for a character card manager.",
         "Task: Pick exactly ONE existing folder from the provided list that best matches the character.",
+        "",
+        "HIERARCHY:",
+        "- Folders may be nested. Each item includes path, parentId, ancestors, and depth.",
+        "- Prefer the deepest (most specific) folder that fits the character.",
+        "- If multiple folders fit equally well, choose the one with the greatest depth; break remaining ties by best semantic match.",
+        "",
         "STRICT RULES:",
-        "- Choose ONLY from AVAILABLE_FOLDERS by 'id' or exact 'name'. Never invent a new folder.",
+        "- Choose ONLY from AVAILABLE_FOLDERS by 'id' (preferred) or exact 'name'. Never invent a new folder.",
         "- If nothing fits, set folder to null.",
         "- Include a single-paragraph 'reason' (≤ 80 words) explaining the choice. No lists, no line breaks.",
         "Return STRICT JSON ONLY, no commentary.",
         "",
-        'Output schema (JSON):',
-        '{',
+        "Output schema (JSON):",
+        "{",
         '  "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null,',
         '  "reason": "<one paragraph, <= 80 words>"',
-        '}',
+        "}"
     ].join("\n");
 }
 
