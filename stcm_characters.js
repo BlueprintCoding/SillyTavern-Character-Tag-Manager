@@ -22,6 +22,8 @@ import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 import * as stcmFolders from './stcm_folders.js';
 import { getFolderOptionsTree } from './stcm_folders_ui.js'; // adjust path if needed
 import { createEditSectionForCharacter } from './stcm_char_panel.js'
+import { openAISuggestForCharacter } from './stcm_ai_suggest_folder_tags.js';
+
 
 async function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
@@ -450,15 +452,10 @@ async function renderCharacterList() {
             aiSuggestBtn.title = 'AI Tag & Folder suggestions';
             aiSuggestBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Suggest';
             aiSuggestBtn.addEventListener('click', () => {
-                // Placeholder — hook for upcoming LLM integration
-                // We'll gather: character card data, available folders & tags,
-                // call ST LLM API, then show accept/reject UI.
-                toastr.info(`AI suggestions coming soon for “${entity.name}”.`);
-                // Example future hook:
-                // openAISuggestionPanel({ characterId: entity.id, name: entity.name });
+                openAISuggestForCharacter({ charId: entity.id });
             });
             rightControls.appendChild(aiSuggestBtn);
-        }
+            
 
         const editIcon = document.createElement('i');
         editIcon.className = 'fa-solid fa-pen-to-square interactable stcm_edit_icon';
