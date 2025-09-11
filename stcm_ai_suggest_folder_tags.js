@@ -1,5 +1,5 @@
 // stcm_ai_suggest_folder_tags.js
-// AI suggestions for Folder & Tag assignment (per character)
+// AI suggestions for Folder & Tag assignment (per character), wired like Greeting Workshop.
 
 import { getContext } from "../../../extensions.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
@@ -7,19 +7,20 @@ import { ChatCompletionService, TextCompletionService } from "../../../custom-re
 import { tags, tag_map } from "../../../tags.js";
 import * as stcmFolders from "./stcm_folders.js";
 import { getFolderChain } from "./stcm_folders_ui.js";
-import { callSaveandReload } from "./index.js";
 import { characters } from "../../../../script.js";
 
-// Optional: use addTagToEntity if available, else fallback
+// --- optional tag helper if exported in your build ---
 import * as TagsModule from "../../../tags.js";
 
+let ctx = null;
 function ensureCtx() {
-    const ctx = getContext();
+    if (!ctx) ctx = getContext();
     ctx.extensionSettings ??= {};
     ctx.extensionSettings.stcm ??= {};
     return ctx;
 }
 
+/* ---------------- helpers: card, folders, tags ---------------- */
 function pickCardFields(charObj) {
     const d = charObj?.data || {};
     const pick = (k) => charObj?.[k] ?? d?.[k] ?? null;
@@ -33,6 +34,10 @@ function pickCardFields(charObj) {
     return out;
 }
 
+function findCharacterByAvatarId(charId) {
+    return (characters || []).find(c => c?.avatar === charId) || null;
+}
+
 function buildFolderPath(folderId, allFolders) {
     if (!folderId || folderId === "root") return "Top Level (Root)";
     const chain = getFolderChain(folderId, allFolders);
@@ -40,24 +45,13 @@ function buildFolderPath(folderId, allFolders) {
 }
 
 function buildAvailableFoldersDescriptor(allFolders) {
-    // flatten non-root
-    const list = allFolders
+    return (allFolders || [])
         .filter(f => f.id !== 'root')
-        .map(f => ({
-            id: f.id,
-            name: f.name,
-            path: buildFolderPath(f.id, allFolders) || f.name
-        }));
-    return list;
+        .map(f => ({ id: f.id, name: f.name, path: buildFolderPath(f.id, allFolders) || f.name }));
 }
 
 function buildAvailableTagsDescriptor() {
-    // [{id, name}]
     return (tags || []).map(t => ({ id: t.id, name: t.name }));
-}
-
-function findCharacterByAvatarId(charId) {
-    return (characters || []).find(c => c?.avatar === charId) || null;
 }
 
 function getCurrentFolderId(charId, folders) {
@@ -66,11 +60,7 @@ function getCurrentFolderId(charId, folders) {
 }
 
 function safeParseJSON(text) {
-    try {
-        return JSON.parse(text);
-    } catch {
-        return null;
-    }
+    try { return JSON.parse(text); } catch { return null; }
 }
 
 function mapNameOrIdToExistingTagIds(suggestedTags) {
@@ -80,10 +70,9 @@ function mapNameOrIdToExistingTagIds(suggestedTags) {
     for (const t of (suggestedTags || [])) {
         const id = t?.id;
         const name = String(t?.name ?? '').toLowerCase().trim();
-        if (id && byId.has(id)) { out.push(id); continue; }
-        if (name && byName.has(name)) { out.push(byName.get(name)); continue; }
+        if (id && byId.has(id)) out.push(id);
+        else if (name && byName.has(name)) out.push(byName.get(name));
     }
-    // de-dupe
     return Array.from(new Set(out)).slice(0, 3);
 }
 
@@ -92,7 +81,6 @@ function mapNameOrIdToExistingFolderId(suggestedFolder, folders) {
     const nameLc = String(suggestedFolder?.name ?? '').toLowerCase().trim();
     const id = suggestedFolder?.id;
     const all = folders || [];
-    // prefer exact id match
     if (id && all.some(f => f.id === id)) return id;
     if (nameLc) {
         const found = all.find(f => f.name && f.name.toLowerCase() === nameLc);
@@ -101,20 +89,198 @@ function mapNameOrIdToExistingFolderId(suggestedFolder, folders) {
     return '';
 }
 
+async function applyFolder(charId, newFolderId, allFolders) {
+    const curr = stcmFolders.getCharacterAssignedFolder(charId, allFolders);
+    if (curr && curr.id === newFolderId) return;
+    if (curr) await stcmFolders.removeCharacterFromFolder(curr.id, charId);
+    if (newFolderId) await stcmFolders.assignCharactersToFolder(newFolderId, [charId]);
+}
+
+async function applyTags(charId, tagIds) {
+    if (typeof TagsModule.addTagToEntity === 'function') {
+        for (const tid of tagIds) {
+            try { await TagsModule.addTagToEntity(tags.find(t => t.id === tid), charId); } catch {}
+        }
+    } else {
+        tag_map[charId] ??= [];
+        for (const tid of tagIds) if (!tag_map[charId].includes(tid)) tag_map[charId].push(tid);
+    }
+}
+
+/* ---------------- LLM plumbing (clone of GW approach, simplified) ---------------- */
+const getCM = () => ensureCtx()?.extensionSettings?.connectionManager || null;
+const getSelectedProfile = () => {
+    const cm = getCM(); if (!cm) return null;
+    const id = cm.selectedProfile; if (!id || !Array.isArray(cm.profiles)) return null;
+    return cm.profiles.find(p => p.id === id) || null;
+};
+const getTemperature = () => {
+    const t = Number(ensureCtx()?.extensionSettings?.memory?.temperature);
+    return Number.isFinite(t) ? t : undefined;
+};
+const getProxyByName = (name) => {
+    const list = ensureCtx()?.proxies || window?.proxies || [];
+    if (!name || name === 'None') return null;
+    return Array.isArray(list) ? list.find(p => p.name === name) : null;
+};
+const getGlobalInstructConfig = () => ensureCtx()?.extensionSettings?.instruct || ensureCtx()?.instruct || null;
+const profileInstructEnabled = (profile) => String(profile?.['instruct-state']).toLowerCase() === 'true';
+
+function getApiMapFromCtx(profile) {
+    if (!profile || !profile.api) return null;
+    const cmap = ensureCtx()?.CONNECT_API_MAP || window?.CONNECT_API_MAP || {};
+    return cmap[profile.api] || null;
+}
+function resolveApiBehavior(profile) {
+    const m = getApiMapFromCtx(profile);
+    if (!m) return null;
+    const family = (m.selected === 'openai') ? 'cc' : 'tc';
+    return { family, selected: m.selected, api_type: m.type, source: m.source, button: m.button || null };
+}
+
+function getModelFromContextByApi(profile) {
+    try {
+        const ctx = ensureCtx();
+        const apiRaw = String(profile?.api || '').toLowerCase();
+        const canonMap = {
+            oai: 'openai', openai: 'openai',
+            claude: 'claude', anthropic: 'claude',
+            google: 'google', vertexai: 'vertexai',
+            ai21: 'ai21',
+            mistralai: 'mistralai', mistral: 'mistralai',
+            cohere: 'cohere',
+            perplexity: 'perplexity',
+            groq: 'groq',
+            nanogpt: 'nanogpt',
+            zerooneai: 'zerooneai',
+            deepseek: 'deepseek',
+            xai: 'xai',
+            pollinations: 'pollinations',
+            'openrouter-text': 'openai',
+            koboldcpp: 'koboldcpp', kcpp: 'koboldcpp',
+        };
+        const canonProvider = canonMap[apiRaw] || apiRaw;
+        const flatKeys = [`${canonProvider}_model`, `${apiRaw}_model`];
+        const containers = [
+            ctx?.chatCompletionSettings, ctx?.textCompletionSettings,
+            ctx?.extensionSettings?.chatCompletionSettings,
+            ctx?.extensionSettings?.textCompletionSettings,
+            ctx?.settings?.chatCompletionSettings,
+            ctx?.settings?.textCompletionSettings,
+            ctx, window
+        ];
+        for (const key of flatKeys) {
+            for (const c of containers) {
+                const v = c?.[key];
+                if (typeof v === 'string' && v.trim()) return v.trim();
+            }
+        }
+        const providerSectionKeys = [canonProvider, apiRaw];
+        for (const c of containers) {
+            const root = c;
+            if (!root || typeof root !== 'object') continue;
+            for (const pkey of providerSectionKeys) {
+                const section = root[pkey];
+                const mv = section?.model ?? section?.currentModel ?? section?.selectedModel ?? section?.defaultModel;
+                if (typeof mv === 'string' && mv.trim()) return mv.trim();
+            }
+        }
+    } catch {}
+    return null;
+}
+
+function getProfileStops(profile) {
+    const raw = profile?.['stop-strings']; if (!raw) return [];
+    try { const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return Array.isArray(parsed) ? parsed.filter(s => typeof s === 'string' && s.length) : [];
+    } catch { return []; }
+}
+
+function resolveEffectiveInstruct(profile) {
+    const globalCfg = getGlobalInstructConfig() || {};
+    const instructName = (profile?.instruct || '').trim();
+    const presetName = (profile?.preset || '').trim();
+
+    const pick = (name) => {
+        if (!name) return null;
+        const a = ensureCtx()?.extensionSettings?.instruct?.presets;
+        if (a && typeof a[name] === 'object') return a[name];
+        const b = ensureCtx()?.instruct?.presets;
+        if (b && typeof b[name] === 'object') return b[name];
+        const c = ensureCtx()?.presets;
+        if (c && typeof c[name]?.instruct === 'object') return c[name].instruct;
+        const d = ensureCtx()?.presets?.instruct;
+        if (d && typeof d[name] === 'object') return d[name];
+        return null;
+    };
+
+    const presetCfg = pick(instructName) || pick(presetName);
+    const eff = Object.assign({}, globalCfg || {}, presetCfg || {});
+    const nameChosen = instructName || presetName || undefined;
+    return { cfg: eff, name: nameChosen };
+}
+
+function ensureKoboldcppInstruct(instructCfg, apiInfo) {
+    if (apiInfo?.api_type !== 'koboldcpp') return instructCfg || {};
+    const cfg = Object.assign({}, instructCfg || {});
+    const hasSeq = (k) => typeof cfg[k] === 'string' && cfg[k].length > 0;
+    if (hasSeq('system_sequence') && hasSeq('input_sequence') && hasSeq('output_sequence')) return cfg;
+    const fallback = {
+        system_sequence: '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
+        system_suffix: '<|END_OF_TURN_TOKEN|>',
+        input_sequence: '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+        input_suffix: '<|END_OF_TURN_TOKEN|>',
+        output_sequence: '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
+        output_suffix: '<|END_OF_TURN_TOKEN|>',
+        stop_sequence: '<|END_OF_TURN_TOKEN|>',
+        system_sequence_prefix: '',
+        system_sequence_suffix: '',
+    };
+    return Object.assign({}, fallback, cfg);
+}
+
+function mergeStops(...lists) {
+    const out = [];
+    for (const lst of lists) {
+        if (!lst) continue;
+        const arr = typeof lst === 'string' ? [lst] : lst;
+        for (const s of arr) if (typeof s === 'string' && s.length && !out.includes(s)) out.push(s);
+    }
+    return out;
+}
+
+function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
+    const fromProfile = getProfileStops(profile);
+    const fromInstruct = (instructEnabled && instructCfgEff)
+        ? [instructCfgEff.stop_sequence, instructCfgEff.output_suffix] : [];
+    const KCPP_DEFAULT_STOPS = [
+        '<|END_OF_TURN_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>',
+        '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>',
+        '<STOP>',
+    ];
+    let merged = mergeStops(fromProfile, fromInstruct);
+    if (apiInfo?.api_type === 'koboldcpp') merged = mergeStops(merged, KCPP_DEFAULT_STOPS);
+    const unique = [];
+    for (const s of merged) if (typeof s === 'string' && s.length && !unique.includes(s)) unique.push(s);
+    return unique.length ? { stop: unique, stopping_strings: unique } : {};
+}
+
+/* ---------------- prompt builders ---------------- */
 function buildSystemPrompt() {
     return [
         "You are a classification assistant for a character card manager.",
-        "Task: Suggest a single folder (from existing folders) and up to 3 tags (from existing tags) for the provided character.",
+        "Task: Suggest ONE existing folder and up to THREE existing tags (from the provided lists) that best match the character.",
         "Return STRICT JSON ONLY, no commentary.",
-        "If nothing fits, set folder to null and tags to an empty array.",
         "",
         "Output schema (JSON):",
         "{",
-        '  "folder": {"id": "<existing-folder-id>" } | {"name": "<existing-folder-name>"} | null,',
+        '  "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null,',
         '  "tags": [',
-        '     {"id": "<existing-tag-id>"} | {"name": "<existing-tag-name>"},',
-        "     ... up to 3",
-        '  ]',
+        '    {"id": "<existing-tag-id>"} | {"name": "<existing-tag-name>"},',
+        "    // up to 3",
+        "  ]",
         "}",
     ].join("\n");
 }
@@ -128,68 +294,22 @@ function buildUserPrompt({ card, folders, tags, currentFolderPath }) {
         JSON.stringify(tags, null, 2),
         "",
         "CURRENT_ASSIGNMENTS:",
-        JSON.stringify({ folderPath: currentFolderPath || "(none)", tags: [] }, null, 2),
+        JSON.stringify({ folderPath: currentFolderPath || "(none)" }, null, 2),
         "",
         "CHARACTER_CARD:",
         JSON.stringify(card, null, 2)
     ].join("\n");
 }
 
-function hasAddTagToEntity() {
-    return typeof TagsModule.addTagToEntity === 'function';
-}
-
-async function applyFolder(charId, newFolderId, allFolders) {
-    const curr = stcmFolders.getCharacterAssignedFolder(charId, allFolders);
-    if (curr && curr.id === newFolderId) return; // nothing to do
-
-    if (curr) {
-        await stcmFolders.removeCharacterFromFolder(curr.id, charId);
-    }
-    if (newFolderId) {
-        await stcmFolders.assignCharactersToFolder(newFolderId, [charId]);
-    }
-}
-
-async function applyTags(charId, tagIds) {
-    // graceful fallback if addTagToEntity is not exported:
-    if (hasAddTagToEntity()) {
-        for (const tid of tagIds) {
-            try { await TagsModule.addTagToEntity(tags.find(t => t.id === tid), charId); } catch {}
-        }
-    } else {
-        // direct map update + hope your save/reload step persists
-        tag_map[charId] ??= [];
-        for (const tid of tagIds) {
-            if (!tag_map[charId].includes(tid)) tag_map[charId].push(tid);
-        }
-    }
-}
-
-function mkRow(label, value, small=false) {
-    const row = document.createElement('div');
-    row.style.margin = '6px 0';
-    const head = document.createElement('div');
-    head.style.opacity = .85;
-    head.style.fontSize = small ? '11px' : '12px';
-    head.textContent = label;
-    const body = document.createElement('div');
-    body.style.fontWeight = 600;
-    body.style.fontSize = small ? '12px' : '13px';
-    body.textContent = value;
-    row.append(head, body);
-    return row;
-}
-
+/* ---------------- main entry ---------------- */
 export async function openAISuggestForCharacter({ charId }) {
-    const ctx = ensureCtx();
+    ensureCtx();
     const char = findCharacterByAvatarId(charId);
     if (!char) {
         callGenericPopup("Character not found for AI suggestion.", POPUP_TYPE.ALERT, "AI Suggest");
         return;
     }
 
-    // Load folders & descriptors
     const folders = await stcmFolders.loadFolders();
     const folderList = buildAvailableFoldersDescriptor(folders);
     const tagList = buildAvailableTagsDescriptor();
@@ -198,74 +318,133 @@ export async function openAISuggestForCharacter({ charId }) {
     const currentFolderId = getCurrentFolderId(charId, folders);
     const currentFolderPath = buildFolderPath(currentFolderId, folders);
 
-    // Build prompts
     const systemPrompt = buildSystemPrompt();
-    const userPrompt = buildUserPrompt({
-        card,
-        folders: folderList,
-        tags: tagList,
-        currentFolderPath
-    });
+    const userPrompt = buildUserPrompt({ card, folders: folderList, tags: tagList, currentFolderPath });
 
-    // Try ChatCompletion first; fall back to TextCompletion
-    let resultJSON = null;
-    let rawText = "";
+    // ---------- Connection Manager parity with GW ----------
+    const profile = getSelectedProfile();
+    if (!profile) { callGenericPopup('No Connection Manager profile selected. Pick one in settings and try again.', POPUP_TYPE.ALERT, 'AI Suggest'); return; }
+
+    const apiInfo = resolveApiBehavior(profile);
+    if (!apiInfo) { callGenericPopup(`Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`, POPUP_TYPE.ALERT, 'AI Suggest'); return; }
+
+    const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
+    const temperature = getTemperature();
+
+    const instructGlobal = getGlobalInstructConfig();
+    const instructIsOnGlobal = !!(instructGlobal && instructGlobal.enabled);
+    const instructIsOnProfile = profileInstructEnabled(profile);
+    const hasInstructName = !!(profile?.instruct && String(profile.instruct).trim().length);
+    const instructEnabled = instructIsOnGlobal || instructIsOnProfile || hasInstructName;
+
+    const { cfg: instructCfgRaw, name: instructName } = resolveEffectiveInstruct(profile);
+    const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo);
+
+    const modelFromCtx = getModelFromContextByApi(profile);
+    const modelResolved = modelFromCtx || profile.model || null;
+
+    const custom_url = profile['api-url'] || null;
+    const proxy = getProxyByName(profile.proxy);
+    const reverse_proxy = proxy?.url || null;
+    const proxy_password = proxy?.password || null;
+
+    const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
+
+    let rawText = '';
+
     try {
-        const profile = ctx?.extensionSettings?.connectionManager?.profiles
-            ?.find(p => p.id === ctx?.extensionSettings?.connectionManager?.selectedProfile);
-        const selectedApi = ctx?.CONNECT_API_MAP?.[profile?.api]?.selected || 'openai'; // heuristic
-
-        if (selectedApi === 'openai') {
-            const resp = await ChatCompletionService.processRequest({
+        if (family === 'cc' || apiInfo.selected === 'openai') {
+            // --- ChatCompletion path (matches GW) ---
+            const requestPayload = {
                 stream: false,
                 messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
-                ]
-            }, {}, true, null);
+                    { role: 'system', content: String(systemPrompt) },
+                    { role: 'user', content: String(userPrompt) },
+                ],
+                chat_completion_source: apiInfo.source,    // CRITICAL for ST’s backend routing
+                temperature,
+                max_tokens: 600,
+                ...(stopFields),
+                ...(custom_url ? { custom_url } : {}),
+                ...(reverse_proxy ? { reverse_proxy } : {}),
+                ...(proxy_password ? { proxy_password } : {}),
+                ...(modelResolved ? { model: modelResolved } : {}),
+            };
 
-            rawText = String(resp?.content || '').trim();
+            const response = await ChatCompletionService.processRequest(
+                requestPayload,
+                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                true,
+                null
+            );
+            rawText = String(response?.content || '').trim();
+
         } else {
-            const resp = await TextCompletionService.processRequest({
+            // --- TextCompletion path (e.g., TGW/Kobold) ---
+            // If you want to wrap with instruct tokens here, you could mirror GW’s buildInstructPrompt()
+            const requestPayload = {
                 stream: false,
-                prompt: systemPrompt + "\n\n" + userPrompt,
-                max_tokens: 500
-            }, {}, true, null);
+                prompt: `${systemPrompt}\n\n${userPrompt}`,
+                max_tokens: 600,
+                api_type: apiInfo.api_type, // e.g., 'koboldcpp'
+                temperature,
+                ...(stopFields),
+                ...(custom_url ? { api_server: custom_url } : {}),
+                ...(modelResolved ? { model: modelResolved } : {}),
+            };
 
-            rawText = String(resp?.content || '').trim();
+            const response = await TextCompletionService.processRequest(
+                requestPayload,
+                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                true,
+                null
+            );
+            rawText = String(response?.content || '').trim();
         }
-
-        // Strip code fences or leading junk, then parse JSON
-        const maybe = rawText.replace(/^[\s\S]*?({[\s\S]+})[\s\S]*$/m, '$1').trim();
-        resultJSON = safeParseJSON(maybe);
-
     } catch (e) {
         console.warn('[STCM AI Suggest] LLM call failed:', e);
-        callGenericPopup("LLM call failed. See console for details.", POPUP_TYPE.ALERT, "AI Suggest");
+        callGenericPopup(`LLM call failed: ${e?.error?.message || e?.message || 'See console for details.'}`, POPUP_TYPE.ALERT, "AI Suggest");
         return;
     }
 
+    const jsonBlob = rawText.replace(/^[\s\S]*?({[\s\S]+})[\s\S]*$/m, '$1').trim();
+    const resultJSON = safeParseJSON(jsonBlob);
     if (!resultJSON || typeof resultJSON !== 'object') {
         callGenericPopup("Model did not return valid JSON suggestions.", POPUP_TYPE.ALERT, "AI Suggest");
         return;
     }
 
-    // Normalize suggestions → resolve to existing ids
+    // Resolve to existing entities
     const resolvedFolderId = mapNameOrIdToExistingFolderId(resultJSON.folder, folders);
-    const resolvedTagIds = mapNameOrIdToExistingTagIds(resultJSON.tags).slice(0, 3);
+    const resolvedTagIds = mapNameOrIdToExistingTagIds(resultJSON.tags);
 
-    // Build small accept/reject UI
+    // ---------- Lightweight accept/reject UI ----------
     const wrap = document.createElement('div');
 
-    // Folder section
+    const mkRow = (label, value, small=false) => {
+        const row = document.createElement('div');
+        row.style.margin = '6px 0';
+        const head = document.createElement('div');
+        head.style.opacity = .85;
+        head.style.fontSize = small ? '11px' : '12px';
+        head.textContent = label;
+        const body = document.createElement('div');
+        body.style.fontWeight = 600;
+        body.style.fontSize = small ? '12px' : '13px';
+        body.textContent = value;
+        row.append(head, body);
+        return row;
+    };
+
+    wrap.appendChild(mkRow("Character", card.name || "(unnamed)"));
+    wrap.appendChild(mkRow("Current folder", currentFolderPath || "(none)", true));
+    wrap.appendChild(document.createElement('hr'));
+
+    // Folder block
     const folderRow = document.createElement('div');
     folderRow.style.display = 'flex';
     folderRow.style.alignItems = 'center';
     folderRow.style.gap = '8px';
-    const folderLabel = document.createElement('label');
-    folderLabel.style.display = 'flex';
-    folderLabel.style.alignItems = 'center';
-    folderLabel.style.gap = '6px';
 
     const folderChk = document.createElement('input');
     folderChk.type = 'checkbox';
@@ -275,10 +454,15 @@ export async function openAISuggestForCharacter({ charId }) {
     const folderName = resolvedFolderId
         ? (folders.find(f => f.id === resolvedFolderId)?.name || '(unknown)')
         : '(no suggestion)';
-    folderLabel.append(folderChk, document.createTextNode(`Folder: ${folderName}`));
-    folderRow.appendChild(folderLabel);
+    const folderLbl = document.createElement('label');
+    folderLbl.style.display = 'flex';
+    folderLbl.style.alignItems = 'center';
+    folderLbl.style.gap = '6px';
+    folderLbl.append(folderChk, document.createTextNode(`Folder: ${folderName}`));
+    folderRow.appendChild(folderLbl);
+    wrap.appendChild(folderRow);
 
-    // Tag section
+    // Tags block
     const tagsBlock = document.createElement('div');
     tagsBlock.style.marginTop = '10px';
     const tagHeader = document.createElement('div');
@@ -288,32 +472,32 @@ export async function openAISuggestForCharacter({ charId }) {
     tagsBlock.appendChild(tagHeader);
 
     const tagRows = [];
-    for (const tid of resolvedTagIds) {
-        const tag = (tags || []).find(t => t.id === tid);
-        const tr = document.createElement('label');
-        tr.style.display = 'flex';
-        tr.style.alignItems = 'center';
-        tr.style.gap = '6px';
-        tr.style.margin = '2px 0';
+    if (resolvedTagIds.length) {
+        for (const tid of resolvedTagIds) {
+            const tag = (tags || []).find(t => t.id === tid);
+            const tr = document.createElement('label');
+            tr.style.display = 'flex';
+            tr.style.alignItems = 'center';
+            tr.style.gap = '6px';
+            tr.style.margin = '2px 0';
 
-        const chk = document.createElement('input');
-        chk.type = 'checkbox';
-        chk.checked = true;
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.checked = true;
 
-        const chip = document.createElement('span');
-        chip.textContent = tag?.name || tid;
-        chip.className = 'tagBox';
-        chip.style.background = tag?.color || '#333';
-        chip.style.color = tag?.color2 || '#fff';
-        chip.style.padding = '2px 6px';
-        chip.style.borderRadius = '6px';
+            const chip = document.createElement('span');
+            chip.textContent = tag?.name || tid;
+            chip.className = 'tagBox';
+            chip.style.background = tag?.color || '#333';
+            chip.style.color = tag?.color2 || '#fff';
+            chip.style.padding = '2px 6px';
+            chip.style.borderRadius = '6px';
 
-        tr.append(chk, chip);
-        tagsBlock.appendChild(tr);
-        tagRows.push({ tid, chk });
-    }
-
-    if (!resolvedTagIds.length) {
+            tr.append(chk, chip);
+            tagsBlock.appendChild(tr);
+            tagRows.push({ tid, chk });
+        }
+    } else {
         const none = document.createElement('div');
         none.textContent = '(no tag suggestions)';
         none.style.opacity = .7;
@@ -321,33 +505,23 @@ export async function openAISuggestForCharacter({ charId }) {
         tagsBlock.appendChild(none);
     }
 
-    // Current info
-    wrap.appendChild(mkRow("Character", card.name || "(unnamed)"));
-    wrap.appendChild(mkRow("Current folder", currentFolderPath || "(none)", true));
-    wrap.appendChild(document.createElement('hr'));
-    wrap.append(folderRow, tagsBlock);
+    wrap.appendChild(tagsBlock);
 
     const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Tag & Folder Suggestions", {
         okButton: 'Apply',
         cancelButton: 'Cancel'
     });
-
     if (res !== POPUP_RESULT.AFFIRMATIVE) return;
 
-    // Apply choices
     try {
         const freshFolders = await stcmFolders.loadFolders();
-
         if (folderChk.checked && resolvedFolderId) {
             await applyFolder(charId, resolvedFolderId, freshFolders);
         }
-
         const acceptedTagIds = tagRows.filter(r => r.chk.checked).map(r => r.tid);
-        if (acceptedTagIds.length) {
-            await applyTags(charId, acceptedTagIds);
-        }
-
-        callSaveandReload();
+        if (acceptedTagIds.length) await applyTags(charId, acceptedTagIds);
+        // light refresh (let your panel watchers react)
+        try { document.dispatchEvent?.(new CustomEvent('stcm:tags_folders_updated')); } catch {}
     } catch (e) {
         console.warn('[STCM AI Suggest] apply failed:', e);
         callGenericPopup('Failed to apply suggestions. See console for details.', POPUP_TYPE.ALERT, 'AI Suggest');
