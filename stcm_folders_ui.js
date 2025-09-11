@@ -51,6 +51,7 @@ let lastSidebarInjection = 0;
 let suppressSidebarObserver = false;
 let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
+const folderCharSort = {};
 let orphanFolderExpanded = false;
 
 let FA_ICONS = FA_ICON_LIST;
@@ -659,6 +660,45 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     controlRow.appendChild(logoutBtn);
     if (backBtn) controlRow.appendChild(backBtn);
     controlRow.appendChild(breadcrumbDiv);
+
+    // --- RIGHT-ALIGNED: per-folder character sort dropdown (only for real folders)
+    const spacer = document.createElement('div');
+    spacer.style.flex = '1 1 auto';
+    controlRow.appendChild(spacer);
+
+    let sortSelect = null;
+    const isRealFolder = (folderId !== 'root' && folderId !== 'orphans');
+    if (isRealFolder) {
+        sortSelect = document.createElement('select');
+        sortSelect.className = 'stcm_folder_char_sort text_pole';
+        sortSelect.style.minWidth = '110px';
+        sortSelect.style.marginLeft = 'auto';
+        sortSelect.title = 'Sort characters';
+
+        const optAZ = document.createElement('option');
+        optAZ.value = 'az';
+        optAZ.textContent = 'A–Z';
+
+        const optZA = document.createElement('option');
+        optZA.value = 'za';
+        optZA.textContent = 'Z–A';
+
+        sortSelect.appendChild(optAZ);
+        sortSelect.appendChild(optZA);
+
+        // Default A–Z if not set yet
+        const sel = folderCharSort[folderId] || 'az';
+        sortSelect.value = sel;
+
+        sortSelect.addEventListener('change', () => {
+            folderCharSort[folderId] = sortSelect.value;
+            // re-render this folder view with the new order
+            renderSidebarFolderContents(folders, allEntities, folderId);
+        });
+
+        controlRow.appendChild(sortSelect);
+    }
+
     container.appendChild(controlRow);
 
     // ====== Top of Folder List: Orphan Cards ======
@@ -695,8 +735,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         const entityMap = stcmFolders.buildEntityMap();
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents';
-
-        // Render already A→Z due to getEntitiesNotInAnyFolder()
         orphanedEntities.forEach(entity => {
             let key = entity.type === "character" ? entity.item?.avatar : entity.id;
             const normalized = entityMap.get(key);
@@ -727,12 +765,11 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         contentDiv.className = 'stcm_folder_contents';
     }
 
-    const tagsById = buildTagMap(tags);
+    // Child folders (unchanged)
     (folder.children || []).forEach(childId => {
         const child = folders.find(f => f.id === childId);
         if (child) {
             const isPrivate = !!child.private;
-
             const charCount = child.characters?.length || 0;
             const visibleChildren = (child.children || []).filter(cid => {
                 const f = folders.find(f => f.id === cid);
@@ -801,11 +838,15 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
     const entityMap = stcmFolders.buildEntityMap();
 
-    // ✳️ A→Z sort of characters assigned to this folder
+    // Characters in this folder — sorted by the dropdown selection
+    const order = folderCharSort[folderId] || 'az';
     const folderEntities = (folder.characters || [])
         .map(folderVal => entityMap.get(folderVal))
         .filter(Boolean)
-        .sort(compareByNameAtoZ);
+        .sort((a, b) => {
+            const cmp = compareByNameAtoZ(a, b);
+            return order === 'za' ? -cmp : cmp;
+        });
 
     folderEntities.forEach(entity => {
         if (entity && typeof entity.chid !== "undefined") {
@@ -823,6 +864,7 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
     container.appendChild(contentDiv);
 }
+
 
 
 
