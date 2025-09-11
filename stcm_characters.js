@@ -443,10 +443,26 @@ async function renderCharacterList() {
         const rightControls = document.createElement('div');
         rightControls.className = 'charRowRightFixed';
 
+        // NEW: AI Suggest button (characters only)
+        if (entity.type === 'character') {
+            const aiSuggestBtn = document.createElement('button');
+            aiSuggestBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_btn';
+            aiSuggestBtn.title = 'AI Tag & Folder suggestions';
+            aiSuggestBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Suggest';
+            aiSuggestBtn.addEventListener('click', () => {
+                // Placeholder — hook for upcoming LLM integration
+                // We'll gather: character card data, available folders & tags,
+                // call ST LLM API, then show accept/reject UI.
+                toastr.info(`AI suggestions coming soon for “${entity.name}”.`);
+                // Example future hook:
+                // openAISuggestionPanel({ characterId: entity.id, name: entity.name });
+            });
+            rightControls.appendChild(aiSuggestBtn);
+        }
+
         const editIcon = document.createElement('i');
         editIcon.className = 'fa-solid fa-pen-to-square interactable stcm_edit_icon';
         editIcon.title = 'Edit Character';
-        
 
         const deleteIcon = document.createElement('i');
         deleteIcon.className = 'fa-solid fa-trash interactable stcm_delete_icon';
