@@ -51,6 +51,7 @@ let lastSidebarInjection = 0;
 let suppressSidebarObserver = false;
 let lastKnownCharacterAvatars = [];
 const SIDEBAR_INJECTION_THROTTLE_MS = 500;
+const folderCharSort = {};
 let orphanFolderExpanded = false;
 
 let FA_ICONS = FA_ICON_LIST;
@@ -487,6 +488,18 @@ function getVisibleDescendantCharacterCount(folderId, folders) {
     return total;
 }
 
+// NEW: helper for consistent A→Z name sorting (case/locale-aware)
+function getEntityDisplayName(ent) {
+    if (!ent) return '';
+    // entities may be normalized or raw from getEntitiesList()
+    const name = (ent.item && ent.item.name) || ent.name || '';
+    return String(name).trim();
+}
+function compareByNameAtoZ(a, b) {
+    return getEntityDisplayName(a).localeCompare(getEntityDisplayName(b), undefined, { sensitivity: 'base' });
+}
+
+
 function getEntitiesNotInAnyFolder(folders) {
     const allEntities = getEntitiesList();
     const assigned = new Set();
@@ -495,27 +508,27 @@ function getEntitiesNotInAnyFolder(folders) {
             f.characters.forEach(val => assigned.add(val));
         }
     });
-    return allEntities
-        .filter(e => {
-            if (e.type === "character" && e.item && e.item.avatar) {
-                return !assigned.has(e.item.avatar);
-            }
-            if (e.type === "group" && e.id) {
-                return !assigned.has(e.id);
-            }
-            return false;
-        })
-        .sort((a, b) => {
-            // Characters come first
-            if (a.type === b.type) return 0;
-            if (a.type === "character") return -1;
-            return 1;
-        });
+
+    const unassigned = allEntities.filter(e => {
+        if (e.type === "character" && e.item && e.item.avatar) {
+            return !assigned.has(e.item.avatar);
+        }
+        if (e.type === "group" && e.id) {
+            return !assigned.has(e.id);
+        }
+        return false;
+    });
+
+    // Characters first, then groups — both A→Z by display name
+    return unassigned.sort((a, b) => {
+        if (a.type !== b.type) return a.type === "character" ? -1 : 1;
+        return compareByNameAtoZ(a, b);
+    });
 }
+
 
 export function renderSidebarFolderContents(folders, allEntities, folderId = currentSidebarFolderId) {
     if (!folders || folders.filter(f => f.id !== 'root').length === 0) return;
-    // Only update our sidebar
     const container = document.getElementById('stcm_sidebar_folder_nav');
     if (!container) return;
     container.innerHTML = "";
@@ -527,7 +540,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     controlRow.style.alignItems = 'center';
     controlRow.style.gap = '8px';
 
-    // -- Toggle
     const toggleBtn = document.createElement('i');
     toggleBtn.className = 'fa-solid fa-eye-slash stcm_private_toggle_icon';
     toggleBtn.style.cursor = 'pointer';
@@ -536,7 +548,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     toggleBtn.style.padding = '4px';
     toggleBtn.style.borderRadius = '6px';
 
-    // -- Logout
     const logoutBtn = document.createElement('i');
     logoutBtn.className = 'fa-solid fa-right-from-bracket stcm_private_logout_icon';
     logoutBtn.style.cursor = 'pointer';
@@ -550,12 +561,10 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         sessionStorage.removeItem("stcm_pin_okay");
         toastr.info("Private folder access has been locked.");
         logoutBtn.style.display = 'none';
-        // Reset visibility mode to hidden and update view
         privateFolderVisibilityMode = 0;
         renderSidebarFolderContents(folders, allEntities, 'root');
     });
 
-    // -- Back Button (icon only), only if not root
     let showBack = false;
     let backTarget = 'root';
     if (folderId !== 'root') {
@@ -563,7 +572,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             showBack = true;
             backTarget = 'root';
         } else {
-            // For normal folders, find parent
             const parent = folders.find(f => Array.isArray(f.children) && f.children.includes(folderId));
             if (parent) {
                 showBack = true;
@@ -587,7 +595,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         };
     }
 
-    // -- Breadcrumb Label
     const breadcrumbDiv = document.createElement('div');
     breadcrumbDiv.className = 'stcm_folders_breadcrumb';
     if (folderId === 'orphans') {
@@ -597,16 +604,14 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     } else {
         const chain = getFolderChain(folderId, folders);
         if (chain.length > 0) {
-            // Add .../ before the first folder
             const names = chain.map(f => f.name);
             names[0] = '.../' + names[0];
             breadcrumbDiv.textContent = names.join(' / ');
         } else {
-            breadcrumbDiv.textContent = ".../"; // fallback
+            breadcrumbDiv.textContent = ".../";
         }
     }
 
-    // -- Order: toggle, logout, back, breadcrumbs
     function updateToggleIcon() {
         toggleBtn.classList.remove('fa-eye', 'fa-eye-slash', 'fa-user-secret');
         if (privateFolderVisibilityMode === 0) {
@@ -653,8 +658,48 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     updateToggleIcon();
     controlRow.appendChild(toggleBtn);
     controlRow.appendChild(logoutBtn);
-    if (backBtn) controlRow.appendChild(backBtn); // Only append if defined
+    if (backBtn) controlRow.appendChild(backBtn);
     controlRow.appendChild(breadcrumbDiv);
+
+    // --- RIGHT-ALIGNED: per-folder character sort dropdown (real folders + 'orphans')
+    const spacer = document.createElement('div');
+    spacer.style.flex = '1 1 auto';
+    controlRow.appendChild(spacer);
+
+    let sortSelect = null;
+    const isRealFolder = (folderId !== 'root' && folderId !== 'orphans');
+    const isOrphans = (folderId === 'orphans');
+
+    if (isRealFolder || isOrphans) {
+        sortSelect = document.createElement('select');
+        sortSelect.className = 'stcm_folder_char_sort text_pole';
+        sortSelect.style.minWidth = '110px';
+        sortSelect.style.marginLeft = 'auto';
+        sortSelect.title = 'Sort characters';
+
+        const optAZ = document.createElement('option');
+        optAZ.value = 'az';
+        optAZ.textContent = 'A–Z';
+
+        const optZA = document.createElement('option');
+        optZA.value = 'za';
+        optZA.textContent = 'Z–A';
+
+        sortSelect.appendChild(optAZ);
+        sortSelect.appendChild(optZA);
+
+        const selKey = folderId; // use folderId directly, 'orphans' included
+        const sel = folderCharSort[selKey] || 'az';
+        sortSelect.value = sel;
+
+        sortSelect.addEventListener('change', () => {
+            folderCharSort[selKey] = sortSelect.value;
+            renderSidebarFolderContents(folders, allEntities, folderId);
+        });
+
+        controlRow.appendChild(sortSelect);
+    }
+
     container.appendChild(controlRow);
 
     // ====== Top of Folder List: Orphan Cards ======
@@ -684,17 +729,23 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
             };
             container.appendChild(orphanDiv);
         }
-        // ... regular children display below
     }
 
-    // --- If in "orphans" pseudo-folder, show just orphans with a back button
     if (folderId === 'orphans') {
-        const orphanedEntities = getEntitiesNotInAnyFolder(folders);
         const entityMap = stcmFolders.buildEntityMap();
+        let orphanedEntities = getEntitiesNotInAnyFolder(folders);
+    
+        const order = folderCharSort['orphans'] || 'az';
+        orphanedEntities = orphanedEntities.sort((a, b) => {
+            const cmp = compareByNameAtoZ(a, b);
+            return order === 'za' ? -cmp : cmp;
+        });
+    
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents';
+    
         orphanedEntities.forEach(entity => {
-            let key = entity.type === "character" ? entity.item?.avatar : entity.id;
+            const key = entity.type === "character" ? entity.item?.avatar : entity.id;
             const normalized = entityMap.get(key);
             if (normalized) {
                 const entityId = normalized.chid;
@@ -707,15 +758,14 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 }));
             }
         });
+    
         container.appendChild(grid);
-        // Don't render any children/folders/other stuff
         return;
-    }
+    }    
 
     const folder = folders.find(f => f.id === folderId);
     if (!folder && folderId !== 'root') return;
 
-    // === NEW: Create folder contents wrapper ===
     let contentDiv = document.getElementById('stcm_folder_contents');
     if (contentDiv) {
         contentDiv.innerHTML = "";
@@ -725,14 +775,11 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         contentDiv.className = 'stcm_folder_contents';
     }
 
-    const tagsById = buildTagMap(tags);
-    // Show folders (children)
+    // Child folders (unchanged)
     (folder.children || []).forEach(childId => {
         const child = folders.find(f => f.id === childId);
         if (child) {
             const isPrivate = !!child.private;
-
-            // Count characters and subfolders
             const charCount = child.characters?.length || 0;
             const visibleChildren = (child.children || []).filter(cid => {
                 const f = folders.find(f => f.id === cid);
@@ -759,7 +806,6 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                     (privateFolderVisibilityMode === 0 && isPrivate) ||
                     (privateFolderVisibilityMode === 2 && !isPrivate && !hasPrivateDescendant(child.id, folders));
             }
-
             if (shouldHide) {
                 folderDiv.style.display = 'none';
             }
@@ -773,12 +819,12 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 </div>
                 <span class="ch_name stcm_folder_name" title="[Folder] ${child.name}">${child.name}</span>
                 <div class="stcm_folder_counts">
-                <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
+                    <div class="stcm_folder_char_count">${charCount} Character${charCount === 1 ? '' : 's'}</div>
                     <div class="stcm_folder_folder_count">
                         ${folderCount} folder${folderCount === 1 ? '' : 's'}
                         ${totalCharCount > charCount ? ` with ${totalCharCount - charCount} character${(totalCharCount - charCount === 1) ? '' : 's'}` : ''}
                     </div>
-             </div>
+                </div>
             </div>
         `;
 
@@ -801,12 +847,20 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     });
 
     const entityMap = stcmFolders.buildEntityMap();
-    // Show characters in this folder (full card style)
-    (folder.characters || []).forEach(folderVal => {
-        let entity = entityMap.get(folderVal);
+
+    // Characters in this folder — sorted by the dropdown selection
+    const order = folderCharSort[folderId] || 'az';
+    const folderEntities = (folder.characters || [])
+        .map(folderVal => entityMap.get(folderVal))
+        .filter(Boolean)
+        .sort((a, b) => {
+            const cmp = compareByNameAtoZ(a, b);
+            return order === 'za' ? -cmp : cmp;
+        });
+
+    folderEntities.forEach(entity => {
         if (entity && typeof entity.chid !== "undefined") {
             const entityId = entity.chid;
-            // Add tag info
             const tagsForChar = getTagsForChar(entity);
             const entityCard = renderSidebarCharacterCard({
                 ...entity,
@@ -820,6 +874,8 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
 
     container.appendChild(contentDiv);
 }
+
+
 
 
 function hasPrivateDescendant(folderId, folders) {
