@@ -324,29 +324,44 @@ function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
     return unique.length ? { stop: unique, stopping_strings: unique } : {};
 }
 
-/* ---------------- prompt builders ---------------- */
-function buildSystemPrompt() {
+/* ---------------- prompt builders (split) ---------------- */
+function buildSystemPromptFolder() {
     return [
         "You are a classification assistant for a character card manager.",
-        "Task: Suggest ONE existing folder and up to THREE existing tags (from the provided lists) that best match the character.",
+        "Task: Suggest ONE existing folder (from the provided list) that best matches the character.",
         "Return STRICT JSON ONLY, no commentary.",
         "",
-        "Output schema (JSON):",
-        "{",
-        '  "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null,',
-        '  "tags": [',
-        '    {"id": "<existing-tag-id>"} | {"name": "<existing-tag-name>"},',
-        "    // up to 3",
-        "  ]",
-        "}",
+        'Output schema (JSON):',
+        '{ "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null }',
     ].join("\n");
 }
 
-function buildUserPrompt({ card, folders, tags, currentFolderPath }) {
+function buildUserPromptFolder({ card, folders, currentFolderPath }) {
     return [
         "AVAILABLE_FOLDERS:",
         JSON.stringify(folders, null, 2),
         "",
+        "CURRENT_ASSIGNMENTS:",
+        JSON.stringify({ folderPath: currentFolderPath || "(none)" }, null, 2),
+        "",
+        "CHARACTER_CARD:",
+        JSON.stringify(card, null, 2),
+    ].join("\n");
+}
+
+function buildSystemPromptTags() {
+    return [
+        "You are a classification assistant for a character card manager.",
+        "Task: Suggest up to THREE existing tags (from the provided list) that best match the character.",
+        "Return STRICT JSON ONLY, no commentary.",
+        "",
+        'Output schema (JSON):',
+        '{ "tags": [ {"id":"<existing-tag-id>"} | {"name":"<existing-tag-name>"} ] }',
+    ].join("\n");
+}
+
+function buildUserPromptTags({ card, tags, currentFolderPath }) {
+    return [
         "AVAILABLE_TAGS:",
         JSON.stringify(tags, null, 2),
         "",
@@ -354,36 +369,31 @@ function buildUserPrompt({ card, folders, tags, currentFolderPath }) {
         JSON.stringify({ folderPath: currentFolderPath || "(none)" }, null, 2),
         "",
         "CHARACTER_CARD:",
-        JSON.stringify(card, null, 2)
+        JSON.stringify(card, null, 2),
     ].join("\n");
 }
 
-/* ---------------- main entry ---------------- */
-export async function openAISuggestForCharacter({ charId }) {
+/* ---------------- FOLDER suggestion flow ---------------- */
+export async function openAISuggestFolderForCharacter({ charId }) {
     ensureCtx();
     const char = findCharacterByAvatarId(charId);
-    if (!char) {
-        callGenericPopup("Character not found for AI suggestion.", POPUP_TYPE.ALERT, "AI Suggest");
-        return;
-    }
+    if (!char) return callGenericPopup("Character not found for AI suggestion.", POPUP_TYPE.ALERT, "AI Suggest");
 
     const folders = await stcmFolders.loadFolders();
     const folderList = buildAvailableFoldersDescriptor(folders);
-    const tagList = buildAvailableTagsDescriptor();
-
     const card = pickCardFields(char);
     const currentFolderId = getCurrentFolderId(charId, folders);
     const currentFolderPath = buildFolderPath(currentFolderId, folders);
 
-    const systemPrompt = buildSystemPrompt();
-    const userPrompt = buildUserPrompt({ card, folders: folderList, tags: tagList, currentFolderPath });
+    const systemPrompt = buildSystemPromptFolder();
+    const userPrompt = buildUserPromptFolder({ card, folders: folderList, currentFolderPath });
 
-    // ---------- Connection Manager parity with GW ----------
+    // ---------- Connection Manager parity ----------
     const profile = getSelectedProfile();
-    if (!profile) { callGenericPopup('No Connection Manager profile selected. Pick one in settings and try again.', POPUP_TYPE.ALERT, 'AI Suggest'); return; }
+    if (!profile) return callGenericPopup('No Connection Manager profile selected. Pick one in settings and try again.', POPUP_TYPE.ALERT, 'AI Suggest');
 
     const apiInfo = resolveApiBehavior(profile);
-    if (!apiInfo) { callGenericPopup(`Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`, POPUP_TYPE.ALERT, 'AI Suggest'); return; }
+    if (!apiInfo) return callGenericPopup(`Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`, POPUP_TYPE.ALERT, 'AI Suggest');
 
     const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
     const temperature = getTemperature();
@@ -411,23 +421,21 @@ export async function openAISuggestForCharacter({ charId }) {
 
     try {
         if (family === 'cc' || apiInfo.selected === 'openai') {
-            // --- ChatCompletion path (matches GW) ---
             const requestPayload = {
                 stream: false,
                 messages: [
                     { role: 'system', content: String(systemPrompt) },
                     { role: 'user', content: String(userPrompt) },
                 ],
-                chat_completion_source: apiInfo.source,    // CRITICAL for ST’s backend routing
+                chat_completion_source: apiInfo.source,
                 temperature,
-                max_tokens: 600,
+                max_tokens: 400,
                 ...(stopFields),
                 ...(custom_url ? { custom_url } : {}),
                 ...(reverse_proxy ? { reverse_proxy } : {}),
                 ...(proxy_password ? { proxy_password } : {}),
                 ...(modelResolved ? { model: modelResolved } : {}),
             };
-
             const response = await ChatCompletionService.processRequest(
                 requestPayload,
                 { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
@@ -435,21 +443,17 @@ export async function openAISuggestForCharacter({ charId }) {
                 null
             );
             rawText = String(response?.content || '').trim();
-
         } else {
-            // --- TextCompletion path (e.g., TGW/Kobold) ---
-            // If you want to wrap with instruct tokens here, you could mirror GW’s buildInstructPrompt()
             const requestPayload = {
                 stream: false,
                 prompt: `${systemPrompt}\n\n${userPrompt}`,
-                max_tokens: 600,
-                api_type: apiInfo.api_type, // e.g., 'koboldcpp'
+                max_tokens: 400,
+                api_type: apiInfo.api_type,
                 temperature,
                 ...(stopFields),
                 ...(custom_url ? { api_server: custom_url } : {}),
                 ...(modelResolved ? { model: modelResolved } : {}),
             };
-
             const response = await TextCompletionService.processRequest(
                 requestPayload,
                 { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
@@ -459,88 +463,170 @@ export async function openAISuggestForCharacter({ charId }) {
             rawText = String(response?.content || '').trim();
         }
     } catch (e) {
-        console.warn('[STCM AI Suggest] LLM call failed:', e);
-        callGenericPopup(`LLM call failed: ${e?.error?.message || e?.message || 'See console for details.'}`, POPUP_TYPE.ALERT, "AI Suggest");
-        return;
+        console.warn('[STCM AI Suggest Folder] LLM call failed:', e);
+        return callGenericPopup(`LLM call failed: ${e?.error?.message || e?.message || 'See console for details.'}`, POPUP_TYPE.ALERT, "AI Suggest");
     }
 
     const jsonBlob = rawText.replace(/^[\s\S]*?({[\s\S]+})[\s\S]*$/m, '$1').trim();
     const resultJSON = safeParseJSON(jsonBlob);
     if (!resultJSON || typeof resultJSON !== 'object') {
-        callGenericPopup("Model did not return valid JSON suggestions.", POPUP_TYPE.ALERT, "AI Suggest");
-        return;
+        return callGenericPopup("Model did not return valid JSON.", POPUP_TYPE.ALERT, "AI Suggest");
     }
 
-    // Resolve to existing entities
     const resolvedFolderId = mapNameOrIdToExistingFolderId(resultJSON.folder, folders);
-    const resolvedTagIds = mapNameOrIdToExistingTagIds(resultJSON.tags);
 
-    // ---------- Lightweight accept/reject UI ----------
+    // ---------- Accept/reject UI ----------
     const wrap = document.createElement('div');
-
-    const mkRow = (label, value, small=false) => {
+    const mkRow = (label, value) => {
         const row = document.createElement('div');
         row.style.margin = '6px 0';
-        const head = document.createElement('div');
-        head.style.opacity = .85;
-        head.style.fontSize = small ? '11px' : '12px';
-        head.textContent = label;
-        const body = document.createElement('div');
-        body.style.fontWeight = 600;
-        body.style.fontSize = small ? '12px' : '13px';
-        body.textContent = value;
-        row.append(head, body);
-        return row;
+        const head = document.createElement('div'); head.style.opacity = .85; head.style.fontSize = '11px'; head.textContent = label;
+        const body = document.createElement('div'); body.style.fontWeight = 600; body.style.fontSize = '13px'; body.textContent = value;
+        row.append(head, body); return row;
     };
-
     wrap.appendChild(mkRow("Character", card.name || "(unnamed)"));
-    wrap.appendChild(mkRow("Current folder", currentFolderPath || "(none)", true));
+    wrap.appendChild(mkRow("Current folder", currentFolderPath || "(none)"));
     wrap.appendChild(document.createElement('hr'));
 
-    // Folder block
-    const folderRow = document.createElement('div');
-    folderRow.style.display = 'flex';
-    folderRow.style.alignItems = 'center';
-    folderRow.style.gap = '8px';
+    const row = document.createElement('div');
+    row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '8px';
+    const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = !!resolvedFolderId; chk.disabled = !resolvedFolderId;
+    const folderName = resolvedFolderId ? (folders.find(f => f.id === resolvedFolderId)?.name || '(unknown)') : '(no suggestion)';
+    const lbl = document.createElement('label'); lbl.style.display = 'flex'; lbl.style.alignItems = 'center'; lbl.style.gap = '6px';
+    lbl.append(chk, document.createTextNode(`Folder: ${folderName}`));
+    row.appendChild(lbl); wrap.appendChild(row);
 
-    const folderChk = document.createElement('input');
-    folderChk.type = 'checkbox';
-    folderChk.checked = !!resolvedFolderId;
-    folderChk.disabled = !resolvedFolderId;
+    const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Folder Suggestion", { okButton: 'Apply', cancelButton: 'Cancel' });
+    if (res !== POPUP_RESULT.AFFIRMATIVE) return;
 
-    const folderName = resolvedFolderId
-        ? (folders.find(f => f.id === resolvedFolderId)?.name || '(unknown)')
-        : '(no suggestion)';
-    const folderLbl = document.createElement('label');
-    folderLbl.style.display = 'flex';
-    folderLbl.style.alignItems = 'center';
-    folderLbl.style.gap = '6px';
-    folderLbl.append(folderChk, document.createTextNode(`Folder: ${folderName}`));
-    folderRow.appendChild(folderLbl);
-    wrap.appendChild(folderRow);
+    try {
+        const freshFolders = await stcmFolders.loadFolders();
+        if (chk.checked && resolvedFolderId) await applyFolder(charId, resolvedFolderId, freshFolders);
+        await refreshCharacterRowUI(charId);
+    } catch (e) {
+        console.warn('[STCM AI Suggest Folder] apply failed:', e);
+        callGenericPopup('Failed to apply folder. See console for details.', POPUP_TYPE.ALERT, 'AI Suggest');
+    }
+}
 
-    // Tags block
-    const tagsBlock = document.createElement('div');
-    tagsBlock.style.marginTop = '10px';
-    const tagHeader = document.createElement('div');
-    tagHeader.textContent = 'Tag suggestions (accept individually):';
-    tagHeader.style.marginBottom = '6px';
-    tagHeader.style.opacity = .85;
-    tagsBlock.appendChild(tagHeader);
+/* ---------------- TAGS suggestion flow ---------------- */
+export async function openAISuggestTagsForCharacter({ charId }) {
+    ensureCtx();
+    const char = findCharacterByAvatarId(charId);
+    if (!char) return callGenericPopup("Character not found for AI suggestion.", POPUP_TYPE.ALERT, "AI Suggest");
 
-    const tagRows = [];
+    const folders = await stcmFolders.loadFolders();
+    const tagList = buildAvailableTagsDescriptor();
+    const card = pickCardFields(char);
+    const currentFolderId = getCurrentFolderId(charId, folders);
+    const currentFolderPath = buildFolderPath(currentFolderId, folders);
+
+    const systemPrompt = buildSystemPromptTags();
+    const userPrompt = buildUserPromptTags({ card, tags: tagList, currentFolderPath });
+
+    // ---------- Connection Manager parity ----------
+    const profile = getSelectedProfile();
+    if (!profile) return callGenericPopup('No Connection Manager profile selected. Pick one in settings and try again.', POPUP_TYPE.ALERT, 'AI Suggest');
+
+    const apiInfo = resolveApiBehavior(profile);
+    if (!apiInfo) return callGenericPopup(`Unknown API type "${profile?.api}". Check CONNECT_API_MAP.`, POPUP_TYPE.ALERT, 'AI Suggest');
+
+    const family = profile.mode ? String(profile.mode).toLowerCase() : apiInfo.family;
+    const temperature = getTemperature();
+
+    const instructGlobal = getGlobalInstructConfig();
+    const instructIsOnGlobal = !!(instructGlobal && instructGlobal.enabled);
+    const instructIsOnProfile = profileInstructEnabled(profile);
+    const hasInstructName = !!(profile?.instruct && String(profile.instruct).trim().length);
+    const instructEnabled = instructIsOnGlobal || instructIsOnProfile || hasInstructName;
+
+    const { cfg: instructCfgRaw, name: instructName } = resolveEffectiveInstruct(profile);
+    const instructCfgEff = ensureKoboldcppInstruct(instructCfgRaw, apiInfo);
+
+    const modelFromCtx = getModelFromContextByApi(profile);
+    const modelResolved = modelFromCtx || profile.model || null;
+
+    const custom_url = profile['api-url'] || null;
+    const proxy = getProxyByName(profile.proxy);
+    const reverse_proxy = proxy?.url || null;
+    const proxy_password = proxy?.password || null;
+
+    const stopFields = buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff);
+
+    let rawText = '';
+
+    try {
+        if (family === 'cc' || apiInfo.selected === 'openai') {
+            const requestPayload = {
+                stream: false,
+                messages: [
+                    { role: 'system', content: String(systemPrompt) },
+                    { role: 'user', content: String(userPrompt) },
+                ],
+                chat_completion_source: apiInfo.source,
+                temperature,
+                max_tokens: 400,
+                ...(stopFields),
+                ...(custom_url ? { custom_url } : {}),
+                ...(reverse_proxy ? { reverse_proxy } : {}),
+                ...(proxy_password ? { proxy_password } : {}),
+                ...(modelResolved ? { model: modelResolved } : {}),
+            };
+            const response = await ChatCompletionService.processRequest(
+                requestPayload,
+                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                true,
+                null
+            );
+            rawText = String(response?.content || '').trim();
+        } else {
+            const requestPayload = {
+                stream: false,
+                prompt: `${systemPrompt}\n\n${userPrompt}`,
+                max_tokens: 400,
+                api_type: apiInfo.api_type,
+                temperature,
+                ...(stopFields),
+                ...(custom_url ? { api_server: custom_url } : {}),
+                ...(modelResolved ? { model: modelResolved } : {}),
+            };
+            const response = await TextCompletionService.processRequest(
+                requestPayload,
+                { presetName: profile.preset || undefined, instructName: instructEnabled ? (instructName || 'effective') : undefined },
+                true,
+                null
+            );
+            rawText = String(response?.content || '').trim();
+        }
+    } catch (e) {
+        console.warn('[STCM AI Suggest Tags] LLM call failed:', e);
+        return callGenericPopup(`LLM call failed: ${e?.error?.message || e?.message || 'See console for details.'}`, POPUP_TYPE.ALERT, "AI Suggest");
+    }
+
+    const jsonBlob = rawText.replace(/^[\s\S]*?({[\s\S]+})[\s\S]*$/m, '$1').trim();
+    const resultJSON = safeParseJSON(jsonBlob);
+    if (!resultJSON || typeof resultJSON !== 'object') {
+        return callGenericPopup("Model did not return valid JSON.", POPUP_TYPE.ALERT, "AI Suggest");
+    }
+
+    const resolvedTagIds = mapNameOrIdToExistingTagIds(resultJSON.tags);
+
+    // ---------- Accept/reject UI ----------
+    const wrap = document.createElement('div');
+    const header = document.createElement('div');
+    header.textContent = 'Accept tag suggestions:';
+    header.style.marginBottom = '6px'; header.style.opacity = .85;
+    wrap.appendChild(header);
+
+    const rows = [];
     if (resolvedTagIds.length) {
         for (const tid of resolvedTagIds) {
             const tag = (tags || []).find(t => t.id === tid);
-            const tr = document.createElement('label');
-            tr.style.display = 'flex';
-            tr.style.alignItems = 'center';
-            tr.style.gap = '6px';
-            tr.style.margin = '2px 0';
+            const line = document.createElement('label');
+            line.style.display = 'flex'; line.style.alignItems = 'center'; line.style.gap = '6px'; line.style.margin = '2px 0';
 
             const chk = document.createElement('input');
-            chk.type = 'checkbox';
-            chk.checked = true;
+            chk.type = 'checkbox'; chk.checked = true;
 
             const chip = document.createElement('span');
             chip.textContent = tag?.name || tid;
@@ -550,38 +636,25 @@ export async function openAISuggestForCharacter({ charId }) {
             chip.style.padding = '2px 6px';
             chip.style.borderRadius = '6px';
 
-            tr.append(chk, chip);
-            tagsBlock.appendChild(tr);
-            tagRows.push({ tid, chk });
+            line.append(chk, chip);
+            wrap.appendChild(line);
+            rows.push({ tid, chk });
         }
     } else {
         const none = document.createElement('div');
-        none.textContent = '(no tag suggestions)';
-        none.style.opacity = .7;
-        none.style.fontSize = '12px';
-        tagsBlock.appendChild(none);
+        none.textContent = '(no tag suggestions)'; none.style.opacity = .7; none.style.fontSize = '12px';
+        wrap.appendChild(none);
     }
 
-    wrap.appendChild(tagsBlock);
-
-    const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Tag & Folder Suggestions", {
-        okButton: 'Apply',
-        cancelButton: 'Cancel'
-    });
+    const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Tag Suggestions", { okButton: 'Apply', cancelButton: 'Cancel' });
     if (res !== POPUP_RESULT.AFFIRMATIVE) return;
 
     try {
-        const freshFolders = await stcmFolders.loadFolders();
-        if (folderChk.checked && resolvedFolderId) {
-            await applyFolder(charId, resolvedFolderId, freshFolders);
-        }
-        const acceptedTagIds = tagRows.filter(r => r.chk.checked).map(r => r.tid);
-        if (acceptedTagIds.length) await applyTags(charId, acceptedTagIds);
-
-        // ✅ immediately refresh the visible row + broadcast change
+        const accepted = rows.filter(r => r.chk.checked).map(r => r.tid);
+        if (accepted.length) await applyTags(charId, accepted);
         await refreshCharacterRowUI(charId);
     } catch (e) {
-        console.warn('[STCM AI Suggest] apply failed:', e);
-        callGenericPopup('Failed to apply suggestions. See console for details.', POPUP_TYPE.ALERT, 'AI Suggest');
+        console.warn('[STCM AI Suggest Tags] apply failed:', e);
+        callGenericPopup('Failed to apply tags. See console for details.', POPUP_TYPE.ALERT, 'AI Suggest');
     }
 }

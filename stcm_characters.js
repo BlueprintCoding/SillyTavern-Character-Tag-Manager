@@ -22,7 +22,7 @@ import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 import * as stcmFolders from './stcm_folders.js';
 import { getFolderOptionsTree } from './stcm_folders_ui.js'; // adjust path if needed
 import { createEditSectionForCharacter } from './stcm_char_panel.js'
-import { openAISuggestForCharacter } from './stcm_ai_suggest_folder_tags.js';
+import { openAISuggestFolderForCharacter, openAISuggestTagsForCharacter } from './stcm_ai_suggest_folder_tags.js';
 
 
 async function renderCharacterList() {
@@ -446,16 +446,25 @@ async function renderCharacterList() {
         rightControls.className = 'charRowRightFixed';
 
         // NEW: AI Suggest button (characters only)
-        if (entity.type === 'character') {
-            const aiSuggestBtn = document.createElement('button');
-            aiSuggestBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_btn';
-            aiSuggestBtn.title = 'AI Tag & Folder suggestions';
-            aiSuggestBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Suggest';
-            aiSuggestBtn.addEventListener('click', () => {
-                openAISuggestForCharacter({ charId: entity.id });
-            });
-            rightControls.appendChild(aiSuggestBtn);
-        }
+            if (entity.type === 'character') {
+                const suggestFolderBtn = document.createElement('button');
+                suggestFolderBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_folder_btn';
+                suggestFolderBtn.title = 'AI Folder suggestion';
+                suggestFolderBtn.innerHTML = '<i class="fa-solid fa-folder-tree"></i> Suggest Folder';
+                suggestFolderBtn.addEventListener('click', () => {
+                    openAISuggestFolderForCharacter({ charId: entity.id });
+                });
+                rightControls.appendChild(suggestFolderBtn);
+
+                const suggestTagsBtn = document.createElement('button');
+                suggestTagsBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_tags_btn';
+                suggestTagsBtn.title = 'AI Tag suggestions';
+                suggestTagsBtn.innerHTML = '<i class="fa-solid fa-tags"></i> Suggest Tags';
+                suggestTagsBtn.addEventListener('click', () => {
+                    openAISuggestTagsForCharacter({ charId: entity.id });
+                });
+                rightControls.appendChild(suggestTagsBtn);
+            }
 
         const editIcon = document.createElement('i');
         editIcon.className = 'fa-solid fa-pen-to-square interactable stcm_edit_icon';
