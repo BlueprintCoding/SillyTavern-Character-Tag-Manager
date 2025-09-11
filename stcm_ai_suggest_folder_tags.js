@@ -1,5 +1,7 @@
 // stcm_ai_suggest_folder_tags.js
 // AI suggestions for Folder & Tag assignment (per character), wired like Greeting Workshop.
+// Now returns a JSON object with the chosen folder/tags *and* a one-paragraph reasoning,
+// and strictly validates suggestions against existing folders/tags.
 
 import { getContext } from "../../../extensions.js";
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from "../../../popup.js";
@@ -63,30 +65,41 @@ function safeParseJSON(text) {
     try { return JSON.parse(text); } catch { return null; }
 }
 
-function mapNameOrIdToExistingTagIds(suggestedTags) {
-    const byName = new Map((tags || []).map(t => [String(t.name).toLowerCase(), t.id]));
-    const byId = new Set((tags || []).map(t => t.id));
-    const out = [];
-    for (const t of (suggestedTags || [])) {
-        const id = t?.id;
-        const name = String(t?.name ?? '').toLowerCase().trim();
-        if (id && byId.has(id)) out.push(id);
-        else if (name && byName.has(name)) out.push(byName.get(name));
-    }
-    return Array.from(new Set(out)).slice(0, 3);
-}
-
+/* ---------- strict resolution to existing entities + diagnostics ---------- */
 function mapNameOrIdToExistingFolderId(suggestedFolder, folders) {
-    if (!suggestedFolder) return '';
+    if (!suggestedFolder) return { id: '', unknown: suggestedFolder || null };
     const nameLc = String(suggestedFolder?.name ?? '').toLowerCase().trim();
     const id = suggestedFolder?.id;
     const all = folders || [];
-    if (id && all.some(f => f.id === id)) return id;
+    const byId = id && all.find(f => f.id === id);
+    if (byId) return { id: byId.id, unknown: null };
     if (nameLc) {
-        const found = all.find(f => f.name && f.name.toLowerCase() === nameLc);
-        if (found) return found.id;
+        const byName = all.find(f => f.name && f.name.toLowerCase() === nameLc);
+        if (byName) return { id: byName.id, unknown: null };
     }
-    return '';
+    return { id: '', unknown: suggestedFolder };
+}
+
+function resolveTagsSuggestionsWithDiagnostics(suggestedTags) {
+    const byName = new Map((tags || []).map(t => [String(t.name).toLowerCase(), t.id]));
+    const byId = new Set((tags || []).map(t => t.id));
+    const matchedIds = [];
+    const unknown = [];
+
+    for (const t of (suggestedTags || [])) {
+        const id = t?.id;
+        const name = String(t?.name ?? '').toLowerCase().trim();
+        if (id && byId.has(id)) {
+            if (!matchedIds.includes(id)) matchedIds.push(id);
+        } else if (name && byName.has(name)) {
+            const mapped = byName.get(name);
+            if (!matchedIds.includes(mapped)) matchedIds.push(mapped);
+        } else {
+            unknown.push(t);
+        }
+        if (matchedIds.length >= 3) break; // cap at 3
+    }
+    return { matchedIds, unknown };
 }
 
 async function applyFolder(charId, newFolderId, allFolders) {
@@ -107,7 +120,6 @@ async function applyTags(charId, tagIds) {
     }
 }
 
-// -- put near other helpers --
 async function refreshCharacterRowUI(charId) {
     // 1) get latest state
     const folders = await stcmFolders.loadFolders();
@@ -140,7 +152,6 @@ async function refreshCharacterRowUI(charId) {
         document.querySelector(`[data-stcm-char-id="${charId}"]`);
 
     if (row) {
-        // Try a few common cell selectors; no-ops if not found.
         const folderCell =
             row.querySelector('[data-role="folder-cell"]') ||
             row.querySelector('.stcm-col-folder') ||
@@ -154,11 +165,11 @@ async function refreshCharacterRowUI(charId) {
         if (tagsCell) tagsCell.innerHTML = chipsHTML || '—';
     }
 
-    // 3) also broadcast events so the modal/table can do a fuller re-render if it wants
+    // 3) broadcast events
     try { document.dispatchEvent(new CustomEvent('stcm:character_meta_changed', { detail: { charId } })); } catch {}
     try { document.dispatchEvent(new CustomEvent('stcm:tags_folders_updated', { detail: { charId } })); } catch {}
 
-    // 4) optional hard refresh hooks if your modal exposes them
+    // 4) optional hard refresh hooks
     try { window?.stcm?.characterTagManager?.refresh?.(); } catch {}
     try { window?.stcm?.refreshCharacterTable?.(); } catch {}
 }
@@ -324,15 +335,22 @@ function buildStopFields(apiInfo, profile, instructEnabled, instructCfgEff) {
     return unique.length ? { stop: unique, stopping_strings: unique } : {};
 }
 
-/* ---------------- prompt builders (split) ---------------- */
+/* ---------------- prompt builders (split, with reasoning) ---------------- */
 function buildSystemPromptFolder() {
     return [
         "You are a classification assistant for a character card manager.",
-        "Task: Suggest ONE existing folder (from the provided list) that best matches the character.",
+        "Task: Pick exactly ONE existing folder from the provided list that best matches the character.",
+        "STRICT RULES:",
+        "- Choose ONLY from AVAILABLE_FOLDERS by 'id' or exact 'name'. Never invent a new folder.",
+        "- If nothing fits, set folder to null.",
+        "- Include a single-paragraph 'reason' (≤ 80 words) explaining the choice. No lists, no line breaks.",
         "Return STRICT JSON ONLY, no commentary.",
         "",
         'Output schema (JSON):',
-        '{ "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null }',
+        '{',
+        '  "folder": {"id": "<existing-folder-id>"} | {"name": "<existing-folder-name>"} | null,',
+        '  "reason": "<one paragraph, <= 80 words>"',
+        '}',
     ].join("\n");
 }
 
@@ -352,11 +370,18 @@ function buildUserPromptFolder({ card, folders, currentFolderPath }) {
 function buildSystemPromptTags() {
     return [
         "You are a classification assistant for a character card manager.",
-        "Task: Suggest up to THREE existing tags (from the provided list) that best match the character.",
+        "Task: Suggest up to THREE existing tags from the provided list that best match the character.",
+        "STRICT RULES:",
+        "- Choose ONLY from AVAILABLE_TAGS by 'id' or exact 'name'. Never invent a new tag.",
+        "- Output at most 3 tags.",
+        "- Include a single-paragraph 'reason' (≤ 80 words) explaining the choices. No lists, no line breaks.",
         "Return STRICT JSON ONLY, no commentary.",
         "",
         'Output schema (JSON):',
-        '{ "tags": [ {"id":"<existing-tag-id>"} | {"name":"<existing-tag-name>"} ] }',
+        '{',
+        '  "tags": [ {"id":"<existing-tag-id>"} | {"name":"<existing-tag-name>"} ],',
+        '  "reason": "<one paragraph, <= 80 words>"',
+        '}',
     ].join("\n");
 }
 
@@ -429,7 +454,7 @@ export async function openAISuggestFolderForCharacter({ charId }) {
                 ],
                 chat_completion_source: apiInfo.source,
                 temperature,
-                max_tokens: 400,
+                max_tokens: 600,
                 ...(stopFields),
                 ...(custom_url ? { custom_url } : {}),
                 ...(reverse_proxy ? { reverse_proxy } : {}),
@@ -447,7 +472,7 @@ export async function openAISuggestFolderForCharacter({ charId }) {
             const requestPayload = {
                 stream: false,
                 prompt: `${systemPrompt}\n\n${userPrompt}`,
-                max_tokens: 400,
+                max_tokens: 600,
                 api_type: apiInfo.api_type,
                 temperature,
                 ...(stopFields),
@@ -473,7 +498,8 @@ export async function openAISuggestFolderForCharacter({ charId }) {
         return callGenericPopup("Model did not return valid JSON.", POPUP_TYPE.ALERT, "AI Suggest");
     }
 
-    const resolvedFolderId = mapNameOrIdToExistingFolderId(resultJSON.folder, folders);
+    const { id: resolvedFolderId, unknown: unknownFolder } = mapNameOrIdToExistingFolderId(resultJSON.folder, folders);
+    const reasoning = String(resultJSON.reason || '').replace(/\s+/g, ' ').trim();
 
     // ---------- Accept/reject UI ----------
     const wrap = document.createElement('div');
@@ -486,15 +512,38 @@ export async function openAISuggestFolderForCharacter({ charId }) {
     };
     wrap.appendChild(mkRow("Character", card.name || "(unnamed)"));
     wrap.appendChild(mkRow("Current folder", currentFolderPath || "(none)"));
+
+    if (reasoning) {
+        const reasonHdr = document.createElement('div');
+        reasonHdr.textContent = 'Reasoning:';
+        reasonHdr.style.marginTop = '8px';
+        reasonHdr.style.opacity = .85;
+        const reasonBody = document.createElement('div');
+        reasonBody.style.fontSize = '12px';
+        reasonBody.style.marginTop = '2px';
+        reasonBody.textContent = reasoning;
+        wrap.appendChild(reasonHdr);
+        wrap.appendChild(reasonBody);
+    }
+
     wrap.appendChild(document.createElement('hr'));
 
     const row = document.createElement('div');
     row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '8px';
     const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = !!resolvedFolderId; chk.disabled = !resolvedFolderId;
-    const folderName = resolvedFolderId ? (folders.find(f => f.id === resolvedFolderId)?.name || '(unknown)') : '(no suggestion)';
+    const folderName = resolvedFolderId ? (folders.find(f => f.id === resolvedFolderId)?.name || '(unknown)') : '(no valid suggestion)';
     const lbl = document.createElement('label'); lbl.style.display = 'flex'; lbl.style.alignItems = 'center'; lbl.style.gap = '6px';
     lbl.append(chk, document.createTextNode(`Folder: ${folderName}`));
     row.appendChild(lbl); wrap.appendChild(row);
+
+    if (!resolvedFolderId && unknownFolder) {
+        const warn = document.createElement('div');
+        warn.style.marginTop = '6px';
+        warn.style.fontSize = '11px';
+        warn.style.opacity = .75;
+        warn.textContent = 'Note: Suggested folder does not exist in your list and was ignored.';
+        wrap.appendChild(warn);
+    }
 
     const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Folder Suggestion", { okButton: 'Apply', cancelButton: 'Cancel' });
     if (res !== POPUP_RESULT.AFFIRMATIVE) return;
@@ -565,7 +614,7 @@ export async function openAISuggestTagsForCharacter({ charId }) {
                 ],
                 chat_completion_source: apiInfo.source,
                 temperature,
-                max_tokens: 400,
+                max_tokens: 600,
                 ...(stopFields),
                 ...(custom_url ? { custom_url } : {}),
                 ...(reverse_proxy ? { reverse_proxy } : {}),
@@ -583,7 +632,7 @@ export async function openAISuggestTagsForCharacter({ charId }) {
             const requestPayload = {
                 stream: false,
                 prompt: `${systemPrompt}\n\n${userPrompt}`,
-                max_tokens: 400,
+                max_tokens: 600,
                 api_type: apiInfo.api_type,
                 temperature,
                 ...(stopFields),
@@ -609,12 +658,27 @@ export async function openAISuggestTagsForCharacter({ charId }) {
         return callGenericPopup("Model did not return valid JSON.", POPUP_TYPE.ALERT, "AI Suggest");
     }
 
-    const resolvedTagIds = mapNameOrIdToExistingTagIds(resultJSON.tags);
+    const { matchedIds: resolvedTagIds, unknown: unknownTags } = resolveTagsSuggestionsWithDiagnostics(resultJSON.tags);
+    const reasoning = String(resultJSON.reason || '').replace(/\s+/g, ' ').trim();
 
     // ---------- Accept/reject UI ----------
     const wrap = document.createElement('div');
+
+    if (reasoning) {
+        const reasonHdr = document.createElement('div');
+        reasonHdr.textContent = 'Reasoning:';
+        reasonHdr.style.marginBottom = '6px';
+        reasonHdr.style.opacity = .85;
+        const reasonBody = document.createElement('div');
+        reasonBody.style.fontSize = '12px';
+        reasonBody.textContent = reasoning;
+        wrap.appendChild(reasonHdr);
+        wrap.appendChild(reasonBody);
+    }
+
     const header = document.createElement('div');
     header.textContent = 'Accept tag suggestions:';
+    header.style.marginTop = '8px';
     header.style.marginBottom = '6px'; header.style.opacity = .85;
     wrap.appendChild(header);
 
@@ -642,8 +706,18 @@ export async function openAISuggestTagsForCharacter({ charId }) {
         }
     } else {
         const none = document.createElement('div');
-        none.textContent = '(no tag suggestions)'; none.style.opacity = .7; none.style.fontSize = '12px';
+        none.textContent = '(no valid tag suggestions matched your tag list)'; none.style.opacity = .7; none.style.fontSize = '12px';
         wrap.appendChild(none);
+    }
+
+    if (unknownTags?.length) {
+        const warn = document.createElement('div');
+        warn.style.marginTop = '6px';
+        warn.style.fontSize = '11px';
+        warn.style.opacity = .75;
+        const names = unknownTags.map(t => t?.name || t?.id || '(unknown)').join(', ');
+        warn.textContent = `Ignored unknown tag(s): ${names}`;
+        wrap.appendChild(warn);
     }
 
     const res = await callGenericPopup(wrap, POPUP_TYPE.CONFIRM, "AI Tag Suggestions", { okButton: 'Apply', cancelButton: 'Cancel' });
