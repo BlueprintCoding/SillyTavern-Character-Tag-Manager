@@ -661,14 +661,16 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     if (backBtn) controlRow.appendChild(backBtn);
     controlRow.appendChild(breadcrumbDiv);
 
-    // --- RIGHT-ALIGNED: per-folder character sort dropdown (only for real folders)
+    // --- RIGHT-ALIGNED: per-folder character sort dropdown (real folders + 'orphans')
     const spacer = document.createElement('div');
     spacer.style.flex = '1 1 auto';
     controlRow.appendChild(spacer);
 
     let sortSelect = null;
     const isRealFolder = (folderId !== 'root' && folderId !== 'orphans');
-    if (isRealFolder) {
+    const isOrphans = (folderId === 'orphans');
+
+    if (isRealFolder || isOrphans) {
         sortSelect = document.createElement('select');
         sortSelect.className = 'stcm_folder_char_sort text_pole';
         sortSelect.style.minWidth = '110px';
@@ -686,13 +688,12 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
         sortSelect.appendChild(optAZ);
         sortSelect.appendChild(optZA);
 
-        // Default A–Z if not set yet
-        const sel = folderCharSort[folderId] || 'az';
+        const selKey = folderId; // use folderId directly, 'orphans' included
+        const sel = folderCharSort[selKey] || 'az';
         sortSelect.value = sel;
 
         sortSelect.addEventListener('change', () => {
-            folderCharSort[folderId] = sortSelect.value;
-            // re-render this folder view with the new order
+            folderCharSort[selKey] = sortSelect.value;
             renderSidebarFolderContents(folders, allEntities, folderId);
         });
 
