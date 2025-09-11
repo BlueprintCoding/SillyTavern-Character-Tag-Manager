@@ -732,12 +732,20 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
     }
 
     if (folderId === 'orphans') {
-        const orphanedEntities = getEntitiesNotInAnyFolder(folders);
         const entityMap = stcmFolders.buildEntityMap();
+        let orphanedEntities = getEntitiesNotInAnyFolder(folders);
+    
+        const order = folderCharSort['orphans'] || 'az';
+        orphanedEntities = orphanedEntities.sort((a, b) => {
+            const cmp = compareByNameAtoZ(a, b);
+            return order === 'za' ? -cmp : cmp;
+        });
+    
         const grid = document.createElement('div');
         grid.className = 'stcm_folder_contents';
+    
         orphanedEntities.forEach(entity => {
-            let key = entity.type === "character" ? entity.item?.avatar : entity.id;
+            const key = entity.type === "character" ? entity.item?.avatar : entity.id;
             const normalized = entityMap.get(key);
             if (normalized) {
                 const entityId = normalized.chid;
@@ -750,9 +758,10 @@ export function renderSidebarFolderContents(folders, allEntities, folderId = cur
                 }));
             }
         });
+    
         container.appendChild(grid);
         return;
-    }
+    }    
 
     const folder = folders.find(f => f.id === folderId);
     if (!folder && folderId !== 'root') return;
