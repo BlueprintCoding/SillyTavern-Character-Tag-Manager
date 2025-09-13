@@ -367,7 +367,7 @@ function addTagMapBackup(reason = 'manual') {
     if (!Array.isArray(stcm.tagMapBackups)) stcm.tagMapBackups = [];
     stcm.tagMapBackups.unshift(snapshot);
 
-    const RETAIN = 20; // keep last 20 backups
+    const RETAIN = 3; // keep last 3 backups
     if (stcm.tagMapBackups.length > RETAIN) {
         stcm.tagMapBackups.length = RETAIN;
     }
