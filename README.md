@@ -76,10 +76,65 @@ SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a cen
 * **Negation:** Add `-` before a term to exclude it.
   *Example:* `T:Elf -T:Dark` finds entries with "Elf" but **not** "Dark".
 
----
-
 **Tip:** Combine AND/OR:
 `A:John, T:Elf T:Magic` finds entries with "John" in any field, **or** both "Elf" and "Magic" tags together.
+
+-----
+
+**AI Assisted Folder and Tagging for Characters**
+Sends a list of your folders and tags, along with the character data (Name, description, personality and scenario fields) to your currently set/active LLM/API for assessment for proper folder or tags. 
+
+<img width="975" height="172" alt="image" src="https://github.com/user-attachments/assets/26df9682-856a-43d7-8433-17302b630ce3" />
+<img width="961" height="708" alt="image" src="https://github.com/user-attachments/assets/fc2261dd-f3a7-4131-8042-41a330fe87fd" />
+<img width="950" height="511" alt="image" src="https://github.com/user-attachments/assets/67949668-6bf5-4c21-bd37-bd53b621882e" />
+
+---
+### Alternative Greeting Easy Change Modal
+A Choose Alt Message" button that appears on the first character message (if multiple swipe options exist). Clicking the button opens a modal displaying all alternate swipes in scrollable containers and a search bar to filter options.
+
+**Features:**
+- Only appears if there is exactly one message in chat (i.e. startup/scenario phase).
+- Modal shows all swipe alternative greetings
+- Real-time search filter added to find alt messages quickly.
+- Clicking a "Choose Alt Message" button updates the first message with the chosen Alternative Greeting
+
+<img width="453" height="149" alt="image" src="https://github.com/user-attachments/assets/7a3ace00-76d4-4975-bfac-7cfc83a2f198" />
+
+<img width="749" height="709" alt="image" src="https://github.com/user-attachments/assets/7a40b18a-2d72-484f-99d0-8b5ba3b3a8ba" />
+
+---
+##  Greeting Workshop (Automatically generate starting messages)
+
+The **Greeting Workshop** to help keep character cards fresh, this feature lets you collaborate with your active LLM to create a personalized first message before starting a SillyTavern chat.  
+It opens a separate mini-chat where you can refine the greeting, mark a preferred scene, and then replace the starting message in the main chat with your final choice.
+<img width="1045" height="1068" alt="image" src="https://github.com/user-attachments/assets/ed50d5ef-2964-42c1-a75b-f1ec3f7878b9" />
+
+### Features
+- Mini chat for crafting and refining the first greeting.
+- Save sessions per character to avoid cross-contamination.
+- Mark a scene as “Preferred” for future generations.
+- Edit, copy, or delete generated responses directly.
+- Custom system prompt editor with token variables.
+- Automatic enforcement of `{{user}}` in outputs.
+- Accept to replace the main chat’s starting message.
+
+1. **Open the Workshop**  
+   - The "Greeting Workshop" button will appear above the first chat message when the welcome panel is closed and there’s only one message visible.  
+   - Click it to open the workshop modal.
+<img width="489" height="192" alt="image" src="https://github.com/user-attachments/assets/e448f8b6-dc7c-4c9c-83a6-4521219490d4" />
+
+
+2. **Configure Your Output**  
+   - Set paragraphs, sentences per paragraph, style, and chat history depth.  
+   - (Optional) Open the **System Prompt** editor to customize generation behavior.
+
+3. **Iterate with the LLM**  
+   - Type an instruction (tone, topics, length, etc.) and click **Send to LLM**.  
+   - Regenerate, edit, copy, or delete responses.  
+   - Mark your favorite as **Preferred** to influence future generations.
+
+4. **Accept the Greeting**  
+   - When satisfied, click **Accept → Replace Greeting** to insert it into the main chat.
 
 ---
 
@@ -147,6 +202,17 @@ The Character/Tag Manager extension adds a configurable settings panel to SillyT
 All settings are saved persistently and applied in real-time. You’ll find the settings panel under the "Extensions" section in SillyTavern’s settings menu.
 
 ![image](https://github.com/user-attachments/assets/491b26db-82a9-4fe7-a041-88deb365bbea)
+
+---
+**Opt-in Feedback data (Off by default)**
+
+This data helps us understand how many people are actively using the extension, since GitHub doesn’t track installs. It also lets us debug issues across different SillyTavern versions and environments. Finally, knowing tag, character, and folder counts helps us troubleshoot performance and scaling problems for users with large libraries. For confimation that this does what it says: devs can look at the settings-drawer.js, if you aren't here is a [GPT evaulation of the code](https://chatgpt.com/share/689fa2b2-2ab4-8006-ae34-adcaf906ca79)
+
+- Off by default. Nothing is sent unless you switch on “Share Anonymous Feedback Data.”
+- You choose what to share. Each item (app version, browser info, folder/tag/character counts) is optional. A random Install ID is always included so they can count installs—no personal details.
+- See it first. There’s a Preview button that shows exactly what would be sent.
+- Sends over secure HTTPS, with no cookies or referrers.
+- Server saves only what you allowed. If you skip a count, it’s stored as not included (a zero placeholder appears in one summary column, but the raw record shows it wasn’t shared).
 
 ---
 
