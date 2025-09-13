@@ -346,6 +346,30 @@ async function renderCharacterList() {
             folderDropdown.addEventListener('change', (e) => {
                 removeFolderBtn.style.display = folderDropdown.value ? 'inline-block' : 'none';
             });
+
+            
+        // NEW: AI Suggest button (characters only)
+        if (entity.type === 'character') {
+            const suggestFolderBtn = document.createElement('button');
+            suggestFolderBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_folder_btn';
+            suggestFolderBtn.title = 'AI Folder suggestion';
+            suggestFolderBtn.innerHTML = '<i class="fa-solid fa-folder-tree"></i> Suggest Folder';
+            suggestFolderBtn.addEventListener('click', () => {
+                openAISuggestFolderForCharacter({ charId: entity.id });
+            });
+            nameRow.appendChild(suggestFolderBtn);
+
+            const suggestTagsBtn = document.createElement('button');
+            suggestTagsBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_tags_btn';
+            suggestTagsBtn.title = 'AI Tag suggestions';
+            suggestTagsBtn.innerHTML = '<i class="fa-solid fa-tags"></i> Suggest Tags';
+            suggestTagsBtn.addEventListener('click', () => {
+                openAISuggestTagsForCharacter({ charId: entity.id });
+            });
+            nameRow.appendChild(suggestTagsBtn);
+        }
+
+
         
             // --- Insert into the row ---
             nameRow.appendChild(folderDropdownWrapper);
@@ -444,27 +468,6 @@ async function renderCharacterList() {
         // === Right Controls ===
         const rightControls = document.createElement('div');
         rightControls.className = 'charRowRightFixed';
-
-        // NEW: AI Suggest button (characters only)
-            if (entity.type === 'character') {
-                const suggestFolderBtn = document.createElement('button');
-                suggestFolderBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_folder_btn';
-                suggestFolderBtn.title = 'AI Folder suggestion';
-                suggestFolderBtn.innerHTML = '<i class="fa-solid fa-folder-tree"></i> Suggest Folder';
-                suggestFolderBtn.addEventListener('click', () => {
-                    openAISuggestFolderForCharacter({ charId: entity.id });
-                });
-                rightControls.appendChild(suggestFolderBtn);
-
-                const suggestTagsBtn = document.createElement('button');
-                suggestTagsBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_tags_btn';
-                suggestTagsBtn.title = 'AI Tag suggestions';
-                suggestTagsBtn.innerHTML = '<i class="fa-solid fa-tags"></i> Suggest Tags';
-                suggestTagsBtn.addEventListener('click', () => {
-                    openAISuggestTagsForCharacter({ charId: entity.id });
-                });
-                rightControls.appendChild(suggestTagsBtn);
-            }
 
         const editIcon = document.createElement('i');
         editIcon.className = 'fa-solid fa-pen-to-square interactable stcm_edit_icon';

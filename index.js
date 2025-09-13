@@ -1,4 +1,4 @@
-// index.js - End of Major Folder rework
+// index.js - Folder rework
 import { 
 debounce, 
 flushExtSettings, 
