@@ -1,5 +1,6 @@
 //settings-drawer.js
 import { extension_settings } from '../../../extensions.js';
+import { callSaveandReload } from "./index.js";
 
 import {
     debouncePersist,
