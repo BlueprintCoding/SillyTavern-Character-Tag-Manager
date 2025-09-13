@@ -122,17 +122,24 @@ function createStcmSettingsPanel() {
                 </div>
 
                 <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
-                    <select id="stcm--backupSelect" style="min-width:280px;"></select>
-                    <button id="stcm--backupPreviewBtn" class="stcm_menu_button small">Preview</button>
-                    <button id="stcm--backupRestoreBtn" class="stcm_menu_button red small">Restore</button>
+                <select id="stcm--backupSelect" style="min-width:280px;"></select>
+                <button id="stcm--backupPreviewBtn" class="stcm_menu_button small">Preview</button>
+                <button id="stcm--backupRestoreBtn" class="stcm_menu_button red small">Restore</button>
+                <!-- NEW -->
+                <button id="stcm--backupNowBtn" class="stcm_menu_button small">Back Up Now</button>
                 </div>
 
                 <div id="stcm--backupEmptyMsg" style="margin-top:6px;opacity:.8;"></div>
 
+                <!-- REPLACE the preview block with this so it has a Close button -->
                 <div id="stcm--backupPreviewWrap" style="display:none;margin-top:8px;">
-                    <div style="font-size:12px;opacity:.8;margin-bottom:4px;">Selected backup details:</div>
-                    <pre id="stcm--backupPreview" style="max-width:100%;overflow:auto;background:#0003;padding:8px;border-radius:6px;"></pre>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <div style="font-size:12px;opacity:.8;">Selected backup details:</div>
+                    <button id="stcm--backupPreviewCancelBtn" class="stcm_menu_button tiny">Close</button>
                 </div>
+                <pre id="stcm--backupPreview" style="max-width:100%;overflow:auto;background:#0003;padding:8px;border-radius:6px;"></pre>
+                </div>
+
                 </div>
 
 
@@ -451,6 +458,24 @@ const backupRestoreBtn  = panel.querySelector('#stcm--backupRestoreBtn');
 const backupEmptyMsg    = panel.querySelector('#stcm--backupEmptyMsg');
 const backupPreviewWrap = panel.querySelector('#stcm--backupPreviewWrap');
 const backupPreviewPre  = panel.querySelector('#stcm--backupPreview');
+const backupNowBtn            = panel.querySelector('#stcm--backupNowBtn');
+const backupPreviewCancelBtn  = panel.querySelector('#stcm--backupPreviewCancelBtn');
+
+
+backupNowBtn?.addEventListener('click', () => {
+    try {
+        addTagMapBackup('manual');          // snapshot current tags + tag_map
+        hydrateBackupSelect();              // refresh dropdown list
+        backupSelect.selectedIndex = 0;     // show most recent at the top
+        backupPreviewWrap.style.display = 'none';
+        backupPreviewPre.textContent = '';
+        toastr?.success?.('Backup created.');
+    } catch (e) {
+        console.warn('Manual backup failed', e);
+        toastr?.error?.('Failed to create backup.');
+    }
+});
+
 
 function getBackups() {
     // Stored by utils.addTagMapBackup / tryAutoBackupTagMapOnLaunch()
@@ -512,6 +537,13 @@ backupPreviewBtn.addEventListener('click', () => {
     const summary = summarizeBackup(b);
     backupPreviewPre.textContent = JSON.stringify(summary, null, 2);
     backupPreviewWrap.style.display = '';
+});
+
+
+backupPreviewCancelBtn?.addEventListener('click', () => {
+    // Hide the preview + clear content
+    backupPreviewWrap.style.display = 'none';
+    backupPreviewPre.textContent = '';
 });
 
 backupRestoreBtn.addEventListener('click', async () => {
