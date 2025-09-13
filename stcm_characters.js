@@ -412,14 +412,23 @@ async function renderCharacterList() {
         noteWrapper.appendChild(saveBtn);
         rightContent.appendChild(noteWrapper);
 
-        const excerpt = (characters.find(c => c.avatar === entity.id)?.description || '')
-            .slice(0, 750).trim() + '…';
+        // full, untrimmed description for hover
+        const description = (characters.find(c => c.avatar === entity.id)?.description || '').trim();
+
+        // trimmed display excerpt
+        const excerpt = description.length > 750 ? description.slice(0, 750).trim() + '…' : description;
 
         const excerptSpan = document.createElement('span');
         excerptSpan.className = 'charExcerpt';
         excerptSpan.textContent = excerpt;
 
+        // apply hover (tooltip)
+        excerptSpan.setAttribute('title', description);
+        // optional a11y
+        excerptSpan.setAttribute('aria-label', description);
+
         rightContent.appendChild(excerptSpan);
+
 
         const tagListWrapper = document.createElement('div');
         tagListWrapper.className = 'assignedTagsWrapper';
