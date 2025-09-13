@@ -22,6 +22,8 @@ import { renderTagSection, selectedTagIds } from "./stcm_tags_ui.js"
 import * as stcmFolders from './stcm_folders.js';
 import { getFolderOptionsTree } from './stcm_folders_ui.js'; // adjust path if needed
 import { createEditSectionForCharacter } from './stcm_char_panel.js'
+import { openAISuggestFolderForCharacter, openAISuggestTagsForCharacter } from './stcm_ai_suggest_folder_tags.js';
+
 
 async function renderCharacterList() {
     const wrapper = document.getElementById('characterListWrapper');
@@ -323,8 +325,8 @@ async function renderCharacterList() {
             removeFolderBtn.style.cssText = `
                 display: ${assignedFolder ? 'inline-block' : 'none'};
                 cursor: pointer;
-                margin-left: 8px;
                 color: #b55;
+                margin-top: -14px;
                 font-size: 1.1em;
                 font-weight: bold;
             `;
@@ -344,9 +346,34 @@ async function renderCharacterList() {
             folderDropdown.addEventListener('change', (e) => {
                 removeFolderBtn.style.display = folderDropdown.value ? 'inline-block' : 'none';
             });
-        
+
+                    
             // --- Insert into the row ---
             nameRow.appendChild(folderDropdownWrapper);
+            
+        // NEW: AI Suggest button (characters only)
+        if (entity.type === 'character') {
+            const suggestFolderBtn = document.createElement('button');
+            suggestFolderBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_folder_btn';
+            suggestFolderBtn.title = 'AI Folder suggestion';
+            suggestFolderBtn.innerHTML = '<i class="fa-solid fa-folder-tree"></i> Suggest Folder';
+            suggestFolderBtn.addEventListener('click', () => {
+                openAISuggestFolderForCharacter({ charId: entity.id });
+            });
+            nameRow.appendChild(suggestFolderBtn);
+
+            const suggestTagsBtn = document.createElement('button');
+            suggestTagsBtn.className = 'stcm_menu_button small interactable stcm_ai_suggest_tags_btn';
+            suggestTagsBtn.title = 'AI Tag suggestions';
+            suggestTagsBtn.innerHTML = '<i class="fa-solid fa-tags"></i> Suggest Tags';
+            suggestTagsBtn.addEventListener('click', () => {
+                openAISuggestTagsForCharacter({ charId: entity.id });
+            });
+            nameRow.appendChild(suggestTagsBtn);
+        }
+
+
+
         }
         
 
@@ -385,14 +412,23 @@ async function renderCharacterList() {
         noteWrapper.appendChild(saveBtn);
         rightContent.appendChild(noteWrapper);
 
-        const excerpt = (characters.find(c => c.avatar === entity.id)?.description || '')
-            .slice(0, 500).trim() + '…';
+        // full, untrimmed description for hover
+        const description = (characters.find(c => c.avatar === entity.id)?.description || '').trim();
+
+        // trimmed display excerpt
+        const excerpt = description.length > 750 ? description.slice(0, 750).trim() + '…' : description;
 
         const excerptSpan = document.createElement('span');
         excerptSpan.className = 'charExcerpt';
         excerptSpan.textContent = excerpt;
 
+        // apply hover (tooltip)
+        excerptSpan.setAttribute('title', description);
+        // optional a11y
+        excerptSpan.setAttribute('aria-label', description);
+
         rightContent.appendChild(excerptSpan);
+
 
         const tagListWrapper = document.createElement('div');
         tagListWrapper.className = 'assignedTagsWrapper';
@@ -446,7 +482,6 @@ async function renderCharacterList() {
         const editIcon = document.createElement('i');
         editIcon.className = 'fa-solid fa-pen-to-square interactable stcm_edit_icon';
         editIcon.title = 'Edit Character';
-        
 
         const deleteIcon = document.createElement('i');
         deleteIcon.className = 'fa-solid fa-trash interactable stcm_delete_icon';
@@ -504,63 +539,21 @@ async function renderCharacterList() {
             if (entity.type === 'character') {
                 const char = characters.find(c => c.avatar === entity.id);
                 if (char) {
-                    editIcon.addEventListener('click', () => {
-                        // Check if modal already exists
-                        let modal = document.getElementById(`stcmCharEditModal-${char.avatar}`);
-                        if (!modal) {
-                            // Create modal
-                            modal = document.createElement('div');
-                            modal.id = `stcmCharEditModal-${char.avatar}`;
-                            modal.className = 'stcmCharEditModal modalWindow';
-                            modal.style.zIndex = getNextZIndex()
-                            document.body.appendChild(modal);
-            
-                            // Create header
-                            const header = document.createElement('div');
-                            header.className = 'modalHeader';
-                            header.id = `stcmCharEditModalHeader-${char.avatar}`;
-            
-                            const title = document.createElement('div');
-                            title.className = 'modalTitle';
-                            title.textContent = `Edit Character: ${char.name}`;
-            
-                            const closeBtn = document.createElement('button');
-                            closeBtn.className = 'stcm_menu_button interactable modal-close modalCloseBtn ';
-                            closeBtn.textContent = '×';
-                            closeBtn.onclick = () => modal.remove();
-            
-                            // Optional: image icon for minimize bar
-                            const avatarSrc = `/characters/${char.avatar}`;
-                            const { minimizeBtn } = createMinimizableModalControls(modal, `Editing: ${char.name}`, avatarSrc);
-            
-                            header.appendChild(title);
-                            header.appendChild(minimizeBtn);
-                            header.appendChild(closeBtn);
-            
-                            // Create body
-                            const body = document.createElement('div');
-                            body.className = 'modalBody';
-                            body.appendChild(createEditSectionForCharacter(char));
-            
-                            // Assemble modal
-                            modal.appendChild(header);
-                            modal.appendChild(body);
-            
-                            // Bring to top on focus
-                            modal.addEventListener('mousedown', () => {
-                                modal.style.zIndex = getNextZIndex();
-                            });
-            
-                            // Clamp + Drag support
-                            clampModalSize(modal, 20);
-                            makeModalDraggable(modal, header, () => saveModalPosSize(modal));
-                            saveModalPosSize(modal);
-                        }
-            
-                        // Show it and bring to front
-                        modal.style.display = 'block';
-                        modal.style.zIndex = getNextZIndex();
-                    });
+                    editIcon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openCharEditModal(char);
+                      });
+                      
+                      // avatar -> same modal
+                      img.addEventListener('click', (e) => {
+                        e.stopPropagation(); 
+                        openCharEditModal(char);
+                      });
+
+                      nameSpan.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openCharEditModal(char);
+                      });
                 }
             }
         }
@@ -655,6 +648,58 @@ if (bulkFolderSelect) {
 }
 
 }
+
+function openCharEditModal(char) {
+    if (!char) return;
+  
+    let modal = document.getElementById(`stcmCharEditModal-${char.avatar}`);
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = `stcmCharEditModal-${char.avatar}`;
+      modal.className = 'stcmCharEditModal modalWindow';
+      modal.style.zIndex = getNextZIndex();
+      document.body.appendChild(modal);
+  
+      const header = document.createElement('div');
+      header.className = 'modalHeader';
+      header.id = `stcmCharEditModalHeader-${char.avatar}`;
+  
+      const title = document.createElement('div');
+      title.className = 'modalTitle';
+      title.textContent = `Edit Character: ${char.name}`;
+  
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'stcm_menu_button interactable modal-close modalCloseBtn';
+      closeBtn.textContent = '×';
+      closeBtn.onclick = () => modal.remove();
+  
+      const avatarSrc = `/characters/${char.avatar}`;
+      const { minimizeBtn } = createMinimizableModalControls(modal, `Editing: ${char.name}`, avatarSrc);
+  
+      header.appendChild(title);
+      header.appendChild(minimizeBtn);
+      header.appendChild(closeBtn);
+  
+      const body = document.createElement('div');
+      body.className = 'modalBody';
+      body.appendChild(createEditSectionForCharacter(char));
+  
+      modal.appendChild(header);
+      modal.appendChild(body);
+  
+      modal.addEventListener('mousedown', () => {
+        modal.style.zIndex = getNextZIndex();
+      });
+  
+      clampModalSize(modal, 20);
+      makeModalDraggable(modal, header, () => saveModalPosSize(modal));
+      saveModalPosSize(modal);
+    }
+  
+    modal.style.display = 'block';
+    modal.style.zIndex = getNextZIndex();
+  }
+  
 
 function toggleCharacterList(container, group) {
     const existingList = container.querySelector('.charList');
@@ -784,6 +829,53 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+
+async function refreshCharacterRowInline(charId) {
+    const row = document.querySelector(`.charListItemWrapper[data-entity-type="character"][data-avatar="${charId}"]`);
+    if (!row) return;
+
+    const folders = await stcmFolders.loadFolders();
+    const assigned = stcmFolders.getCharacterAssignedFolder(charId, folders);
+
+    // folder dropdown + remove '✕'
+    const dd = row.querySelector('.charFolderDropdown');
+    const x = row.querySelector('.charFolderDropdownWrapper .removeFolderBtn');
+    if (dd) {
+        dd.value = assigned ? assigned.id : '';
+        if (x) x.style.display = dd.value ? 'inline-block' : 'none';
+    }
+
+    // tag chips and count in name
+    const tagIds = Array.isArray(tag_map?.[charId]) ? tag_map[charId] : [];
+    const byId = buildTagMap(tags);
+    const wrap = row.querySelector('.assignedTagsWrapper');
+    if (wrap) {
+        wrap.innerHTML = '';
+        tagIds.forEach(tid => {
+            const t = byId.get(tid); if (!t) return;
+            const chip = document.createElement('span');
+            chip.className = 'tagBox';
+            chip.textContent = t.name;
+            chip.style.backgroundColor = (t.color && t.color !== '#') ? t.color : '#333';
+            chip.style.color = (t.color2 && t.color2 !== '#') ? t.color2 : '#fff';
+            wrap.appendChild(chip);
+        });
+    }
+    const nameSpan = row.querySelector('.charName');
+    if (nameSpan) {
+        const currentName = row.getAttribute('data-name') || nameSpan.textContent;
+        const base = currentName.replace(/\s*\(\d+\s+tags?\)\s*$/, '');
+        const n = tagIds.length;
+        nameSpan.textContent = `${base} (${n} tag${n !== 1 ? 's' : ''})`;
+    }
+}
+
+// wire the targeted refresh
+document.addEventListener('stcm:character_meta_changed', (e) => {
+    if (e?.detail?.charId) refreshCharacterRowInline(e.detail.charId);
+});
+
 
 
 

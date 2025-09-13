@@ -475,11 +475,24 @@
 /* === Character Row & Meta Info === */
 .stcm_avatar_thumb,
 #characterListContainer img.stcm_avatar_thumb {
-    min-width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  flex: 0 0 28px; /* if inside a flex row, lock size */
+  cursor:pointer;
 }
+
+
+.stcm_edit_icon,
+ img.stcm_avatar_thumb,
+ .charName, 
+ .stcm_delete_icon {
+  cursor: pointer;
+}
+
+
 
 .charMeta {
     display: flex;
@@ -568,12 +581,21 @@
     padding: 4px 10px;
 }
 
+.stcm_ai_suggest_folder_btn, .stcm_ai_suggest_tags_btn {
+font-size: .9em;
+}
+
 .stcm_delete_icon {
     margin-left: auto;
     color: #e57373;
     cursor: pointer;
     padding: 4px;
-    font-size: 0.9em;
+    font-size: 1em;
+}
+
+.stcm_edit_icon{
+    padding: 4px;
+    font-size: 1em;
 }
 
 .charFolderDropdownWrapper {
