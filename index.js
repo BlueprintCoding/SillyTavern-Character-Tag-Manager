@@ -489,7 +489,7 @@ refreshFoldersTree();
 
         populateAssignTagSelect();
         renderCharacterList();
-        renderCharacterTagData();
+        renderTagSection();
     });
 
     document.getElementById('startBulkDeleteChars').addEventListener('click', () => {
