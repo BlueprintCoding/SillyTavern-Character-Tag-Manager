@@ -347,6 +347,9 @@ async function renderCharacterList() {
                 removeFolderBtn.style.display = folderDropdown.value ? 'inline-block' : 'none';
             });
 
+                    
+            // --- Insert into the row ---
+            nameRow.appendChild(folderDropdownWrapper);
             
         // NEW: AI Suggest button (characters only)
         if (entity.type === 'character') {
@@ -370,9 +373,7 @@ async function renderCharacterList() {
         }
 
 
-        
-            // --- Insert into the row ---
-            nameRow.appendChild(folderDropdownWrapper);
+
         }
         
 
