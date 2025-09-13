@@ -15,7 +15,7 @@ import {
     messageFormatting
 } from "../../../../script.js";
 
-import { tags } from "../../../tags.js";
+import { tags, tag_map } from "../../../tags.js";
 import { STCM } from "./index.js";
 import { getEntitiesList } from "../../../../script.js";
 
@@ -338,6 +338,67 @@ function cleanTagMap(tag_map, characters = [], groups = []) {
 function buildTagMap(tags) {
     return new Map(tags.map(tag => [tag.id, tag]));
 }
+
+// ---- Auto-backup of tags + tag_map ----
+function getStcmBucket() {
+    ensureContext();
+    if (!context.extensionSettings.stcm) context.extensionSettings.stcm = {};
+    return context.extensionSettings.stcm;
+}
+
+/**
+ * Save a snapshot of {tags, tag_map} into extension settings.
+ * Keeps only the most recent RETAIN snapshots.
+ */
+function addTagMapBackup(reason = 'manual') {
+    ensureContext();
+    const stcm = getStcmBucket();
+    const nowIso = new Date().toISOString();
+
+    const snapshot = {
+        created_at: nowIso,
+        reason,
+        // shallow copy tags array with plain objects
+        tags: Array.isArray(tags) ? tags.map(t => ({ ...t })) : [],
+        // deep copy map
+        tag_map: tag_map && typeof tag_map === 'object' ? JSON.parse(JSON.stringify(tag_map)) : {}
+    };
+
+    if (!Array.isArray(stcm.tagMapBackups)) stcm.tagMapBackups = [];
+    stcm.tagMapBackups.unshift(snapshot);
+
+    const RETAIN = 20; // keep last 20 backups
+    if (stcm.tagMapBackups.length > RETAIN) {
+        stcm.tagMapBackups.length = RETAIN;
+    }
+
+    context.saveSettingsDebounced();
+}
+
+/**
+ * Create an "install" backup on first run after install
+ * and a "launch" backup once per day.
+ */
+function tryAutoBackupTagMapOnLaunch() {
+    ensureContext();
+    const stcm = getStcmBucket();
+    const today = new Date().toISOString().split('T')[0];
+
+    // First run after install?
+    if (!stcm.didInstallBackup) {
+        addTagMapBackup('install');
+        stcm.didInstallBackup = true;
+    }
+
+    // Launch backup (daily throttle)
+    if (stcm.lastLaunchBackupYMD !== today) {
+        addTagMapBackup('launch');
+        stcm.lastLaunchBackupYMD = today;
+    }
+
+    context.saveSettingsDebounced();
+}
+
 
 function buildCharNameMap(characters) {
     return new Map(characters.map(char => [char.avatar, char.name]));
@@ -738,5 +799,6 @@ export {
     watchTagFilterBar, promptInput, getFolderTypeForUI, parseSearchGroups, parseSearchTerm, 
     hashPin, getStoredPinHash, saveStoredPinHash, hexToRgba,
     createSwipeSelector,
-    getCharacterCount, getFolderCount, getTagCount
+    getCharacterCount, getFolderCount, getTagCount,
+    addTagMapBackup, tryAutoBackupTagMapOnLaunch
 };
