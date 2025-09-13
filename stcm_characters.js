@@ -325,8 +325,8 @@ async function renderCharacterList() {
             removeFolderBtn.style.cssText = `
                 display: ${assignedFolder ? 'inline-block' : 'none'};
                 cursor: pointer;
-                margin-left: 8px;
                 color: #b55;
+                margin-top: -14px;
                 font-size: 1.1em;
                 font-weight: bold;
             `;
@@ -413,7 +413,7 @@ async function renderCharacterList() {
         rightContent.appendChild(noteWrapper);
 
         const excerpt = (characters.find(c => c.avatar === entity.id)?.description || '')
-            .slice(0, 500).trim() + '…';
+            .slice(0, 750).trim() + '…';
 
         const excerptSpan = document.createElement('span');
         excerptSpan.className = 'charExcerpt';
