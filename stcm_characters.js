@@ -550,7 +550,7 @@ async function renderCharacterList() {
                         openCharEditModal(char);
                       });
 
-                      charName.addEventListener('click', (e) => {
+                      nameSpan.addEventListener('click', (e) => {
                         e.stopPropagation();
                         openCharEditModal(char);
                       });
