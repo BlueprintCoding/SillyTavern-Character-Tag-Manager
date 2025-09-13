@@ -223,7 +223,7 @@ function createStcmSettingsPanel() {
         checkboxBlur.checked = getSettings().blurPrivatePreviews;
         checkboxBlur.addEventListener('change', (e) => {
             getSettings().blurPrivatePreviews = e.target.checked;
-            saveSettingsDebounced();
+            debouncePersist();
             updateBlurPrivatePreviews(e.target.checked);
         });
     }
