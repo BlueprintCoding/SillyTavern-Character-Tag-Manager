@@ -481,7 +481,17 @@
   object-fit: cover;
   object-position: center;
   flex: 0 0 28px; /* if inside a flex row, lock size */
+  cursor:pointer;
 }
+
+
+.stcm_edit_icon,
+ img.stcm_avatar_thumb,
+ .charName, 
+ .stcm_delete_icon {
+  cursor: pointer;
+}
+
 
 
 .charMeta {
