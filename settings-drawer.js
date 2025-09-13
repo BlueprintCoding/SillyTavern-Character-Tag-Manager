@@ -1,5 +1,6 @@
 //settings-drawer.js
-import { extension_settings }     from '../../../extensions.js';
+import { extension_settings } from '../../../extensions.js';
+import { callSaveandReload } from "./index.js";
 
 import {
     debouncePersist,
@@ -9,7 +10,11 @@ import {
     getFolderCount,
     getTagCount,
     getCharacterCount,
+    addTagMapBackup
 } from './utils.js';
+
+import { callGenericPopup, POPUP_TYPE, POPUP_RESULT } from '../../../popup.js';
+import { tags, tag_map } from '../../../tags.js';
 
 import { CLIENT_VERSION } from "../../../../script.js";
 
@@ -33,7 +38,7 @@ const defaultSettings = {
 };
 
 const FEEDBACK_DEFAULT_API_URL =
-  "https://aicharactercards.com/wp-json/aicc_extension-feedback/v1/submit";
+    "https://aicharactercards.com/wp-json/aicc_extension-feedback/v1/submit";
 
 function ensureFeedbackInstallId(settings) {
     if (!settings.feedbackInstallId) {
@@ -44,11 +49,11 @@ function ensureFeedbackInstallId(settings) {
         buf[8] = (buf[8] & 0x3f) | 0x80;
         const hex = [...buf].map(b => b.toString(16).padStart(2, '0'));
         settings.feedbackInstallId = [
-            hex.slice(0,4).join(''),
-            hex.slice(4,6).join(''),
-            hex.slice(6,8).join(''),
-            hex.slice(8,10).join(''),
-            hex.slice(10,16).join('')
+            hex.slice(0, 4).join(''),
+            hex.slice(4, 6).join(''),
+            hex.slice(6, 8).join(''),
+            hex.slice(8, 10).join(''),
+            hex.slice(10, 16).join('')
         ].join('-');
     }
 }
@@ -109,6 +114,35 @@ function createStcmSettingsPanel() {
                         </label>
                     </div>
                 </div>
+                
+                <hr>
+                <div style="margin-left:10px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <b>Restore Tag Backup</b>
+                </div>
+
+                <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+                <select id="stcm--backupSelect" style="min-width:280px;"></select>
+                <button id="stcm--backupPreviewBtn" class="stcm_menu_button small">Preview</button>
+                <button id="stcm--backupRestoreBtn" class="stcm_menu_button red small">Restore</button>
+                <!-- NEW -->
+                <button id="stcm--backupNowBtn" class="stcm_menu_button small">Back Up Now</button>
+                </div>
+
+                <div id="stcm--backupEmptyMsg" style="margin-top:6px;opacity:.8;"></div>
+
+                <!-- REPLACE the preview block with this so it has a Close button -->
+                <div id="stcm--backupPreviewWrap" style="display:none;margin-top:8px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <div style="font-size:12px;opacity:.8;">Selected backup details:</div>
+                    <button id="stcm--backupPreviewCancelBtn" class="stcm_menu_button tiny">Close</button>
+                </div>
+                <pre id="stcm--backupPreview" style="max-width:100%;overflow:auto;background:#0003;padding:8px;border-radius:6px;"></pre>
+                </div>
+
+                </div>
+
 
                 <hr>
                 <div style="margin-left: 10px;">
@@ -197,7 +231,7 @@ function createStcmSettingsPanel() {
         checkboxBlur.checked = getSettings().blurPrivatePreviews;
         checkboxBlur.addEventListener('change', (e) => {
             getSettings().blurPrivatePreviews = e.target.checked;
-            saveSettingsDebounced();
+            debouncePersist();
             updateBlurPrivatePreviews(e.target.checked);
         });
     }
@@ -208,7 +242,7 @@ function createStcmSettingsPanel() {
         checkboxTag.checked = getSettings().showDefaultTagManager;
         checkboxTag.addEventListener('change', e => {
             getSettings().showDefaultTagManager = e.target.checked;
-            debouncePersist();                    
+            debouncePersist();
             updateDefaultTagManagerVisibility(e.target.checked);
         });
     }
@@ -218,7 +252,7 @@ function createStcmSettingsPanel() {
         checkboxRecent.checked = getSettings().showWelcomeRecentChats;
         checkboxRecent.addEventListener('change', e => {
             getSettings().showWelcomeRecentChats = e.target.checked;
-            debouncePersist();                  
+            debouncePersist();
             updateRecentChatsVisibility(e.target.checked);
         });
     }
@@ -228,7 +262,7 @@ function createStcmSettingsPanel() {
         checkboxTopBarIcon.checked = getSettings().showTopBarIcon;
         checkboxTopBarIcon.addEventListener('change', e => {
             getSettings().showTopBarIcon = e.target.checked;
-            debouncePersist();                   
+            debouncePersist();
             updateTopBarIconVisibility(e.target.checked);
         });
     }
@@ -247,7 +281,7 @@ function createStcmSettingsPanel() {
     function updatePinFormUi() {
         const currentPinHash = getStoredPinHash();
         const hasPin = !!currentPinHash;
-    
+
         pinCurrentRow.style.display = hasPin ? "" : "none";
         removeBtn.style.display = hasPin ? "" : "none";
         setBtn.textContent = hasPin ? "Change PIN" : "Set PIN";
@@ -255,13 +289,13 @@ function createStcmSettingsPanel() {
         pinConfirmRow.style.display = "";
         msg.textContent = "";
     }
-    
+
     // Initial UI update
     updatePinFormUi();
 
     setBtn.onclick = async () => {
         const currentPinHash = getStoredPinHash();
-    
+
         // ── verify the current PIN if one is already set ──────────────────────
         if (currentPinHash) {
             const enteredCurrentHash = await hashPin(
@@ -272,31 +306,31 @@ function createStcmSettingsPanel() {
                 return;
             }
         }
-    
+
         // ── validate the new PIN inputs ───────────────────────────────────────
         if (!pinNew.value || pinNew.value !== pinConfirm.value) {
             msg.textContent = 'New PINs must match and not be empty.';
             return;
         }
-    
+
         // ── save to extensionSettings and flush ───────────────────────────────
         saveStoredPinHash(await hashPin(pinNew.value));
         debouncePersist();          // writes extensionSettings via utils.js
-    
+
         sessionStorage.removeItem('stcm_pin_okay');
         msg.textContent = currentPinHash ? 'PIN updated!' : 'PIN set!';
         pinForm.querySelector('#stcm-pin-current').value = '';
         pinNew.value = pinConfirm.value = '';
         updatePinFormUi();
     };
-    
+
     removeBtn.onclick = async () => {
         const currentPinHash = getStoredPinHash();
         if (!currentPinHash) {
             msg.textContent = 'No PIN is set.';
             return;
         }
-    
+
         const enteredCurrentHash = await hashPin(
             pinForm.querySelector('#stcm-pin-current').value
         );
@@ -304,10 +338,10 @@ function createStcmSettingsPanel() {
             msg.textContent = 'Current PIN is incorrect.';
             return;
         }
-    
+
         saveStoredPinHash('');      // clears the hash in extensionSettings
         debouncePersist();          // flush change to disk
-    
+
         sessionStorage.removeItem('stcm_pin_okay');
         msg.textContent = 'PIN removed!';
         pinForm.querySelector('#stcm-pin-current').value = '';
@@ -343,7 +377,7 @@ function createStcmSettingsPanel() {
         debouncePersist();
         applyFolderNavHeightMode();
     });
-    
+
     maxHeightInput.addEventListener('input', e => {
         // Optional: live preview (no clamping)
         let val = parseInt(maxHeightInput.value, 10);
@@ -354,69 +388,230 @@ function createStcmSettingsPanel() {
     });
 
     // ---- Feedback Data wiring ----
-// ---- Feedback Data wiring ----
-const s = getSettings();
+    // ---- Feedback Data wiring ----
+    const s = getSettings();
 
-const feEnabled = panel.querySelector('#stcm--feedbackEnabled');
-const feUA = panel.querySelector('#stcm--feedbackSendUserAgent');
-const feAppVer = panel.querySelector('#stcm--feedbackSendAppVersion');
-const feFolders = panel.querySelector('#stcm--feedbackSendFolderCount');
-const feTags = panel.querySelector('#stcm--feedbackSendTagCount');
-const feChars = panel.querySelector('#stcm--feedbackSendCharacterCount');
-const feOptions = panel.querySelector('#stcm--feedbackOptions');
-const feInstallIdPreview = panel.querySelector('#stcm--installIdPreview');
-const fePreviewBtn = panel.querySelector('#stcm--feedbackPreviewBtn');
-const fePreviewWrap = panel.querySelector('#stcm--feedbackPreviewWrap');
-const fePreview = panel.querySelector('#stcm--feedbackPreview');
-const feMsg = panel.querySelector('#stcm--feedbackMsg');
+    const feEnabled = panel.querySelector('#stcm--feedbackEnabled');
+    const feUA = panel.querySelector('#stcm--feedbackSendUserAgent');
+    const feAppVer = panel.querySelector('#stcm--feedbackSendAppVersion');
+    const feFolders = panel.querySelector('#stcm--feedbackSendFolderCount');
+    const feTags = panel.querySelector('#stcm--feedbackSendTagCount');
+    const feChars = panel.querySelector('#stcm--feedbackSendCharacterCount');
+    const feOptions = panel.querySelector('#stcm--feedbackOptions');
+    const feInstallIdPreview = panel.querySelector('#stcm--installIdPreview');
+    const fePreviewBtn = panel.querySelector('#stcm--feedbackPreviewBtn');
+    const fePreviewWrap = panel.querySelector('#stcm--feedbackPreviewWrap');
+    const fePreview = panel.querySelector('#stcm--feedbackPreview');
+    const feMsg = panel.querySelector('#stcm--feedbackMsg');
 
-feEnabled.checked = !!s.feedbackEnabled;
-feAppVer.checked  = !!s.feedbackSendAppVersion;
-feUA.checked      = !!s.feedbackSendUserAgent;
-feFolders.checked = !!s.feedbackSendFolderCount;
-feTags.checked    = !!s.feedbackSendTagCount;
-feChars.checked   = !!s.feedbackSendCharacterCount;
-feInstallIdPreview.textContent = s.feedbackInstallId;
+    feEnabled.checked = !!s.feedbackEnabled;
+    feAppVer.checked = !!s.feedbackSendAppVersion;
+    feUA.checked = !!s.feedbackSendUserAgent;
+    feFolders.checked = !!s.feedbackSendFolderCount;
+    feTags.checked = !!s.feedbackSendTagCount;
+    feChars.checked = !!s.feedbackSendCharacterCount;
+    feInstallIdPreview.textContent = s.feedbackInstallId;
 
-function updateFeedbackEnabledUI() {
-    const visible = feEnabled.checked === true;
-    feOptions.style.display = visible ? "" : "none";
-    if (!visible) {
-      fePreviewWrap.style.display = "none";
-      feMsg.textContent = "";
+    function updateFeedbackEnabledUI() {
+        const visible = feEnabled.checked === true;
+        feOptions.style.display = visible ? "" : "none";
+        if (!visible) {
+            fePreviewWrap.style.display = "none";
+            feMsg.textContent = "";
+        }
     }
-  }
 
-// Initial state (keeps everything hidden by default since feedbackEnabled=false)
-updateFeedbackEnabledUI();
-
-feEnabled.addEventListener('change', () => {
-    s.feedbackEnabled = feEnabled.checked;
-    // On first enable, DO NOT send automatically.
-    // Show options and let user choose/check items first.
-    if (s.feedbackEnabled) s.feedbackReviewed = false; // must review once
-    debouncePersist();
+    // Initial state (keeps everything hidden by default since feedbackEnabled=false)
     updateFeedbackEnabledUI();
-  });
-  
-  // Any per-item change counts as "reviewed"
-  [feUA, feAppVer, feFolders, feTags, feChars].forEach(cb => {
-    cb.addEventListener('change', () => {
-      s.feedbackSendUserAgent      = feUA.checked;
-      s.feedbackSendAppVersion     = feAppVer.checked;
-      s.feedbackSendFolderCount    = feFolders.checked;
-      s.feedbackSendTagCount       = feTags.checked;
-      s.feedbackSendCharacterCount = feChars.checked;
-      s.feedbackReviewed = true;               // <- mark reviewed
-      debouncePersist();
+
+    feEnabled.addEventListener('change', () => {
+        s.feedbackEnabled = feEnabled.checked;
+        // On first enable, DO NOT send automatically.
+        // Show options and let user choose/check items first.
+        if (s.feedbackEnabled) s.feedbackReviewed = false; // must review once
+        debouncePersist();
+        updateFeedbackEnabledUI();
     });
-  });
-fePreviewBtn.addEventListener('click', async () => {
-    feMsg.textContent = "";
-    const data = await buildFeedbackPayload();
-    fePreview.textContent = JSON.stringify(data, null, 2);
-    fePreviewWrap.style.display = "";
+
+    // Any per-item change counts as "reviewed"
+    [feUA, feAppVer, feFolders, feTags, feChars].forEach(cb => {
+        cb.addEventListener('change', () => {
+            s.feedbackSendUserAgent = feUA.checked;
+            s.feedbackSendAppVersion = feAppVer.checked;
+            s.feedbackSendFolderCount = feFolders.checked;
+            s.feedbackSendTagCount = feTags.checked;
+            s.feedbackSendCharacterCount = feChars.checked;
+            s.feedbackReviewed = true;               // <- mark reviewed
+            debouncePersist();
+        });
+    });
+    fePreviewBtn.addEventListener('click', async () => {
+        feMsg.textContent = "";
+        const data = await buildFeedbackPayload();
+        fePreview.textContent = JSON.stringify(data, null, 2);
+        fePreviewWrap.style.display = "";
+    });
+
+    // ---- Tag Backup Restore wiring ----
+const backupSelect      = panel.querySelector('#stcm--backupSelect');
+const backupPreviewBtn  = panel.querySelector('#stcm--backupPreviewBtn');
+const backupRestoreBtn  = panel.querySelector('#stcm--backupRestoreBtn');
+const backupEmptyMsg    = panel.querySelector('#stcm--backupEmptyMsg');
+const backupPreviewWrap = panel.querySelector('#stcm--backupPreviewWrap');
+const backupPreviewPre  = panel.querySelector('#stcm--backupPreview');
+const backupNowBtn            = panel.querySelector('#stcm--backupNowBtn');
+const backupPreviewCancelBtn  = panel.querySelector('#stcm--backupPreviewCancelBtn');
+
+
+backupNowBtn?.addEventListener('click', () => {
+    try {
+        addTagMapBackup('manual');          // snapshot current tags + tag_map
+        hydrateBackupSelect();              // refresh dropdown list
+        backupSelect.selectedIndex = 0;     // show most recent at the top
+        backupPreviewWrap.style.display = 'none';
+        backupPreviewPre.textContent = '';
+        toastr?.success?.('Backup created.');
+    } catch (e) {
+        console.warn('Manual backup failed', e);
+        toastr?.error?.('Failed to create backup.');
+    }
 });
+
+
+function getBackups() {
+    // Stored by utils.addTagMapBackup / tryAutoBackupTagMapOnLaunch()
+    return (extension_settings?.stcm?.tagMapBackups) || [];
+}
+
+function labelForBackup(b, idx) {
+    const when   = (b.createdAt || '').replace('T',' ').replace('Z','').slice(0,19);
+    const reason = b.reason || 'backup';
+    const tagN   = Array.isArray(b.tags) ? b.tags.length : 0;
+    const mapN   = b.tag_map ? Object.keys(b.tag_map).length : 0;
+    return `${when} — ${reason}  [${tagN} tags, ${mapN} entities]`;
+}
+
+function hydrateBackupSelect() {
+    const list = getBackups();
+    backupSelect.innerHTML = '';
+    backupPreviewWrap.style.display = 'none';
+    backupPreviewPre.textContent = '';
+    if (!list.length) {
+        backupSelect.disabled = true;
+        backupPreviewBtn.disabled = true;
+        backupRestoreBtn.disabled = true;
+        backupEmptyMsg.textContent = 'No backups found yet. (A daily snapshot is created on launch; an initial one on install.)';
+        return;
+    }
+    backupEmptyMsg.textContent = '';
+    backupSelect.disabled = false;
+    backupPreviewBtn.disabled = false;
+    backupRestoreBtn.disabled = false;
+
+    list.forEach((b, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i); // index in array
+        opt.textContent = labelForBackup(b, i);
+        backupSelect.appendChild(opt);
+    });
+}
+
+function summarizeBackup(b) {
+    const tagNames = Array.isArray(b.tags) ? b.tags.map(t => t.name) : [];
+    const previewNames = tagNames.slice(0, 50); // avoid huge dumps
+    const extra = tagNames.length > 50 ? `\n… and ${tagNames.length - 50} more` : '';
+    return {
+        createdAt: b.createdAt,
+        reason: b.reason,
+        tagCount: tagNames.length,
+        entitiesWithTags: b.tag_map ? Object.keys(b.tag_map).length : 0,
+        sampleTagNames: previewNames,
+        more: extra.trim()
+    };
+}
+
+backupPreviewBtn.addEventListener('click', () => {
+    const list = getBackups();
+    const idx = Number(backupSelect.value);
+    const b = list[idx];
+    if (!b) return;
+    const summary = summarizeBackup(b);
+    backupPreviewPre.textContent = JSON.stringify(summary, null, 2);
+    backupPreviewWrap.style.display = '';
+});
+
+
+backupPreviewCancelBtn?.addEventListener('click', () => {
+    // Hide the preview + clear content
+    backupPreviewWrap.style.display = 'none';
+    backupPreviewPre.textContent = '';
+});
+
+backupRestoreBtn.addEventListener('click', async () => {
+    const list = getBackups();
+    const idx = Number(backupSelect.value);
+    const b = list[idx];
+    if (!b) return;
+
+    if (!Array.isArray(b.tags) || typeof b.tag_map !== 'object') {
+        toastr?.error?.('Selected backup is invalid.');
+        return;
+    }
+
+    const tagN = Array.isArray(b.tags) ? b.tags.length : 0;
+    const entN = b.tag_map ? Object.keys(b.tag_map).length : 0;
+
+    const html = document.createElement('div');
+    html.innerHTML = `
+        <h3>Restore Tag Backup</h3>
+        <p>This will replace your current <b>Tags</b> and <b>tag_map</b> with the selected backup.</p>
+        <ul style="margin-left:1.2em">
+          <li><b>${tagN}</b> tags</li>
+          <li><b>${entN}</b> entities with tag assignments</li>
+        </ul>
+        <p style="color:#e57373">Your current state will be snapshotted first (so you can undo by restoring that new backup).</p>
+    `;
+    const res = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Restore selected backup?');
+    if (res !== POPUP_RESULT.AFFIRMATIVE) return;
+
+    try {
+        // Safety snapshot of current state
+        addTagMapBackup('pre-restore');
+
+        // Apply backup (replace tags + tag_map)
+        tags.length = 0;
+        (Array.isArray(b.tags) ? b.tags : []).forEach(t => {
+          tags.push({
+            id: t.id,
+            name: t.name,
+            color: (typeof t.color === 'string') ? t.color : '',
+            color2: (typeof t.color2 === 'string') ? t.color2 : '',
+            folder_type: typeof t.folder_type === 'string' ? t.folder_type : 'NONE',
+          });
+        });
+        
+
+        // Replace tag_map
+        Object.keys(tag_map).forEach(k => delete tag_map[k]);
+        const clonedMap = b.tag_map ? JSON.parse(JSON.stringify(b.tag_map)) : {};
+        Object.assign(tag_map, clonedMap);
+
+        await callSaveandReload();
+        hydrateBackupSelect();               // ← refresh list after we add pre-restore
+        backupSelect.selectedIndex = 0;      // show most recent
+        backupPreviewWrap.style.display = 'none';
+        backupPreviewPre.textContent = '';
+        toastr?.success?.('Backup restored.') ?? console.log('Backup restored.');
+
+    } catch (e) {
+        console.warn('Backup restore failed', e);
+        toastr?.error?.('Failed to restore backup.') ?? alert('Failed to restore backup.');
+    }
+});
+
+// initial load of backups
+hydrateBackupSelect();
+
 
 
     // END SETTINGS SECTION
@@ -516,39 +711,39 @@ div#rightNavHolder.drawer {
 
 function buildFeedbackPayload() {
     const s = getSettings();
-  
+
     const payload = {
-      id: s.feedbackInstallId,
-      ts: new Date().toISOString(), // .mmmZ
-      appVersion: s.feedbackSendAppVersion
-        ? (typeof CLIENT_VERSION !== 'undefined'
-            ? CLIENT_VERSION
-            : (window.CLIENT_VERSION || ''))
-        : '',
-      userAgent: s.feedbackSendUserAgent ? navigator.userAgent : '',
-      folderCount: s.feedbackSendFolderCount ? Number(getFolderCount()) : null,
-      tagCount: s.feedbackSendTagCount ? Number(getTagCount()) : null,
-      characterCount: s.feedbackSendCharacterCount ? Number(getCharacterCount()) : null,
+        id: s.feedbackInstallId,
+        ts: new Date().toISOString(), // .mmmZ
+        appVersion: s.feedbackSendAppVersion
+            ? (typeof CLIENT_VERSION !== 'undefined'
+                ? CLIENT_VERSION
+                : (window.CLIENT_VERSION || ''))
+            : '',
+        userAgent: s.feedbackSendUserAgent ? navigator.userAgent : '',
+        folderCount: s.feedbackSendFolderCount ? Number(getFolderCount()) : null,
+        tagCount: s.feedbackSendTagCount ? Number(getTagCount()) : null,
+        characterCount: s.feedbackSendCharacterCount ? Number(getCharacterCount()) : null,
     };
-  
+
     // Only clamp/normalize if the field is included (not null)
     ['folderCount', 'tagCount', 'characterCount'].forEach((k) => {
-      if (payload[k] != null) {
-        const n = Number(payload[k]);
-        payload[k] = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
-      }
+        if (payload[k] != null) {
+            const n = Number(payload[k]);
+            payload[k] = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+        }
     });
-  
+
     return payload;
-  }
-  
+}
+
 
 function shouldSendToday() {
-  const s = getSettings();
-  if (!s.feedbackLastSentISO) return true;
-  const last = Date.parse(s.feedbackLastSentISO);
-  if (Number.isNaN(last)) return true;
-  return (Date.now() - last) >= 24 * 60 * 60 * 1000;
+    const s = getSettings();
+    if (!s.feedbackLastSentISO) return true;
+    const last = Date.parse(s.feedbackLastSentISO);
+    if (Number.isNaN(last)) return true;
+    return (Date.now() - last) >= 24 * 60 * 60 * 1000;
 }
 
 export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
@@ -559,31 +754,33 @@ export async function STCM_feedbackSendIfDue(reason = 'app_ready') {
     if (!s.feedbackReviewed) return;   // <- NEW gate
     if (!shouldSendToday()) return;
     await sendFeedbackNow(reason);
-  }
-  
+}
+
 
 // expose for global callers
 if (typeof window !== 'undefined') {
-  window.STCM_feedbackSendIfDue = STCM_feedbackSendIfDue;
+    window.STCM_feedbackSendIfDue = STCM_feedbackSendIfDue;
 }
 
 async function sendFeedbackNow(/* reason = 'auto' */) {
     const s = getSettings();
     const url = FEEDBACK_DEFAULT_API_URL;
-  
+
     if (!s.feedbackEnabled) {
         // console.log('[FEEDBACK] skip: disabled'); 
-        return; }
-    if (!/^https:\/\//i.test(url)) { 
+        return;
+    }
+    if (!/^https:\/\//i.test(url)) {
         // console.log('[FEEDBACK] skip: URL not HTTPS');
-         return; }
-  
+        return;
+    }
+
     try {
-      const payload = buildFeedbackPayload();
-   console.log('[FEEDBACK] sending', payload);   // log reason separately if you want
-  
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 10000);
+        const payload = buildFeedbackPayload();
+        console.log('[FEEDBACK] sending', payload);   // log reason separately if you want
+
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 10000);
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -593,39 +790,38 @@ async function sendFeedbackNow(/* reason = 'auto' */) {
             cache: 'no-store',
             signal: ctrl.signal
         });
-      clearTimeout(t);
-  
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  
-      s.feedbackLastSentISO = new Date().toISOString();
-   console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);
-      debouncePersist();
-    } catch (e) {
-       console.warn('[FEEDBACK] send failed', e);
-    }
-  }
+        clearTimeout(t);
 
-  /** Admin-only helper: clear the "last sent" timestamp so the next call will send */
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        s.feedbackLastSentISO = new Date().toISOString();
+        console.log('[FEEDBACK] sent OK at', s.feedbackLastSentISO);
+        debouncePersist();
+    } catch (e) {
+        console.warn('[FEEDBACK] send failed', e);
+    }
+}
+
+/** Admin-only helper: clear the "last sent" timestamp so the next call will send */
 export function STCM_feedbackClearLastSent() {
     const s = getSettings();
     s.feedbackLastSentISO = "";
     debouncePersist();
     console.log("[FEEDBACK] lastSent cleared. Next STCM_feedbackSendIfDue() will send.");
-  }
-  
-  /** (Optional) Admin helper: send right now, regardless of lastSent */
-  export async function STCM_feedbackSendNow() {
+}
+
+/** (Optional) Admin helper: send right now, regardless of lastSent */
+export async function STCM_feedbackSendNow() {
     // bypass shouldSendToday(), but still respects enabled + https checks
     const s = getSettings();
     if (!s.feedbackEnabled) return console.log("[FEEDBACK] skip: disabled");
     if (!/^https:\/\//i.test(FEEDBACK_DEFAULT_API_URL)) return console.log("[FEEDBACK] skip: bad URL");
     await sendFeedbackNow("manual");
     console.log("[FEEDBACK] manual send attempted");
-  }
+}
 
-  if (typeof window !== "undefined") {
+if (typeof window !== "undefined") {
     window.STCM_feedbackClearLastSent = STCM_feedbackClearLastSent;
     window.STCM_feedbackSendNow = STCM_feedbackSendNow; // optional
-  }
-  
-  
+}
+

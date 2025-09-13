@@ -578,37 +578,124 @@ function openColorEditModal(tag) {
     observer.observe(document.body, { childList: true, subtree: true });
 })();
 
+// ──────────────────────────────────────────────────────────────────────────
+// Deletion snapshot + undo helpers (module-private)
+// ──────────────────────────────────────────────────────────────────────────
+
+let lastTagDeletionUndo = null; // { createdAt, items: [{ tag:{...}, charIds:[...] }] }
+
+function cloneTagForRestore(t) {
+    return {
+        id: t.id,
+        name: t.name,
+        color: t.color,
+        color2: t.color2,
+        folder_type: t.folder_type || 'NONE',
+    };
+}
+
+function buildTagDeletionSnapshot(tagIds) {
+    const mapEntries = Object.entries(tag_map);
+    const items = tagIds.map(tid => {
+        const tag = tags.find(t => t.id === tid);
+        if (!tag) return null;
+        const charIds = mapEntries
+            .filter(([_, arr]) => Array.isArray(arr) && arr.includes(tid))
+            .map(([cid]) => cid);
+        return { tag: cloneTagForRestore(tag), charIds };
+    }).filter(Boolean);
+
+    return { createdAt: new Date().toISOString(), items };
+}
+
+async function showUndoDeletionPopup(snapshot) {
+    // Build a compact summary list
+    const listHtml = snapshot.items.map(it =>
+        `<li><strong>${escapeHtml(it.tag.name)}</strong> &nbsp;<small>(${it.charIds.length} assigned)</small></li>`
+    ).join('');
+
+    const html = document.createElement('div');
+    html.innerHTML = `
+        <h3>Tags deleted</h3>
+        <p>You can undo this action to restore the tag(s) and re-apply them to all previously tagged characters.</p>
+        <ul style="margin-left:1.2em">${listHtml}</ul>
+        <p><small>Snapshot: ${escapeHtml(snapshot.createdAt)}</small></p>
+    `;
+
+    const res = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Undo tag deletion?', {
+        okButton: 'Undo',
+        cancelButton: 'Close'
+    });
+
+    if (res === POPUP_RESULT.AFFIRMATIVE) {
+        await undoTagDeletion(snapshot);
+    }
+}
+
+async function undoTagDeletion(snapshot) {
+    // 1) Restore missing tags
+    snapshot.items.forEach(({ tag }) => {
+        if (!tags.some(t => t.id === tag.id)) {
+            tags.push({ ...tag });
+        }
+    });
+
+    // 2) Re-apply tag id to all captured entities
+    snapshot.items.forEach(({ tag, charIds }) => {
+        charIds.forEach(cid => {
+            if (!tag_map[cid]) tag_map[cid] = [];
+            if (!tag_map[cid].includes(tag.id)) tag_map[cid].push(tag.id);
+        });
+    });
+
+    await callSaveandReload();
+    renderTagSection();
+    renderCharacterList();
+    toastr.success(`Restored ${snapshot.items.length} tag${snapshot.items.length > 1 ? 's' : ''} and re-applied assignments.`);
+}
+
 
 // ---------------------------------------------------------------------------
-// tag deletion
+// tag deletion (single)
 // ---------------------------------------------------------------------------
 function confirmDeleteTag(tag) {
+    // Build snapshot before deletion so we can undo later
+    const snapshot = buildTagDeletionSnapshot([tag.id]);
+
+    // Pretty confirm with count
+    const assignedCount = snapshot.items[0]?.charIds?.length || 0;
     const html = document.createElement('div');
     html.innerHTML = `
       <h3>Confirm Delete</h3>
       <p>Delete tag <strong>${escapeHtml(tag.name)}</strong> and remove it from all characters?</p>
-      <p style="color:#e57373;">This cannot be undone.</p>`;
+      <p><small>Currently assigned to ${assignedCount} item${assignedCount === 1 ? '' : 's'}.</small></p>
+      <p style="color:#e57373;">This cannot be undone (unless you click Undo in the next step).</p>`;
 
     callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Delete Tag')
-      .then(res => {
+      .then(async res => {
         if (res !== POPUP_RESULT.AFFIRMATIVE) return;
-        // strip from tag_map
+
+        // Perform deletion
         Object.values(tag_map).forEach(arr => {
             if (Array.isArray(arr)) {
                 const idx = arr.indexOf(tag.id);
                 if (idx !== -1) arr.splice(idx, 1);
             }
         });
-        // remove from master list
         const i = tags.findIndex(t => t.id === tag.id);
         if (i !== -1) tags.splice(i, 1);
 
-        callSaveandReload();
+        await callSaveandReload();
         renderTagSection();
         renderCharacterList();
-        toastr.success('Tag deleted');
+
+        // Save undo snapshot and offer Undo
+        lastTagDeletionUndo = snapshot;
+        toastr.success('Tag deleted.');
+        showUndoDeletionPopup(lastTagDeletionUndo);
       });
 }
+
 
 // ---------------------------------------------------------------------------
 // PUBLIC 2: attachTagSectionListeners  (one-time, after modal DOM is present)
@@ -670,39 +757,54 @@ export function attachTagSectionListeners(modalRoot) {
             renderTagSection();
         });
 
-    // confirm bulk-delete
-    modalRoot.querySelector('#confirmBulkDeleteTags')
-        ?.addEventListener('click', async () => {
-            if (!selectedBulkDeleteTags.size) {
-                toastr.warning('No tags selected'); return;
-            }
-            const names = tags.filter(t => selectedBulkDeleteTags.has(t.id))
-                              .map(t => escapeHtml(t.name)).join('<br>');
-            const html = document.createElement('div');
-            html.innerHTML = `<h3>Bulk delete</h3><p>Delete these tags?</p><pre>${names}</pre>`;
-            const res = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Bulk delete tags');
-            if (res !== POPUP_RESULT.AFFIRMATIVE) return;
+        // confirm bulk-delete (with Undo)
+        modalRoot.querySelector('#confirmBulkDeleteTags')
+            ?.addEventListener('click', async () => {
+                if (!selectedBulkDeleteTags.size) {
+                    toastr.warning('No tags selected'); return;
+                }
 
-            // perform deletion
-            selectedBulkDeleteTags.forEach(tid => {
-                Object.values(tag_map).forEach(arr => {
-                    if (Array.isArray(arr)) {
-                        const idx = arr.indexOf(tid);
+                const toDelete = tags.filter(t => selectedBulkDeleteTags.has(t.id));
+                const snapshot = buildTagDeletionSnapshot(toDelete.map(t => t.id));
+
+                const listHtml = toDelete.map(t => `<li>${escapeHtml(t.name)}</li>`).join('');
+                const html = document.createElement('div');
+                html.innerHTML = `
+                    <h3>Bulk delete</h3>
+                    <p>Delete the following ${toDelete.length} tag${toDelete.length>1?'s':''} and remove them from all characters?</p>
+                    <ul style="margin-left:1.2em">${listHtml}</ul>
+                    <p style="color:#e57373;">This cannot be undone (unless you click Undo in the next step).</p>
+                `;
+                const res = await callGenericPopup(html, POPUP_TYPE.CONFIRM, 'Bulk delete tags');
+                if (res !== POPUP_RESULT.AFFIRMATIVE) return;
+
+                // Perform deletion
+                snapshot.items.forEach(({ tag }) => {
+                    Object.values(tag_map).forEach(arr => {
+                        if (!Array.isArray(arr)) return;
+                        const idx = arr.indexOf(tag.id);
                         if (idx !== -1) arr.splice(idx, 1);
-                    }
+                    });
+                    const i = tags.findIndex(t => t.id === tag.id);
+                    if (i !== -1) tags.splice(i, 1);
                 });
-                const i = tags.findIndex(t => t.id === tid);
-                if (i !== -1) tags.splice(i, 1);
+
+                isBulkDeleteMode = false;
+                selectedBulkDeleteTags.clear();
+                modalRoot.querySelector('#cancelBulkDeleteTags').style.display = 'none';
+                modalRoot.querySelector('#confirmBulkDeleteTags').style.display = 'none';
+                modalRoot.querySelector('#startBulkDeleteTags').style.display = '';
+
+                await callSaveandReload();
+                renderTagSection();
+                renderCharacterList();
+
+                // Store + offer Undo
+                lastTagDeletionUndo = snapshot;
+                toastr.success(`Deleted ${snapshot.items.length} tag${snapshot.items.length>1?'s':''}.`);
+                showUndoDeletionPopup(lastTagDeletionUndo);
             });
-            isBulkDeleteMode = false;
-            selectedBulkDeleteTags.clear();
-            modalRoot.querySelector('#cancelBulkDeleteTags').style.display = 'none';
-            modalRoot.querySelector('#confirmBulkDeleteTags').style.display = 'none';
-            modalRoot.querySelector('#startBulkDeleteTags').style.display = '';
-            callSaveandReload();
-            renderTagSection();
-            renderCharacterList();
-        });
+
 
     // ---------------------------------------------------------------------
     // assign-tag chip search (lives under Characters accordion but tag logic)
