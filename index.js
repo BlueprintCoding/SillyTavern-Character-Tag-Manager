@@ -17,6 +17,7 @@ import {
     tryAutoBackupTagMapOnLaunch         
     } from './utils.js';
     
+import { callSaveandReload } from "./index.js";
 
 import * as stcmFolders from './stcm_folders.js';
 
