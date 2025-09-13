@@ -76,10 +76,17 @@ SillyTavern Character Tag Manager is a SillyTavern UI plugin that provides a cen
 * **Negation:** Add `-` before a term to exclude it.
   *Example:* `T:Elf -T:Dark` finds entries with "Elf" but **not** "Dark".
 
----
-
 **Tip:** Combine AND/OR:
 `A:John, T:Elf T:Magic` finds entries with "John" in any field, **or** both "Elf" and "Magic" tags together.
+
+-----
+
+**AI Assisted Folder and Tagging for Characters**
+Sends a list of your folders and tags, along with the character data (Name, description, personality and scenario fields) to your currently set/active LLM/API for assessment for proper folder or tags. 
+
+<img width="975" height="172" alt="image" src="https://github.com/user-attachments/assets/26df9682-856a-43d7-8433-17302b630ce3" />
+<img width="961" height="708" alt="image" src="https://github.com/user-attachments/assets/fc2261dd-f3a7-4131-8042-41a330fe87fd" />
+<img width="950" height="511" alt="image" src="https://github.com/user-attachments/assets/67949668-6bf5-4c21-bd37-bd53b621882e" />
 
 ---
 ### Alternative Greeting Easy Change Modal
