@@ -546,7 +546,12 @@ async function renderCharacterList() {
                       
                       // avatar -> same modal
                       img.addEventListener('click', (e) => {
-                        e.stopPropagation(); // prevents .charActivate doc handler
+                        e.stopPropagation(); 
+                        openCharEditModal(char);
+                      });
+
+                      charName.addEventListener('click', (e) => {
+                        e.stopPropagation();
                         openCharEditModal(char);
                       });
                 }
