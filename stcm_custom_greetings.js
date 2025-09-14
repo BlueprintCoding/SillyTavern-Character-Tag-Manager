@@ -936,7 +936,6 @@ function closeWorkshop() {
 
 }
 
-function spacer() { const s = document.createElement('div'); s.style.flex = '1'; return s; }
 
 function appendBubble(role, text, opts = {}) {
     if (!chatLogEl || !chatLogEl.appendChild) return;
