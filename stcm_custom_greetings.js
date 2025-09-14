@@ -33,6 +33,7 @@ function saveSession() {
         const payload = {
             miniTurns,
             preferredScene,
+            alternate_greetings: ctx.characterData?.alternate_greetings || [],
         };
         localStorage.setItem(STATE_KEY(), JSON.stringify(payload));
     } catch { }
@@ -1723,6 +1724,7 @@ async function onSendToLLM(isRegen = false) {
                 ...(stopFields),
                 ...(api_server ? { api_server } : {}),
                 ...(modelResolved ? { model: modelResolved } : {}), // only include if set
+
             };
 
             console.log('[GW] TC requestPayload:', {
@@ -1998,3 +2000,10 @@ export function initCustomGreetingWorkshop() {
 }
 
 export function openGreetingWorkshop() { openWorkshop(); }
+
+function addCustomGreeting(newGreeting) {
+    if (!ctx.characterData) ctx.characterData = {};
+    ctx.characterData.alternate_greetings ??= [];
+    ctx.characterData.alternate_greetings.push(newGreeting);
+    saveSession();
+}
