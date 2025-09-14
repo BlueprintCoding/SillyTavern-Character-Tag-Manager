@@ -2171,7 +2171,7 @@ dialog.popup #stcm-popup-pin-input:focus {
     top: 1em; left: 50%; transform: translate(-50%, 0%);
     border-radius: 12px;
   }
-  .stcm-sys-box{
+  #stcm-sys-box{
     position: fixed;
   top: 1em;
   left: 50%;
