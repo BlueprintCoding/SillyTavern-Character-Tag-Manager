@@ -928,9 +928,6 @@ function openWorkshop() {
     inputEl.focus();
 }
 
-
-
-
 function closeWorkshop() {
     if (modal) modal.remove();
     if (overlay) overlay.remove();
@@ -939,10 +936,6 @@ function closeWorkshop() {
 
 }
 
-function btnStyle(bg) {
-    return { padding: '8px 12px', background: bg, color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 };
-}
-function mkBtn(label, bg) { const b = document.createElement('button'); b.textContent = label; Object.assign(b.style, btnStyle(bg)); return b; }
 function spacer() { const s = document.createElement('div'); s.style.flex = '1'; return s; }
 
 function appendBubble(role, text, opts = {}) {
