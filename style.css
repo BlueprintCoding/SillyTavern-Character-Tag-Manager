@@ -2163,19 +2163,11 @@ dialog.popup #stcm-popup-pin-input:focus {
   border: 1px solid #666; border-radius: 6px; cursor: pointer;
 }
 
-/* ========== Mobile tweaks ========== */
-@media (max-width: 800px) {
-  .stcm-gw-modal {
-    width: 96vw; height: 96vh;
-    max-height: 96vh;
-    top: 1em; left: 50%; transform: translate(-50%, 0%);
-    border-radius: 12px;
-  }
-  #stcm-sys-box{
-    position: fixed;
-  top: 1em;
-  left: 50%;
-  transform: translate(-50%, 0%);
+/* === Greeting Workshop System Box === */
+#stcm-sys-box {
+  position: fixed;
+  top: 100px;
+  left: 100px;
   width: min(860px, 95vw);
   max-height: 90vh;
   overflow: hidden;
@@ -2187,6 +2179,24 @@ dialog.popup #stcm-popup-pin-input:focus {
   z-index: 11001;
   display: flex;
   flex-direction: column;
+}
+
+
+/* ========== Mobile tweaks ========== */
+@media (max-width: 800px) {
+  .stcm-gw-modal {
+    width: 96vw; height: 96vh;
+    max-height: 96vh;
+    top: 1em; left: 50%; transform: translate(-50%, 0%);
+    border-radius: 12px;
+  }
+  #stcm-sys-box {
+    top: 1em;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    width: min(860px, 95vw);
+    height: auto;
+    max-height: 90vh;
   }
   .stcm-gw-header { position: sticky; top: 0; z-index: 1; }
   .stcm-gw-settings { gap: 8px; }

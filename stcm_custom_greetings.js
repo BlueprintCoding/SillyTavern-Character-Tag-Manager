@@ -613,24 +613,15 @@ function buildSystemPrompt(prefs) {
 function openSystemPromptEditor() {
     const cfg = loadCustomSystemPrompt();
 
-    ensureTooltipStyles();
-
-    // Give the editor unique IDs so we can detect/close it from elsewhere
+    // We already have CSS for these classes in your stylesheet
     const overlay = document.createElement('div');
     overlay.id = 'stcm-sys-overlay';
-    Object.assign(overlay.style, { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 11000 });
+    overlay.className = 'stcm-gw-overlay';
 
     const box = document.createElement('div');
-    box.id = 'stcm-sys-box';
-    Object.assign(box.style, {
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 'min(860px,95vw)', maxHeight: '90vh', overflow: 'hidden',
-        background: '#1b1b1b', color: '#eee', border: '1px solid #555',
-        borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.6)', zIndex: 11001,
-        display: 'flex', flexDirection: 'column'
-    });
+    box.id = 'stcm-sys-box'; // styled in CSS, not inline
 
-    // Provide a global-safe closer so other handlers (like the Workshop Esc) can use it
+    // Provide a global-safe closer (unchanged)
     const localEscHandler = (e) => {
         if (e.key === 'Escape') {
             e.stopPropagation();
@@ -639,51 +630,44 @@ function openSystemPromptEditor() {
         }
     };
     window.stcmCloseSysEditor = () => {
-        try { document.removeEventListener('keydown', localEscHandler, true); } catch { }
-        try { box.remove(); } catch { }
-        try { overlay.remove(); } catch { }
-        // Clean up the global hook after closing
-        try { delete window.stcmCloseSysEditor; } catch { }
+        try { document.removeEventListener('keydown', localEscHandler, true); } catch {}
+        try { box.remove(); } catch {}
+        try { overlay.remove(); } catch {}
+        try { delete window.stcmCloseSysEditor; } catch {}
     };
 
+    // Header
     const header = document.createElement('div');
+    header.className = 'stcm-gw-header';
     header.textContent = '✏️ Edit System Prompt';
-    Object.assign(header.style, {
-        padding: '10px 12px', borderBottom: '1px solid #444', background: '#222',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600
-    });
 
-    const close = document.createElement('button');
-    close.textContent = 'X';
-    Object.assign(close.style, { padding: '6px 10px', background: '#9e2a2a', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer' });
+    const close = mkBtn('X', 'danger'); // reuse your GW button styles
     close.addEventListener('click', () => window.stcmCloseSysEditor?.());
     header.append(close);
 
+    // Tips (uses existing tooltip classes)
     const tips = document.createElement('div');
-    Object.assign(tips.style, { padding: '10px 12px', borderBottom: '1px solid #333', fontSize: '12px', opacity: 0.95, lineHeight: 1.55 });
+    tips.className = 'stcm-gw-settings';
     tips.innerHTML = `
-        <div style="margin-bottom:6px;"><strong>Variables you can use (hover for details):</strong></div>
+        <div><strong>Variables you can use (hover for details):</strong></div>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
             <code class="gw-var" data-tip="Human-readable name/role for the assistant performing the greeting edit/creation task. Example: 'A Character Card Greeting Editing Assistant'. Replaces \${who}.">\${who}</code>
-            <code class="gw-var" data-tip="Number of paragraphs to produce in the output when generating a scene. Integer ≥ 1. Replaces \${nParas}.">\${nParas}</code>
-            <code class="gw-var" data-tip="Pluralization helper for 'paragraph' based on nParas. Blank when nParas = 1, otherwise 's'. Replaces \${parasS}.">\${parasS}</code>
-            <code class="gw-var" data-tip="Sentences per paragraph to enforce. Integer ≥ 1. Replaces \${nSents}.">\${nSents}</code>
-            <code class="gw-var" data-tip="Pluralization helper for 'sentence' based on nSents. Blank when nSents = 1, otherwise 's'. Replaces \${sentsS}.">\${sentsS}</code>
-            <code class="gw-var" data-tip="Style directive for tone/voice (e.g., 'Follow Character Personality', 'dry and clinical', etc.). Replaces \${style}.">\${style}</code>
-            <code class="gw-var" data-tip="Character name pulled from the active card. Used to reference the character in instructions without roleplaying as them. Replaces \${charName}.">\${charName}</code>
+            <code class="gw-var" data-tip="Number of paragraphs to produce in the output. Replaces \${nParas}.">\${nParas}</code>
+            <code class="gw-var" data-tip="Pluralization helper for 'paragraph'. Replaces \${parasS}.">\${parasS}</code>
+            <code class="gw-var" data-tip="Sentences per paragraph. Replaces \${nSents}.">\${nSents}</code>
+            <code class="gw-var" data-tip="Pluralization helper for 'sentence'. Replaces \${sentsS}.">\${sentsS}</code>
+            <code class="gw-var" data-tip="Style directive for tone/voice. Replaces \${style}.">\${style}</code>
+            <code class="gw-var" data-tip="Character name from the active card. Replaces \${charName}.">\${charName}</code>
         </div>
-        <div style="margin-top:10px;">
-            <strong>Notes:</strong> These tokens are replaced at runtime before sending to the model. 
-            You do <em>not</em> need to include character data yourself — <code>buildCharacterJSONBlock()</code> is automatically appended whenever the custom system prompt is enabled.
-        </div>
+        <div><strong>Notes:</strong> Tokens are replaced at runtime. Character JSON is appended automatically.</div>
     `;
     activateVarTooltips(tips);
 
+    // Checkbox row
     const useRow = document.createElement('label');
     useRow.style.display = 'flex';
     useRow.style.alignItems = 'center';
     useRow.style.gap = '8px';
-    useRow.style.fontSize = '14px';
     const chk = document.createElement('input');
     chk.type = 'checkbox';
     chk.checked = !!cfg.enabled;
@@ -691,33 +675,20 @@ function openSystemPromptEditor() {
     lbl.textContent = 'Use custom system prompt for the Greeting Workshop';
     useRow.append(chk, lbl);
 
+    // Editor textarea
     const ta = document.createElement('textarea');
+    ta.className = 'stcm-gw-ta'; // textarea styling from CSS
+    ta.style.minHeight = '240px'; // height is UX, ok to keep this one inline
     ta.value = cfg.template || getDefaultSystemPromptTemplate();
-    Object.assign(ta.style, {
-        width: '100%',
-        height: '100%',
-        resize: 'vertical',
-        minHeight: '240px',
-        background: '#222',
-        color: '#eee',
-        border: '1px solid #444',
-        borderRadius: '6px',
-        padding: '10px',
-        fontFamily: 'monospace'
-    });
 
-
+    // Footer with buttons
     const footer = document.createElement('div');
-    Object.assign(footer.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 12px' });
+    footer.className = 'stcm-gw-footer';
 
-    const resetBtn = document.createElement('button');
-    resetBtn.textContent = 'Reset to Default';
-    Object.assign(resetBtn.style, { padding: '8px 12px', background: '#616161', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer' });
+    const resetBtn = mkBtn('Reset to Default', 'ghost');
     resetBtn.addEventListener('click', () => { ta.value = getDefaultSystemPromptTemplate(); });
 
-    const saveBtn = document.createElement('button');
-    saveBtn.textContent = 'Save';
-    Object.assign(saveBtn.style, { padding: '8px 12px', background: '#8e44ad', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 });
+    const saveBtn = mkBtn('Save', 'accent');
     saveBtn.addEventListener('click', () => {
         saveCustomSystemPrompt({ enabled: chk.checked, template: ta.value });
         window.stcmCloseSysEditor?.();
@@ -725,17 +696,20 @@ function openSystemPromptEditor() {
 
     footer.append(resetBtn, saveBtn);
 
-    const tipsWrap = tips;
+    // Body layout
     const bodyWrap = document.createElement('div');
-    Object.assign(bodyWrap.style, { display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: '10px', height: '65vh', padding: '10px 12px' });
-    bodyWrap.append(useRow, ta, footer);
+    bodyWrap.className = 'stcm-gw-body';
+    // simple vertical stack: settings (useRow) + textarea + footer
+    bodyWrap.innerHTML = ''; // ensure empty
+    bodyWrap.append(useRow, ta);
 
-    box.append(header, tipsWrap, bodyWrap);
+    box.append(header, tips, bodyWrap, footer);
     document.body.append(overlay, box);
 
-    // Capture Esc at the earliest phase so it doesn't bubble to the Workshop handler
+    // Capture Esc
     document.addEventListener('keydown', localEscHandler, true);
 }
+
 
 
 
@@ -1912,16 +1886,8 @@ function injectWorkshopButton() {
 
     // Build the button
     const btn = document.createElement('button');
-    btn.id = 'stcm-gw-btn';
+    btn.id = 'stcm-gw-btn stcm-gw-btn--chip';
     btn.textContent = '✨ Greeting Workshop';
-    Object.assign(btn.style, {
-        padding: '4px 10px',
-        background: '#333',
-        color: '#fff',
-        border: '1px solid #666',
-        borderRadius: '6px',
-        cursor: 'pointer'
-    });
     btn.addEventListener('click', openWorkshop);
 
     // Clean any stale children and attach fresh button
