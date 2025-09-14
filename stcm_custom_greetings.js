@@ -864,8 +864,8 @@ function openWorkshop() {
         ).then(result => { if (result === POPUP_RESULT.AFFIRMATIVE) clearWorkshopState(); });
     });
 
-    // Save latest assistant reply to character card's alternate_greetings
-    saveToCardBtn.addEventListener('click', () => {
+    // Save latest assistant reply to character card's alternate_greetings via API
+    saveToCardBtn.addEventListener('click', async () => {
         try {
             ensureCtx();
             const lastAssistant = [...miniTurns].reverse().find(t => t.role === 'assistant' && t.content && String(t.content).trim().length);
@@ -875,23 +875,18 @@ function openWorkshop() {
             }
 
             const text = String(lastAssistant.content).trim();
-            if (!ctx.characterData) ctx.characterData = {};
-            const list = ctx.characterData.alternate_greetings = Array.isArray(ctx.characterData.alternate_greetings)
-                ? ctx.characterData.alternate_greetings
-                : [];
-
-            const exists = list.some(g => String(g) === text);
-            if (exists) {
-                callGenericPopup('This greeting is already saved in alternate_greetings.', POPUP_TYPE.ALERT, 'Greeting Workshop');
-                return;
+            const { saved, message, total } = await addCustomGreeting(text);
+            if (saved) {
+                if (typeof toastr !== 'undefined') toastr.success(message || 'Saved to character card.');
+                else callGenericPopup(message || `Saved to character card (alternate_greetings). Total: ${total ?? ''}.`, POPUP_TYPE.ALERT, 'Greeting Workshop');
+            } else {
+                if (typeof toastr !== 'undefined') toastr.info(message || 'Already saved.');
+                else callGenericPopup(message || 'This greeting is already saved in alternate_greetings.', POPUP_TYPE.ALERT, 'Greeting Workshop');
             }
-
-            addCustomGreeting(text);
-            const total = (ctx.characterData.alternate_greetings || []).length;
-            callGenericPopup(`Saved to character card (alternate_greetings). Total: ${total}.`, POPUP_TYPE.ALERT, 'Greeting Workshop');
         } catch (e) {
             console.warn('[GW] Save to Card failed:', e);
-            callGenericPopup('Failed to save greeting. See console for details.', POPUP_TYPE.ALERT, 'Greeting Workshop');
+            if (typeof toastr !== 'undefined') toastr.error('Failed to save greeting.');
+            else callGenericPopup('Failed to save greeting. See console for details.', POPUP_TYPE.ALERT, 'Greeting Workshop');
         }
     });
 
@@ -2033,9 +2028,58 @@ export function initCustomGreetingWorkshop() {
 
 export function openGreetingWorkshop() { openWorkshop(); }
 
-function addCustomGreeting(newGreeting) {
-    if (!ctx.characterData) ctx.characterData = {};
-    ctx.characterData.alternate_greetings ??= [];
-    ctx.characterData.alternate_greetings.push(newGreeting);
-    saveSession();
+async function addCustomGreeting(newGreeting) {
+    try {
+        ensureCtx();
+        const text = String(newGreeting ?? '').trim();
+        if (!text) return { saved: false, message: 'Greeting text is empty.' };
+
+        const ch = getActiveCharacterFull?.() || activeCharCache || (ctx?.characters?.[ctx?.characterId] || {});
+        const avatar = ch?.avatar || ctx?.characters?.[ctx?.characterId]?.avatar || null;
+        const name = ch?.name || ch?.data?.name || ctx?.characters?.[ctx?.characterId]?.name || ctx?.name2 || null;
+
+        // Current list from card (prefer data.alternate_greetings)
+        const current = Array.isArray(ch?.data?.alternate_greetings)
+            ? [...ch.data.alternate_greetings]
+            : Array.isArray(ctx?.characterData?.alternate_greetings)
+                ? [...ctx.characterData.alternate_greetings]
+                : [];
+
+        const exists = current.some(g => String(g).trim() === text);
+        if (exists) {
+            return { saved: false, message: 'This greeting is already saved.', total: current.length };
+        }
+
+        const next = [...current, text];
+
+        // Persist via the same API used by the edit card panel
+        const payload = {
+            avatar_url: avatar,
+            ch_name: name,
+            updates: { data: { alternate_greetings: next } }
+        };
+
+        const res = await fetch('/api/characters/merge-attributes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            let reason = 'Unknown error';
+            try { reason = await res.text(); } catch { }
+            throw new Error(reason);
+        }
+
+        // Update in-memory caches for immediate availability
+        if (!ctx.characterData) ctx.characterData = {};
+        ctx.characterData.alternate_greetings = next;
+        if (ch && ch.data) ch.data.alternate_greetings = next;
+
+        saveSession();
+        return { saved: true, message: 'Saved to alternate_greetings.', total: next.length };
+    } catch (e) {
+        console.warn('[GW] addCustomGreeting failed:', e);
+        throw e;
+    }
 }
