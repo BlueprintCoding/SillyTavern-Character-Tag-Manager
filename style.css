@@ -1948,6 +1948,265 @@ dialog.popup #stcm-popup-pin-input:focus {
     overflow-y: scroll;
   }
 
+
+/* ================================
+   SillyTavern Character Manager – Greeting Workshop
+   Class-based modal styles (desktop + mobile)
+   ================================ */
+
+:root {
+  /* Fallbacks; auto-adapt to your theme tokens if present */
+  --stcm-gw-bg: var(--st-bg-2, #1b1b1b);
+  --stcm-gw-bg-elev: var(--st-bg-3, #222);
+  --stcm-gw-fg: var(--st-fg-1, #eee);
+  --stcm-gw-border: var(--st-border-1, #444);
+  --stcm-gw-border-2: var(--st-border-2, #333);
+  --stcm-gw-accent: var(--st-accent, #8e44ad);
+  --stcm-gw-accent-2: #6a5acd;
+  --stcm-gw-ok: #2e7d32;
+  --stcm-gw-warn: #d35400;
+  --stcm-gw-danger: #9e2a2a;
+  --stcm-gw-info: #007acc;
+  --stcm-gw-chip: #2b2b2b;
+  --stcm-gw-chip-2: #242424;
+  --stcm-gw-shadow: rgba(0,0,0,.5);
+  --stcm-gw-shadow-2: rgba(0,0,0,.6);
+  --stcm-gw-radius: 10px;
+  --stcm-gw-radius-sm: 8px;
+}
+
+.stcm-gw-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 10000;
+}
+
+.stcm-gw-modal {
+  position: fixed; inset: auto;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(720px, 92vw);
+  max-height: 95vh;
+  display: flex; flex-direction: column;
+  background: var(--stcm-gw-bg);
+  color: var(--stcm-gw-fg);
+  border: 1px solid var(--stcm-gw-border);
+  border-radius: var(--stcm-gw-radius);
+  box-shadow: 0 8px 30px var(--stcm-gw-shadow);
+  z-index: 10001;
+  resize: both; overflow: auto;
+}
+
+.stcm-gw-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  font-weight: 600;
+  background: var(--stcm-gw-bg-elev);
+  border-bottom: 1px solid var(--stcm-gw-border);
+  cursor: move; /* draggable handle */
+}
+
+.stcm-gw-settings {
+  display: flex; flex-wrap: wrap; gap: 8px 16px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--stcm-gw-border-2);
+}
+.stcm-gw-settings label {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--stcm-gw-fg);
+}
+.stcm-gw-input,
+.stcm-gw-input[type="number"] {
+  min-width: 80px;
+  padding: 4px 6px;
+  background: var(--stcm-gw-bg-elev);
+  color: var(--stcm-gw-fg);
+  border: 1px solid var(--stcm-gw-border);
+  border-radius: 6px;
+}
+.stcm-gw-input.flex { flex: 1; }
+
+.stcm-gw-body {
+  display: grid; grid-template-rows: 1fr auto;
+  gap: 10px;
+  padding: 0 12px 12px 12px;
+  height: 70vh;
+}
+
+.stcm-gw-log {
+  overflow-y: auto;
+  padding: 10px 4px;
+  background: #181818;
+  border: 1px solid var(--stcm-gw-border-2);
+  border-radius: var(--stcm-gw-radius-sm);
+}
+
+.stcm-gw-composer {
+  display: grid; grid-template-columns: 1fr auto; gap: 8px;
+}
+.stcm-gw-ta {
+  min-height: 48px; max-height: 160px; resize: vertical;
+  padding: 8px;
+  background: var(--stcm-gw-bg-elev);
+  color: var(--stcm-gw-fg);
+  border: 1px solid var(--stcm-gw-border);
+  border-radius: 6px;
+}
+
+.stcm-gw-footer {
+  display: flex; gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--stcm-gw-border-2);
+  background: #1f1f1f;
+}
+
+/* Buttons */
+.stcm-gw-btn {
+  padding: 8px 12px;
+  color: #fff;
+  border: 1px solid var(--stcm-gw-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  background: var(--stcm-gw-accent);
+}
+.stcm-gw-btn--ok { background: var(--stcm-gw-ok); }
+.stcm-gw-btn--accent { background: var(--stcm-gw-accent-2); }
+.stcm-gw-btn--warn { background: var(--stcm-gw-warn); }
+.stcm-gw-btn--danger { background: var(--stcm-gw-danger); }
+.stcm-gw-btn--info { background: var(--stcm-gw-info); }
+.stcm-gw-btn--chip { background: var(--stcm-gw-chip); }
+.stcm-gw-btn--ghost {
+  background: transparent; color: var(--stcm-gw-fg);
+}
+
+/* Chat bubbles */
+.gw-row { display: flex; margin: 6px 0; }
+.gw-row[data-role="user"]   { justify-content: flex-end; }
+.gw-row[data-role="assistant"] { justify-content: flex-start; }
+
+.gw-bubble {
+  position: relative;
+  max-width: 90%;
+  white-space: pre-wrap;
+  padding: 8px 10px 8px 10px;
+  border-radius: var(--stcm-gw-radius-sm);
+  border: 1px solid #3a3a3a;
+  background: var(--stcm-gw-chip-2);
+}
+.gw-row[data-role="user"] .gw-bubble { background: var(--stcm-gw-chip); }
+
+.gw-bubble.has-actions { padding-bottom: 32px; }
+
+.gw-actions {
+  position: absolute;
+  right: 8px; bottom: 6px;
+  display: flex; gap: 8px;
+  font-size: 12px; opacity: .9;
+}
+.gw-actions button {
+  background: transparent;
+  border: none; cursor: pointer; padding: 0 2px;
+  color: var(--stcm-gw-fg);
+}
+.gw-actions button[data-kind="star"] { color: #ffd54f; }
+.gw-actions button[data-kind="trash"] { color: #f06292; }
+
+/* Preferred badge */
+.gw-preferred-badge {
+  position: absolute; left: 8px; bottom: 8px;
+  font-size: 10px; opacity: .9;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid #ffd54f66;
+  color: #ffd54f;
+  pointer-events: none;
+}
+
+/* Inline editor */
+.gw-inline-editor {
+  display: block; width: 100%;
+  min-height: 160px; resize: vertical;
+  margin-top: 6px; padding: 8px; box-sizing: border-box;
+  background: var(--stcm-gw-bg-elev);
+  color: var(--stcm-gw-fg);
+  border: 1px solid var(--stcm-gw-border);
+  border-radius: 6px;
+}
+
+/* Tooltip host (re-uses your existing IDs/classes) */
+.gw-tip-host, .gw-tip-arrow {
+  position: fixed; z-index: 11005;
+}
+.gw-tip-host {
+  background: var(--stcm-gw-bg-elev);
+  color: var(--stcm-gw-fg);
+  border: 1px solid var(--stcm-gw-border);
+  border-radius: 6px;
+  padding: 6px 8px; font-size: 12px;
+  box-shadow: 0 6px 20px var(--stcm-gw-shadow-2);
+}
+.gw-tip-arrow {
+  width: 8px; height: 8px; background: var(--stcm-gw-bg-elev);
+  border-left: 1px solid var(--stcm-gw-border);
+  border-top: 1px solid var(--stcm-gw-border);
+  transform: rotate(45deg);
+}
+
+/* Holder + open button above the first message */
+#stcm-gw-holder {
+  display: flex; justify-content: flex-start; margin: 6px 0 8px 0;
+}
+#stcm-gw-btn {
+  padding: 4px 10px;
+  background: #333; color: #fff;
+  border: 1px solid #666; border-radius: 6px; cursor: pointer;
+}
+
+/* === Greeting Workshop System Box === */
+#stcm-sys-box {
+  position: fixed;
+  top: 100px;
+  left: 100px;
+  width: min(860px, 95vw);
+  max-height: 90vh;
+  overflow: hidden;
+  background: rgb(27, 27, 27);
+  color: rgb(238, 238, 238);
+  border: 1px solid rgb(85, 85, 85);
+  border-radius: 10px;
+  box-shadow: rgba(0, 0, 0, 0.6) 0px 8px 30px;
+  z-index: 11001;
+  display: flex;
+  flex-direction: column;
+}
+
+
+/* ========== Mobile tweaks ========== */
+@media (max-width: 800px) {
+  .stcm-gw-modal {
+    width: 96vw; height: 96vh;
+    max-height: 96vh;
+    top: 1em; left: 50%; transform: translate(-50%, 0%);
+    border-radius: 12px;
+  }
+  #stcm-sys-box {
+    top: 1em;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    width: min(860px, 95vw);
+    height: auto;
+    max-height: 90vh;
+  }
+  .stcm-gw-header { position: sticky; top: 0; z-index: 1; }
+  .stcm-gw-settings { gap: 8px; }
+  .stcm-gw-input.flex { min-width: 0; }
+  .stcm-gw-footer { flex-direction: column; }
+  .stcm-gw-btn { width: 100%; padding: 10px 12px; }
+  .gw-bubble { max-width: 100%; }
+  .stcm-gw-composer { grid-template-columns: 1fr; }
+}
+
   
 /* === Responsive / Media Queries === */
 @media (max-width: 700px) {

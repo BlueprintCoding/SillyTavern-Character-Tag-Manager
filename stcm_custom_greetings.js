@@ -118,51 +118,30 @@ function markPreferred(wrap, bubble, text) {
 function clearWorkshopState() {
     ensureCtx();
     console.log("clear called");
-    // 1) Clear any preferred decorations BEFORE nulling handles
-    try { clearPreferredUI(); } catch { }
+    try { clearPreferredUI(); } catch {}
 
-    // 2) Wipe in-memory state
     miniTurns = [];
     preferredScene = null;
     preferredEls = null;
 
-    // 3) Persist a clean state for this character
     try {
         localStorage.setItem(STATE_KEY(), JSON.stringify({ miniTurns: [], preferredScene: null }));
-    } catch { }
+    } catch {}
 
-    // 4) Hard reset the chat log DOM (replace the node, not just innerHTML)
     if (chatLogEl && chatLogEl.parentNode) {
         const parent = chatLogEl.parentNode;
-
-        const newLog = document.createElement('div');
-        // Reapply the same styles you set in openWorkshop()
-        Object.assign(newLog.style, {
-            overflowY: 'auto',
-            padding: '10px 4px',
-            border: '1px solid #333',
-            borderRadius: '8px',
-            background: '#181818'
-        });
-
-        // Replace and rebind the global ref
+        const newLog = el('div', 'stcm-gw-log');
         parent.replaceChild(newLog, chatLogEl);
         chatLogEl = newLog;
     }
 
-    // 5) Rebuild the UI from the (now empty) state
-    // Defer one frame so the popup can close cleanly first
     const defer = window.requestAnimationFrame || ((fn) => setTimeout(fn, 0));
     defer(() => {
-        // Starter line only (no actions)
         appendBubble('assistant', 'Describe the opening you want (tone, length, topics, formality, etc.).', { noActions: true });
-
-        if (inputEl) {
-            inputEl.value = '';
-            inputEl.focus();
-        }
+        if (inputEl) { inputEl.value = ''; inputEl.focus(); }
     });
 }
+
 
 // Persist the last character the workshop was opened for
 const LAST_CHAR_KEY = 'stcm_gw_last_char_id';
@@ -643,13 +622,6 @@ function openSystemPromptEditor() {
 
     const box = document.createElement('div');
     box.id = 'stcm-sys-box';
-    Object.assign(box.style, {
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 'min(860px,95vw)', maxHeight: '90vh', overflow: 'hidden',
-        background: '#1b1b1b', color: '#eee', border: '1px solid #555',
-        borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.6)', zIndex: 11001,
-        display: 'flex', flexDirection: 'column'
-    });
 
     // Provide a global-safe closer so other handlers (like the Workshop Esc) can use it
     const localEscHandler = (e) => {
@@ -796,6 +768,22 @@ function restoreUIFromState() {
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
 }
 
+// Helper: create element with class and text
+function el(tag, className, text) {
+    const n = document.createElement(tag);
+    if (className) n.className = className;
+    if (text != null) n.textContent = text;
+    return n;
+}
+
+// Helper: button with base class + variant
+function mkBtn(label, variant /* e.g., 'ok' | 'accent' | 'warn' | 'danger' | 'info' | 'ghost' */) {
+    const b = el('button', 'stcm-gw-btn' + (variant ? ` stcm-gw-btn--${variant}` : ''), label);
+    return b;
+}
+
+// Spacer
+function spacer() { const s = document.createElement('div'); s.style.flex = '1'; return s; }
 
 
 let miniTurns = []; // [{role:'user'|'assistant', content: string}]
@@ -808,103 +796,63 @@ function openWorkshop() {
     if (lastId && lastId !== currId) {
         try {
             localStorage.setItem(`stcm_gw_state_${currId}`, JSON.stringify({ miniTurns: [], preferredScene: null }));
-        } catch { }
+        } catch {}
     }
-    try { localStorage.setItem(LAST_CHAR_KEY, currId); } catch { }
+    try { localStorage.setItem(LAST_CHAR_KEY, currId); } catch {}
 
     if (modal) return;
 
     const prefs = loadPrefs();
 
-    overlay = document.createElement('div');
-    Object.assign(overlay.style, { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 10000 });
+    overlay = el('div', 'stcm-gw-overlay');
+    modal = el('div', 'stcm-gw-modal');
 
-    modal = document.createElement('div');
-    Object.assign(modal.style, {
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 'min(720px,92vw)', maxHeight: '95vh', overflow: 'hidden',
-        background: '#1b1b1b', color: '#ddd', border: '1px solid #555',
-        borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.5)', zIndex: 10001,
-        display: 'flex', flexDirection: 'column', resize: 'both', overflow: 'auto'
-    });
+    // Header (draggable handle)
+    const header = el('div', 'stcm-gw-header', '🧠 Greeting Workshop');
 
-    const header = document.createElement('div');
-    header.textContent = '🧠 Greeting Workshop';
-    Object.assign(header.style, {
-        padding: '10px 12px',
-        borderBottom: '1px solid #444',
-        fontWeight: 600,
-        background: '#222',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-    });
-
-    const settings = document.createElement('div');
-    Object.assign(settings.style, {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '8px 16px',
-        padding: '8px 12px',
-        alignItems: 'center',
-        borderBottom: '1px solid #333'
-    });
-    settings.innerHTML = `
-    <label style="display:flex;align-items:center;">
-        Paragraphs(¶)
-        <input id="gw-paras" type="number" min="1" max="10" value="${prefs.numParagraphs ?? 3}" style="width:80px;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
-    </label>
-    <label style="display:flex;align-items:center;">
-        Sentences(per ¶)
-        <input id="gw-sent" type="number" min="1" max="10" value="${prefs.sentencesPerParagraph ?? 3}" style="width:80px;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
-    </label>
-    <label style="display:flex;align-items:center;">
-        Chat History
-        <input id="gw-hist" type="number" min="0" max="20" value="${prefs.historyCount ?? 5}" style="width:80px;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;" title="How many recent messages to include when sending to the LLM">
-    </label>
-    <label style="display:flex;flex:1;align-items:center;">
-        Style
-        <input id="gw-style" type="text" value="${esc(prefs.style)}" style="flex:1;margin-left:6px;padding: 4px;background: rgb(34, 34, 34);color: rgb(238, 238, 238);border: 1px solid rgb(68, 68, 68);border-radius: 6px;">
-    </label>
-`;
-
-    const body = document.createElement('div');
-    body.className = 'gw-chat-body';
-    body.id = 'gw-chat-body';
-    Object.assign(body.style, { display: 'grid', gridTemplateRows: '1fr auto', padding: '0 12px 12px 12px', gap: '10px', height: '70vh' });
-
-    chatLogEl = document.createElement('div');
-    Object.assign(chatLogEl.style, { overflowY: 'auto', padding: '10px 4px', border: '1px solid #333', borderRadius: '8px', background: '#181818' });
-
-    const composer = document.createElement('div');
-    Object.assign(composer.style, { display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' });
-
-    inputEl = document.createElement('textarea');
-    inputEl.placeholder = 'Describe the greeting you want (tone, topics, constraints)…';
-    Object.assign(inputEl.style, { resize: 'vertical', minHeight: '48px', maxHeight: '160px', padding: '8px', background: '#222', color: '#eee', border: '1px solid #444', borderRadius: '6px' });
-
-    sendBtn = document.createElement('button');
-    sendBtn.textContent = 'Send to LLM';
-    Object.assign(sendBtn.style, btnStyle('#2e7d32'));
-    composer.append(inputEl, sendBtn);
-
-    const sysBtn = mkBtn('✏️ System Prompt', '#6a5acd');
+    const sysBtn = mkBtn('✏️ System Prompt', 'accent');
     sysBtn.addEventListener('click', openSystemPromptEditor);
     header.append(sysBtn);
 
-    const closeBtn = mkBtn('X', '#9e2a2a');
+    const closeBtn = mkBtn('X', 'danger');
+    closeBtn.addEventListener('click', closeWorkshop);
     header.append(closeBtn);
 
+    // Settings row
+    const settings = el('div', 'stcm-gw-settings');
+    settings.innerHTML = `
+      <label>Paragraphs(¶)
+        <input id="gw-paras" class="stcm-gw-input" type="number" min="1" max="10" value="${prefs.numParagraphs ?? 3}">
+      </label>
+      <label>Sentences(per ¶)
+        <input id="gw-sent" class="stcm-gw-input" type="number" min="1" max="10" value="${prefs.sentencesPerParagraph ?? 3}">
+      </label>
+      <label>Chat History
+        <input id="gw-hist" class="stcm-gw-input" type="number" min="0" max="20" value="${prefs.historyCount ?? 5}" title="How many recent messages to include when sending to the LLM">
+      </label>
+      <label class="stcm-gw-input-row" style="flex:1">Style
+        <input id="gw-style" class="stcm-gw-input flex" type="text" value="${esc(prefs.style)}">
+      </label>
+    `;
 
-    const footer = document.createElement('div');
-    Object.assign(footer.style, { display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #333', background: '#1f1f1f' });
+    // Body (log + composer)
+    const body = el('div', 'stcm-gw-body');
+    chatLogEl = el('div', 'stcm-gw-log');
 
-    const regenBtn = mkBtn('Regenerate Last', '#007acc');
-    const acceptBtn = mkBtn('Accept → Replace Greeting', '#d35400');
-    const clearBtn = mkBtn('Clear Memory', '#9e2a2a');
+    const composer = el('div', 'stcm-gw-composer');
+    inputEl = el('textarea', 'stcm-gw-ta');
+    inputEl.placeholder = 'Describe the greeting you want (tone, topics, constraints)…';
 
-    closeBtn.addEventListener('click', closeWorkshop);
+    const sendBtnLocal = mkBtn('Send to LLM', 'ok');
+    composer.append(inputEl, sendBtnLocal);
 
+    // Footer
+    const footer = el('div', 'stcm-gw-footer');
+    const regenBtnLocal  = mkBtn('Regenerate Last', 'info');
+    const acceptBtnLocal = mkBtn('Accept → Replace Greeting', 'warn');
+    const clearBtn       = mkBtn('Clear Memory', 'danger');
+
+    // Wire events
     clearBtn.addEventListener('click', () => {
         callGenericPopup(
             'Clear workshop memory (history & preferred scene)?',
@@ -914,45 +862,34 @@ function openWorkshop() {
         ).then(result => { if (result === POPUP_RESULT.AFFIRMATIVE) clearWorkshopState(); });
     });
 
-    footer.append(regenBtn, spacer(), acceptBtn, clearBtn);
+    footer.append(regenBtnLocal, spacer(), acceptBtnLocal, clearBtn);
 
+    // Assemble modal
     modal.append(header, settings, body, footer);
     body.append(chatLogEl, composer);
     document.body.append(overlay, modal);
 
-    // Close behavior: if the System Prompt editor is open, close THAT first.
+    // Esc behavior (respect System Prompt editor if open)
     const escHandler = (e) => {
         if (e.key !== 'Escape') return;
-
-        // If the system prompt editor is open, close it and DO NOT close the Workshop.
         if (document.getElementById('stcm-sys-box')) {
-            e.stopPropagation();
-            e.preventDefault();
-            if (typeof window.stcmCloseSysEditor === 'function') {
-                window.stcmCloseSysEditor();
-            } else {
-                // Fallback: remove by IDs if the closer isn't available
-                try { document.getElementById('stcm-sys-box')?.remove(); } catch { }
-                try { document.getElementById('stcm-sys-overlay')?.remove(); } catch { }
-            }
+            e.stopPropagation(); e.preventDefault();
+            if (typeof window.stcmCloseSysEditor === 'function') window.stcmCloseSysEditor();
             return;
         }
-
-        // Otherwise, Esc closes the Workshop as before.
         closeWorkshop();
         document.removeEventListener('keydown', escHandler, true);
     };
     document.addEventListener('keydown', escHandler, true);
 
-
-
+    // Draggable
     makeDraggable(modal, header);
 
-    // wire settings
+    // Wire settings → localStorage
     styleInputEl = settings.querySelector('#gw-style');
-    paraInputEl = settings.querySelector('#gw-paras');
-    sentInputEl = settings.querySelector('#gw-sent');
-    histInputEl = settings.querySelector('#gw-hist');
+    paraInputEl  = settings.querySelector('#gw-paras');
+    sentInputEl  = settings.querySelector('#gw-sent');
+    histInputEl  = settings.querySelector('#gw-hist');
 
     settings.addEventListener('change', () => {
         const next = {
@@ -964,10 +901,10 @@ function openWorkshop() {
         savePrefs(next);
     });
 
-    sendBtn.addEventListener('click', () => onSendToLLM(false));
-    regenBtn.addEventListener('click', onRegenerate);
-    acceptBtn.addEventListener('click', onAccept);
-
+    // Actions
+    sendBtnLocal.addEventListener('click', () => onSendToLLM(false));
+    regenBtnLocal.addEventListener('click', onRegenerate);
+    acceptBtnLocal.addEventListener('click', onAccept);
     inputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
@@ -975,6 +912,7 @@ function openWorkshop() {
         }
     });
 
+    // Restore session
     const restored = loadSession();
     miniTurns = restored.miniTurns;
     preferredScene = restored.preferredScene;
@@ -982,8 +920,6 @@ function openWorkshop() {
 
     inputEl.focus();
 }
-
-
 
 function closeWorkshop() {
     if (modal) modal.remove();
@@ -993,105 +929,32 @@ function closeWorkshop() {
 
 }
 
-function btnStyle(bg) {
-    return { padding: '8px 12px', background: bg, color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 };
-}
-function mkBtn(label, bg) { const b = document.createElement('button'); b.textContent = label; Object.assign(b.style, btnStyle(bg)); return b; }
-function spacer() { const s = document.createElement('div'); s.style.flex = '1'; return s; }
 
 function appendBubble(role, text, opts = {}) {
     if (!chatLogEl || !chatLogEl.appendChild) return;
 
-    const wrap = document.createElement('div');
-    wrap.className = 'gw-row';
+    const wrap = el('div', 'gw-row');
     wrap.dataset.role = role;
     wrap.dataset.ts = String(Date.now());
 
-    const bubble = document.createElement('div');
-    bubble.className = 'gw-bubble';
-
-    const content = document.createElement('div');
-    content.className = 'gw-content';
+    const bubble = el('div', 'gw-bubble');
+    const content = el('div', 'gw-content');
     content.textContent = text;
-
-    wrap.style.display = 'flex';
-    wrap.style.margin = '6px 0';
-    wrap.style.justifyContent = role === 'user' ? 'flex-end' : 'flex-start';
+    bubble.appendChild(content);
 
     const hasActions = role === 'assistant' && !opts.noActions;
+    if (hasActions) bubble.classList.add('has-actions');
 
-    Object.assign(bubble.style, {
-        padding: '8px 10px',
-        borderRadius: '8px',
-        background: role === 'user' ? '#2b2b2b' : '#242424',
-        border: '1px solid #3a3a3a',
-        maxWidth: '90%',
-        whiteSpace: 'pre-wrap',
-        position: 'relative',
-        paddingBottom: hasActions ? '32px' : '8px'
-    });
-
-    bubble.appendChild(content);
     wrap.appendChild(bubble);
     chatLogEl.appendChild(wrap);
 
     if (hasActions) {
-        const bar = document.createElement('div');
-        Object.assign(bar.style, {
-            position: 'absolute',
-            right: '8px',
-            bottom: '6px',
-            display: 'flex',
-            gap: '8px',
-            fontSize: '12px',
-            opacity: '0.9'
-        });
+        const bar = el('div', 'gw-actions');
 
-        const starBtn = document.createElement('button');
-        starBtn.type = 'button';
-        starBtn.title = 'Mark as preferred (keep almost the same next time)';
-        starBtn.textContent = '⭐';
-        Object.assign(starBtn.style, {
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '0 2px',
-            color: '#ffd54f'
-        });
-
-        const editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.title = 'Edit this assistant message';
-        editBtn.textContent = '✏️';
-        Object.assign(editBtn.style, {
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '0 2px'
-        });
-
-        const copyBtn = document.createElement('button');
-        copyBtn.type = 'button';
-        copyBtn.title = 'Copy this assistant message';
-        copyBtn.textContent = '📋';
-        Object.assign(copyBtn.style, {
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '0 2px'
-        });
-
-        const trashBtn = document.createElement('button');
-        trashBtn.type = 'button';
-        trashBtn.title = 'Delete this assistant message and the previous user message';
-        trashBtn.textContent = '🗑';
-        Object.assign(trashBtn.style, {
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '0 2px',
-            color: '#f06292'
-        });
+        const starBtn  = el('button', null, '⭐');    starBtn.title = 'Mark as preferred (keep almost the same next time)'; starBtn.dataset.kind = 'star';
+        const editBtn  = el('button', null, '✏️');    editBtn.title = 'Edit this assistant message';                       editBtn.dataset.kind = 'edit';
+        const copyBtn  = el('button', null, '📋');    copyBtn.title = 'Copy this assistant message';                        copyBtn.dataset.kind = 'copy';
+        const trashBtn = el('button', null, '🗑');    trashBtn.title = 'Delete this assistant message and the previous user message'; trashBtn.dataset.kind = 'trash';
 
         starBtn.addEventListener('click', () => {
             const thisTs = wrap.dataset.ts;
@@ -1110,46 +973,25 @@ function appendBubble(role, text, opts = {}) {
         });
 
         editBtn.addEventListener('click', () => {
-            // prevent multiple editors
             if (bubble.querySelector('.gw-inline-editor')) return;
 
             const thisTs = wrap.dataset.ts;
             const itemIdx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
             const current = itemIdx !== -1 ? miniTurns[itemIdx].content : (content.textContent ?? text);
 
-            // --- lock bubble width to match original message width ---
-            const computed = window.getComputedStyle(bubble);
-            const lockedWidthPx = bubble.getBoundingClientRect().width; // exact pixels
-            const prevWidth = bubble.style.width;
-            const prevMaxWidth = bubble.style.maxWidth;
+            // lock width during edit
+            const lockedWidthPx = bubble.getBoundingClientRect().width;
+            const prevWidth = bubble.style.width, prevMaxWidth = bubble.style.maxWidth;
+            bubble.style.width = lockedWidthPx + 'px';
+            bubble.style.maxWidth = 'none';
 
-            bubble.style.width = lockedWidthPx + 'px'; // lock to current width
-            bubble.style.maxWidth = 'none';            // prevent 90% clamp while editing
-
-            // hide original content + action bar; shrink bottom padding
             content.style.display = 'none';
             bar.style.display = 'none';
             bubble.classList.add('gw-editing');
-            bubble.style.paddingBottom = '8px';
 
-            const editor = document.createElement('textarea');
-            editor.className = 'gw-inline-editor';
-            Object.assign(editor.style, {
-                display: 'block',
-                width: '100%',
-                minHeight: '160px',
-                background: '#222',
-                color: '#eee',
-                border: '1px solid #444',
-                borderRadius: '6px',
-                padding: '8px',
-                marginTop: '6px',
-                resize: 'vertical',
-                boxSizing: 'border-box' // <-- ensures full-width equals bubble width
-            });
+            const editor = el('textarea', 'gw-inline-editor');
             editor.value = current;
 
-            // auto-grow to content
             const autoGrow = () => {
                 editor.style.height = 'auto';
                 editor.style.height = Math.max(160, editor.scrollHeight + 2) + 'px';
@@ -1158,10 +1000,10 @@ function appendBubble(role, text, opts = {}) {
             setTimeout(autoGrow, 0);
 
             const row = document.createElement('div');
-            Object.assign(row.style, { display: 'flex', gap: '8px', marginTop: '6px' });
+            row.style.display = 'flex'; row.style.gap = '8px'; row.style.marginTop = '6px';
 
-            const saveBtn = mkBtn('Save', '#8e44ad');
-            const cancelBtn = mkBtn('Cancel', '#616161');
+            const saveBtn = mkBtn('Save', 'accent');
+            const cancelBtn = mkBtn('Cancel', 'ghost');
 
             const finish = (didSave) => {
                 if (didSave) {
@@ -1171,14 +1013,10 @@ function appendBubble(role, text, opts = {}) {
                     if (preferredScene && preferredScene.ts === thisTs) preferredScene.text = next;
                     saveSession();
                 }
-                editor.remove();
-                row.remove();
+                editor.remove(); row.remove();
                 content.style.display = '';
                 bar.style.display = 'flex';
                 bubble.classList.remove('gw-editing');
-                bubble.style.paddingBottom = hasActions ? '32px' : '8px';
-
-                // --- restore bubble width behavior ---
                 bubble.style.width = prevWidth || '';
                 bubble.style.maxWidth = prevMaxWidth || '90%';
             };
@@ -1186,16 +1024,9 @@ function appendBubble(role, text, opts = {}) {
             saveBtn.addEventListener('click', () => finish(true));
             cancelBtn.addEventListener('click', () => finish(false));
 
-            // keyboard shortcuts
             editor.addEventListener('keydown', (e) => {
-                if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
-                    e.preventDefault();
-                    finish(true);
-                }
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    finish(false);
-                }
+                if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); finish(true); }
+                if (e.key === 'Escape') { e.preventDefault(); finish(false); }
             });
 
             row.append(saveBtn, cancelBtn);
@@ -1204,62 +1035,47 @@ function appendBubble(role, text, opts = {}) {
             editor.setSelectionRange(editor.value.length, editor.value.length);
         });
 
-
-
-
-        // replace the existing trashBtn.addEventListener('click', ...) with this:
         trashBtn.addEventListener('click', () => {
             const thisTs = wrap.dataset.ts;
             const idx = miniTurns.findIndex(t => t.role === 'assistant' && t.ts === thisTs);
             if (idx === -1) return;
 
-            // Determine if there's a preceding user turn BEFORE mutating the array
             const prevTurn = miniTurns[idx - 1];
             const shouldRemovePrevUser = !!(prevTurn && prevTurn.role === 'user');
             const prevTs = shouldRemovePrevUser ? String(prevTurn.ts) : null;
 
-            // Update in-memory history
             if (shouldRemovePrevUser) {
-                // Remove the pair: [user, assistant]
                 miniTurns.splice(idx - 1, 2);
             } else {
-                // Remove only the assistant
                 miniTurns.splice(idx, 1);
             }
 
-            // If this message was the preferred scene, clear that state
             if (preferredScene && preferredScene.ts === thisTs) {
                 preferredScene = null;
                 clearPreferredUI();
             }
 
-            // Remove DOM nodes (assistant bubble we're in, and optionally the preceding user bubble)
             if (shouldRemovePrevUser) {
-                // Try immediate previous sibling first
                 let prevNode = wrap.previousElementSibling;
                 if (!(prevNode && prevNode.dataset && prevNode.dataset.role === 'user' && prevNode.dataset.ts === prevTs)) {
-                    // Fallback: query by timestamp (avoid CSS.escape dependency)
                     prevNode = [...chatLogEl.querySelectorAll('.gw-row[data-role="user"]')]
                         .find(n => n.dataset && n.dataset.ts === prevTs) || null;
                 }
                 if (prevNode) prevNode.remove();
             }
 
-            // Remove the assistant node we’re acting on
             wrap.remove();
-
-            // Persist
             saveSession();
         });
 
-
-        bar.append(starBtn, editBtn, copyBtn, trashBtn);
         bubble.appendChild(bar);
+        bar.append(starBtn, editBtn, copyBtn, trashBtn);
     }
 
     chatLogEl.scrollTop = chatLogEl.scrollHeight;
     return wrap;
 }
+
 
 
 
