@@ -2168,7 +2168,7 @@ dialog.popup #stcm-popup-pin-input:focus {
   .stcm-gw-modal {
     width: 96vw; height: 96vh;
     max-height: 96vh;
-    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    top: 1em; left: 50%; transform: translate(-50%, 0%);
     border-radius: 12px;
   }
   .stcm-gw-header { position: sticky; top: 0; z-index: 1; }
