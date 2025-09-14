@@ -2063,26 +2063,18 @@ async function addCustomGreeting(newGreeting) {
             updates: { data: { alternate_greetings: next } }
         };
 
-        const getCookie = (name) => {
-            try {
-                const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
-                return m ? decodeURIComponent(m[1]) : null;
-            } catch { return null; }
-        };
-        const csrfCandidates = [
-            getCookie('XSRF-TOKEN'),
-            getCookie('xsrf-token'),
-            getCookie('csrfToken'),
-            getCookie('csrftoken'),
-            window?.CSRF_TOKEN,
-            window?.csrfToken,
-        ].filter(Boolean);
+        // Fetch CSRF token the same way as other modules in this extension
+        let token = null;
+        try {
+            const csrfRes = await fetch('/csrf-token', { credentials: 'include' });
+            if (csrfRes.ok) {
+                const data = await csrfRes.json();
+                token = data?.token || null;
+            }
+        } catch { /* ignore; server might not require token */ }
 
         const headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
-        if (csrfCandidates[0]) {
-            headers['X-CSRF-Token'] = csrfCandidates[0];
-            headers['x-csrf-token'] = csrfCandidates[0];
-        }
+        if (token) headers['X-CSRF-Token'] = token;
 
         const res = await fetch('/api/characters/merge-attributes', {
             method: 'POST',
@@ -2095,7 +2087,7 @@ async function addCustomGreeting(newGreeting) {
             let reason = 'Unknown error';
             try { reason = await res.text(); } catch { }
             const msg = res.status === 403
-                ? 'Forbidden (403). You may need to enable write operations or authentication to edit character cards.'
+                ? 'Forbidden (403). Invalid CSRF token or insufficient permissions. Please refresh the page and try again.'
                 : `${res.status} ${res.statusText}: ${reason}`;
             throw new Error(msg);
         }
