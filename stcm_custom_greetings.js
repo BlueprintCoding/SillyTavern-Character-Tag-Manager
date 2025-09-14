@@ -615,22 +615,17 @@ function openSystemPromptEditor() {
 
     ensureTooltipStyles();
 
-    // Give the editor unique IDs so we can detect/close it from elsewhere
+    // Overlay
     const overlay = document.createElement('div');
     overlay.id = 'stcm-sys-overlay';
-    Object.assign(overlay.style, { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 11000 });
+    overlay.className = 'stcm-sys-overlay';
 
+    // Box
     const box = document.createElement('div');
     box.id = 'stcm-sys-box';
-    Object.assign(box.style, {
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 'min(860px,95vw)', maxHeight: '90vh', overflow: 'hidden',
-        background: '#1b1b1b', color: '#eee', border: '1px solid #555',
-        borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.6)', zIndex: 11001,
-        display: 'flex', flexDirection: 'column'
-    });
+    box.className = 'stcm-sys-box';
 
-    // Provide a global-safe closer so other handlers (like the Workshop Esc) can use it
+    // Provide a global-safe closer so other handlers can close it
     const localEscHandler = (e) => {
         if (e.key === 'Escape') {
             e.stopPropagation();
@@ -639,28 +634,26 @@ function openSystemPromptEditor() {
         }
     };
     window.stcmCloseSysEditor = () => {
-        try { document.removeEventListener('keydown', localEscHandler, true); } catch { }
-        try { box.remove(); } catch { }
-        try { overlay.remove(); } catch { }
-        // Clean up the global hook after closing
-        try { delete window.stcmCloseSysEditor; } catch { }
+        try { document.removeEventListener('keydown', localEscHandler, true); } catch {}
+        try { box.remove(); } catch {}
+        try { overlay.remove(); } catch {}
+        try { delete window.stcmCloseSysEditor; } catch {}
     };
 
+    // Header
     const header = document.createElement('div');
-    header.textContent = '✏️ Edit System Prompt';
-    Object.assign(header.style, {
-        padding: '10px 12px', borderBottom: '1px solid #444', background: '#222',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600
-    });
+    header.className = 'stcm-sys-header';
+    header.textContent = 'Edit System Prompt';
 
     const close = document.createElement('button');
-    close.textContent = 'X';
-    Object.assign(close.style, { padding: '6px 10px', background: '#9e2a2a', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer' });
+    close.className = 'stcm-sys-btn stcm-sys-btn--close';
+    close.textContent = 'Close';
     close.addEventListener('click', () => window.stcmCloseSysEditor?.());
     header.append(close);
 
+    // Tips
     const tips = document.createElement('div');
-    Object.assign(tips.style, { padding: '10px 12px', borderBottom: '1px solid #333', fontSize: '12px', opacity: 0.95, lineHeight: 1.55 });
+    tips.className = 'stcm-sys-tips';
     tips.innerHTML = `
         <div style="margin-bottom:6px;"><strong>Variables you can use (hover for details):</strong></div>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
@@ -674,16 +667,17 @@ function openSystemPromptEditor() {
         </div>
         <div style="margin-top:10px;">
             <strong>Notes:</strong> These tokens are replaced at runtime before sending to the model. 
-            You do <em>not</em> need to include character data yourself — <code>buildCharacterJSONBlock()</code> is automatically appended whenever the custom system prompt is enabled.
+            You do not need to include character data yourself — <code>buildCharacterJSONBlock()</code> is automatically appended whenever the custom system prompt is enabled.
         </div>
     `;
     activateVarTooltips(tips);
 
+    // Body (grid: toggle row, textarea, footer buttons)
+    const bodyWrap = document.createElement('div');
+    bodyWrap.className = 'stcm-sys-body';
+
     const useRow = document.createElement('label');
-    useRow.style.display = 'flex';
-    useRow.style.alignItems = 'center';
-    useRow.style.gap = '8px';
-    useRow.style.fontSize = '14px';
+    useRow.className = 'stcm-sys-row';
     const chk = document.createElement('input');
     chk.type = 'checkbox';
     chk.checked = !!cfg.enabled;
@@ -692,32 +686,20 @@ function openSystemPromptEditor() {
     useRow.append(chk, lbl);
 
     const ta = document.createElement('textarea');
+    ta.className = 'stcm-sys-textarea';
     ta.value = cfg.template || getDefaultSystemPromptTemplate();
-    Object.assign(ta.style, {
-        width: '100%',
-        height: '100%',
-        resize: 'vertical',
-        minHeight: '240px',
-        background: '#222',
-        color: '#eee',
-        border: '1px solid #444',
-        borderRadius: '6px',
-        padding: '10px',
-        fontFamily: 'monospace'
-    });
-
 
     const footer = document.createElement('div');
-    Object.assign(footer.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '10px 12px' });
+    footer.className = 'stcm-sys-footer';
 
     const resetBtn = document.createElement('button');
+    resetBtn.className = 'stcm-sys-btn stcm-sys-btn--reset';
     resetBtn.textContent = 'Reset to Default';
-    Object.assign(resetBtn.style, { padding: '8px 12px', background: '#616161', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer' });
     resetBtn.addEventListener('click', () => { ta.value = getDefaultSystemPromptTemplate(); });
 
     const saveBtn = document.createElement('button');
+    saveBtn.className = 'stcm-sys-btn stcm-sys-btn--save';
     saveBtn.textContent = 'Save';
-    Object.assign(saveBtn.style, { padding: '8px 12px', background: '#8e44ad', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 });
     saveBtn.addEventListener('click', () => {
         saveCustomSystemPrompt({ enabled: chk.checked, template: ta.value });
         window.stcmCloseSysEditor?.();
@@ -725,15 +707,12 @@ function openSystemPromptEditor() {
 
     footer.append(resetBtn, saveBtn);
 
-    const tipsWrap = tips;
-    const bodyWrap = document.createElement('div');
-    Object.assign(bodyWrap.style, { display: 'grid', gridTemplateRows: 'auto 1fr auto', gap: '10px', height: '65vh', padding: '10px 12px' });
+    // Assemble
     bodyWrap.append(useRow, ta, footer);
-
-    box.append(header, tipsWrap, bodyWrap);
+    box.append(header, tips, bodyWrap);
     document.body.append(overlay, box);
 
-    // Capture Esc at the earliest phase so it doesn't bubble to the Workshop handler
+    // Capture Esc early so it doesn’t bubble to the Workshop handler
     document.addEventListener('keydown', localEscHandler, true);
 }
 
