@@ -622,13 +622,6 @@ function openSystemPromptEditor() {
 
     const box = document.createElement('div');
     box.id = 'stcm-sys-box';
-    Object.assign(box.style, {
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: 'min(860px,95vw)', maxHeight: '90vh', overflow: 'hidden',
-        background: '#1b1b1b', color: '#eee', border: '1px solid #555',
-        borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,.6)', zIndex: 11001,
-        display: 'flex', flexDirection: 'column'
-    });
 
     // Provide a global-safe closer so other handlers (like the Workshop Esc) can use it
     const localEscHandler = (e) => {
