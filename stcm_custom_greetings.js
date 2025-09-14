@@ -875,6 +875,8 @@ function openWorkshop() {
             }
 
             const text = String(lastAssistant.content).trim();
+            // Guard against double-submits
+            saveToCardBtn.disabled = true;
             const { saved, message, total } = await addCustomGreeting(text);
             if (saved) {
                 if (typeof toastr !== 'undefined') toastr.success(message || 'Saved to character card.');
@@ -887,6 +889,8 @@ function openWorkshop() {
             console.warn('[GW] Save to Card failed:', e);
             if (typeof toastr !== 'undefined') toastr.error('Failed to save greeting.');
             else callGenericPopup('Failed to save greeting. See console for details.', POPUP_TYPE.ALERT, 'Greeting Workshop');
+        } finally {
+            saveToCardBtn.disabled = false;
         }
     });
 
@@ -2059,16 +2063,41 @@ async function addCustomGreeting(newGreeting) {
             updates: { data: { alternate_greetings: next } }
         };
 
+        const getCookie = (name) => {
+            try {
+                const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+                return m ? decodeURIComponent(m[1]) : null;
+            } catch { return null; }
+        };
+        const csrfCandidates = [
+            getCookie('XSRF-TOKEN'),
+            getCookie('xsrf-token'),
+            getCookie('csrfToken'),
+            getCookie('csrftoken'),
+            window?.CSRF_TOKEN,
+            window?.csrfToken,
+        ].filter(Boolean);
+
+        const headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+        if (csrfCandidates[0]) {
+            headers['X-CSRF-Token'] = csrfCandidates[0];
+            headers['x-csrf-token'] = csrfCandidates[0];
+        }
+
         const res = await fetch('/api/characters/merge-attributes', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
+            credentials: 'include',
             body: JSON.stringify(payload)
         });
 
         if (!res.ok) {
             let reason = 'Unknown error';
             try { reason = await res.text(); } catch { }
-            throw new Error(reason);
+            const msg = res.status === 403
+                ? 'Forbidden (403). You may need to enable write operations or authentication to edit character cards.'
+                : `${res.status} ${res.statusText}: ${reason}`;
+            throw new Error(msg);
         }
 
         // Update in-memory caches for immediate availability
