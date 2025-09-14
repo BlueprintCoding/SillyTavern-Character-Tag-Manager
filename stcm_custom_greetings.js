@@ -851,6 +851,7 @@ function openWorkshop() {
     const footer = el('div', 'stcm-gw-footer');
     const regenBtnLocal  = mkBtn('Regenerate Last', 'info');
     const acceptBtnLocal = mkBtn('Accept → Replace Greeting', 'warn');
+    const saveToCardBtn  = mkBtn('Save to Card', 'accent');
     const clearBtn       = mkBtn('Clear Memory', 'danger');
 
     // Wire events
@@ -863,7 +864,38 @@ function openWorkshop() {
         ).then(result => { if (result === POPUP_RESULT.AFFIRMATIVE) clearWorkshopState(); });
     });
 
-    footer.append(regenBtnLocal, spacer(), acceptBtnLocal, clearBtn);
+    // Save latest assistant reply to character card's alternate_greetings
+    saveToCardBtn.addEventListener('click', () => {
+        try {
+            ensureCtx();
+            const lastAssistant = [...miniTurns].reverse().find(t => t.role === 'assistant' && t.content && String(t.content).trim().length);
+            if (!lastAssistant) {
+                callGenericPopup('No assistant reply to save yet.', POPUP_TYPE.ALERT, 'Greeting Workshop');
+                return;
+            }
+
+            const text = String(lastAssistant.content).trim();
+            if (!ctx.characterData) ctx.characterData = {};
+            const list = ctx.characterData.alternate_greetings = Array.isArray(ctx.characterData.alternate_greetings)
+                ? ctx.characterData.alternate_greetings
+                : [];
+
+            const exists = list.some(g => String(g) === text);
+            if (exists) {
+                callGenericPopup('This greeting is already saved in alternate_greetings.', POPUP_TYPE.ALERT, 'Greeting Workshop');
+                return;
+            }
+
+            addCustomGreeting(text);
+            const total = (ctx.characterData.alternate_greetings || []).length;
+            callGenericPopup(`Saved to character card (alternate_greetings). Total: ${total}.`, POPUP_TYPE.ALERT, 'Greeting Workshop');
+        } catch (e) {
+            console.warn('[GW] Save to Card failed:', e);
+            callGenericPopup('Failed to save greeting. See console for details.', POPUP_TYPE.ALERT, 'Greeting Workshop');
+        }
+    });
+
+    footer.append(regenBtnLocal, spacer(), acceptBtnLocal, saveToCardBtn, clearBtn);
 
     // Assemble modal
     modal.append(header, settings, body, footer);
