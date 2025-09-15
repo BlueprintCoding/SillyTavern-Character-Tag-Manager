@@ -2077,11 +2077,9 @@ async function addCustomGreeting(newGreeting) {
         const next = [...current, text];
 
         // Persist via the same API used by the edit card panel
-        const payload = { updates: { data: { alternate_greetings: next } } };
-        if (typeof avatar === 'string' && avatar.length) payload.avatar_url = avatar;
-        if (typeof name === 'string' && name.length) payload.ch_name = name;
+        const payload = { avatar: avatar, data: { alternate_greetings: next } };
 
-        if (!payload.avatar_url && !payload.ch_name) {
+        if (!payload.avatar) {
             console.warn('[GW] Could not resolve character identity (avatar/name). Aborting save. ch:', ch, 'ctx.characterId:', ctx?.characterId);
             return { saved: false, message: 'Cannot resolve current character (avatar/name). Please open the character and try again.' };
         }
