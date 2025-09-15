@@ -2038,9 +2038,29 @@ async function addCustomGreeting(newGreeting) {
         const text = String(newGreeting ?? '').trim();
         if (!text) return { saved: false, message: 'Greeting text is empty.' };
 
-        const ch = getActiveCharacterFull?.() || activeCharCache || (ctx?.characters?.[ctx?.characterId] || {});
-        const avatar = ch?.avatar || ctx?.characters?.[ctx?.characterId]?.avatar || null;
-        const name = ch?.name || ch?.data?.name || ctx?.characters?.[ctx?.characterId]?.name || ctx?.name2 || null;
+        const ch = getActiveCharacterFull?.() || activeCharCache || null;
+        let avatar = ch?.avatar;
+        let name = ch?.name || ch?.data?.name;
+
+        // Fallback via ctx.characters using numeric index
+        if ((!avatar || !name) && Array.isArray(ctx?.characters)) {
+            const rawId = ctx?.characterId;
+            const idx = (rawId != null && !Number.isNaN(Number(rawId))) ? Number(rawId) : null;
+            if (idx != null && ctx.characters[idx]) {
+                avatar = avatar || ctx.characters[idx].avatar;
+                name = name || ctx.characters[idx].name || ctx.characters[idx]?.data?.name;
+            }
+        }
+
+        // Last resort: window.characters (if present)
+        if ((!avatar || !name) && Array.isArray(window?.characters)) {
+            const rawId = ctx?.characterId;
+            const idx = (rawId != null && !Number.isNaN(Number(rawId))) ? Number(rawId) : null;
+            if (idx != null && window.characters[idx]) {
+                avatar = avatar || window.characters[idx].avatar;
+                name = name || window.characters[idx].name || window.characters[idx]?.data?.name;
+            }
+        }
 
         // Current list from card (prefer data.alternate_greetings)
         const current = Array.isArray(ch?.data?.alternate_greetings)
@@ -2057,11 +2077,14 @@ async function addCustomGreeting(newGreeting) {
         const next = [...current, text];
 
         // Persist via the same API used by the edit card panel
-        const payload = {
-            avatar_url: avatar,
-            ch_name: name,
-            updates: { data: { alternate_greetings: next } }
-        };
+        const payload = { updates: { data: { alternate_greetings: next } } };
+        if (typeof avatar === 'string' && avatar.length) payload.avatar_url = avatar;
+        if (typeof name === 'string' && name.length) payload.ch_name = name;
+
+        if (!payload.avatar_url && !payload.ch_name) {
+            console.warn('[GW] Could not resolve character identity (avatar/name). Aborting save. ch:', ch, 'ctx.characterId:', ctx?.characterId);
+            return { saved: false, message: 'Cannot resolve current character (avatar/name). Please open the character and try again.' };
+        }
 
         // Fetch CSRF token the same way as other modules in this extension
         let token = null;
@@ -2075,6 +2098,9 @@ async function addCustomGreeting(newGreeting) {
 
         const headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
         if (token) headers['X-CSRF-Token'] = token;
+
+        // Helpful debug for troubleshooting 500s
+        try { console.debug('[GW] merge-attributes payload', payload); } catch {}
 
         const res = await fetch('/api/characters/merge-attributes', {
             method: 'POST',
