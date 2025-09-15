@@ -132,6 +132,117 @@ export function createEditSectionForCharacter(char) {
     promptFields.appendChild(renderField('Main Prompt', char.data?.system_prompt || '', 'data.system_prompt'));
     promptFields.appendChild(renderField('Post-History Instructions', char.data?.post_history_instructions || '', 'data.post_history_instructions'));
 
+    // === Alternate Greetings
+    const { wrapper: altWrap, content: altFields } = makeSection('Alternate Greetings');
+    section.appendChild(altWrap);
+
+    const altState = {
+        list: Array.isArray(char.data?.alternate_greetings)
+            ? [...char.data.alternate_greetings]
+            : (Array.isArray(char.alternate_greetings) ? [...char.alternate_greetings] : [])
+    };
+
+    function renderAltGreetings() {
+        altFields.innerHTML = '';
+
+        const listWrap = document.createElement('div');
+        listWrap.className = 'altGreetingsList';
+
+        if (altState.list.length === 0) {
+            const empty = document.createElement('div');
+            empty.style.opacity = '.8';
+            empty.style.fontSize = '12px';
+            empty.textContent = 'No alternate greetings yet.';
+            listWrap.appendChild(empty);
+        }
+
+        altState.list.forEach((text, idx) => {
+            const item = document.createElement('div');
+            item.className = 'altGreetingItem';
+            item.style.display = 'grid';
+            item.style.gridTemplateColumns = '1fr auto';
+            item.style.gap = '8px';
+            item.style.marginBottom = '8px';
+
+            const ta = document.createElement('textarea');
+            ta.className = 'altGreetingTextarea';
+            ta.rows = 3;
+            ta.value = text || '';
+            ta.addEventListener('input', () => { altState.list[idx] = ta.value; });
+
+            const del = document.createElement('button');
+            del.className = 'stcm_menu_button small';
+            del.textContent = 'Delete';
+            del.title = 'Remove this alternate greeting';
+            del.addEventListener('click', () => {
+                altState.list.splice(idx, 1);
+                renderAltGreetings();
+            });
+
+            item.appendChild(ta);
+            item.appendChild(del);
+            listWrap.appendChild(item);
+        });
+
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.marginTop = '8px';
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'stcm_menu_button small';
+        addBtn.textContent = 'Add Greeting';
+        addBtn.addEventListener('click', () => {
+            altState.list.push('');
+            renderAltGreetings();
+        });
+
+        const saveAltBtn = document.createElement('button');
+        saveAltBtn.className = 'stcm_menu_button small';
+        saveAltBtn.textContent = 'Save Alternate Greetings';
+        saveAltBtn.addEventListener('click', async () => {
+            try {
+                // Clean and filter empties
+                const cleaned = altState.list.map(s => String(s || '').replace(/\r/g, '').trim()).filter(s => s.length);
+                const csrfRes = await fetch('/csrf-token', { credentials: 'include' });
+                const { token } = csrfRes.ok ? await csrfRes.json() : { token: null };
+
+                const update = { avatar: char.avatar, data: { alternate_greetings: cleaned } };
+                const res = await fetch('/api/characters/merge-attributes', {
+                    method: 'POST',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { 'X-CSRF-Token': token } : {}),
+                    credentials: 'include',
+                    body: JSON.stringify(update)
+                });
+
+                if (!res.ok) {
+                    let msg = 'Failed to save alternate greetings.';
+                    try { msg = await res.text(); } catch {}
+                    toastr.error(msg);
+                    return;
+                }
+
+                // Update local char object
+                if (!char.data) char.data = {};
+                char.data.alternate_greetings = cleaned;
+                toastr.success('Alternate greetings saved.');
+
+                try { renderCharacterList && renderCharacterList(); } catch {}
+            } catch (e) {
+                console.warn('[STCM] Save alternate greetings failed:', e);
+                toastr.error('Failed to save alternate greetings (network/CSRF).');
+            }
+        });
+
+        row.appendChild(addBtn);
+        row.appendChild(saveAltBtn);
+
+        altFields.appendChild(listWrap);
+        altFields.appendChild(row);
+    }
+
+    renderAltGreetings();
+
     // === Creator Metadata
     const { wrapper: metaWrap, content: metaFields } = makeSection("Creator's Metadata (Not sent with the AI Prompt)");
     section.appendChild(metaWrap);
@@ -173,21 +284,30 @@ export function createEditSectionForCharacter(char) {
             }
         });
 
-        const result = await fetch('/api/characters/merge-attributes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                avatar_url: char.avatar,
-                ch_name: char.name,
-                updates: payload
-            })
-        });
+        try {
+            const csrfRes = await fetch('/csrf-token', { credentials: 'include' });
+            const { token } = csrfRes.ok ? await csrfRes.json() : { token: null };
 
-        if (result.ok) {
-            toastr.success(`Saved updates to ${char.name}`);
-            renderCharacterList();
-        } else {
-            toastr.error('Failed to save updates.');
+            const update = Object.assign({}, payload, { avatar: char.avatar });
+
+            const result = await fetch('/api/characters/merge-attributes', {
+                method: 'POST',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { 'X-CSRF-Token': token } : {}),
+                credentials: 'include',
+                body: JSON.stringify(update)
+            });
+
+            if (result.ok) {
+                toastr.success(`Saved updates to ${char.name}`);
+                renderCharacterList();
+            } else {
+                let msg = 'Failed to save updates.';
+                try { msg = await result.text(); } catch {}
+                toastr.error(msg || 'Failed to save updates.');
+            }
+        } catch (e) {
+            console.warn('[STCM] Save character failed:', e);
+            toastr.error('Failed to save updates (network/CSRF).');
         }
     });
 
