@@ -71,6 +71,13 @@ export let isBulkDeleteMode        = false;
 export const selectedBulkDeleteTags = new Set();
 export const selectedTagIds = new Set();     // ← used by characters pane
 
+// For shift-click range selection in bulk delete mode
+let bulkDeleteCursor = null;          // tag ID of last clicked checkbox
+let bulkDeleteTagOrder = [];          // ordered list of tag IDs as rendered
+
+// Bulk edit mode: 'any' or 'all' for matching characters
+let bulkEditMatchMode = 'any';
+
 // ---------------------------------------------------------------------------
 // PUBLIC 1: renderTagSection  (was renderCharacterTagData in index.js)
 // ---------------------------------------------------------------------------
@@ -138,23 +145,167 @@ export function renderTagSection() {
     });
 
     // ---------------------------------------------------------------------
-    // 4. render
+    // 4. render as table
     // ---------------------------------------------------------------------
     content.innerHTML = '';
-    const frag = document.createDocumentFragment();
 
-    tagGroups.forEach(group => frag.appendChild(renderSingleTag(group)));
-    content.appendChild(frag);
+    // Track tag order for shift-click range selection (as strings to match cb.value)
+    bulkDeleteTagOrder = tagGroups.map(g => String(g.tag.id));
+
+    // Create table structure
+    const table = document.createElement('table');
+    table.className = 'stcm_tags_table';
+
+    // Table header
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr>
+            <th class="stcm_th_checkbox">
+                <input type="checkbox" id="bulkDeleteSelectAll" title="Select/Deselect All">
+            </th>
+            <th class="stcm_th_name">Tag Name</th>
+            <th class="stcm_th_type">Tag Type</th>
+            <th class="stcm_th_view" colspan="2">View</th>
+            <th class="stcm_th_action">Action</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    // Table body
+    const tbody = document.createElement('tbody');
+    tagGroups.forEach(group => {
+        const row = renderSingleTag(group);
+        tbody.appendChild(row);
+
+        // Add notes row (hidden by default, spans all columns)
+        if (row._noteWrap) {
+            const notesRow = document.createElement('tr');
+            notesRow.className = 'stcm_notes_row';
+            notesRow.style.display = 'none';
+            const notesCell = document.createElement('td');
+            notesCell.colSpan = 6;
+            notesCell.appendChild(row._noteWrap);
+            row._noteWrap.style.display = 'flex'; // Always flex when row is shown
+            notesRow.appendChild(notesCell);
+            tbody.appendChild(notesRow);
+            // Update note button to toggle the row instead
+            row._notesRow = notesRow;
+        }
+    });
+    table.appendChild(tbody);
+
+    content.appendChild(table);
 
     // wire bulk-delete & merge checkboxes AFTER list is in the DOM --------
-    if (isBulkDeleteMode) {
-        content.querySelectorAll('.bulkDeleteTagCheckbox').forEach(cb => {
+    // Checkboxes are always visible now for bulk edit functionality
+    {
+        const allCheckboxes = content.querySelectorAll('.bulkDeleteTagCheckbox');
+        const selectAllCb = content.querySelector('#bulkDeleteSelectAll');
+
+        // Helper to update select-all checkbox state
+        const updateSelectAllState = () => {
+            if (!selectAllCb) return;
+            const allChecked = bulkDeleteTagOrder.every(id => selectedBulkDeleteTags.has(id));
+            const noneChecked = selectedBulkDeleteTags.size === 0;
+            selectAllCb.checked = allChecked;
+            selectAllCb.indeterminate = !allChecked && !noneChecked;
+        };
+
+        // Helper to toggle a tag and update checkbox UI
+        const toggleTag = (tagId) => {
+            if (selectedBulkDeleteTags.has(tagId)) {
+                selectedBulkDeleteTags.delete(tagId);
+            } else {
+                selectedBulkDeleteTags.add(tagId);
+            }
+        };
+
+        // Helper to update cursor visual indicator
+        const updateCursorVisual = () => {
+            content.querySelectorAll('.tagGroup').forEach(row => {
+                const cb = row.querySelector('.bulkDeleteTagCheckbox');
+                if (cb && cb.value === bulkDeleteCursor) {
+                    row.style.outline = '2px solid var(--SmartThemeQuoteColor, #f0a)';
+                    row.style.outlineOffset = '-2px';
+                } else {
+                    row.style.outline = '';
+                    row.style.outlineOffset = '';
+                }
+            });
+        };
+
+        // Wire select-all checkbox (only present in bulk delete mode)
+        if (selectAllCb) {
+            selectAllCb.addEventListener('change', () => {
+                if (selectAllCb.checked) {
+                    bulkDeleteTagOrder.forEach(id => selectedBulkDeleteTags.add(id));
+                } else {
+                    selectedBulkDeleteTags.clear();
+                }
+                allCheckboxes.forEach(cb => cb.checked = selectAllCb.checked);
+                bulkDeleteCursor = null;
+                updateCursorVisual();
+                populateBulkEditDropdowns(); // Update Remove dropdown for new selection
+            });
+        }
+
+        // Wire individual checkboxes with shift-click support
+        allCheckboxes.forEach(cb => {
             cb.checked = selectedBulkDeleteTags.has(cb.value);
-            cb.addEventListener('change', () => {
-                cb.checked ? selectedBulkDeleteTags.add(cb.value)
-                           : selectedBulkDeleteTags.delete(cb.value);
+
+            // Prevent text selection when shift-clicking
+            cb.addEventListener('mousedown', (e) => {
+                if (e.shiftKey) e.preventDefault();
+            });
+
+            cb.addEventListener('click', (e) => {
+                const clickedId = cb.value;
+                const clickedIdx = bulkDeleteTagOrder.indexOf(clickedId);
+
+                if (e.shiftKey && bulkDeleteCursor !== null) {
+                    // Shift-click: toggle range from cursor to clicked (exclusive of cursor)
+                    const cursorIdx = bulkDeleteTagOrder.indexOf(bulkDeleteCursor);
+                    console.log('Shift-click range:', {
+                        cursorIdx, clickedIdx,
+                        cursor: bulkDeleteCursor,
+                        clicked: clickedId,
+                        orderLength: bulkDeleteTagOrder.length
+                    });
+                    if (cursorIdx !== -1 && clickedIdx !== -1 && cursorIdx !== clickedIdx) {
+                        const startIdx = Math.min(cursorIdx, clickedIdx);
+                        const endIdx = Math.max(cursorIdx, clickedIdx);
+                        const toggled = [];
+                        // Toggle everything between cursor and click (exclusive of cursor, inclusive of click)
+                        for (let i = startIdx; i <= endIdx; i++) {
+                            if (i !== cursorIdx) {  // Compare indices, not values
+                                toggled.push({ i, id: bulkDeleteTagOrder[i] });
+                                toggleTag(bulkDeleteTagOrder[i]);
+                            }
+                        }
+                        console.log('Toggled items:', { startIdx, endIdx, cursorIdx, toggled });
+                        // Update all checkbox UI
+                        allCheckboxes.forEach(c => c.checked = selectedBulkDeleteTags.has(c.value));
+                        e.preventDefault(); // Prevent default checkbox toggle since we handled it
+                    }
+                } else {
+                    // Regular click: toggle single item and set cursor
+                    if (cb.checked) {
+                        selectedBulkDeleteTags.add(clickedId);
+                    } else {
+                        selectedBulkDeleteTags.delete(clickedId);
+                    }
+                }
+
+                // Update cursor position
+                bulkDeleteCursor = clickedId;
+                updateSelectAllState();
+                updateCursorVisual();
+                populateBulkEditDropdowns(); // Update Remove dropdown for new selection
             });
         });
+
+        updateSelectAllState();
+        updateCursorVisual();
     }
     if (isMergeMode) {
         content.querySelectorAll('input[name="mergePrimary"]').forEach(r =>
@@ -168,18 +319,19 @@ export function renderTagSection() {
         );
     }
 
+    // Populate bulk edit dropdowns
+    populateBulkEditDropdowns();
+
     accountStorage.setItem('SelectedNavTab', 'rm_button_characters');
 }
 
 // ---------------------------------------------------------------------------
-// helper: render one <div class="tagGroup">
+// helper: render one table row for a tag
 // ---------------------------------------------------------------------------
 function renderSingleTag({ tag, charIds }) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'tagGroup';
-
-    const header = document.createElement('div');
-    header.className = 'tagGroupHeader';
+    const row = document.createElement('tr');
+    row.className = 'tagGroup';
+    row.dataset.tagId = tag.id;
 
     // prettier color defaults
     const rawBg = String(tag.color || '').trim();
@@ -187,115 +339,125 @@ function renderSingleTag({ tag, charIds }) {
     const bg = (rawBg && rawBg !== '#') ? rawBg : '#333';
     const fg = (rawFg && rawFg !== '#') ? rawFg : '#fff';
 
-    header.innerHTML = `
+    // ─────────────────────────────────────────────────────────────────────
+    // Cell 1: Checkbox
+    // ─────────────────────────────────────────────────────────────────────
+    const checkboxCell = document.createElement('td');
+    checkboxCell.className = 'stcm_td_checkbox';
+    checkboxCell.innerHTML = `<input type="checkbox" class="bulkDeleteTagCheckbox" value="${tag.id}">`;
+    row.appendChild(checkboxCell);
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Cell 2: Tag Name (with edit icon, color swatch, count)
+    // ─────────────────────────────────────────────────────────────────────
+    const nameCell = document.createElement('td');
+    nameCell.className = 'stcm_td_name';
+    nameCell.innerHTML = `
         <span class="tagNameEditable" data-id="${tag.id}">
-            ${isBulkDeleteMode
-                ? `<input type="checkbox" class="bulkDeleteTagCheckbox" value="${tag.id}" style="margin-right:7px;">`
-                : `<i class="fa-solid fa-pen editTagIcon" style="cursor:pointer;margin-right:6px;" title="Edit name"></i>`
-            }
+            <i class="fa-solid fa-pen editTagIcon" style="cursor:pointer;margin-right:6px;" title="Edit name"></i>
             <strong class="tagNameText stcm-color-swatch"
                     style="background:${bg};color:${fg};padding:2px 6px;border-radius:4px;cursor:pointer;"
                     title="Click to edit colors">
                 ${escapeHtml(tag.name)} <i class="fa-solid fa-palette" style="margin-left:6px;"></i>
             </strong>
+            <span class="tagCharCount">(${charIds.length})</span>
         </span>
-        <span class="tagCharCount">(${charIds.length})</span>
         ${isMergeMode ? `
            <div class="stcm_merge_controls">
                <label><input type="radio" name="mergePrimary" value="${tag.id}"> Primary</label>
                <label><input type="checkbox" class="mergeCheckbox" value="${tag.id}"> Merge</label>
            </div>` : ''}
     `;
+    row.appendChild(nameCell);
 
     // ─────────────────────────────────────────────────────────────────────
-    // Tag Type / Folder-Type row
+    // Cell 3: Tag Type dropdown
     // ─────────────────────────────────────────────────────────────────────
-
-    // Build dropdown using your own builder function (to keep logic DRY)
+    const typeCell = document.createElement('td');
+    typeCell.className = 'stcm_td_type';
     const folderDropdownWrapper = buildFolderTypeDropdown(tag);
-
-    const folderWrapper = document.createElement('div');
-    folderWrapper.className = 'stcm_folder_type_row';
-    folderWrapper.style.display = 'flex';
-    folderWrapper.style.alignItems = 'center';
-    folderWrapper.style.gap = '0.5em';
-    folderWrapper.style.marginLeft = '20px';
-
-    // Label with icon
-    const folderLabel = document.createElement('span');
-    folderLabel.innerHTML = `<i class="fa-solid fa-folder" style="margin-right: 4px;"></i>Tag Type:`;
-    folderLabel.style.fontWeight = 'bold';
-    folderLabel.style.whiteSpace = 'nowrap';
-    folderLabel.title = "Choose how this tag behaves as a folder";
-
-    // Append label and dropdown to wrapper
-    folderWrapper.appendChild(folderLabel);
-    folderWrapper.appendChild(folderDropdownWrapper);
+    typeCell.appendChild(folderDropdownWrapper);
 
     // Convert to Real Folder button
     const convertBtn = document.createElement('button');
     convertBtn.className = 'stcm_menu_button tiny interactable';
-    convertBtn.textContent = 'Convert to Real Folder';
-    convertBtn.title = 'Create a real folder with this tag’s settings';
+    convertBtn.innerHTML = '<i class="fa-solid fa-folder-plus" title="Convert to Real Folder"></i>';
+    convertBtn.title = 'Convert to Real Folder';
     convertBtn.style.marginLeft = '6px';
     convertBtn.addEventListener('click', () => {
-        convertTagToRealFolder(tag); 
+        convertTagToRealFolder(tag);
     });
-    folderWrapper.appendChild(convertBtn);
+    typeCell.appendChild(convertBtn);
+    row.appendChild(typeCell);
 
-    header.appendChild(folderWrapper);
-
-    // ---------------------------------------------------------------------
-    // action buttons: Characters / Notes / Delete
-    // ---------------------------------------------------------------------
-    const actionBar = document.createElement('div');
-    actionBar.className = 'tagActionButtons';
-
-    // Characters
+    // ─────────────────────────────────────────────────────────────────────
+    // Cell 4: Characters (View column)
+    // ─────────────────────────────────────────────────────────────────────
+    const charCell = document.createElement('td');
+    charCell.className = 'stcm_td_view';
     const charBtn = document.createElement('button');
-    charBtn.textContent = 'Characters';
-    charBtn.className = 'stcm_menu_button stcm_view_btn interactable';
-    charBtn.onclick = () => toggleCharacterList(wrapper, { tag, charIds });
-    actionBar.appendChild(charBtn);
+    charBtn.className = 'stcm_menu_button stcm_view_btn stcm_icon_btn interactable';
+    charBtn.innerHTML = '<i class="fa-solid fa-users"></i>';
+    charBtn.title = `View Characters (${charIds.length})`;
+    charBtn.onclick = () => toggleCharacterList(row, { tag, charIds });
+    charCell.appendChild(charBtn);
+    row.appendChild(charCell);
 
-    // Notes
+    // ─────────────────────────────────────────────────────────────────────
+    // Cell 5: Notes (View column)
+    // ─────────────────────────────────────────────────────────────────────
+    const noteCell = document.createElement('td');
+    noteCell.className = 'stcm_td_view';
     const noteBtn = document.createElement('button');
-    noteBtn.textContent = 'Notes';
-    noteBtn.className = 'stcm_menu_button charNotesToggle small interactable';
+    noteBtn.className = 'stcm_menu_button charNotesToggle stcm_icon_btn interactable';
+    noteBtn.innerHTML = '<i class="fa-solid fa-note-sticky"></i>';
+    noteBtn.title = 'View Notes';
 
     const noteWrap = buildNotesWrapper(tag.id);
     noteBtn.onclick = () => {
-        const open = noteWrap.style.display === 'flex';
-        noteWrap.style.display = open ? 'none' : 'flex';
-        noteBtn.textContent  = open ? 'Notes' : 'Close Notes';
-        noteBtn.style.background = open ? '' : '#8e6529';
+        // Toggle the notes row (will be set up after row is added to tbody)
+        if (row._notesRow) {
+            const open = row._notesRow.style.display !== 'none';
+            row._notesRow.style.display = open ? 'none' : 'table-row';
+            noteBtn.style.background = open ? '' : '#8e6529';
+        }
     };
-    actionBar.appendChild(noteBtn);
+    noteCell.appendChild(noteBtn);
+    row.appendChild(noteCell);
 
-    // Delete
+    // ─────────────────────────────────────────────────────────────────────
+    // Cell 6: Delete (Action column)
+    // ─────────────────────────────────────────────────────────────────────
+    const actionCell = document.createElement('td');
+    actionCell.className = 'stcm_td_action';
     const delBtn = document.createElement('button');
-    delBtn.textContent = 'Delete';
-    delBtn.className = 'stcm_menu_button interactable red';
+    delBtn.className = 'stcm_menu_button stcm_icon_btn interactable red';
+    delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    delBtn.title = 'Delete Tag';
     delBtn.onclick = () => confirmDeleteTag(tag);
-    actionBar.appendChild(delBtn);
+    actionCell.appendChild(delBtn);
+    row.appendChild(actionCell);
 
-    header.appendChild(actionBar);
-    wrapper.appendChild(header);
-    wrapper.appendChild(noteWrap);
+    // ─────────────────────────────────────────────────────────────────────
+    // Notes wrapper row (spans all columns, hidden by default)
+    // ─────────────────────────────────────────────────────────────────────
+    // We need to handle this differently for tables - append after the row
+    // Store reference on the row for later insertion
+    row._noteWrap = noteWrap;
 
     // ---------------------------------------------------------------------
     // bind listeners that need actual elements
     // ---------------------------------------------------------------------
     // edit name
-    header.querySelectorAll('.editTagIcon').forEach(icon => {
+    nameCell.querySelectorAll('.editTagIcon').forEach(icon => {
         icon.addEventListener('click', () => startInlineRename(icon, tag.id));
     });
     // color picker
-    header.querySelector('.stcm-color-swatch')?.addEventListener('click', () =>
+    nameCell.querySelector('.stcm-color-swatch')?.addEventListener('click', () =>
         openColorEditModal(tag)
     );
 
-    return wrapper;
+    return row;
 }
 
 // ---------------------------------------------------------------------------
@@ -698,6 +860,250 @@ function confirmDeleteTag(tag) {
 
 
 // ---------------------------------------------------------------------------
+// Bulk edit helper functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Get all character IDs that match the currently selected tags
+ * based on the bulkEditMatchMode ('any' or 'all')
+ */
+function getCharactersMatchingSelectedTags() {
+    if (selectedBulkDeleteTags.size === 0) return [];
+
+    const selectedTagIds = [...selectedBulkDeleteTags];
+    const allCharIds = Object.keys(tag_map);
+
+    return allCharIds.filter(charId => {
+        const charTags = tag_map[charId] || [];
+        if (bulkEditMatchMode === 'all') {
+            // Character must have ALL selected tags
+            return selectedTagIds.every(tid => charTags.includes(tid));
+        } else {
+            // Character must have ANY selected tag
+            return selectedTagIds.some(tid => charTags.includes(tid));
+        }
+    });
+}
+
+/**
+ * Add a tag to all characters matching the selected tags
+ */
+async function bulkAddTagToMatchingCharacters(tagId) {
+    const matchingChars = getCharactersMatchingSelectedTags();
+    if (matchingChars.length === 0) {
+        toastr.warning('No characters match the selected tags.', 'Bulk Edit');
+        return;
+    }
+
+    const tag = tags.find(t => t.id === tagId);
+    const tagName = tag?.name || 'Unknown';
+
+    let addedCount = 0;
+    matchingChars.forEach(charId => {
+        if (!tag_map[charId]) tag_map[charId] = [];
+        if (!tag_map[charId].includes(tagId)) {
+            tag_map[charId].push(tagId);
+            addedCount++;
+        }
+    });
+
+    await callSaveandReload();
+    toastr.success(`Added "${tagName}" to ${addedCount} character(s).`, 'Bulk Edit');
+    renderTagSection();
+    renderCharacterList();
+}
+
+/**
+ * Remove a tag from all characters matching the selected tags
+ */
+async function bulkRemoveTagFromMatchingCharacters(tagId) {
+    const matchingChars = getCharactersMatchingSelectedTags();
+    if (matchingChars.length === 0) {
+        toastr.warning('No characters match the selected tags.', 'Bulk Edit');
+        return;
+    }
+
+    const tag = tags.find(t => t.id === tagId);
+    const tagName = tag?.name || 'Unknown';
+
+    let removedCount = 0;
+    matchingChars.forEach(charId => {
+        if (!tag_map[charId]) return;
+        const idx = tag_map[charId].indexOf(tagId);
+        if (idx !== -1) {
+            tag_map[charId].splice(idx, 1);
+            removedCount++;
+        }
+    });
+
+    await callSaveandReload();
+    toastr.success(`Removed "${tagName}" from ${removedCount} character(s).`, 'Bulk Edit');
+    renderTagSection();
+    renderCharacterList();
+}
+
+/**
+ * Handle creating a new tag and adding it to matching characters
+ */
+async function handleNewTagInput() {
+    const addSelect = document.getElementById('bulkAddTagSelect');
+    if (!addSelect) return;
+
+    // Replace dropdown with input field
+    const wrapper = addSelect.parentElement;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'menu_input';
+    input.placeholder = 'New tag name...';
+    input.style.width = '150px';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'stcm_menu_button small interactable';
+    cancelBtn.textContent = '✕';
+    cancelBtn.title = 'Cancel';
+    cancelBtn.style.marginLeft = '4px';
+
+    const container = document.createElement('span');
+    container.className = 'stcm_new_tag_input_wrapper';
+    container.appendChild(input);
+    container.appendChild(cancelBtn);
+
+    wrapper.replaceChild(container, addSelect);
+    input.focus();
+
+    const cleanup = () => {
+        wrapper.replaceChild(addSelect, container);
+        addSelect.value = '';
+        populateBulkEditDropdowns();
+    };
+
+    cancelBtn.addEventListener('click', cleanup);
+
+    input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Escape') {
+            cleanup();
+            return;
+        }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const newName = input.value.trim();
+            if (!newName) {
+                cleanup();
+                return;
+            }
+
+            // Check if tag already exists
+            const existing = tags.find(t => t.name.toLowerCase() === newName.toLowerCase());
+            if (existing) {
+                toastr.warning(`Tag "${newName}" already exists.`, 'Bulk Edit');
+                cleanup();
+                return;
+            }
+
+            // Create the new tag
+            const styles = getComputedStyle(document.body);
+            const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
+            const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#000000';
+
+            const newTag = {
+                id: uuidv4(),
+                name: newName,
+                color: defaultBg,
+                color2: defaultFg,
+                folder_type: 'NONE',
+            };
+            tags.push(newTag);
+
+            // Add to matching characters
+            const matchingChars = getCharactersMatchingSelectedTags();
+            if (matchingChars.length > 0) {
+                matchingChars.forEach(charId => {
+                    if (!tag_map[charId]) tag_map[charId] = [];
+                    if (!tag_map[charId].includes(newTag.id)) {
+                        tag_map[charId].push(newTag.id);
+                    }
+                });
+                toastr.success(`Created "${newName}" and added to ${matchingChars.length} character(s).`, 'Bulk Edit');
+            } else {
+                toastr.success(`Created tag "${newName}".`, 'Bulk Edit');
+            }
+
+            await callSaveandReload();
+            cleanup();
+            renderTagSection();
+            renderCharacterList();
+        }
+    });
+
+    input.addEventListener('blur', (e) => {
+        // Only cleanup if we're not clicking the cancel button
+        if (e.relatedTarget !== cancelBtn) {
+            // Delay to allow enter key to process
+            setTimeout(() => {
+                if (document.contains(container)) {
+                    cleanup();
+                }
+            }, 150);
+        }
+    });
+}
+
+/**
+ * Populate the bulk edit Add and Remove dropdowns
+ * - Add dropdown: all existing tags
+ * - Remove dropdown: only tags present on characters matching selected tags
+ */
+export function populateBulkEditDropdowns() {
+    const addSelect = document.getElementById('bulkAddTagSelect');
+    const removeSelect = document.getElementById('bulkRemoveTagSelect');
+
+    if (!addSelect || !removeSelect) return;
+
+    // Build sorted tag list
+    const sortedTags = [...tags].sort((a, b) => a.name.localeCompare(b.name));
+
+    // Populate Add dropdown with all tags
+    addSelect.innerHTML = `
+        <option value="">+ Add tag...</option>
+        <option value="__new__">Create new tag...</option>
+    `;
+    sortedTags.forEach(tag => {
+        const opt = document.createElement('option');
+        opt.value = tag.id;
+        opt.textContent = tag.name;
+        addSelect.appendChild(opt);
+    });
+
+    // Populate Remove dropdown with only tags on matching characters
+    const matchingChars = getCharactersMatchingSelectedTags();
+
+    // Collect all tag IDs present on matching characters
+    const tagsOnMatchingChars = new Set();
+    matchingChars.forEach(charId => {
+        const charTags = tag_map[charId] || [];
+        charTags.forEach(tid => tagsOnMatchingChars.add(tid));
+    });
+
+    // Filter to only tags that exist on matching characters
+    const removableTags = sortedTags.filter(tag => tagsOnMatchingChars.has(tag.id));
+
+    removeSelect.innerHTML = `<option value="">- Remove tag...</option>`;
+    if (removableTags.length === 0 && selectedBulkDeleteTags.size > 0) {
+        const opt = document.createElement('option');
+        opt.disabled = true;
+        opt.textContent = '(no tags to remove)';
+        removeSelect.appendChild(opt);
+    } else {
+        removableTags.forEach(tag => {
+            const opt = document.createElement('option');
+            opt.value = tag.id;
+            opt.textContent = tag.name;
+            removeSelect.appendChild(opt);
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
 // PUBLIC 2: attachTagSectionListeners  (one-time, after modal DOM is present)
 // ---------------------------------------------------------------------------
 export function attachTagSectionListeners(modalRoot) {
@@ -710,6 +1116,55 @@ export function attachTagSectionListeners(modalRoot) {
     // create-tag button
     modalRoot.querySelector('#createNewTagBtn')
         ?.addEventListener('click', promptCreateTag);
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Bulk edit controls: All/Any radio, Add dropdown, Remove dropdown
+    // ─────────────────────────────────────────────────────────────────────
+
+    // All/Any radio buttons
+    modalRoot.querySelectorAll('input[name="bulkEditMatch"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            bulkEditMatchMode = radio.value;
+            populateBulkEditDropdowns(); // Update Remove dropdown for new match mode
+        });
+    });
+
+    // Add tag dropdown
+    const addSelect = modalRoot.querySelector('#bulkAddTagSelect');
+    addSelect?.addEventListener('change', async () => {
+        const val = addSelect.value;
+        if (!val) return;
+
+        if (val === '__new__') {
+            handleNewTagInput();
+            return;
+        }
+
+        if (selectedBulkDeleteTags.size === 0) {
+            toastr.warning('Please select at least one tag to match characters.', 'Bulk Edit');
+            addSelect.value = '';
+            return;
+        }
+
+        await bulkAddTagToMatchingCharacters(val);
+        addSelect.value = '';
+    });
+
+    // Remove tag dropdown
+    const removeSelect = modalRoot.querySelector('#bulkRemoveTagSelect');
+    removeSelect?.addEventListener('change', async () => {
+        const val = removeSelect.value;
+        if (!val) return;
+
+        if (selectedBulkDeleteTags.size === 0) {
+            toastr.warning('Please select at least one tag to match characters.', 'Bulk Edit');
+            removeSelect.value = '';
+            return;
+        }
+
+        await bulkRemoveTagFromMatchingCharacters(val);
+        removeSelect.value = '';
+    });
 
     // merge / bulk-delete buttons -----------------------------
 
@@ -742,6 +1197,7 @@ export function attachTagSectionListeners(modalRoot) {
     modalRoot.querySelector('#startBulkDeleteTags')
         ?.addEventListener('click', () => { isBulkDeleteMode = true;
             selectedBulkDeleteTags.clear();
+            bulkDeleteCursor = null;
             modalRoot.querySelector('#cancelBulkDeleteTags').style.display = '';
             modalRoot.querySelector('#confirmBulkDeleteTags').style.display = '';
             modalRoot.querySelector('#startBulkDeleteTags').style.display = 'none';
@@ -751,6 +1207,7 @@ export function attachTagSectionListeners(modalRoot) {
     modalRoot.querySelector('#cancelBulkDeleteTags')
         ?.addEventListener('click', () => { isBulkDeleteMode = false;
             selectedBulkDeleteTags.clear();
+            bulkDeleteCursor = null;
             modalRoot.querySelector('#cancelBulkDeleteTags').style.display = 'none';
             modalRoot.querySelector('#confirmBulkDeleteTags').style.display = 'none';
             modalRoot.querySelector('#startBulkDeleteTags').style.display = '';
@@ -791,6 +1248,7 @@ export function attachTagSectionListeners(modalRoot) {
 
                 isBulkDeleteMode = false;
                 selectedBulkDeleteTags.clear();
+                bulkDeleteCursor = null;
                 modalRoot.querySelector('#cancelBulkDeleteTags').style.display = 'none';
                 modalRoot.querySelector('#confirmBulkDeleteTags').style.display = 'none';
                 modalRoot.querySelector('#startBulkDeleteTags').style.display = '';
