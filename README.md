@@ -3,7 +3,19 @@
 > It will not receive updates or fixes, and it may break with future SillyTavern versions.
 > Its features live on in **[Rin Chat](https://rin.chat)**, which has built-in folders, tags and character library management. Existing installs keep working until a SillyTavern update breaks them; issues and pull requests here will not be reviewed.
 
-# SillyTavern Character Tag Manager
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # SillyTavern Character Tag Manager
