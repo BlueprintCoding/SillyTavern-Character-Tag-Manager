@@ -26,6 +26,8 @@ const defaultSettings = {
     folderNavHeightMode: "auto",
     folderNavMaxHeight: 50,
     blurPrivatePreviews: false,
+    // --- Tag Mappings (source tag name → target tag name) ---
+    tagMappings: {},
     // --- Feedback Data (anonymous analytics) ---
     feedbackEnabled: false,          // master opt-in; nothing is sent unless true
     feedbackInstallId: "",           // generated once per install
@@ -34,7 +36,7 @@ const defaultSettings = {
     feedbackSendFolderCount: false,
     feedbackSendTagCount: false,
     feedbackSendCharacterCount: false,
-    feedbackLastSentISO: ""    // NEW: track last successful send              
+    feedbackLastSentISO: ""    // NEW: track last successful send
 };
 
 const FEEDBACK_DEFAULT_API_URL =
@@ -167,6 +169,37 @@ function createStcmSettingsPanel() {
                         <div id="stcm-pin-msg" style="margin-top: 8px; color: #f87;"></div>
                     </div> <!-- #stcm-pin-form -->
                 </div> <!-- PIN wrapper -->
+
+                <hr>
+                <div style="margin-left:10px;"> <!-- TAG MAPPINGS wrapper -->
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                        <i class="fa-solid fa-right-left"></i>
+                        <b>Tag Mappings</b>
+                    </div>
+                    <div style="font-size:12px;opacity:.8;margin-bottom:8px;">
+                        Automatically remap tags when characters are imported. Source tags will be replaced with target tags.
+                    </div>
+
+                    <div id="stcm--tagMappingsTable" style="margin-bottom:10px;max-height:200px;overflow-y:auto;">
+                        <!-- Populated dynamically -->
+                    </div>
+
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                        <input type="text" id="stcm--mappingSource" class="menu_input" placeholder="Source tag..." style="width:120px;">
+                        <span>→</span>
+                        <select id="stcm--mappingTarget" style="min-width:140px;">
+                            <option value="">Select target tag...</option>
+                        </select>
+                        <button id="stcm--addMappingBtn" class="stcm_menu_button small interactable">Add</button>
+                    </div>
+
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button id="stcm--applyMappingsBtn" class="stcm_menu_button small interactable">
+                            <i class="fa-solid fa-play"></i> Apply All Rules Now
+                        </button>
+                        <span id="stcm--mappingsMsg" style="font-size:12px;opacity:.8;"></span>
+                    </div>
+                </div> <!-- TAG MAPPINGS wrapper -->
 
                 <hr>
                 <div style="margin-left:10px;"> <!-- FEEDBACK wrapper -->
@@ -349,7 +382,124 @@ function createStcmSettingsPanel() {
         updatePinFormUi();
     };
 
+    // ---- Tag Mappings wiring ----
+    const mappingsTable = panel.querySelector('#stcm--tagMappingsTable');
+    const mappingSource = panel.querySelector('#stcm--mappingSource');
+    const mappingTarget = panel.querySelector('#stcm--mappingTarget');
+    const addMappingBtn = panel.querySelector('#stcm--addMappingBtn');
+    const applyMappingsBtn = panel.querySelector('#stcm--applyMappingsBtn');
+    const mappingsMsg = panel.querySelector('#stcm--mappingsMsg');
 
+    function getTagMappings() {
+        const s = getSettings();
+        if (!s.tagMappings || typeof s.tagMappings !== 'object') {
+            s.tagMappings = {};
+        }
+        return s.tagMappings;
+    }
+
+    function populateMappingTargetDropdown() {
+        mappingTarget.innerHTML = '<option value="">Select target tag...</option>';
+        const sortedTags = [...tags].sort((a, b) => a.name.localeCompare(b.name));
+        sortedTags.forEach(tag => {
+            const opt = document.createElement('option');
+            opt.value = tag.name;
+            opt.textContent = tag.name;
+            mappingTarget.appendChild(opt);
+        });
+    }
+
+    function renderMappingsTable() {
+        const mappings = getTagMappings();
+        const entries = Object.entries(mappings).sort((a, b) => a[0].localeCompare(b[0]));
+
+        if (entries.length === 0) {
+            mappingsTable.innerHTML = '<div style="opacity:.6;font-size:12px;">No mappings defined yet.</div>';
+            return;
+        }
+
+        let html = '<table style="width:100%;font-size:12px;border-collapse:collapse;">';
+        html += '<tr style="border-bottom:1px solid var(--SmartThemeBorderColor,#444);"><th style="text-align:left;padding:4px;">Source</th><th style="text-align:center;padding:4px;">→</th><th style="text-align:left;padding:4px;">Target</th><th style="padding:4px;"></th></tr>';
+        entries.forEach(([source, target]) => {
+            html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                <td style="padding:4px;">${escapeHtml(source)}</td>
+                <td style="text-align:center;padding:4px;">→</td>
+                <td style="padding:4px;">${escapeHtml(target)}</td>
+                <td style="padding:4px;text-align:right;">
+                    <button class="stcm_menu_button tiny interactable stcm--deleteMappingBtn" data-source="${escapeHtml(source)}" title="Delete mapping">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+        html += '</table>';
+        mappingsTable.innerHTML = html;
+
+        // Wire delete buttons
+        mappingsTable.querySelectorAll('.stcm--deleteMappingBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const source = btn.dataset.source;
+                const mappings = getTagMappings();
+                delete mappings[source];
+                debouncePersist();
+                renderMappingsTable();
+                mappingsMsg.textContent = `Deleted mapping for "${source}"`;
+                setTimeout(() => mappingsMsg.textContent = '', 3000);
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    addMappingBtn.addEventListener('click', () => {
+        const source = mappingSource.value.trim().toLowerCase();
+        const target = mappingTarget.value.trim();
+
+        if (!source) {
+            mappingsMsg.textContent = 'Please enter a source tag name.';
+            return;
+        }
+        if (!target) {
+            mappingsMsg.textContent = 'Please select a target tag.';
+            return;
+        }
+        if (source === target.toLowerCase()) {
+            mappingsMsg.textContent = 'Source and target cannot be the same.';
+            return;
+        }
+
+        const mappings = getTagMappings();
+        mappings[source] = target;
+        debouncePersist();
+
+        mappingSource.value = '';
+        mappingTarget.value = '';
+        renderMappingsTable();
+        mappingsMsg.textContent = `Added: "${source}" → "${target}"`;
+        setTimeout(() => mappingsMsg.textContent = '', 3000);
+    });
+
+    applyMappingsBtn.addEventListener('click', async () => {
+        const mappings = getTagMappings();
+        const entries = Object.entries(mappings);
+
+        if (entries.length === 0) {
+            mappingsMsg.textContent = 'No mappings to apply.';
+            return;
+        }
+
+        mappingsMsg.textContent = 'Applying mappings...';
+        const result = await applyTagMappingsToAllCharacters(mappings);
+        mappingsMsg.textContent = `Applied ${result.remapped} tag(s) across ${result.characters} character(s).`;
+    });
+
+    // Initial render
+    populateMappingTargetDropdown();
+    renderMappingsTable();
 
     const settings = getSettings();
     const modeSelect = panel.querySelector('#stcm--folderNavHeightMode');
@@ -800,6 +950,148 @@ async function sendFeedbackNow(/* reason = 'auto' */) {
     } catch (e) {
         console.warn('[FEEDBACK] send failed', e);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Tag Mapping Functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply all tag mappings to all characters retroactively.
+ * Returns { characters: number, remapped: number }
+ */
+async function applyTagMappingsToAllCharacters(mappings) {
+    const entries = Object.entries(mappings);
+    if (entries.length === 0) return { characters: 0, remapped: 0 };
+
+    // Build a map of source tag names (lowercase) → target tag name
+    const sourceToTarget = {};
+    entries.forEach(([source, target]) => {
+        sourceToTarget[source.toLowerCase()] = target;
+    });
+
+    // Build a map of tag name (lowercase) → tag id
+    const tagNameToId = {};
+    const tagIdToName = {};
+    tags.forEach(t => {
+        tagNameToId[t.name.toLowerCase()] = t.id;
+        tagIdToName[t.id] = t.name;
+    });
+
+    let totalRemapped = 0;
+    let charsAffected = 0;
+
+    // Iterate all characters
+    for (const charId of Object.keys(tag_map)) {
+        const charTags = tag_map[charId];
+        if (!Array.isArray(charTags)) continue;
+
+        let charChanged = false;
+        const newTags = [];
+
+        for (const tagId of charTags) {
+            const tagName = tagIdToName[tagId];
+            if (!tagName) {
+                newTags.push(tagId); // Keep unknown tags
+                continue;
+            }
+
+            const targetName = sourceToTarget[tagName.toLowerCase()];
+            if (targetName) {
+                // This tag should be remapped
+                let targetId = tagNameToId[targetName.toLowerCase()];
+
+                // If target tag doesn't exist, create it
+                if (!targetId) {
+                    const styles = getComputedStyle(document.body);
+                    const defaultBg = styles.getPropertyValue('--SmartThemeShadowColor')?.trim() || '#cccccc';
+                    const defaultFg = styles.getPropertyValue('--SmartThemeBodyColor')?.trim() || '#000000';
+
+                    const newTag = {
+                        id: crypto.randomUUID(),
+                        name: targetName,
+                        color: defaultBg,
+                        color2: defaultFg,
+                        folder_type: 'NONE',
+                    };
+                    tags.push(newTag);
+                    tagNameToId[targetName.toLowerCase()] = newTag.id;
+                    tagIdToName[newTag.id] = targetName;
+                    targetId = newTag.id;
+                }
+
+                // Only add if not already present
+                if (!newTags.includes(targetId)) {
+                    newTags.push(targetId);
+                    charChanged = true;
+                    totalRemapped++;
+                }
+            } else {
+                // Keep the original tag
+                if (!newTags.includes(tagId)) {
+                    newTags.push(tagId);
+                }
+            }
+        }
+
+        if (charChanged) {
+            tag_map[charId] = newTags;
+            charsAffected++;
+        }
+    }
+
+    if (charsAffected > 0) {
+        await callSaveandReload();
+    }
+
+    return { characters: charsAffected, remapped: totalRemapped };
+}
+
+/**
+ * Apply tag mappings to a single character's tags.
+ * Called when a character is imported.
+ * @param {string[]} tagNames - Array of tag names from import
+ * @returns {string[]} - Remapped tag names
+ */
+export function applyTagMappingsToImport(tagNames) {
+    if (!Array.isArray(tagNames)) return tagNames;
+
+    const s = getSettings();
+    const mappings = s.tagMappings || {};
+    const entries = Object.entries(mappings);
+    if (entries.length === 0) return tagNames;
+
+    // Build source → target map (lowercase keys)
+    const sourceToTarget = {};
+    entries.forEach(([source, target]) => {
+        sourceToTarget[source.toLowerCase()] = target;
+    });
+
+    // Remap tags
+    const result = [];
+    const seen = new Set();
+
+    for (const tagName of tagNames) {
+        const mapped = sourceToTarget[tagName.toLowerCase()] || tagName;
+        const key = mapped.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            result.push(mapped);
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Get current tag mappings (for external access)
+ */
+export function getTagMappings() {
+    const s = getSettings();
+    if (!s.tagMappings || typeof s.tagMappings !== 'object') {
+        s.tagMappings = {};
+    }
+    return s.tagMappings;
 }
 
 /** Admin-only helper: clear the "last sent" timestamp so the next call will send */

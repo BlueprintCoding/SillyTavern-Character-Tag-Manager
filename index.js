@@ -38,7 +38,8 @@ import {
     renderTagSection,
     attachTagSectionListeners,
     populateAssignTagSelect,
-    selectedTagIds
+    selectedTagIds,
+    populateBulkEditDropdowns,
   } from './stcm_tags_ui.js';
 
 import {
@@ -65,12 +66,75 @@ import { injectStcmSettingsPanel, updateDefaultTagManagerVisibility, updateRecen
 
 import { initCustomGreetingWorkshop } from './stcm_custom_greetings.js';
 
+import { renderUpdatesList, attachUpdatesSectionListeners, populateAuthorDropdown } from './stcm_updates.js';
+
 
 
 const { eventSource, event_types } = SillyTavern.getContext();
 
+function closeCharacterTagManagerModal() {
+    const overlay = document.getElementById('characterTagManagerModal');
+    if (!overlay) return;
+
+    const modalContent = overlay.querySelector('.modalContent');
+    saveModalPosSize(modalContent);
+    resetModalScrollPositions();
+    overlay.remove();
+
+    // Update icon state
+    const icon = document.querySelector('#characterTagManagerButton .drawer-icon');
+    if (icon) {
+        icon.classList.remove('openIcon');
+        icon.classList.add('closedIcon');
+    }
+}
+
+/**
+ * Close all other open SillyTavern drawers
+ */
+function closeOtherDrawers() {
+    // Find all open drawer icons and click them to close
+    document.querySelectorAll('.drawer-icon.openIcon').forEach(icon => {
+        // Don't close our own
+        if (icon.closest('#characterTagManagerButton')) return;
+        icon.click();
+    });
+}
+
+/**
+ * Set up listeners to close our modal when other drawers are opened
+ */
+function setupDrawerIntegration() {
+    // Listen for clicks on other drawer toggles
+    document.addEventListener('click', (e) => {
+        const drawerIcon = e.target.closest('.drawer-icon');
+        if (!drawerIcon) return;
+
+        // If it's not our drawer and our modal is open, close it
+        if (!drawerIcon.closest('#characterTagManagerButton')) {
+            if (document.getElementById('characterTagManagerModal')) {
+                closeCharacterTagManagerModal();
+            }
+        }
+    }, true); // Use capture to run before other handlers
+}
+
 function openCharacterTagManagerModal() {
-    if (document.getElementById('characterTagManagerModal')) return;
+    // Toggle behavior: if modal exists, close it
+    if (document.getElementById('characterTagManagerModal')) {
+        closeCharacterTagManagerModal();
+        return;
+    }
+
+    // Close other open drawers first
+    closeOtherDrawers();
+
+    // Update our icon state to show as open
+    const icon = document.querySelector('#characterTagManagerButton .drawer-icon');
+    if (icon) {
+        icon.classList.remove('closedIcon');
+        icon.classList.add('openIcon');
+    }
 
     const overlay = document.createElement('div');
     overlay.id = 'characterTagManagerModal';
@@ -103,6 +167,24 @@ function openCharacterTagManagerModal() {
                 </div>
                 <div style="margin-top: -5px;">
                                     <span class="smallInstructions">Search by tag, or add "C:" before your search to search by character name. Use , (comma) to seperate OR lists.</span>
+                </div>
+                <div class="stcm_bulk_edit_controls">
+                    <span style="font-weight:bold;margin-right:8px;">Bulk Edit:</span>
+                    <div class="stcm_bulk_edit_match">
+                        <label style="display:flex;align-items:center;gap:4px;">
+                            <input type="radio" name="bulkEditMatch" value="any" checked> Any
+                        </label>
+                        <label style="display:flex;align-items:center;gap:4px;">
+                            <input type="radio" name="bulkEditMatch" value="all"> All
+                        </label>
+                    </div>
+                    <select id="bulkAddTagSelect" class="stcm_menu_button interactable">
+                        <option value="">+ Add tag...</option>
+                        <option value="__new__">Create new tag...</option>
+                    </select>
+                    <select id="bulkRemoveTagSelect" class="stcm_menu_button interactable">
+                        <option value="">- Remove tag...</option>
+                    </select>
                 </div>
                 <div class="stcm_align-right stcm_tag_button_holder">
                                 <button id="createNewTagBtn" class="stcm_menu_button stcm_margin_left interactable" tabindex="0">
@@ -241,6 +323,41 @@ function openCharacterTagManagerModal() {
                 </div>
             </div>
         </div>
+
+        <div class="accordionSection stcm_accordion_section">
+            <button class="accordionToggle stcm_text_left" data-target="updatesSection">▶ Updates</button>
+            <div id="updatesSection" class="accordionContent">
+                <div style="padding: 1em 0;">
+                    <div style="margin-bottom: 1em; opacity: 0.8;">
+                        Characters with source URLs can be updated from their original source (Chub, GitHub, etc.)
+                        <br><small>Background freshness checking runs automatically (1 check/minute).</small>
+                    </div>
+                    <div class="stcm_sort_row" style="margin-bottom: 0.5em;">
+                        <button id="refreshUpdatesListBtn" class="stcm_menu_button interactable">
+                            <i class="fa-solid fa-sync"></i> Refresh
+                        </button>
+                        <button id="updateAllCharsBtn" class="stcm_menu_button interactable">
+                            <i class="fa-solid fa-download"></i> Update All
+                        </button>
+                        <button id="importAllTagsBtn" class="stcm_menu_button interactable">
+                            <i class="fa-solid fa-tags"></i> Import All Tags
+                        </button>
+                    </div>
+                    <div class="stcm_sort_row" style="margin-bottom: 1em;">
+                        <label style="display: flex; align-items: center; gap: 6px;">
+                            <span>Author:</span>
+                            <select id="authorFilterSelect" class="stcm_menu_button interactable" style="min-width: 150px;">
+                                <option value="">All Authors</option>
+                            </select>
+                        </label>
+                        <span id="updatesStatusMsg" style="margin-left: 1em; opacity: 0.7;"></span>
+                    </div>
+                    <div id="updatesListWrapper">
+                        <div class="loading">Click "Refresh" to scan for characters with source URLs...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     `;
 
@@ -267,8 +384,9 @@ function openCharacterTagManagerModal() {
     document.body.appendChild(editModal);
     document.body.appendChild(minimizedModalTray);
     resetModalScrollPositions();
-    attachTagSectionListeners(overlay); 
+    attachTagSectionListeners(overlay);
     attachFolderSectionListeners(overlay);
+    attachUpdatesSectionListeners();
 
     overlay.style.zIndex = getNextZIndex();
     overlay.addEventListener('mousedown', () => {
@@ -300,9 +418,7 @@ refreshFoldersTree();
 
     function escToCloseHandler(e) {
         if (e.key === "Escape") {
-            const modalContentEsc = overlay.querySelector('.modalContent');
-            saveModalPosSize(modalContentEsc);
-            overlay.remove();
+            closeCharacterTagManagerModal();
             document.removeEventListener('keydown', escToCloseHandler);
         }
     }
@@ -313,7 +429,8 @@ refreshFoldersTree();
         const accordionRenderers = {
             tagsSection: renderTagSection,
             foldersSection: refreshFoldersTree,
-            charactersSection: renderCharacterList
+            charactersSection: renderCharacterList,
+            updatesSection: renderUpdatesList
         };
 
         // 2. Add event listeners to all toggles (after you add the modal to DOM)
@@ -355,18 +472,19 @@ refreshFoldersTree();
                                 assignTagSearchInput.dispatchEvent(new Event('input', { bubbles: true }));
                             }
                         }
+
+                        // Populate author dropdown for Updates section
+                        if (targetId === 'updatesSection') {
+                            populateAuthorDropdown();
+                        }
                 }
             });
         });
 
 
     document.getElementById('closeCharacterTagManagerModal').addEventListener('click', () => {
-        const modalContentEsc = overlay.querySelector('.modalContent');
-        saveModalPosSize(modalContentEsc);
-        resetModalScrollPositions();
-        overlay.remove();
+        closeCharacterTagManagerModal();
         document.removeEventListener('keydown', escToCloseHandler);
-
     });
 
 
@@ -971,6 +1089,7 @@ eventSource.on(event_types.APP_READY, async () => {
     STCM.sidebarFolders = await stcmFolders.loadFolders(); // load and save to your variable!
     tryAutoBackupTagMapOnLaunch();
     addCharacterTagManagerIcon();         // Top UI bar
+    setupDrawerIntegration();             // Integrate with ST drawer system
     injectTagManagerControlButton();      // Tag filter bar
     observeTagViewInjection();    // Tag view list
     injectSidebarFolders(STCM.sidebarFolders, characters);  // <--- use sidebarFolders!
